@@ -7,6 +7,7 @@ version: "3.8"
 services:
   bridge:
     build: .
+    entrypoint: []  # override Dockerfile ENTRYPOINT ["nanobot"] so we run shell, not nanobot sh
     command: ["sh", "-c", "cd /app/bridge && node dist/index.js"]
     working_dir: /app
     ports:
@@ -20,6 +21,7 @@ services:
 
   api:
     build: .
+    entrypoint: []  # override ENTRYPOINT so we run uvicorn directly, not nanobot uvicorn
     command: ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
