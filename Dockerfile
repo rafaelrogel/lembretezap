@@ -27,7 +27,9 @@ COPY bridge/ bridge/
 COPY prompts/ prompts/
 RUN uv pip install --system --no-cache .
 
-# Build the WhatsApp bridge
+# Build the WhatsApp bridge (ARG DEBUG=1 for dev: bridge will use npm run dev when BRIDGE_DEBUG=1)
+ARG DEBUG=0
+ENV BRIDGE_DEBUG=${DEBUG}
 WORKDIR /app/bridge
 RUN npm install && npm run build
 WORKDIR /app

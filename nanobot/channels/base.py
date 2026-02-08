@@ -93,12 +93,11 @@ class BaseChannel(ABC):
     ) -> None:
         """
         Handle an incoming message from the chat platform.
-        
+        For WhatsApp we only process private chats; groups are ignored in the channel.
         This method checks permissions and forwards to the bus.
-        
         Args:
             sender_id: The sender's identifier.
-            chat_id: The chat/channel identifier.
+            chat_id: The chat/channel identifier (private chat only on WhatsApp).
             content: Message text content.
             media: Optional list of media URLs.
             metadata: Optional channel-specific metadata.

@@ -84,6 +84,7 @@ def _create_workspace_templates(workspace: Path):
         "AGENTS.md": """# Agent Instructions
 
 You are a helpful AI assistant. Be concise, accurate, and friendly.
+We only operate in private chats; we never respond in groups.
 
 ## Guidelines
 

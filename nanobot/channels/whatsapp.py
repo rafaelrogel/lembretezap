@@ -1,4 +1,8 @@
-"""WhatsApp channel implementation using Node.js bridge."""
+"""WhatsApp channel implementation using Node.js bridge.
+
+We only handle private chats. We never respond in groups: messages from groups
+are ignored and not forwarded to the agent.
+"""
 
 import asyncio
 import json
@@ -11,13 +15,15 @@ from nanobot.bus.queue import MessageBus
 from nanobot.channels.base import BaseChannel
 from nanobot.config.schema import WhatsAppConfig
 
+# JID suffix for WhatsApp groups; we only process chats (e.g. @s.whatsapp.net or LID), never groups
+WHATSAPP_GROUP_SUFFIX = "@g.us"
+
 
 class WhatsAppChannel(BaseChannel):
     """
     WhatsApp channel that connects to a Node.js bridge.
-    
-    The bridge uses @whiskeysockets/baileys to handle the WhatsApp Web protocol.
-    Communication between Python and Node.js is via WebSocket.
+    Chats only: we respond in private chats and never in groups.
+    The bridge uses @whiskeysockets/baileys; communication is via WebSocket.
     """
     
     name = "whatsapp"
@@ -100,32 +106,38 @@ class WhatsAppChannel(BaseChannel):
         msg_type = data.get("type")
         
         if msg_type == "message":
-            # Incoming message from WhatsApp
-            # Deprecated by whatsapp: old phone number style typically: <phone>@s.whatspp.net
+            # Incoming message from WhatsApp — we only process chats, never groups
+            is_group = data.get("isGroup", False) or (data.get("sender") or "").strip().endswith(WHATSAPP_GROUP_SUFFIX)
+            if is_group:
+                logger.debug("Ignoring message from group (we only respond in private chats)")
+                return
+
+            # Deprecated by whatsapp: old phone number style typically: <phone>@s.whatsapp.net
             pn = data.get("pn", "")
-            # New LID sytle typically: 
+            # New LID style typically: 
             sender = data.get("sender", "")
             content = data.get("content", "")
-            
+
             # Extract just the phone number or lid as chat_id
             user_id = pn if pn else sender
             sender_id = user_id.split("@")[0] if "@" in user_id else user_id
-            logger.info(f"Sender {sender}")
-            
+            logger.info(f"Sender {sender} (chat)")
+
             # Handle voice transcription if it's a voice message
             if content == "[Voice Message]":
                 logger.info(f"Voice message received from {sender_id}, but direct download from bridge is not yet supported.")
                 content = "[Voice Message: Transcription not available for WhatsApp yet]"
             
+            # Forward to agent only for private chats (groups already filtered above)
             await self._handle_message(
                 sender_id=sender_id,
-                chat_id=sender,  # Use full LID for replies
+                chat_id=sender,  # Use full JID/LID for replies
                 content=content,
                 metadata={
                     "message_id": data.get("id"),
                     "timestamp": data.get("timestamp"),
-                    "is_group": data.get("isGroup", False)
-                }
+                    "is_group": False,
+                },
             )
         
         elif msg_type == "status":

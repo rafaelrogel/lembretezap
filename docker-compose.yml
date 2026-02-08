@@ -8,7 +8,7 @@ services:
   bridge:
     build: .
     entrypoint: []  # override Dockerfile ENTRYPOINT ["nanobot"] so we run shell, not nanobot sh
-    command: ["sh", "-c", "cd /app/bridge && node dist/index.js"]
+    command: ["sh", "-c", "cd /app/bridge && if [ \"$${BRIDGE_DEBUG}\" = 1 ]; then npm run dev; else node dist/index.js; fi"]
     working_dir: /app
     ports:
       - "3001:3001"
@@ -17,6 +17,13 @@ services:
     environment:
       - AUTH_DIR=/root/.nanobot/whatsapp-auth
       - BRIDGE_PORT=3001
+      - BRIDGE_DEBUG=0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     restart: unless-stopped
 
   api:
@@ -29,6 +36,12 @@ services:
       - nanobot_data:/root/.nanobot
     environment:
       - NANOBOT_DATA=/root/.nanobot
+    # env_file: .env  # optional: copy .env.example to .env for API key override
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
 
   gateway:
@@ -41,8 +54,10 @@ services:
     environment:
       - NANOBOT_DATA=/root/.nanobot
       - NANOBOT_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001
+    # env_file: .env  # optional: copy .env.example to .env
     depends_on:
-      - bridge
+      bridge:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

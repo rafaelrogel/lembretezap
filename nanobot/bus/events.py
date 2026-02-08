@@ -7,11 +7,10 @@ from typing import Any
 
 @dataclass
 class InboundMessage:
-    """Message received from a chat channel."""
-    
+    """Message received from a chat channel (private chats only; we do not handle groups)."""
     channel: str  # e.g. whatsapp
     sender_id: str  # User identifier
-    chat_id: str  # Chat/channel identifier
+    chat_id: str  # Private chat identifier (never a group)
     content: str  # Message text
     timestamp: datetime = field(default_factory=datetime.now)
     media: list[str] = field(default_factory=list)  # Media URLs
@@ -25,8 +24,7 @@ class InboundMessage:
 
 @dataclass
 class OutboundMessage:
-    """Message to send to a chat channel."""
-    
+    """Message to send to a chat channel (always a private chat; we never reply in groups)."""
     channel: str
     chat_id: str
     content: str

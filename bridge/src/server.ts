@@ -1,7 +1,9 @@
 /**
  * WebSocket server for Python-Node.js bridge communication.
+ * Serves GET /health on the same port for Docker healthchecks.
  */
 
+import * as http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { WhatsAppClient, InboundMessage } from './whatsapp.js';
 
@@ -17,6 +19,7 @@ interface BridgeMessage {
 }
 
 export class BridgeServer {
+  private httpServer: http.Server | null = null;
   private wss: WebSocketServer | null = null;
   private wa: WhatsAppClient | null = null;
   private clients: Set<WebSocket> = new Set();
@@ -24,9 +27,20 @@ export class BridgeServer {
   constructor(private port: number, private authDir: string) {}
 
   async start(): Promise<void> {
-    // Create WebSocket server
-    this.wss = new WebSocketServer({ port: this.port });
-    console.log(`🌉 Bridge server listening on ws://localhost:${this.port}`);
+    // HTTP server for /health and WebSocket upgrade
+    this.httpServer = http.createServer((req, res) => {
+      if (req.url === '/health' && req.method === 'GET') {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('ok');
+        return;
+      }
+      res.writeHead(404);
+      res.end();
+    });
+    this.wss = new WebSocketServer({ server: this.httpServer });
+    this.httpServer.listen(this.port, () => {
+      console.log(`🌉 Bridge server listening on ws://localhost:${this.port} (GET /health for healthcheck)`);
+    });
 
     // Initialize WhatsApp client
     this.wa = new WhatsAppClient({
@@ -93,6 +107,12 @@ export class BridgeServer {
     if (this.wss) {
       this.wss.close();
       this.wss = null;
+    }
+
+    // Close HTTP server
+    if (this.httpServer) {
+      this.httpServer.close();
+      this.httpServer = null;
     }
 
     // Disconnect WhatsApp

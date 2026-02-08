@@ -6,14 +6,14 @@ from pydantic_settings import BaseSettings
 
 
 class WhatsAppConfig(BaseModel):
-    """WhatsApp channel configuration."""
+    """WhatsApp channel: private chats only. We never respond in groups."""
     enabled: bool = False
     bridge_url: str = "ws://localhost:3001"
-    allow_from: list[str] = Field(default_factory=list)  # Allowed phone numbers
+    allow_from: list[str] = Field(default_factory=list)  # Allowed phone numbers (chats only)
 
 
 class ChannelsConfig(BaseModel):
-    """Configuration for chat channels (WhatsApp only)."""
+    """Configuration for chat channels (WhatsApp only; chats, never groups)."""
     whatsapp: WhatsAppConfig = Field(default_factory=WhatsAppConfig)
 
 
@@ -102,7 +102,9 @@ class Config(BaseSettings):
         # Fallback: gateways first (can serve any model), then specific providers
         all_providers = [p.openrouter, p.aihubmix, p.anthropic, p.openai, p.deepseek,
                          p.gemini, p.zhipu, p.dashscope, p.moonshot, p.vllm, p.groq]
-        return next((pr for pr in all_providers if (pr.api_key or "").strip()), None)
+        p = next((pr for pr in all_providers if (pr.api_key or "").strip()), None)
+        # Defensive: never return a provider with empty api_key
+        return p if (p and (p.api_key or "").strip()) else None
 
     def get_api_key(self, model: str | None = None) -> str | None:
         """Get API key for the given model. Falls back to first available key."""

@@ -1,4 +1,4 @@
-"""Channel manager for coordinating chat channels."""
+"""Channel manager for coordinating chat channels (chats only; no groups)."""
 
 import asyncio
 from typing import Any
@@ -14,7 +14,7 @@ from nanobot.config.schema import Config
 class ChannelManager:
     """
     Manages chat channels and coordinates message routing.
-    Only WhatsApp is supported.
+    WhatsApp only; we respond in private chats and never in groups.
     """
     
     def __init__(self, config: Config, bus: MessageBus):

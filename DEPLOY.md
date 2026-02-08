@@ -48,6 +48,10 @@ volumes:
 
 Assim o `config.json` e o resto dos dados ficam no teu disco.
 
+**Opção C – API key via .env (opcional)**
+
+Para não deixar a chave só no config do volume, podes usar ficheiro `.env`: copia `.env.example` para `.env`, define `NANOBOT_PROVIDERS__OPENROUTER__API_KEY=...` (ou outro provider), e no `docker-compose.yml` descomenta `env_file: .env` nos serviços **gateway** e **api**. O `.env` não deve ser commitado (já está no `.gitignore`).
+
 ---
 
 ## 2. Build e subir
