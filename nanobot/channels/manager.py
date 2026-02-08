@@ -1,6 +1,10 @@
-"""Channel manager for coordinating chat channels (chats only; no groups)."""
+"""Channel manager for coordinating chat channels (chats only; no groups).
+Deduplicação de envio evita que o mesmo texto seja enviado várias vezes ao mesmo chat (ex.: 37 mensagens iguais).
+"""
 
 import asyncio
+import hashlib
+import time
 from typing import Any
 
 from loguru import logger
@@ -9,6 +13,28 @@ from nanobot.bus.events import OutboundMessage
 from nanobot.bus.queue import MessageBus
 from nanobot.channels.base import BaseChannel
 from nanobot.config.schema import Config
+
+_OUTBOUND_DEDUP_SECONDS = 90
+_sent_recently: dict[tuple[str, str, str], float] = {}  # (channel, chat_id, content_hash) -> timestamp
+
+
+def _outbound_dedup_key(msg: OutboundMessage) -> tuple[str, str, str]:
+    h = hashlib.sha256(msg.content.encode("utf-8", errors="replace")).hexdigest()[:16]
+    return (msg.channel, str(msg.chat_id), h)
+
+
+def _should_skip_duplicate_outbound(msg: OutboundMessage) -> bool:
+    """True se já enviamos esta mesma mensagem (canal + chat + conteúdo) recentemente."""
+    now = time.time()
+    key = _outbound_dedup_key(msg)
+    # Limpar entradas antigas
+    to_del = [k for k, t in _sent_recently.items() if now - t > _OUTBOUND_DEDUP_SECONDS]
+    for k in to_del:
+        del _sent_recently[k]
+    if key in _sent_recently:
+        return True
+    _sent_recently[key] = now
+    return False
 
 
 class ChannelManager:
@@ -93,6 +119,10 @@ class ChannelManager:
                     timeout=1.0
                 )
                 
+                # Evitar enviar a mesma mensagem muitas vezes ao mesmo chat (ex.: 37 iguais)
+                if _should_skip_duplicate_outbound(msg):
+                    logger.debug(f"Skip duplicate outbound to {msg.channel}:{str(msg.chat_id)[:25]}... (same content recently)")
+                    continue
                 channel = self.channels.get(msg.channel)
                 if channel:
                     try:

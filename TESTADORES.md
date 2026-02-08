@@ -5,7 +5,7 @@
 Para permitir que estes números enviem mensagens ao bot:
 
 - **351910070509**
-- **351915485840**
+- **351912540117**
 - **557187811002**
 - **557196611125**
 - **557199686684**
@@ -25,7 +25,7 @@ Na secção `channels` → `whatsapp`, altera `allow_from` para (podes juntar ou
 "whatsapp": {
   "enabled": true,
   "bridge_url": "ws://bridge:3001",
-  "allow_from": ["351910070509", "351915485840", "557187811002", "557196611125", "557199686684"]
+  "allow_from": ["351910070509", "351912540117", "557187811002", "557196611125", "557199686684"]
 }
 ```
 
@@ -57,6 +57,34 @@ Cada tester pode testar o seguinte (tudo em **chat privado** com o número do bo
 | Mensagem livre (organizador) | *"Adiciona comprar pão à lista compras"* — o bot tenta interpretar |
 
 Sugestão: cada tester faz pelo menos **um lembrete**, **uma lista** (add + list + feito) e **um filme**.
+
+---
+
+## 2.1 Se um tester não receber resposta
+
+1. **Confirmar allow_from:** O número dele deve estar em `allow_from` no `config.json`, com **código do país** e **sem espaços nem +** (ex.: `351912540117`, `557187811002`).
+2. **Ver os logs do gateway:** No VPS, `docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f gateway`. Quando esse tester envia uma mensagem, deve aparecer uma linha do tipo:
+   - `WhatsApp from sender='...' → sender_id='...'` — o **sender_id** é o que é comparado com a allow_list.
+   - Se aparecer **"Access denied for sender XXX"**, adiciona esse **XXX** exatamente ao `allow_from` no `config.json` (pode ser um LID em vez de número) e reinicia o gateway: `docker compose restart gateway`.
+3. **Só dígitos:** Podes escrever o número no config com espaços ou traços (ex.: `351 915 485 840`); o sistema compara só os dígitos. Mas o ideal é um número limpo: `351912540117`.
+
+---
+
+## 2.2 "Muitas mensagens. Aguarde um minuto antes de enviar de novo."
+
+Por defeito cada utilizador pode enviar **15 mensagens por minuto**. Se os testadores (ou tu) enviarem muitas mensagens seguidas, o bot responde com isso.
+
+Para **aumentar o limite** (ex.: 60 por minuto) durante os testes:
+
+1. No servidor, no `.env` da pasta do projeto (ex.: `/opt/zapassist/.env`), adiciona:
+   ```bash
+   RATE_LIMIT_MAX_PER_MINUTE=60
+   ```
+2. Reinicia o gateway:
+   ```bash
+   sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml restart gateway
+   ```
+O valor pode ser entre 5 e 300. Em produção podes voltar a 15 ou 20.
 
 ---
 

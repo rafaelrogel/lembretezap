@@ -2,10 +2,12 @@
 
 We only handle private chats. We never respond in groups: messages from groups
 are ignored and not forwarded to the agent.
+Deduplicação por message_id evita processar o mesmo evento várias vezes (bridge/Baileys pode reenviar).
 """
 
 import asyncio
 import json
+import time
 import uuid
 from typing import Any
 
@@ -18,6 +20,43 @@ from nanobot.config.schema import WhatsAppConfig
 
 # JID suffix for WhatsApp groups; we only process chats (e.g. @s.whatsapp.net or LID), never groups
 WHATSAPP_GROUP_SUFFIX = "@g.us"
+
+# Dedup: ignorar mensagens com o mesmo message_id já processado nos últimos N segundos
+_DEDUP_SECONDS = 120
+_processed_ids: dict[str, float] = {}
+# Fallback quando o bridge não envia id: dedup por (chat_id, conteúdo, janela 30s)
+_processed_fallback: dict[tuple[str, str, int], float] = {}
+_FALLBACK_BUCKET_SECONDS = 30
+
+
+def _is_duplicate_message(msg_id: str) -> bool:
+    """True se esta mensagem já foi processada recentemente (evita chamadas LLM duplicadas)."""
+    if not msg_id:
+        return False
+    now = time.time()
+    to_del = [k for k, t in _processed_ids.items() if now - t > _DEDUP_SECONDS]
+    for k in to_del:
+        del _processed_ids[k]
+    if msg_id in _processed_ids:
+        return True
+    _processed_ids[msg_id] = now
+    return False
+
+
+def _is_duplicate_by_content(chat_id: str, content: str) -> bool:
+    """Fallback quando não há message_id: mesmo chat + mesmo texto na mesma janela = duplicado."""
+    if not content and not chat_id:
+        return False
+    now = time.time()
+    bucket = int(now / _FALLBACK_BUCKET_SECONDS)
+    key = (chat_id, content.strip()[:200], bucket)
+    to_del = [k for k, t in _processed_fallback.items() if now - t > _DEDUP_SECONDS]
+    for k in to_del:
+        del _processed_fallback[k]
+    if key in _processed_fallback:
+        return True
+    _processed_fallback[key] = now
+    return False
 
 
 class WhatsAppChannel(BaseChannel):
@@ -107,6 +146,12 @@ class WhatsAppChannel(BaseChannel):
         msg_type = data.get("type")
         
         if msg_type == "message":
+            # Evitar processar o mesmo evento várias vezes (reduz chamadas LLM duplicadas no OpenRouter)
+            msg_id = (data.get("id") or "").strip()
+            if _is_duplicate_message(msg_id):
+                logger.debug(f"Ignoring duplicate message id={msg_id!r}")
+                return
+
             # Incoming message from WhatsApp — we only process chats, never groups
             is_group = data.get("isGroup", False) or (data.get("sender") or "").strip().endswith(WHATSAPP_GROUP_SUFFIX)
             if is_group:
@@ -115,14 +160,20 @@ class WhatsAppChannel(BaseChannel):
 
             # Deprecated by whatsapp: old phone number style typically: <phone>@s.whatsapp.net
             pn = data.get("pn", "")
-            # New LID style typically: 
+            # New LID style typically:
             sender = data.get("sender", "")
             content = data.get("content", "")
+
+            # Fallback dedup quando o bridge não envia id: mesmo chat + mesmo texto em 30s = ignorar
+            if not msg_id and _is_duplicate_by_content(sender, content or ""):
+                logger.debug(f"Ignoring duplicate by content from {sender[:20]}...")
+                return
 
             # Extract just the phone number or lid as chat_id
             user_id = pn if pn else sender
             sender_id = user_id.split("@")[0] if "@" in user_id else user_id
-            logger.info(f"Sender {sender} (chat)")
+            # Se um tester não receber resposta, ver nos logs este valor e adiciona-o a allow_from no config
+            logger.info(f"WhatsApp from sender={sender!r} → sender_id={sender_id!r} (use na allow_from se bloqueado)")
 
             # Handle voice transcription if it's a voice message
             if content == "[Voice Message]":

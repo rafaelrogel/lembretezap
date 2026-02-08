@@ -28,6 +28,9 @@ O fluxo foi revisado e está consistente:
 4. **WhatsApp habilitado no config**  
    Em `~/.nanobot/config.json` deve ter `channels.whatsapp.enabled: true` e a URL do bridge correta.
 
+5. **Falar contigo mesmo (mensagens guardadas)**  
+   Por defeito o bridge **ignora** mensagens em que `fromMe === true` (quando envias para ti mesmo / mensagens guardadas). Para o bot responder quando falas contigo mesmo, define no ambiente do **bridge** `ALLOW_SELF_MESSAGES=1` e reinicia o bridge. No Docker: no `.env` adiciona `ALLOW_SELF_MESSAGES=1` e faz `docker compose restart bridge`. O teu número deve estar em `allow_from` no config.
+
 ## Fluxo (para correlacionar com os logs)
 
 ```

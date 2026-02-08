@@ -58,28 +58,32 @@ class BaseChannel(ABC):
         """
         pass
     
+    def _normalize_digits(self, value: str) -> str:
+        """Remove tudo exceto dígitos (para comparar números de telefone em formatos diferentes)."""
+        return "".join(c for c in str(value) if c.isdigit())
+
     def is_allowed(self, sender_id: str) -> bool:
         """
         Check if a sender is allowed to use this bot.
-        
-        Args:
-            sender_id: The sender's identifier.
-        
-        Returns:
-            True if allowed, False otherwise.
+        Compara o identificador exato e também só os dígitos (ex.: 351912540117 = 351 912 540 117).
+        Se o WhatsApp enviar LID (ex.: 123456789@lid), o sender_id será o número antes do @; podes adicionar esse valor à allow_from.
         """
         allow_list = getattr(self.config, "allow_from", [])
         
-        # If no allow list, allow everyone
         if not allow_list:
             return True
         
-        sender_str = str(sender_id)
+        sender_str = str(sender_id).strip()
+        sender_digits = self._normalize_digits(sender_str)
+
         if sender_str in allow_list:
+            return True
+        if sender_digits and any(sender_digits == self._normalize_digits(a) for a in allow_list if self._normalize_digits(a)):
             return True
         if "|" in sender_str:
             for part in sender_str.split("|"):
-                if part and part in allow_list:
+                part = part.strip()
+                if part and (part in allow_list or (self._normalize_digits(part) and self._normalize_digits(part) == sender_digits)):
                     return True
         return False
     

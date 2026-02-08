@@ -105,13 +105,16 @@ export class WhatsAppClient {
     // Save credentials on update
     this.sock.ev.on('creds.update', saveCreds);
 
+    // Allow self-messages (message to yourself / saved messages) for testing with a single number
+    const allowSelfMessages = process.env.ALLOW_SELF_MESSAGES === '1' || process.env.ALLOW_SELF_MESSAGES === 'true';
+
     // Handle incoming messages
     this.sock.ev.on('messages.upsert', async ({ messages, type }: { messages: any[]; type: string }) => {
       if (type !== 'notify') return;
 
       for (const msg of messages) {
-        // Skip own messages
-        if (msg.key.fromMe) continue;
+        // Skip own messages (unless ALLOW_SELF_MESSAGES=1 for testing "message to self")
+        if (msg.key.fromMe && !allowSelfMessages) continue;
 
         // Skip status updates
         if (msg.key.remoteJid === 'status@broadcast') continue;

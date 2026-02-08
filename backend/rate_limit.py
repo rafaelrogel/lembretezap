@@ -2,16 +2,30 @@
 
 Uses token bucket (capacity + refill rate) instead of fixed/sliding window:
 allows short bursts up to capacity, then steady refill. Thread-safe, O(1) state per user.
+
+Configurável via RATE_LIMIT_MAX_PER_MINUTE (ex.: 60 para testes com vários utilizadores).
 """
 
+import os
 import time
 from collections import defaultdict
 from threading import Lock
+
 # key -> (tokens: float, last_refill_ts: float)
 _buckets: dict[str, tuple[float, float]] = defaultdict(lambda: (0.0, 0.0))
 _lock = Lock()
 
-DEFAULT_MAX_PER_MINUTE = 15
+def _get_default_max_per_minute() -> int:
+    v = os.environ.get("RATE_LIMIT_MAX_PER_MINUTE", "").strip()
+    if not v:
+        return 15
+    try:
+        n = int(v)
+        return max(5, min(300, n))  # entre 5 e 300
+    except ValueError:
+        return 15
+
+DEFAULT_MAX_PER_MINUTE = 15  # usado só quando não há env; as funções usam _get_default_max_per_minute()
 DEFAULT_WINDOW_SECONDS = 60
 
 
@@ -45,7 +59,7 @@ def _refill_and_consume(
 def is_rate_limited(
     channel: str,
     chat_id: str,
-    max_per_minute: int = DEFAULT_MAX_PER_MINUTE,
+    max_per_minute: int | None = None,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ) -> bool:
     """
@@ -53,6 +67,8 @@ def is_rate_limited(
     Uses token bucket: capacity = max_per_minute, refill = max_per_minute/window_seconds per second.
     Call this when a message arrives; it records the message and returns whether to block.
     """
+    if max_per_minute is None:
+        max_per_minute = _get_default_max_per_minute()
     key = _user_key(channel, chat_id)
     capacity = float(max_per_minute)
     refill_per_second = capacity / window_seconds if window_seconds else capacity
@@ -64,10 +80,12 @@ def is_rate_limited(
 def get_remaining(
     channel: str,
     chat_id: str,
-    max_per_minute: int = DEFAULT_MAX_PER_MINUTE,
+    max_per_minute: int | None = None,
     window_seconds: int = DEFAULT_WINDOW_SECONDS,
 ) -> int:
     """Remaining tokens (approximate). Refills bucket but does not consume a token."""
+    if max_per_minute is None:
+        max_per_minute = _get_default_max_per_minute()
     key = _user_key(channel, chat_id)
     capacity = float(max_per_minute)
     refill_per_second = capacity / window_seconds if window_seconds else capacity

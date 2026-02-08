@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -20,6 +21,23 @@ from nanobot.agent.tools.list_tool import ListTool
 from nanobot.agent.tools.event_tool import EventTool
 from nanobot.session.manager import SessionManager
 from nanobot.utils.circuit_breaker import CircuitBreaker
+
+# Evitar enviar "Muitas mensagens" várias vezes ao mesmo chat (1x por minuto)
+_RATE_LIMIT_MSG_SENT: dict[tuple[str, str], float] = {}
+_RATE_LIMIT_MSG_COOLDOWN = 60.0
+
+
+def _should_send_rate_limit_message(channel: str, chat_id: str) -> bool:
+    """True se podemos enviar a mensagem de rate limit (não enviamos nos últimos 60s para este chat)."""
+    now = time.time()
+    key = (channel, str(chat_id))
+    to_del = [k for k, t in _RATE_LIMIT_MSG_SENT.items() if now - t > _RATE_LIMIT_MSG_COOLDOWN]
+    for k in to_del:
+        del _RATE_LIMIT_MSG_SENT[k]
+    if key in _RATE_LIMIT_MSG_SENT:
+        return False
+    _RATE_LIMIT_MSG_SENT[key] = now
+    return True
 
 
 class AgentLoop:
@@ -198,10 +216,12 @@ class AgentLoop:
             metadata=msg.metadata,
             trace_id=msg.trace_id,
         )
-        # Rate limit per user (channel:chat_id)
+        # Rate limit per user (channel:chat_id); enviar a mensagem no máximo 1x por minuto por chat
         try:
             from backend.rate_limit import is_rate_limited
             if is_rate_limited(msg.channel, msg.chat_id):
+                if not _should_send_rate_limit_message(msg.channel, msg.chat_id):
+                    return None  # já enviamos "Muitas mensagens" a este chat há pouco
                 return OutboundMessage(
                     channel=msg.channel,
                     chat_id=msg.chat_id,

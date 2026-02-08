@@ -23,6 +23,8 @@ services:
       - BRIDGE_PORT=3001
       - BRIDGE_DEBUG=0
       - BRIDGE_HEALTH_TOKEN=${HEALTH_CHECK_TOKEN:-}
+      # ALLOW_SELF_MESSAGES=1: reencaminha mensagens que envias a ti mesmo (útil para testar com um só número)
+      - ALLOW_SELF_MESSAGES=${ALLOW_SELF_MESSAGES:-0}
     healthcheck:
       test: ["CMD", "sh", "-c", "curl -sf -H \"X-Health-Token: $$BRIDGE_HEALTH_TOKEN\" http://localhost:3001/health"]
       interval: 30s
@@ -62,6 +64,8 @@ services:
     environment:
       - NANOBOT_DATA=/root/.nanobot
       - NANOBOT_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001
+      # Limite de mensagens por minuto por utilizador (default 15). Aumentar para testes (ex.: 60).
+      - RATE_LIMIT_MAX_PER_MINUTE=${RATE_LIMIT_MAX_PER_MINUTE:-15}
     # env_file: .env  # optional: copy .env.example to .env
     depends_on:
       bridge:
