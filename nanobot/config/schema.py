@@ -94,12 +94,15 @@ class Config(BaseSettings):
             "groq": p.groq, "moonshot": p.moonshot, "kimi": p.moonshot, "vllm": p.vllm,
         }
         for kw, provider in keyword_map.items():
-            if kw in model and provider.api_key:
-                return provider
+            if kw in model:
+                if (provider.api_key or "").strip():
+                    return provider
+                # Matched provider has no api_key; fall through to fallback
+                break
         # Fallback: gateways first (can serve any model), then specific providers
         all_providers = [p.openrouter, p.aihubmix, p.anthropic, p.openai, p.deepseek,
                          p.gemini, p.zhipu, p.dashscope, p.moonshot, p.vllm, p.groq]
-        return next((pr for pr in all_providers if pr.api_key), None)
+        return next((pr for pr in all_providers if (pr.api_key or "").strip()), None)
 
     def get_api_key(self, model: str | None = None) -> str | None:
         """Get API key for the given model. Falls back to first available key."""
