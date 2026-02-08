@@ -53,15 +53,13 @@ Se o repositório for outro, substitui o URL pelo teu (e garante que o ficheiro 
 sudo bash /tmp/install_vps.sh
 ```
 
-O script pede **Chave DeepSeek** e **Chave Xiaomi MiMo** (a escrita fica oculta por segurança). As chaves são guardadas no `.env`; o `config.json` fica só com os modelos (opção B).
+O script pede **Chave DeepSeek** e **Chave Xiaomi MiMo** (a escrita fica oculta por segurança). As chaves são guardadas apenas no `.env` no servidor; o `config.json` fica só com os modelos (opção B). **Nunca partilhes nem coles chaves em chats, emails ou repositórios.**
 
-**Alternativa:** passar as chaves por variáveis de ambiente:
+**Alternativa (menos segura):** podes passar as chaves por variáveis de ambiente para não as colar no terminal, mas **ficam no histórico do bash** (ex.: `history`). Em produção é mais seguro introduzi-las quando o script pedir:
 
 ```bash
-sudo DEEPSEEK_API_KEY="sk-..." XIAOMI_API_KEY="sk-..." bash /tmp/install_vps.sh
+sudo DEEPSEEK_API_KEY="a_tua_chave_deepseek" XIAOMI_API_KEY="a_tua_chave_xiaomi" bash /tmp/install_vps.sh
 ```
-
-(Substitui pelos teus valores; em produção prefere introduzi-las quando o script pedir.)
 
 ### Passo 4 — Esperar o fim da instalação
 
