@@ -249,12 +249,30 @@ def gateway(
         from nanobot.bus.events import OutboundMessage
         if scope_provider and scope_model and job.payload.deliver and job.payload.to:
             try:
+                # Idioma do destinatário (pt-PT, pt-BR, es, en) para a mensagem do lembrete
+                user_lang = "en"
+                try:
+                    from backend.database import SessionLocal
+                    from backend.user_store import get_user_language
+                    db = SessionLocal()
+                    try:
+                        user_lang = get_user_language(db, job.payload.to)
+                    finally:
+                        db.close()
+                except Exception:
+                    pass
+                lang_instruction = {
+                    "pt-PT": "Escreve a mensagem em português de Portugal.",
+                    "pt-BR": "Escreve a mensagem em português do Brasil.",
+                    "es": "Escribe el mensaje en español.",
+                    "en": "Write the message in English.",
+                }.get(user_lang, "Write the message in English.")
                 # Xiaomi: embelezar + emojis + frase de rapport conforme o tipo (médico, cinema, etc.)
                 prompt = (
-                    "Mensagem curta com este lembrete para o utilizador. Inclui 1-2 emojis. "
-                    "Acrescenta UMA frase de rapport (sem pedir resposta): médico/consulta → 'Espero que esteja tudo bem' ou similar; "
-                    "cinema/filme → 'Não se esqueça do filme, divirta-se!' ou 'Bom filme!'; compras → 'Boa compra!'; água → 'Saudável!'; outro → frase calorosa curta. "
-                    "Responde só com o texto da mensagem. Lembrete: "
+                    "Short message with this reminder for the user. Include 1-2 emojis. "
+                    "Add ONE rapport phrase (no question): doctor/consultation → hope you're well; "
+                    "cinema/film → don't forget the film, enjoy!; shopping → happy shopping; water → healthy!; other → short warm phrase. "
+                    f"{lang_instruction} Reply only with the message text. Reminder: "
                 ) + job.payload.message
                 r = await scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],

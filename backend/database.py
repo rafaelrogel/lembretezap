@@ -21,8 +21,15 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=ENGINE)
 
 
 def init_db() -> None:
-    """Create tables if not exist."""
+    """Create tables if not exist. Add missing columns for existing DBs (e.g. users.language)."""
     Base.metadata.create_all(bind=ENGINE)
+    try:
+        from sqlalchemy import text
+        with ENGINE.connect() as conn:
+            conn.execute(text("ALTER TABLE users ADD COLUMN language VARCHAR(8)"))
+            conn.commit()
+    except Exception:
+        pass  # Coluna já existe ou tabela não existe
 
 
 def get_db():

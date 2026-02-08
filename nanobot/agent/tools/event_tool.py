@@ -61,6 +61,10 @@ class EventTool(Tool):
             db.close()
 
     def _add(self, db, user_id: int, tipo: str, nome: str, payload: dict) -> str:
+        from backend.guardrails import is_absurd_request
+        absurd = is_absurd_request(nome or "")
+        if absurd:
+            return absurd
         nome = sanitize_string(nome or "", MAX_EVENT_NAME_LEN)
         payload = sanitize_payload(payload) if payload else {}
         if not nome and not payload:

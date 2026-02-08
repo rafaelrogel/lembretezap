@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import random
 import time
 import uuid
 from pathlib import Path
@@ -142,12 +143,17 @@ class AgentLoop:
 
     async def _execute_parsed_intent(self, intent: dict, msg: InboundMessage) -> str | None:
         """Executa intent do parser (cron, list, event). Retorna texto da resposta ou None para seguir ao LLM."""
+        from backend.guardrails import is_absurd_request
+
         cron_tool = self.tools.get("cron")
         list_tool = self.tools.get("list")
         event_tool = self.tools.get("event")
 
         t = intent.get("type")
         if t == "lembrete":
+            absurd = is_absurd_request(msg.content)
+            if absurd:
+                return absurd
             if not self.cron_service or not cron_tool:
                 return None
             msg_text = intent.get("message", "").strip()
@@ -187,10 +193,44 @@ class AgentLoop:
                 return "Use: /feito nome_da_lista id (ex: /feito mercado 1)"
             return await list_tool.execute(action="feito", list_name=list_name, item_id=item_id)
         if t == "filme":
+            absurd = is_absurd_request(msg.content) or is_absurd_request(intent.get("nome", "") or "")
+            if absurd:
+                return absurd
             if not event_tool:
                 return None
             return await event_tool.execute(action="add", tipo="filme", nome=intent.get("nome", ""))
         return None
+
+    async def _out_of_scope_message(self, user_content: str, lang: str = "en") -> str:
+        """Resposta variada e amigável quando o pedido está fora do escopo (Xiaomi ou fallback). Respeita idioma (pt-PT, pt-BR, es, en)."""
+        from backend.locale import OUT_OF_SCOPE_FALLBACKS
+        fallbacks = OUT_OF_SCOPE_FALLBACKS.get(lang if lang in OUT_OF_SCOPE_FALLBACKS else "en", OUT_OF_SCOPE_FALLBACKS["en"])
+        lang_instruction = {
+            "pt-PT": "em português de Portugal",
+            "pt-BR": "em português do Brasil",
+            "es": "en español",
+            "en": "in English",
+        }.get(lang, "in English")
+        if self.scope_provider and self.scope_model:
+            try:
+                prompt = (
+                    "You are an organization assistant (reminders, lists, events). The user said: «"
+                    + (user_content[:200] if user_content else "")
+                    + "». Reply in ONE short, friendly sentence with personality: say you only help with reminders, lists and events and suggest /lembrete, /list or /filme. You may use 1 emoji. Reply only with the message text, "
+                    + lang_instruction + "."
+                )
+                r = await self.scope_provider.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.scope_model,
+                    max_tokens=100,
+                    temperature=0.6,
+                )
+                out = (r.content or "").strip()
+                if out and len(out) <= 300:
+                    return out
+            except Exception as e:
+                logger.debug(f"Out-of-scope message (Xiaomi) failed: {e}")
+        return random.choice(fallbacks)
 
     async def _process_message(self, msg: InboundMessage) -> OutboundMessage | None:
         """
@@ -236,20 +276,50 @@ class AgentLoop:
 
         self._set_tool_context(msg.channel, msg.chat_id)
 
-        # Parser de comandos: execução direta sem LLM
+        # Idioma do utilizador (por número: pt-BR, pt-PT, es, en) e pedidos explícitos de mudança
+        user_lang: str = "en"
         try:
-            from backend.command_parser import parse
-            intent = parse(msg.content)
-            if intent:
-                result = await self._execute_parsed_intent(intent, msg)
-                if result is not None:
+            from backend.database import SessionLocal
+            from backend.user_store import get_user_language, set_user_language
+            from backend.locale import parse_language_switch_request, language_switch_confirmation_message
+            db = SessionLocal()
+            try:
+                user_lang = get_user_language(db, msg.chat_id)
+                requested_lang = parse_language_switch_request(msg.content)
+                if requested_lang is not None and requested_lang != user_lang:
+                    set_user_language(db, msg.chat_id, requested_lang)
                     return OutboundMessage(
                         channel=msg.channel,
                         chat_id=msg.chat_id,
-                        content=result,
+                        content=language_switch_confirmation_message(requested_lang),
                     )
+            finally:
+                db.close()
         except Exception as e:
-            logger.debug(f"Command parse/execute failed: {e}")
+            logger.debug(f"User language check failed: {e}")
+            user_lang = "en"
+
+        # Handlers de comandos (README: /lembrete, /list, /feito, /add, /done, /start, etc.)
+        # Confirmações sem botões: 1=sim 2=não. TODO: Após WhatsApp Business API, use buttons.
+        try:
+            from backend.handlers import HandlerContext, route as handlers_route
+            ctx = HandlerContext(
+                channel=msg.channel,
+                chat_id=msg.chat_id,
+                cron_service=self.cron_service,
+                cron_tool=self.tools.get("cron"),
+                list_tool=self.tools.get("list"),
+                event_tool=self.tools.get("event"),
+            )
+            result = await handlers_route(ctx, msg.content)
+            if result is not None:
+                return OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content=result,
+                )
+        except Exception as e:
+            logger.debug(f"Handlers route failed: {e}")
 
         # Scope filter: LLM SIM/NAO (fallback: regex). Skip LLM when circuit is open.
         from backend.scope_filter import is_in_scope_fast, is_in_scope_llm
@@ -266,10 +336,11 @@ class AgentLoop:
         except Exception:
             in_scope = is_in_scope_fast(msg.content)
         if not in_scope:
+            content = await self._out_of_scope_message(msg.content, user_lang)
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
-                content="Sou só seu organizador: lembretes, listas e eventos. Envie /lembrete, /list ou /filme.",
+                content=content,
             )
         
         # Circuit open: skip LLM, return degraded message (parser already ran above)

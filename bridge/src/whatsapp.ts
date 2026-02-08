@@ -173,6 +173,7 @@ export class WhatsAppClient {
     return null;
   }
 
+  // TODO: Após WhatsApp Business API, use buttons: sendButtons(['Confirmar','Cancelar']) em vez de texto "1=sim 2=não".
   async sendMessage(to: string, text: string): Promise<void> {
     if (!this.sock) {
       throw new Error('Not connected');

@@ -27,8 +27,11 @@ DIAS_SEMANA = {
 
 
 def _clean_message(t: str) -> str:
-    """Remove conectores comuns do início da mensagem."""
+    """Remove conectores e barras do início (ex.: «30 min/ lembre-me» → «lembre-me»)."""
     t = t.strip()
+    # Suporte a "/lembrete daqui a 30 min/ texto" — remover "/ " ou "/" no início do texto
+    while t.startswith("/"):
+        t = t.lstrip("/").strip()
     for prefix in ("de ", "para ", "a ", "sobre "):
         if t.lower().startswith(prefix) and len(t) > len(prefix):
             t = t[len(prefix):].strip()
@@ -67,7 +70,7 @@ def _parse_lembrete_time(text: str) -> dict[str, Any]:
             every = num * 86400
         else:
             every = num * 60
-        if 60 <= every <= 86400 * 30:  # entre 1 min e 30 dias
+        if 1800 <= every <= 86400 * 30:  # mínimo 30 min, máximo 30 dias
             message = re.sub(r"a\s+cada\s+\d+\s*(minuto?s?|hora?s?|dia?s?)\s*", "", text, flags=re.I).strip()
             return {"every_seconds": every, "message": _clean_message(message)}
 

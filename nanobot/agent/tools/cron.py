@@ -31,7 +31,7 @@ class CronTool(Tool):
         return (
             "Schedule one-time or recurring reminders. Actions: add, list, remove. "
             "For add: in_seconds = one-time (e.g. 120 = in 2 min); "
-            "every_seconds = repeat interval (e.g. 86400 = daily, 3600 = every hour); "
+            "every_seconds = repeat interval (min 1800 = 30 min, e.g. 3600 = every hour, 86400 = daily); "
             "cron_expr = fixed times (e.g. '0 9 * * *' = daily at 9h, '0 10 * * 1' = every Monday at 10h)."
         )
     
@@ -51,7 +51,7 @@ class CronTool(Tool):
                 },
                 "every_seconds": {
                     "type": "integer",
-                    "description": "Repeat every N seconds (e.g. 60 = every minute, 600 = every 10 min)"
+                    "description": "Repeat every N seconds (minimum 1800 = 30 min, e.g. 3600 = hourly)"
                 },
                 "in_seconds": {
                     "type": "integer",
@@ -80,6 +80,10 @@ class CronTool(Tool):
         **kwargs: Any
     ) -> str:
         if action == "add":
+            from backend.guardrails import is_absurd_request
+            absurd = is_absurd_request(message)
+            if absurd:
+                return absurd
             return self._add_job(message, every_seconds, in_seconds, cron_expr)
         elif action == "list":
             return self._list_jobs()
@@ -103,8 +107,8 @@ class CronTool(Tool):
             return "Error: expressão cron inválida (use 5 campos: min hora dia mês dia-semana)"
         if in_seconds is not None and (in_seconds < 0 or in_seconds > 86400 * 365):
             return "Error: in_seconds deve estar entre 0 e 1 ano"
-        if every_seconds is not None and (every_seconds < 60 or every_seconds > 86400 * 30):
-            return "Error: every_seconds entre 60 e 30 dias"
+        if every_seconds is not None and (every_seconds < 1800 or every_seconds > 86400 * 30):
+            return "O intervalo mínimo para lembretes recorrentes é 30 minutos. Ex.: «a cada 30 minutos» ou «a cada 1 hora»."
 
         if in_seconds is not None and in_seconds > 0:
             at_ms = int(time.time() * 1000) + in_seconds * 1000
@@ -129,8 +133,14 @@ class CronTool(Tool):
             delete_after_run=delete_after_run,
         )
         msg = f"Lembrete agendado (id: {job.id})."
+        # Para lembretes "daqui a X min", mostrar a hora e lembrar de manter o gateway ligado
+        if in_seconds is not None and in_seconds > 0 and job.state.next_run_at_ms:
+            from datetime import datetime
+            at_sec = job.state.next_run_at_ms // 1000
+            hora_str = datetime.fromtimestamp(at_sec).strftime("%H:%M")
+            msg += f" Será enviado às {hora_str}. Mantém o ZapAssist ligado para receberes a notificação."
         if self._channel == "cli":
-            msg += " (Criado pelo terminal; para receber a notificação no WhatsApp, envie o lembrete pelo próprio WhatsApp.)"
+            msg += " (Criado pelo terminal; para receber no WhatsApp, envia o lembrete pelo próprio WhatsApp.)"
         return msg
     
     def _list_jobs(self) -> str:

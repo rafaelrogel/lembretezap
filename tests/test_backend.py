@@ -91,6 +91,13 @@ def test_command_parser():
     i = parse("/lembrete x em 5 minutos")
     assert i is not None and i.get("in_seconds") == 300
 
+    # /lembrete com barra extra: "daqui a 30 min/ texto" → mensagem sem "/" no início
+    i = parse("/lembrete daqui a 30 min/ lembre-me de ir ao RPG")
+    assert i is not None and i["type"] == "lembrete"
+    assert i.get("in_seconds") == 1800
+    assert i.get("message", "").strip() == "lembre-me de ir ao RPG"
+    assert not (i.get("message") or "").strip().startswith("/")
+
     # /lembrete recorrente: diário
     i = parse("/lembrete todo dia às 9h tomar remédio")
     assert i is not None and i["type"] == "lembrete"

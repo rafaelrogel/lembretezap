@@ -22,6 +22,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     phone_hash = Column(String(64), unique=True, nullable=False, index=True)  # hash(phone) for lookup
     phone_truncated = Column(String(32), nullable=False)  # 55119***9999
+    language = Column(String(8), nullable=True)  # pt-BR, pt-PT, es, en (None = infer from phone)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
