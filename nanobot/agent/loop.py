@@ -111,17 +111,18 @@ class AgentLoop:
         self._running = False
         logger.info("Agent loop stopping")
 
+    def _set_tool_context(self, channel: str, chat_id: str) -> None:
+        """Define canal/chat em todas as tools que suportam (parser e LLM usam o mesmo contexto)."""
+        for name, tool in (("message", MessageTool), ("cron", CronTool), ("list", ListTool), ("event", EventTool)):
+            t = self.tools.get(name)
+            if t and isinstance(t, tool):
+                t.set_context(channel, chat_id)
+
     async def _execute_parsed_intent(self, intent: dict, msg: InboundMessage) -> str | None:
         """Executa intent do parser (cron, list, event). Retorna texto da resposta ou None para seguir ao LLM."""
         cron_tool = self.tools.get("cron")
         list_tool = self.tools.get("list")
         event_tool = self.tools.get("event")
-        if cron_tool and isinstance(cron_tool, CronTool):
-            cron_tool.set_context(msg.channel, msg.chat_id)
-        if list_tool and isinstance(list_tool, ListTool):
-            list_tool.set_context(msg.channel, msg.chat_id)
-        if event_tool and isinstance(event_tool, EventTool):
-            event_tool.set_context(msg.channel, msg.chat_id)
 
         t = intent.get("type")
         if t == "lembrete":
@@ -184,6 +185,19 @@ class AgentLoop:
 
     async def _process_message_impl(self, msg: InboundMessage) -> OutboundMessage | None:
         """Implementation of message processing (rate limit → parser → scope filter → LLM)."""
+        # Sanitize input (evita injeção e payloads excessivos)
+        from backend.sanitize import sanitize_string, MAX_MESSAGE_LEN
+        content = sanitize_string(msg.content, MAX_MESSAGE_LEN)
+        msg = InboundMessage(
+            channel=msg.channel,
+            sender_id=msg.sender_id,
+            chat_id=msg.chat_id,
+            content=content,
+            timestamp=msg.timestamp,
+            media=msg.media,
+            metadata=msg.metadata,
+            trace_id=msg.trace_id,
+        )
         # Rate limit per user (channel:chat_id)
         try:
             from backend.rate_limit import is_rate_limited
@@ -195,6 +209,8 @@ class AgentLoop:
                 )
         except Exception:
             pass
+
+        self._set_tool_context(msg.channel, msg.chat_id)
 
         # Parser de comandos: execução direta sem LLM
         try:
@@ -212,37 +228,24 @@ class AgentLoop:
             logger.debug(f"Command parse/execute failed: {e}")
 
         # Scope filter: LLM SIM/NAO (fallback: regex). Skip LLM when circuit is open.
+        from backend.scope_filter import is_in_scope_fast, is_in_scope_llm
         try:
-            from backend.scope_filter import is_in_scope_fast, is_in_scope_llm
             if self.circuit_breaker.is_open():
                 in_scope = is_in_scope_fast(msg.content)
             else:
                 try:
-                    in_scope = await is_in_scope_llm(
-                        msg.content,
-                        provider=self.provider,
-                        model=self.model,
-                    )
+                    in_scope = await is_in_scope_llm(msg.content, provider=self.provider, model=self.model)
                 except Exception:
                     self.circuit_breaker.record_failure()
                     in_scope = is_in_scope_fast(msg.content)
-            if not in_scope:
-                return OutboundMessage(
-                    channel=msg.channel,
-                    chat_id=msg.chat_id,
-                    content="Sou só seu organizador: lembretes, listas e eventos. Envie /lembrete, /list ou /filme.",
-                )
         except Exception:
-            try:
-                from backend.scope_filter import is_in_scope_fast
-                if not is_in_scope_fast(msg.content):
-                    return OutboundMessage(
-                        channel=msg.channel,
-                        chat_id=msg.chat_id,
-                        content="Sou só seu organizador: lembretes, listas e eventos. Envie /lembrete, /list ou /filme.",
-                    )
-            except Exception:
-                pass
+            in_scope = is_in_scope_fast(msg.content)
+        if not in_scope:
+            return OutboundMessage(
+                channel=msg.channel,
+                chat_id=msg.chat_id,
+                content="Sou só seu organizador: lembretes, listas e eventos. Envie /lembrete, /list ou /filme.",
+            )
         
         # Circuit open: skip LLM, return degraded message (parser already ran above)
         if self.circuit_breaker.is_open():
@@ -258,22 +261,7 @@ class AgentLoop:
 
         # Get or create session
         session = self.sessions.get_or_create(msg.session_key)
-        
-        # Update tool contexts
-        message_tool = self.tools.get("message")
-        if isinstance(message_tool, MessageTool):
-            message_tool.set_context(msg.channel, msg.chat_id)
-        
-        cron_tool = self.tools.get("cron")
-        if isinstance(cron_tool, CronTool):
-            cron_tool.set_context(msg.channel, msg.chat_id)
-        list_tool = self.tools.get("list")
-        if isinstance(list_tool, ListTool):
-            list_tool.set_context(msg.channel, msg.chat_id)
-        event_tool = self.tools.get("event")
-        if isinstance(event_tool, EventTool):
-            event_tool.set_context(msg.channel, msg.chat_id)
-        
+
         # Build initial messages (use get_history for LLM-formatted messages)
         messages = self.context.build_messages(
             history=session.get_history(),

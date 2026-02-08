@@ -7,10 +7,8 @@ allows short bursts up to capacity, then steady refill. Thread-safe, O(1) state 
 import time
 from collections import defaultdict
 from threading import Lock
-from typing import Tuple
-
 # key -> (tokens: float, last_refill_ts: float)
-_buckets: dict[str, Tuple[float, float]] = defaultdict(lambda: (0.0, 0.0))
+_buckets: dict[str, tuple[float, float]] = defaultdict(lambda: (0.0, 0.0))
 _lock = Lock()
 
 DEFAULT_MAX_PER_MINUTE = 15

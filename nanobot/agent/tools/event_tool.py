@@ -6,6 +6,7 @@ from nanobot.agent.tools.base import Tool
 from backend.database import SessionLocal
 from backend.user_store import get_or_create_user
 from backend.models_db import Event, AuditLog
+from backend.sanitize import sanitize_string, sanitize_payload, MAX_EVENT_NAME_LEN
 
 
 class EventTool(Tool):
@@ -60,9 +61,12 @@ class EventTool(Tool):
             db.close()
 
     def _add(self, db, user_id: int, tipo: str, nome: str, payload: dict) -> str:
+        nome = sanitize_string(nome or "", MAX_EVENT_NAME_LEN)
+        payload = sanitize_payload(payload) if payload else {}
         if not nome and not payload:
             return "Error: nome or payload required for add"
-        data = {"nome": nome or "", **payload}
+        tipo = tipo if tipo in ("filme", "livro", "musica", "evento") else "evento"
+        data = {"nome": nome, **payload}
         ev = Event(user_id=user_id, tipo=tipo, payload=data, deleted=False)
         db.add(ev)
         db.add(AuditLog(user_id=user_id, action="event_add", resource=tipo))

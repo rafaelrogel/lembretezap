@@ -50,9 +50,6 @@ async def is_in_scope_llm(text: str, provider=None, model: str | None = None) ->
     try:
         prompt_template = _load_scope_prompt()
         user_content = prompt_template.replace("{input}", text.strip())
-        if "Mensagem:" in user_content:
-            # prompt has "Mensagem: {input}" -> already replaced
-            pass
         messages = [{"role": "user", "content": user_content}]
         response = await provider.chat(
             messages=messages,

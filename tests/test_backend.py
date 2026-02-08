@@ -1,13 +1,9 @@
 """Tests for backend: scope filter, DB models, API."""
 
-import pytest
-from pathlib import Path
-import tempfile
 import os
+import tempfile
 
-# Force backend on path when running tests from repo root
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+import pytest
 
 
 def test_scope_filter_in_scope():

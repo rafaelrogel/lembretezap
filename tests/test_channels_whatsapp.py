@@ -5,11 +5,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-# Ensure repo root on path
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 from nanobot.channels.whatsapp import WhatsAppChannel
 from nanobot.config.schema import WhatsAppConfig
 

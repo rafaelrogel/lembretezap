@@ -6,6 +6,7 @@ from nanobot.agent.tools.base import Tool
 from backend.database import SessionLocal
 from backend.user_store import get_or_create_user
 from backend.models_db import List, ListItem, AuditLog
+from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_ITEM_TEXT_LEN
 
 
 class ListTool(Tool):
@@ -71,27 +72,29 @@ class ListTool(Tool):
             db.close()
 
     def _add(self, db, user_id: int, list_name: str, item_text: str) -> str:
+        list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
+        item_text = sanitize_string(item_text or "", MAX_ITEM_TEXT_LEN)
         if not list_name or not item_text:
             return "Error: list_name and item_text required for add"
-        lst = db.query(List).filter(List.user_id == user_id, List.name == list_name.strip()).first()
+        lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
-            lst = List(user_id=user_id, name=list_name.strip())
+            lst = List(user_id=user_id, name=list_name)
             db.add(lst)
             db.flush()
-        item = ListItem(list_id=lst.id, text=item_text.strip())
+        item = ListItem(list_id=lst.id, text=item_text)
         db.add(item)
         db.add(AuditLog(user_id=user_id, action="list_add", resource=list_name))
         db.commit()
-        return f"Adicionado a '{list_name}': {item_text.strip()} (id: {item.id})"
+        return f"Adicionado a '{list_name}': {item_text} (id: {item.id})"
 
     def _list(self, db, user_id: int, list_name: str) -> str:
+        list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN) if list_name else ""
         if not list_name:
-            # List all list names
             lists = db.query(List).filter(List.user_id == user_id).all()
             if not lists:
                 return "Nenhuma lista. Use /list nome add item para criar."
             return "Listas: " + ", ".join(l.name for l in lists)
-        lst = db.query(List).filter(List.user_id == user_id, List.name == list_name.strip()).first()
+        lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
             return f"Lista '{list_name}' não existe."
         items = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.done == False).order_by(ListItem.id).all()
@@ -101,9 +104,10 @@ class ListTool(Tool):
         return f"Lista **{list_name}**:\n" + "\n".join(lines)
 
     def _remove(self, db, user_id: int, list_name: str, item_id: int | None) -> str:
+        list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
         if not list_name or item_id is None:
             return "Error: list_name and item_id required for remove"
-        lst = db.query(List).filter(List.user_id == user_id, List.name == list_name.strip()).first()
+        lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
             return f"Lista '{list_name}' não existe."
         item = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.id == item_id).first()
@@ -115,9 +119,10 @@ class ListTool(Tool):
         return f"Removido item {item_id} de '{list_name}'."
 
     def _feito(self, db, user_id: int, list_name: str, item_id: int | None) -> str:
+        list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
         if not list_name or item_id is None:
             return "Error: list_name and item_id required for feito"
-        lst = db.query(List).filter(List.user_id == user_id, List.name == list_name.strip()).first()
+        lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
             return f"Lista '{list_name}' não existe."
         item = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.id == item_id).first()

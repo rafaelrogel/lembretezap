@@ -2,7 +2,6 @@
 
 import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +11,7 @@ from sqlalchemy.orm import Session
 from backend.database import init_db, get_db, SessionLocal
 from backend.models_db import User, List, ListItem, Event, AuditLog
 from backend.user_store import phone_hash, get_or_create_user
+from backend.sanitize import clamp_limit
 
 # Token opcional para /health: se definido, só responde 200 com header X-Health-Token correto (uso interno/orquestração)
 HEALTH_CHECK_TOKEN = os.environ.get("HEALTH_CHECK_TOKEN", "").strip() or None
@@ -92,6 +92,7 @@ def list_user_events(user_id: int, tipo: str | None = None, db: Session = Depend
 
 @app.get("/audit", response_model=list[dict])
 def audit_log(limit: int = 100, db: Session = Depends(get_db)):
+    limit = clamp_limit(limit, default=100, maximum=500)
     logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).all()
     return [
         {"id": a.id, "user_id": a.user_id, "action": a.action, "resource": a.resource, "created_at": str(a.created_at)}

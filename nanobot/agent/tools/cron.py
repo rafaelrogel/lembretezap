@@ -6,6 +6,7 @@ from typing import Any
 from nanobot.agent.tools.base import Tool
 from nanobot.cron.service import CronService
 from nanobot.cron.types import CronSchedule
+from backend.sanitize import sanitize_string, validate_cron_expr, MAX_MESSAGE_LEN
 
 
 class CronTool(Tool):
@@ -93,11 +94,18 @@ class CronTool(Tool):
         in_seconds: int | None,
         cron_expr: str | None,
     ) -> str:
+        message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
             return "Error: message is required for add"
         if not self._channel or not self._chat_id:
             return "Error: no session context (channel/chat_id)"
-        
+        if cron_expr and not validate_cron_expr(cron_expr):
+            return "Error: expressão cron inválida (use 5 campos: min hora dia mês dia-semana)"
+        if in_seconds is not None and (in_seconds < 0 or in_seconds > 86400 * 365):
+            return "Error: in_seconds deve estar entre 0 e 1 ano"
+        if every_seconds is not None and (every_seconds < 60 or every_seconds > 86400 * 30):
+            return "Error: every_seconds entre 60 e 30 dias"
+
         if in_seconds is not None and in_seconds > 0:
             at_ms = int(time.time() * 1000) + in_seconds * 1000
             schedule = CronSchedule(kind="at", at_ms=at_ms)
@@ -133,6 +141,9 @@ class CronTool(Tool):
         return "Scheduled jobs:\n" + "\n".join(lines)
     
     def _remove_job(self, job_id: str | None) -> str:
+        if not job_id:
+            return "Error: job_id is required for remove"
+        job_id = sanitize_string(str(job_id), max_len=64)
         if not job_id:
             return "Error: job_id is required for remove"
         if self._cron.remove_job(job_id):
