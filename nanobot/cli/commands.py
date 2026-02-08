@@ -199,7 +199,11 @@ def gateway(
     if verbose:
         import logging
         logging.basicConfig(level=logging.DEBUG)
-    
+    try:
+        from nanobot.utils.logging_config import configure_logging
+        configure_logging()
+    except Exception:
+        pass
     console.print(f"{__logo__} Starting {__title__} gateway on port {port}...")
     
     config = load_config()

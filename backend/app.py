@@ -1,9 +1,10 @@
 """FastAPI app for frontend irmão: CRUD listas/eventos, minimal PII."""
 
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -11,6 +12,9 @@ from sqlalchemy.orm import Session
 from backend.database import init_db, get_db, SessionLocal
 from backend.models_db import User, List, ListItem, Event, AuditLog
 from backend.user_store import phone_hash, get_or_create_user
+
+# Token opcional para /health: se definido, só responde 200 com header X-Health-Token correto (uso interno/orquestração)
+HEALTH_CHECK_TOKEN = os.environ.get("HEALTH_CHECK_TOKEN", "").strip() or None
 
 
 @asynccontextmanager
@@ -50,7 +54,10 @@ class EventOut(BaseModel):
 
 # --- Routes ---
 @app.get("/health")
-def health():
+def health(x_health_token: str | None = Header(None, alias="X-Health-Token")):
+    """Health check. Se HEALTH_CHECK_TOKEN estiver definido, exige header X-Health-Token (acesso interno)."""
+    if HEALTH_CHECK_TOKEN and x_health_token != HEALTH_CHECK_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized")
     return {"status": "ok"}
 
 

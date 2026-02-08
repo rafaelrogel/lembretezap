@@ -1,6 +1,10 @@
 # Deploy: WhatsApp AI Organizer — bridge + gateway + API.
 # Uso: docker-compose up -d
 # Primeira vez: ver QR do WhatsApp com docker-compose logs -f bridge
+#
+# Nota: o volume nanobot_data é partilhado por todos os serviços. Para uma única
+# instância está correto. Escala horizontal (vários gateways) exige armazenamento
+# distribuído/BD centralizado (ver workspace/ARCHITECTURE.md).
 
 version: "3.8"
 
@@ -18,8 +22,9 @@ services:
       - AUTH_DIR=/root/.nanobot/whatsapp-auth
       - BRIDGE_PORT=3001
       - BRIDGE_DEBUG=0
+      - BRIDGE_HEALTH_TOKEN=${HEALTH_CHECK_TOKEN:-}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      test: ["CMD", "sh", "-c", "curl -sf -H \"X-Health-Token: $$BRIDGE_HEALTH_TOKEN\" http://localhost:3001/health"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -36,9 +41,10 @@ services:
       - nanobot_data:/root/.nanobot
     environment:
       - NANOBOT_DATA=/root/.nanobot
+      - HEALTH_CHECK_TOKEN=${HEALTH_CHECK_TOKEN:-}
     # env_file: .env  # optional: copy .env.example to .env for API key override
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "sh", "-c", "curl -sf -H \"X-Health-Token: $$HEALTH_CHECK_TOKEN\" http://localhost:8000/health"]
       interval: 30s
       timeout: 5s
       retries: 3

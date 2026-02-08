@@ -5,9 +5,10 @@ from pathlib import Path
 
 # Keywords that indicate in-scope (comandos e intenções)
 SCOPE_KEYWORDS = re.compile(
-    r"\b(lembrete|lembrar|lista|listar|list|mercado|compras|pendentes|"
+    r"\b(lembrete|lembrar|lembre|lista|listar|list|mercado|compras|pendentes|"
     r"add|remover|remove|feito|delete|filme|livro|musica|evento|"
     r"agendar|agenda|daqui a|em \d+ (min|hora|dia)|todo dia|toda semana|"
+    r"diariamente|recorrente|mensalmente|a cada \d+ (min|hora|dia)|"
     r"/lembrete|/list|/feito|/filme)\b",
     re.I,
 )

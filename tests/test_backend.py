@@ -88,12 +88,34 @@ def test_models_and_db():
 def test_command_parser():
     from backend.command_parser import parse
 
-    # /lembrete
+    # /lembrete pontual
     i = parse("/lembrete beber agua daqui a 2 min")
     assert i is not None and i["type"] == "lembrete"
     assert i.get("in_seconds") == 120 and "beber agua" in i.get("message", "")
     i = parse("/lembrete x em 5 minutos")
     assert i is not None and i.get("in_seconds") == 300
+
+    # /lembrete recorrente: diário
+    i = parse("/lembrete todo dia às 9h tomar remédio")
+    assert i is not None and i["type"] == "lembrete"
+    assert i.get("cron_expr") == "0 9 * * *" and "tomar remédio" in i.get("message", "")
+    i = parse("/lembrete todos os dias tomar vitamina")
+    assert i is not None and i.get("cron_expr") == "0 9 * * *"
+
+    # /lembrete recorrente: semanal
+    i = parse("/lembrete toda segunda às 10h reunião")
+    assert i is not None and i["type"] == "lembrete"
+    assert i.get("cron_expr") == "0 10 * * 1" and "reunião" in i.get("message", "")
+
+    # /lembrete recorrente: a cada N
+    i = parse("/lembrete a cada 2 horas beber água")
+    assert i is not None and i["type"] == "lembrete"
+    assert i.get("every_seconds") == 7200 and "beber água" in i.get("message", "")
+
+    # /lembrete recorrente: mensal
+    i = parse("/lembrete mensalmente dia 1 às 9h pagar contas")
+    assert i is not None and i["type"] == "lembrete"
+    assert i.get("cron_expr") == "0 9 1 * *" and "pagar contas" in i.get("message", "")
 
     # /list
     i = parse("/list mercado add leite")
@@ -121,13 +143,10 @@ def test_command_parser():
 
 
 def test_rate_limit():
-    from backend.rate_limit import is_rate_limited, get_remaining
+    """Token bucket: first max_per_minute allowed, then rate limited."""
+    from backend.rate_limit import is_rate_limited, get_remaining, reset_for_test
 
-    # Reset state by using a unique key
-    import backend.rate_limit as rl
-    key = "test:user_xyz_123"
-    with rl._lock:
-        rl._entries[key] = []
+    reset_for_test("test:")
 
     # First 15 (default max) should be allowed
     for _ in range(15):
@@ -137,6 +156,24 @@ def test_rate_limit():
     assert get_remaining("test", "user_xyz_123") == 0
 
 
+def test_rate_limit_token_bucket_refill():
+    """Token bucket refills over time; after refill one more request is allowed."""
+    import time
+    from backend.rate_limit import is_rate_limited, get_remaining, reset_for_test
+
+    reset_for_test("test_refill:")
+
+    # Exhaust bucket: 2 tokens, refill 2/6 per sec (so in 3s we get 1 token)
+    assert is_rate_limited("test_refill", "u1", max_per_minute=2, window_seconds=6) is False
+    assert is_rate_limited("test_refill", "u1", max_per_minute=2, window_seconds=6) is False
+    assert is_rate_limited("test_refill", "u1", max_per_minute=2, window_seconds=6) is True
+
+    # After 3s we have ~1 token refilled
+    time.sleep(3.5)
+    assert get_remaining("test_refill", "u1", max_per_minute=2, window_seconds=6) >= 1
+    assert is_rate_limited("test_refill", "u1", max_per_minute=2, window_seconds=6) is False
+
+
 def test_fastapi_health():
     from fastapi.testclient import TestClient
     from backend.app import app
@@ -144,3 +181,21 @@ def test_fastapi_health():
     r = client.get("/health")
     assert r.status_code == 200
     assert r.json() == {"status": "ok"}
+
+
+def test_config_get_provider_fallback_when_matched_provider_has_no_key():
+    """When model matches a provider (e.g. anthropic) but that provider has no api_key, fallback to first with key."""
+    from nanobot.config.schema import Config, ProviderConfig, ProvidersConfig, AgentsConfig, AgentDefaults
+
+    # Only openrouter has key; model is anthropic
+    providers = ProvidersConfig(
+        anthropic=ProviderConfig(api_key=""),
+        openrouter=ProviderConfig(api_key="sk-or-secret"),
+    )
+    agents = AgentsConfig(defaults=AgentDefaults(model="anthropic/claude-3.5-sonnet"))
+    config = Config(agents=agents, providers=providers)
+
+    p = config.get_provider()
+    assert p is not None
+    assert p.api_key == "sk-or-secret"
+    assert p == config.providers.openrouter

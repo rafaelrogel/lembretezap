@@ -2,12 +2,14 @@
 
 import asyncio
 import json
+import uuid
 from pathlib import Path
 from typing import Any
 
 from loguru import logger
 
 from nanobot.bus.events import InboundMessage, OutboundMessage
+from nanobot.utils.logging_config import set_trace_id, reset_trace_id
 from nanobot.bus.queue import MessageBus
 from nanobot.providers.base import LLMProvider
 from nanobot.agent.context import ContextBuilder
@@ -17,6 +19,7 @@ from nanobot.agent.tools.cron import CronTool
 from nanobot.agent.tools.list_tool import ListTool
 from nanobot.agent.tools.event_tool import EventTool
 from nanobot.session.manager import SessionManager
+from nanobot.utils.circuit_breaker import CircuitBreaker
 
 
 class AgentLoop:
@@ -51,7 +54,8 @@ class AgentLoop:
         self.context = ContextBuilder(workspace)
         self.sessions = SessionManager(workspace)
         self.tools = ToolRegistry()
-        
+        self.circuit_breaker = CircuitBreaker(failure_threshold=3, recovery_timeout_seconds=60.0)
+
         self._running = False
         self._register_default_tools()
     
@@ -168,13 +172,18 @@ class AgentLoop:
     async def _process_message(self, msg: InboundMessage) -> OutboundMessage | None:
         """
         Process a single inbound message.
-        
-        Args:
-            msg: The inbound message to process.
-        
-        Returns:
-            The response message, or None if no response needed.
+        Parser-first: structured commands (/lembrete, /list, /feito, /filme) are
+        executed directly without LLM; only natural language or ambiguous cases use the LLM.
         """
+        trace_id = msg.trace_id or uuid.uuid4().hex[:12]
+        token = set_trace_id(trace_id)
+        try:
+            return await self._process_message_impl(msg)
+        finally:
+            reset_trace_id(token)
+
+    async def _process_message_impl(self, msg: InboundMessage) -> OutboundMessage | None:
+        """Implementation of message processing (rate limit → parser → scope filter → LLM)."""
         # Rate limit per user (channel:chat_id)
         try:
             from backend.rate_limit import is_rate_limited
@@ -202,14 +211,21 @@ class AgentLoop:
         except Exception as e:
             logger.debug(f"Command parse/execute failed: {e}")
 
-        # Scope filter: LLM SIM/NAO (fallback: regex)
+        # Scope filter: LLM SIM/NAO (fallback: regex). Skip LLM when circuit is open.
         try:
             from backend.scope_filter import is_in_scope_fast, is_in_scope_llm
-            in_scope = await is_in_scope_llm(
-                msg.content,
-                provider=self.provider,
-                model=self.model,
-            )
+            if self.circuit_breaker.is_open():
+                in_scope = is_in_scope_fast(msg.content)
+            else:
+                try:
+                    in_scope = await is_in_scope_llm(
+                        msg.content,
+                        provider=self.provider,
+                        model=self.model,
+                    )
+                except Exception:
+                    self.circuit_breaker.record_failure()
+                    in_scope = is_in_scope_fast(msg.content)
             if not in_scope:
                 return OutboundMessage(
                     channel=msg.channel,
@@ -228,9 +244,18 @@ class AgentLoop:
             except Exception:
                 pass
         
+        # Circuit open: skip LLM, return degraded message (parser already ran above)
+        if self.circuit_breaker.is_open():
+            logger.warning("Circuit breaker open: responding in degraded mode (parser-only)")
+            return OutboundMessage(
+                channel=msg.channel,
+                chat_id=msg.chat_id,
+                content="Serviço temporariamente limitado. Use comandos /lembrete, /list ou /filme.",
+            )
+
         preview = msg.content[:80] + "..." if len(msg.content) > 80 else msg.content
         logger.info(f"Processing message from {msg.channel}:{msg.sender_id}: {preview}")
-        
+
         # Get or create session
         session = self.sessions.get_or_create(msg.session_key)
         
@@ -264,14 +289,24 @@ class AgentLoop:
         
         while iteration < self.max_iterations:
             iteration += 1
-            
-            # Call LLM
-            response = await self.provider.chat(
-                messages=messages,
-                tools=self.tools.get_definitions(),
-                model=self.model
-            )
-            
+
+            # Call LLM (circuit breaker records success/failure)
+            try:
+                response = await self.provider.chat(
+                    messages=messages,
+                    tools=self.tools.get_definitions(),
+                    model=self.model
+                )
+                self.circuit_breaker.record_success()
+            except Exception as e:
+                self.circuit_breaker.record_failure()
+                logger.warning(f"LLM call failed (circuit breaker): {e}")
+                return OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content="Serviço temporariamente indisponível. Tente /lembrete, /list ou /filme.",
+                )
+
             # Handle tool calls
             if response.has_tool_calls:
                 # Add assistant message with tool calls
@@ -344,8 +379,9 @@ class AgentLoop:
             channel=channel,
             sender_id="user",
             chat_id=chat_id,
-            content=content
+            content=content,
+            trace_id=uuid.uuid4().hex[:12],
         )
-        
+
         response = await self._process_message(msg)
         return response.content if response else ""

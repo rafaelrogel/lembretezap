@@ -6,6 +6,7 @@ are ignored and not forwarded to the agent.
 
 import asyncio
 import json
+import uuid
 from typing import Any
 
 from loguru import logger
@@ -129,6 +130,7 @@ class WhatsAppChannel(BaseChannel):
                 content = "[Voice Message: Transcription not available for WhatsApp yet]"
             
             # Forward to agent only for private chats (groups already filtered above)
+            trace_id = uuid.uuid4().hex[:12]
             await self._handle_message(
                 sender_id=sender_id,
                 chat_id=sender,  # Use full JID/LID for replies
@@ -137,6 +139,7 @@ class WhatsAppChannel(BaseChannel):
                     "message_id": data.get("id"),
                     "timestamp": data.get("timestamp"),
                     "is_group": False,
+                    "trace_id": trace_id,
                 },
             )
         

@@ -28,8 +28,10 @@ class CronTool(Tool):
     @property
     def description(self) -> str:
         return (
-            "Schedule reminders. Actions: add (use every_seconds for interval, e.g. 120 = every 2 min; "
-            "or in_seconds for one-time, e.g. 120 = in 2 minutes), list, remove."
+            "Schedule one-time or recurring reminders. Actions: add, list, remove. "
+            "For add: in_seconds = one-time (e.g. 120 = in 2 min); "
+            "every_seconds = repeat interval (e.g. 86400 = daily, 3600 = every hour); "
+            "cron_expr = fixed times (e.g. '0 9 * * *' = daily at 9h, '0 10 * * 1' = every Monday at 10h)."
         )
     
     @property

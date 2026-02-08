@@ -15,7 +15,8 @@ class InboundMessage:
     timestamp: datetime = field(default_factory=datetime.now)
     media: list[str] = field(default_factory=list)  # Media URLs
     metadata: dict[str, Any] = field(default_factory=dict)  # Channel-specific data
-    
+    trace_id: str | None = None  # For structured logging / request correlation
+
     @property
     def session_key(self) -> str:
         """Unique key for session identification."""

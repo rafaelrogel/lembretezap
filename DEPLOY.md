@@ -100,7 +100,8 @@ O estado da sessão fica em `whatsapp-auth/` dentro do volume, por isso não pre
   Deve mostrar “WhatsApp channel enabled” e “Connected to WhatsApp bridge” (após o QR).
 
 - **API:**  
-  `curl http://localhost:8000/health`
+  `curl http://localhost:8000/health`  
+  (Se usares `HEALTH_CHECK_TOKEN`, passa o header: `curl -H "X-Health-Token: teu-token" http://localhost:8000/health`.)
 
 - **Enviar uma mensagem** para o número/grupo ligado ao bridge; o bot deve responder (se o número/grupo estiver em `allow_from` ou se `allow_from` estiver vazio).
 
@@ -131,7 +132,19 @@ Se o WhatsApp der **401** (sessão inválida), apaga a pasta de auth no volume, 
 
 ---
 
-## 7. Resumo rápido
+## 7. Health check (segurança)
+
+Por boa prática, os endpoints `/health` (bridge na porta 3001 e API na 8000) não devem ser expostos publicamente sem proteção. Duas opções:
+
+1. **Token (recomendado)**  
+   Define no `.env`: `HEALTH_CHECK_TOKEN=um-token-secreto`. O compose já passa este valor aos containers; o healthcheck do Docker usa-o automaticamente. Chamadas externas a `/health` sem o header `X-Health-Token` com o mesmo valor recebem **401**. Assim só orquestração (Docker, load balancer na rede interna) com o token consegue validar saúde.
+
+2. **Rede isolada**  
+   Em produção, não expor as portas 3001/8000 à internet; manter apenas na rede interna e deixar o healthcheck acessar por `localhost` dentro do container (como já acontece).
+
+---
+
+## 8. Resumo rápido
 
 1. Ter **config.json** no volume (ou montar `~/.nanobot`).
 2. `docker-compose up -d`

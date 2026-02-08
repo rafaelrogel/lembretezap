@@ -108,16 +108,19 @@ class BaseChannel(ABC):
                 f"Add them to allowFrom list in config to grant access."
             )
             return
-        
+
+        meta = metadata or {}
+        trace_id = meta.get("trace_id")
         msg = InboundMessage(
             channel=self.name,
             sender_id=str(sender_id),
             chat_id=str(chat_id),
             content=content,
             media=media or [],
-            metadata=metadata or {}
+            metadata=meta,
+            trace_id=trace_id,
         )
-        
+
         await self.bus.publish_inbound(msg)
     
     @property

@@ -27,9 +27,18 @@ export class BridgeServer {
   constructor(private port: number, private authDir: string) {}
 
   async start(): Promise<void> {
-    // HTTP server for /health and WebSocket upgrade
+    const healthToken = process.env.BRIDGE_HEALTH_TOKEN || '';
+    // HTTP server for /health and WebSocket upgrade. If BRIDGE_HEALTH_TOKEN is set, /health requires header X-Health-Token (internal only).
     this.httpServer = http.createServer((req, res) => {
       if (req.url === '/health' && req.method === 'GET') {
+        if (healthToken) {
+          const token = req.headers['x-health-token'];
+          if (token !== healthToken) {
+            res.writeHead(401);
+            res.end('Unauthorized');
+            return;
+          }
+        }
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         res.end('ok');
         return;
