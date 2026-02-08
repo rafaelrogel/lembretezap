@@ -14,11 +14,7 @@ from nanobot.config.schema import Config
 class ChannelManager:
     """
     Manages chat channels and coordinates message routing.
-    
-    Responsibilities:
-    - Initialize enabled channels (Telegram, WhatsApp, etc.)
-    - Start/stop channels
-    - Route outbound messages
+    Only WhatsApp is supported.
     """
     
     def __init__(self, config: Config, bus: MessageBus):
@@ -30,22 +26,7 @@ class ChannelManager:
         self._init_channels()
     
     def _init_channels(self) -> None:
-        """Initialize channels based on config."""
-        
-        # Telegram channel
-        if self.config.channels.telegram.enabled:
-            try:
-                from nanobot.channels.telegram import TelegramChannel
-                self.channels["telegram"] = TelegramChannel(
-                    self.config.channels.telegram,
-                    self.bus,
-                    groq_api_key=self.config.providers.groq.api_key,
-                )
-                logger.info("Telegram channel enabled")
-            except ImportError as e:
-                logger.warning(f"Telegram channel not available: {e}")
-        
-        # WhatsApp channel
+        """Initialize channels based on config (WhatsApp only)."""
         if self.config.channels.whatsapp.enabled:
             try:
                 from nanobot.channels.whatsapp import WhatsAppChannel
@@ -55,28 +36,6 @@ class ChannelManager:
                 logger.info("WhatsApp channel enabled")
             except ImportError as e:
                 logger.warning(f"WhatsApp channel not available: {e}")
-
-        # Discord channel
-        if self.config.channels.discord.enabled:
-            try:
-                from nanobot.channels.discord import DiscordChannel
-                self.channels["discord"] = DiscordChannel(
-                    self.config.channels.discord, self.bus
-                )
-                logger.info("Discord channel enabled")
-            except ImportError as e:
-                logger.warning(f"Discord channel not available: {e}")
-        
-        # Feishu channel
-        if self.config.channels.feishu.enabled:
-            try:
-                from nanobot.channels.feishu import FeishuChannel
-                self.channels["feishu"] = FeishuChannel(
-                    self.config.channels.feishu, self.bus
-                )
-                logger.info("Feishu channel enabled")
-            except ImportError as e:
-                logger.warning(f"Feishu channel not available: {e}")
     
     async def _start_channel(self, name: str, channel: BaseChannel) -> None:
         """Start a channel and log any exceptions."""
@@ -137,11 +96,12 @@ class ChannelManager:
                 channel = self.channels.get(msg.channel)
                 if channel:
                     try:
+                        logger.info(f"Dispatch outbound: channel={msg.channel} chat_id={str(msg.chat_id)[:25]}...")
                         await channel.send(msg)
                     except Exception as e:
                         logger.error(f"Error sending to {msg.channel}: {e}")
                 else:
-                    logger.warning(f"Unknown channel: {msg.channel}")
+                    logger.warning(f"Unknown channel: {msg.channel} (message not delivered; enable WhatsApp and add reminder from WhatsApp)")
                     
             except asyncio.TimeoutError:
                 continue

@@ -291,6 +291,8 @@ class CronService:
         self._arm_timer()
         
         logger.info(f"Cron: added job '{name}' ({job.id})")
+        if deliver and channel == "cli":
+            logger.info("Cron: job will not be delivered to WhatsApp (channel=cli); create reminder from WhatsApp to receive there.")
         return job
     
     def remove_job(self, job_id: str) -> bool:

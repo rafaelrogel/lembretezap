@@ -1,0 +1,47 @@
+# Deploy: WhatsApp AI Organizer — bridge + gateway + API.
+# Uso: docker-compose up -d
+# Primeira vez: ver QR do WhatsApp com docker-compose logs -f bridge
+
+version: "3.8"
+
+services:
+  bridge:
+    build: .
+    command: ["sh", "-c", "cd /app/bridge && node dist/index.js"]
+    working_dir: /app
+    ports:
+      - "3001:3001"
+    volumes:
+      - nanobot_data:/root/.nanobot
+    environment:
+      - AUTH_DIR=/root/.nanobot/whatsapp-auth
+      - BRIDGE_PORT=3001
+    restart: unless-stopped
+
+  api:
+    build: .
+    command: ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - C:\Users\rafae\.nanobot
+    environment:
+      - NANOBOT_DATA=/root/.nanobot
+    restart: unless-stopped
+
+  gateway:
+    build: .
+    command: ["gateway"]
+    ports:
+      - "18790:18790"
+    volumes:
+      - C:\Users\rafae\.nanobot
+    environment:
+      - NANOBOT_DATA=/root/.nanobot
+      - NANOBOT_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001
+    depends_on:
+      - bridge
+    restart: unless-stopped
+
+volumes:
+  nanobot_data:

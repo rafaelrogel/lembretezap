@@ -1,0 +1,6 @@
+Analise se a mensagem do usuário é sobre: agenda, lembrete, lista (compras/pendentes), evento, filme/livro/música a anotar, ou comando organizacional (/lembrete, /list, /feito, /filme).
+Responda apenas: SIM ou NAO
+- SIM = é escopo do organizador (lembretes, listas, eventos, comandos /list etc)
+- NAO = conversa geral, política, opiniões, perguntas fora do tema
+
+Mensagem: "{input}"

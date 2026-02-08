@@ -1,5 +1,6 @@
 """Cron tool for scheduling reminders and tasks."""
 
+import time
 from typing import Any
 
 from nanobot.agent.tools.base import Tool
@@ -26,7 +27,10 @@ class CronTool(Tool):
     
     @property
     def description(self) -> str:
-        return "Schedule reminders and recurring tasks. Actions: add, list, remove."
+        return (
+            "Schedule reminders. Actions: add (use every_seconds for interval, e.g. 120 = every 2 min; "
+            "or in_seconds for one-time, e.g. 120 = in 2 minutes), list, remove."
+        )
     
     @property
     def parameters(self) -> dict[str, Any]:
@@ -36,19 +40,23 @@ class CronTool(Tool):
                 "action": {
                     "type": "string",
                     "enum": ["add", "list", "remove"],
-                    "description": "Action to perform"
+                    "description": "Action: add, list, or remove"
                 },
                 "message": {
                     "type": "string",
-                    "description": "Reminder message (for add)"
+                    "description": "Reminder message (required for add)"
                 },
                 "every_seconds": {
                     "type": "integer",
-                    "description": "Interval in seconds (for recurring tasks)"
+                    "description": "Repeat every N seconds (e.g. 60 = every minute, 600 = every 10 min)"
+                },
+                "in_seconds": {
+                    "type": "integer",
+                    "description": "One-time reminder in N seconds (e.g. 120 = in 2 minutes)"
                 },
                 "cron_expr": {
                     "type": "string",
-                    "description": "Cron expression like '0 9 * * *' (for scheduled tasks)"
+                    "description": "Cron expression for fixed times (e.g. '0 9 * * *' = daily at 9h)"
                 },
                 "job_id": {
                     "type": "string",
@@ -63,31 +71,43 @@ class CronTool(Tool):
         action: str,
         message: str = "",
         every_seconds: int | None = None,
+        in_seconds: int | None = None,
         cron_expr: str | None = None,
         job_id: str | None = None,
         **kwargs: Any
     ) -> str:
         if action == "add":
-            return self._add_job(message, every_seconds, cron_expr)
+            return self._add_job(message, every_seconds, in_seconds, cron_expr)
         elif action == "list":
             return self._list_jobs()
         elif action == "remove":
             return self._remove_job(job_id)
         return f"Unknown action: {action}"
     
-    def _add_job(self, message: str, every_seconds: int | None, cron_expr: str | None) -> str:
+    def _add_job(
+        self,
+        message: str,
+        every_seconds: int | None,
+        in_seconds: int | None,
+        cron_expr: str | None,
+    ) -> str:
         if not message:
             return "Error: message is required for add"
         if not self._channel or not self._chat_id:
             return "Error: no session context (channel/chat_id)"
         
-        # Build schedule
-        if every_seconds:
+        if in_seconds is not None and in_seconds > 0:
+            at_ms = int(time.time() * 1000) + in_seconds * 1000
+            schedule = CronSchedule(kind="at", at_ms=at_ms)
+            delete_after_run = True
+        elif every_seconds:
             schedule = CronSchedule(kind="every", every_ms=every_seconds * 1000)
+            delete_after_run = False
         elif cron_expr:
             schedule = CronSchedule(kind="cron", expr=cron_expr)
+            delete_after_run = False
         else:
-            return "Error: either every_seconds or cron_expr is required"
+            return "Error: use every_seconds (repeat), in_seconds (once), or cron_expr"
         
         job = self._cron.add_job(
             name=message[:30],
@@ -96,8 +116,12 @@ class CronTool(Tool):
             deliver=True,
             channel=self._channel,
             to=self._chat_id,
+            delete_after_run=delete_after_run,
         )
-        return f"Created job '{job.name}' (id: {job.id})"
+        msg = f"Lembrete agendado (id: {job.id})."
+        if self._channel == "cli":
+            msg += " (Criado pelo terminal; para receber a notificação no WhatsApp, envie o lembrete pelo próprio WhatsApp.)"
+        return msg
     
     def _list_jobs(self) -> str:
         jobs = self._cron.list_jobs()

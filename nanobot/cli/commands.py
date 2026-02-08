@@ -1,17 +1,20 @@
 """CLI commands for nanobot."""
 
 import asyncio
+import logging
 from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.table import Table
 
-from nanobot import __version__, __logo__
+from nanobot import __version__, __logo__, __title__
+
+logger = logging.getLogger(__name__)
 
 app = typer.Typer(
-    name="nanobot",
-    help=f"{__logo__} nanobot - Personal AI Assistant",
+    name="zapassist",
+    help=f"{__logo__} {__title__} - WhatsApp AI Organizer",
     no_args_is_help=True,
 )
 
@@ -20,7 +23,7 @@ console = Console()
 
 def version_callback(value: bool):
     if value:
-        console.print(f"{__logo__} nanobot v{__version__}")
+        console.print(f"{__logo__} {__title__} v{__version__}")
         raise typer.Exit()
 
 
@@ -30,7 +33,7 @@ def main(
         None, "--version", "-v", callback=version_callback, is_eager=True
     ),
 ):
-    """nanobot - Personal AI Assistant."""
+    """ZapAssist - WhatsApp AI Organizer."""
     pass
 
 
@@ -65,12 +68,12 @@ def onboard():
     # Create default bootstrap files
     _create_workspace_templates(workspace)
     
-    console.print(f"\n{__logo__} nanobot is ready!")
+    console.print(f"\n{__logo__} {__title__} is ready!")
     console.print("\nNext steps:")
     console.print("  1. Add your API key to [cyan]~/.nanobot/config.json[/cyan]")
     console.print("     Get one at: https://openrouter.ai/keys")
-    console.print("  2. Chat: [cyan]nanobot agent -m \"Hello!\"[/cyan]")
-    console.print("\n[dim]Want Telegram/WhatsApp? See: https://github.com/HKUDS/nanobot#-chat-apps[/dim]")
+    console.print("  2. Chat: [cyan]zapassist agent -m \"Hello!\"[/cyan]")
+    console.print("  3. Gateway (WhatsApp): [cyan]zapassist gateway[/cyan]")
 
 
 
@@ -91,7 +94,7 @@ You are a helpful AI assistant. Be concise, accurate, and friendly.
 """,
         "SOUL.md": """# Soul
 
-I am nanobot, a lightweight AI assistant.
+I am ZapAssist, your WhatsApp AI organizer.
 
 ## Personality
 
@@ -174,7 +177,7 @@ def gateway(
     port: int = typer.Option(18790, "--port", "-p", help="Gateway port"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ):
-    """Start the nanobot gateway."""
+    """Start the ZapAssist gateway (WhatsApp + agent + cron)."""
     from nanobot.config.loader import load_config, get_data_dir
     from nanobot.bus.queue import MessageBus
     from nanobot.agent.loop import AgentLoop
@@ -187,7 +190,7 @@ def gateway(
         import logging
         logging.basicConfig(level=logging.DEBUG)
     
-    console.print(f"{__logo__} Starting nanobot gateway on port {port}...")
+    console.print(f"{__logo__} Starting {__title__} gateway on port {port}...")
     
     config = load_config()
     bus = MessageBus()
@@ -204,10 +207,7 @@ def gateway(
         workspace=config.workspace_path,
         model=config.agents.defaults.model,
         max_iterations=config.agents.defaults.max_tool_iterations,
-        brave_api_key=config.tools.web.search.api_key or None,
-        exec_config=config.tools.exec,
         cron_service=cron,
-        restrict_to_workspace=config.tools.restrict_to_workspace,
     )
     
     # Set cron callback (needs agent)
@@ -221,11 +221,16 @@ def gateway(
         )
         if job.payload.deliver and job.payload.to:
             from nanobot.bus.events import OutboundMessage
+            ch, to = job.payload.channel or "cli", job.payload.to
+            logger.info(f"Cron deliver: channel={ch} to={to[:20]}... content_len={len(response or '')}")
             await bus.publish_outbound(OutboundMessage(
-                channel=job.payload.channel or "cli",
-                chat_id=job.payload.to,
+                channel=ch,
+                chat_id=to,
                 content=response or ""
             ))
+        else:
+            if not job.payload.deliver or not job.payload.to:
+                logger.debug(f"Cron job {job.id}: not delivering (deliver={job.payload.deliver}, to={bool(job.payload.to)})")
         return response
     cron.on_job = on_cron_job
     
@@ -280,35 +285,50 @@ def gateway(
 # ============================================================================
 
 
+def _safe_print(text: str) -> None:
+    """Print text without UnicodeEncodeError on Windows console (emojis -> ?)."""
+    import sys
+    enc = getattr(sys.stdout, "encoding", None) or "utf-8"
+    if enc and not enc.lower().startswith("utf"):
+        text = text.encode(enc, errors="replace").decode(enc)
+    try:
+        console.print(text)
+    except (UnicodeEncodeError, UnicodeError):
+        console.print(text.encode("ascii", errors="replace").decode("ascii"))
+
+
 @app.command()
 def agent(
     message: str = typer.Option(None, "--message", "-m", help="Message to send to the agent"),
     session_id: str = typer.Option("cli:default", "--session", "-s", help="Session ID"),
 ):
     """Interact with the agent directly."""
-    from nanobot.config.loader import load_config
+    from nanobot.config.loader import load_config, get_data_dir
     from nanobot.bus.queue import MessageBus
     from nanobot.agent.loop import AgentLoop
+    from nanobot.cron.service import CronService
     
     config = load_config()
     
     bus = MessageBus()
     provider = _make_provider(config)
+    cron_store_path = get_data_dir() / "cron" / "jobs.json"
+    cron = CronService(cron_store_path)
     
     agent_loop = AgentLoop(
         bus=bus,
         provider=provider,
         workspace=config.workspace_path,
-        brave_api_key=config.tools.web.search.api_key or None,
-        exec_config=config.tools.exec,
-        restrict_to_workspace=config.tools.restrict_to_workspace,
+        model=config.agents.defaults.model,
+        max_iterations=config.agents.defaults.max_tool_iterations,
+        cron_service=cron,
     )
     
     if message:
         # Single message mode
         async def run_once():
             response = await agent_loop.process_direct(message, session_id)
-            console.print(f"\n{__logo__} {response}")
+            _safe_print(f"\n{__logo__} {response}")
         
         asyncio.run(run_once())
     else:
@@ -323,7 +343,7 @@ def agent(
                         continue
                     
                     response = await agent_loop.process_direct(user_input, session_id)
-                    console.print(f"\n{__logo__} {response}\n")
+                    _safe_print(f"\n{__logo__} {response}\n")
                 except KeyboardInterrupt:
                     console.print("\nGoodbye!")
                     break
@@ -352,30 +372,12 @@ def channels_status():
     table.add_column("Enabled", style="green")
     table.add_column("Configuration", style="yellow")
 
-    # WhatsApp
     wa = config.channels.whatsapp
     table.add_row(
         "WhatsApp",
         "✓" if wa.enabled else "✗",
         wa.bridge_url
     )
-
-    dc = config.channels.discord
-    table.add_row(
-        "Discord",
-        "✓" if dc.enabled else "✗",
-        dc.gateway_url
-    )
-    
-    # Telegram
-    tg = config.channels.telegram
-    tg_config = f"token: {tg.token[:10]}..." if tg.token else "[dim]not configured[/dim]"
-    table.add_row(
-        "Telegram",
-        "✓" if tg.enabled else "✗",
-        tg_config
-    )
-
     console.print(table)
 
 
@@ -408,7 +410,7 @@ def _get_bridge_dir() -> Path:
     
     if not source:
         console.print("[red]Bridge source not found.[/red]")
-        console.print("Try reinstalling: pip install --force-reinstall nanobot")
+        console.print("Try reinstalling: pip install --force-reinstall zapassist")
         raise typer.Exit(1)
     
     console.print(f"{__logo__} Setting up bridge...")
@@ -519,7 +521,7 @@ def cron_add(
     at: str = typer.Option(None, "--at", help="Run once at time (ISO format)"),
     deliver: bool = typer.Option(False, "--deliver", "-d", help="Deliver response to channel"),
     to: str = typer.Option(None, "--to", help="Recipient for delivery"),
-    channel: str = typer.Option(None, "--channel", help="Channel for delivery (e.g. 'telegram', 'whatsapp')"),
+    channel: str = typer.Option(None, "--channel", help="Channel for delivery (e.g. 'whatsapp')"),
 ):
     """Add a scheduled job."""
     from nanobot.config.loader import get_data_dir
@@ -619,14 +621,14 @@ def cron_run(
 
 @app.command()
 def status():
-    """Show nanobot status."""
+    """Show ZapAssist status."""
     from nanobot.config.loader import load_config, get_config_path
 
     config_path = get_config_path()
     config = load_config()
     workspace = config.workspace_path
 
-    console.print(f"{__logo__} nanobot Status\n")
+    console.print(f"{__logo__} {__title__} Status\n")
 
     console.print(f"Config: {config_path} {'[green]✓[/green]' if config_path.exists() else '[red]✗[/red]'}")
     console.print(f"Workspace: {workspace} {'[green]✓[/green]' if workspace.exists() else '[red]✗[/red]'}")

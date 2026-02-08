@@ -75,7 +75,7 @@ class WhatsAppChannel(BaseChannel):
     async def send(self, msg: OutboundMessage) -> None:
         """Send a message through WhatsApp."""
         if not self._ws or not self._connected:
-            logger.warning("WhatsApp bridge not connected")
+            logger.warning("WhatsApp send skipped: bridge not connected")
             return
         
         try:
@@ -84,6 +84,7 @@ class WhatsAppChannel(BaseChannel):
                 "to": msg.chat_id,
                 "text": msg.content
             }
+            logger.info(f"WhatsApp send: to={str(msg.chat_id)[:30]}... len={len(msg.content)}")
             await self._ws.send(json.dumps(payload))
         except Exception as e:
             logger.error(f"Error sending WhatsApp message: {e}")

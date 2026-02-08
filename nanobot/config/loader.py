@@ -1,6 +1,7 @@
 """Configuration loading utilities."""
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +36,12 @@ def load_config(config_path: Path | None = None) -> Config:
             with open(path) as f:
                 data = json.load(f)
             data = _migrate_config(data)
-            return Config.model_validate(convert_keys(data))
+            data = convert_keys(data)
+            # Env override for Docker/deploy (e.g. NANOBOT_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001)
+            bridge_url = os.environ.get("NANOBOT_CHANNELS__WHATSAPP__BRIDGE_URL")
+            if bridge_url and isinstance(data.get("channels"), dict) and isinstance(data["channels"].get("whatsapp"), dict):
+                data["channels"]["whatsapp"]["bridge_url"] = bridge_url
+            return Config.model_validate(data)
         except (json.JSONDecodeError, ValueError) as e:
             print(f"Warning: Failed to load config from {path}: {e}")
             print("Using default configuration.")
@@ -69,6 +75,15 @@ def _migrate_config(data: dict) -> dict:
     exec_cfg = tools.get("exec", {})
     if "restrictToWorkspace" in exec_cfg and "restrictToWorkspace" not in tools:
         tools["restrictToWorkspace"] = exec_cfg.pop("restrictToWorkspace")
+    # Channels: only WhatsApp is supported; drop telegram, discord, feishu
+    channels = data.get("channels", {})
+    for key in ("telegram", "discord", "feishu"):
+        channels.pop(key, None)
+    # Web tools (search/fetch) removed; drop tools.web
+    tools.pop("web", None)
+    # File/shell tools removed; drop tools.exec and tools.restrictToWorkspace
+    tools.pop("exec", None)
+    tools.pop("restrictToWorkspace", None)
     return data
 
 

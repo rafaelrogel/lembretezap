@@ -20,9 +20,11 @@ RUN mkdir -p nanobot bridge && touch nanobot/__init__.py && \
     uv pip install --system --no-cache . && \
     rm -rf nanobot bridge
 
-# Copy the full source and install
+# Copy the full source and install (nanobot + backend API)
 COPY nanobot/ nanobot/
+COPY backend/ backend/
 COPY bridge/ bridge/
+COPY prompts/ prompts/
 RUN uv pip install --system --no-cache .
 
 # Build the WhatsApp bridge

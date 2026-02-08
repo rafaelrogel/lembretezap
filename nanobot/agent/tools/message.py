@@ -47,7 +47,7 @@ class MessageTool(Tool):
                 },
                 "channel": {
                     "type": "string",
-                    "description": "Optional: target channel (telegram, discord, etc.)"
+                    "description": "Optional: target channel (e.g. whatsapp)"
                 },
                 "chat_id": {
                     "type": "string",
