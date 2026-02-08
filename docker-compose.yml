@@ -24,7 +24,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - C:\Users\rafae\.nanobot
+      - nanobot_data:/root/.nanobot
     environment:
       - NANOBOT_DATA=/root/.nanobot
     restart: unless-stopped
@@ -35,7 +35,7 @@ services:
     ports:
       - "18790:18790"
     volumes:
-      - C:\Users\rafae\.nanobot
+      - nanobot_data:/root/.nanobot
     environment:
       - NANOBOT_DATA=/root/.nanobot
       - NANOBOT_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001
