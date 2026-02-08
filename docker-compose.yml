@@ -42,6 +42,8 @@ services:
     environment:
       - NANOBOT_DATA=/root/.nanobot
       - HEALTH_CHECK_TOKEN=${HEALTH_CHECK_TOKEN:-}
+      - API_SECRET_KEY=${API_SECRET_KEY:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
     # env_file: .env  # optional: copy .env.example to .env for API key override
     healthcheck:
       test: ["CMD", "sh", "-c", "curl -sf -H \"X-Health-Token: $$HEALTH_CHECK_TOKEN\" http://localhost:8000/health"]

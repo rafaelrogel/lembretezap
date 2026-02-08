@@ -179,6 +179,26 @@ def test_fastapi_health():
     assert r.json() == {"status": "ok"}
 
 
+def test_fastapi_api_key_auth():
+    """Com API_SECRET_KEY definido, /users exige X-API-Key; sem key ou errada = 401/403."""
+    import backend.auth as auth_module
+    from fastapi.testclient import TestClient
+    from backend.app import app
+
+    client = TestClient(app)
+    original = auth_module.API_SECRET_KEY
+    try:
+        auth_module.API_SECRET_KEY = "test-secret"
+        r_no_header = client.get("/users")
+        assert r_no_header.status_code in (401, 403)
+        r_wrong = client.get("/users", headers={"X-API-Key": "wrong"})
+        assert r_wrong.status_code in (401, 403)
+        r_ok = client.get("/users", headers={"X-API-Key": "test-secret"})
+        assert r_ok.status_code == 200
+    finally:
+        auth_module.API_SECRET_KEY = original
+
+
 def test_config_get_provider_fallback_when_matched_provider_has_no_key():
     """When model matches a provider (e.g. anthropic) but that provider has no api_key, fallback to first with key."""
     from nanobot.config.schema import Config, ProviderConfig, ProvidersConfig, AgentsConfig, AgentDefaults

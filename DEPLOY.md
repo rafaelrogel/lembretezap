@@ -101,7 +101,8 @@ O estado da sessão fica em `whatsapp-auth/` dentro do volume, por isso não pre
 
 - **API:**  
   `curl http://localhost:8000/health`  
-  (Se usares `HEALTH_CHECK_TOKEN`, passa o header: `curl -H "X-Health-Token: teu-token" http://localhost:8000/health`.)
+  (Se usares `HEALTH_CHECK_TOKEN`, passa o header: `curl -H "X-Health-Token: teu-token" http://localhost:8000/health`.)  
+  Para endpoints de dados (`/users`, `/audit`, etc.): se definires `API_SECRET_KEY`, envia `X-API-Key: teu-api-key` em cada pedido.
 
 - **Enviar uma mensagem** para o número/grupo ligado ao bridge; o bot deve responder (se o número/grupo estiver em `allow_from` ou se `allow_from` estiver vazio).
 
@@ -144,9 +145,17 @@ Por boa prática, os endpoints `/health` (bridge na porta 3001 e API na 8000) n�
 
 ---
 
-## 8. Resumo rápido
+## 8. API: autenticação e CORS
+
+- **API_SECRET_KEY:** Se definido no `.env` (ou nas variáveis do serviço **api**), todos os endpoints exceto `/health` exigem o header `X-API-Key` com o mesmo valor. Sem este header (ou com valor errado), a API responde 401/403. Em desenvolvimento podes deixar vazio para aceder sem autenticação.
+- **CORS_ORIGINS:** Lista de origens permitidas para CORS, separadas por vírgula (ex.: `https://app.seudominio.com`). Valor por defeito `*` (todas). Em produção deve ser restrito ao domínio do teu frontend.
+
+---
+
+## 9. Resumo rápido
 
 1. Ter **config.json** no volume (ou montar `~/.nanobot`).
 2. `docker-compose up -d`
 3. `docker-compose logs -f bridge` → escanear QR
-4. Testar mensagem no WhatsApp
+4. (Opcional) Definir `API_SECRET_KEY` e `CORS_ORIGINS` para produção.
+5. Testar mensagem no WhatsApp

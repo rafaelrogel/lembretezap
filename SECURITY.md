@@ -34,7 +34,15 @@ chmod 600 ~/.nanobot/config.json
 - Rotate API keys regularly
 - Use separate API keys for development and production
 
-### 2. Channel Access Control
+### 2. API (FastAPI) Authentication and CORS
+
+**Production:** Set `API_SECRET_KEY` in the environment. All data endpoints (`/users`, `/users/{id}/lists`, `/users/{id}/events`, `/audit`) then require the `X-API-Key` header with the same value. The `/health` endpoint uses `HEALTH_CHECK_TOKEN` only (for orchestrators).
+
+- Leave `API_SECRET_KEY` unset only in development.
+- Use a long, random value (e.g. `openssl rand -hex 32`).
+- **CORS:** Set `CORS_ORIGINS` to your frontend origin(s), comma-separated (e.g. `https://app.example.com`). Default `*` allows any origin (development only).
+
+### 3. Channel Access Control
 
 **IMPORTANT**: Always configure `allowFrom` lists for production use.
 
@@ -60,7 +68,7 @@ chmod 600 ~/.nanobot/config.json
 - Use full phone numbers with country code for WhatsApp
 - Review access logs regularly for unauthorized access attempts
 
-### 3. Shell Command Execution
+### 4. Shell Command Execution
 
 The `exec` tool can execute shell commands. While dangerous command patterns are blocked, you should:
 
