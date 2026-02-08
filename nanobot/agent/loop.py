@@ -58,6 +58,8 @@ class AgentLoop:
         provider: LLMProvider,
         workspace: Path,
         model: str | None = None,
+        scope_model: str | None = None,
+        scope_provider: "LLMProvider | None" = None,
         max_iterations: int = 20,
         cron_service: "CronService | None" = None,
     ):
@@ -66,6 +68,8 @@ class AgentLoop:
         self.provider = provider
         self.workspace = workspace
         self.model = model or provider.get_default_model()
+        self.scope_model = scope_model or self.model
+        self.scope_provider = scope_provider  # quando setado, scope filter e heartbeat usam este (ex.: Xiaomi)
         self.max_iterations = max_iterations
         self.cron_service = cron_service
         
@@ -254,7 +258,8 @@ class AgentLoop:
                 in_scope = is_in_scope_fast(msg.content)
             else:
                 try:
-                    in_scope = await is_in_scope_llm(msg.content, provider=self.provider, model=self.model)
+                    scope_p = self.scope_provider if self.scope_provider else self.provider
+                    in_scope = await is_in_scope_llm(msg.content, provider=scope_p, model=self.scope_model)
                 except Exception:
                     self.circuit_breaker.record_failure()
                     in_scope = is_in_scope_fast(msg.content)

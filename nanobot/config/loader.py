@@ -41,6 +41,8 @@ def load_config(config_path: Path | None = None) -> Config:
             bridge_url = os.environ.get("NANOBOT_CHANNELS__WHATSAPP__BRIDGE_URL")
             if bridge_url and isinstance(data.get("channels"), dict) and isinstance(data["channels"].get("whatsapp"), dict):
                 data["channels"]["whatsapp"]["bridge_url"] = bridge_url
+            # Opção B: chaves dos providers via .env (não colar no config.json)
+            _apply_provider_env_overrides(data)
             return Config.model_validate(data)
         except (json.JSONDecodeError, ValueError) as e:
             print(f"Warning: Failed to load config from {path}: {e}")
@@ -66,6 +68,22 @@ def save_config(config: Config, config_path: Path | None = None) -> None:
     
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
+
+
+def _apply_provider_env_overrides(data: dict) -> None:
+    """Override provider API keys from env (NANOBOT_PROVIDERS__DEEPSEEK__API_KEY, etc.)."""
+    providers = data.get("providers")
+    if not isinstance(providers, dict):
+        return
+    env_keys = (
+        ("deepseek", "NANOBOT_PROVIDERS__DEEPSEEK__API_KEY"),
+        ("xiaomi", "NANOBOT_PROVIDERS__XIAOMI__API_KEY"),
+        ("openrouter", "NANOBOT_PROVIDERS__OPENROUTER__API_KEY"),
+    )
+    for key, env_var in env_keys:
+        val = os.environ.get(env_var)
+        if val is not None and key in providers and isinstance(providers[key], dict):
+            providers[key]["api_key"] = val.strip()
 
 
 def _migrate_config(data: dict) -> dict:

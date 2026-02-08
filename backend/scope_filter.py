@@ -40,7 +40,7 @@ def is_in_scope_fast(text: str) -> bool:
 
 async def is_in_scope_llm(text: str, provider=None, model: str | None = None) -> bool:
     """
-    Call LLM (Groq/OpenRouter) for SIM/NAO. One cheap completion, no tools.
+    Call LLM (Xiaomi MiMo, DeepSeek, etc.) for SIM/NAO. One cheap completion, no tools.
     If provider is None or call fails, fallback to is_in_scope_fast.
     """
     if not text or not text.strip():

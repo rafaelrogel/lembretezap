@@ -146,7 +146,7 @@ class WhatsAppChannel(BaseChannel):
         msg_type = data.get("type")
         
         if msg_type == "message":
-            # Evitar processar o mesmo evento várias vezes (reduz chamadas LLM duplicadas no OpenRouter)
+            # Evitar processar o mesmo evento várias vezes (reduz chamadas LLM duplicadas)
             msg_id = (data.get("id") or "").strip()
             if _is_duplicate_message(msg_id):
                 logger.debug(f"Ignoring duplicate message id={msg_id!r}")

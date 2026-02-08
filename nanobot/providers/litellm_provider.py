@@ -69,6 +69,8 @@ class LiteLLMProvider(LLMProvider):
             elif "moonshot" in default_model or "kimi" in default_model:
                 os.environ.setdefault("MOONSHOT_API_KEY", api_key)
                 os.environ.setdefault("MOONSHOT_API_BASE", api_base or "https://api.moonshot.cn/v1")
+            elif "xiaomi" in default_model or "mimo" in default_model:
+                os.environ.setdefault("XIAOMI_MIMO_API_KEY", api_key)
         
         if api_base:
             litellm.api_base = api_base
@@ -98,6 +100,9 @@ class LiteLLMProvider(LLMProvider):
             LLMResponse with content and/or tool calls.
         """
         model = model or self.default_model
+        # LiteLLM usa prefixo xiaomi_mimo/ (não xiaomi/)
+        if model.lower().startswith("xiaomi/") and not model.startswith("xiaomi_mimo/"):
+            model = "xiaomi_mimo/" + model.split("/", 1)[-1]
         
         # Auto-prefix model names for known providers
         # (keywords, target_prefix, skip_if_starts_with)

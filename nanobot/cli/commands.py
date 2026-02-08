@@ -71,7 +71,7 @@ def onboard():
     console.print(f"\n{__logo__} {__title__} is ready!")
     console.print("\nNext steps:")
     console.print("  1. Add your API key to [cyan]~/.nanobot/config.json[/cyan]")
-    console.print("     Get one at: https://openrouter.ai/keys")
+    console.print("     DeepSeek: https://platform.deepseek.com  |  Xiaomi MiMo: https://platform.xiaomimimo.com")
     console.print("  2. Chat: [cyan]zapassist agent -m \"Hello!\"[/cyan]")
     console.print("  3. Gateway (WhatsApp): [cyan]zapassist gateway[/cyan]")
 
@@ -177,6 +177,22 @@ def _make_provider(config):
     )
 
 
+def _make_provider_for_model(config, model_str: str):
+    """Create LiteLLMProvider for a specific model (e.g. scope_model). Returns None if no API key for that model."""
+    from nanobot.providers.litellm_provider import LiteLLMProvider
+    if not model_str or not model_str.strip():
+        return None
+    p = config.get_provider(model_str.strip())
+    if not p or not (getattr(p, "api_key", None) or "").strip():
+        return None
+    return LiteLLMProvider(
+        api_key=p.api_key,
+        api_base=config.get_api_base(model_str),
+        default_model=model_str.strip(),
+        extra_headers=p.extra_headers if p else None,
+    )
+
+
 # ============================================================================
 # Gateway / Server
 # ============================================================================
@@ -209,6 +225,8 @@ def gateway(
     config = load_config()
     bus = MessageBus()
     provider = _make_provider(config)
+    scope_model = (config.agents.defaults.scope_model or "").strip() or None
+    scope_provider = _make_provider_for_model(config, scope_model) if scope_model else None
     
     # Create cron service first (callback set after agent creation)
     cron_store_path = get_data_dir() / "cron" / "jobs.json"
@@ -220,13 +238,43 @@ def gateway(
         provider=provider,
         workspace=config.workspace_path,
         model=config.agents.defaults.model,
+        scope_model=scope_model or config.agents.defaults.model,
+        scope_provider=scope_provider,
         max_iterations=config.agents.defaults.max_tool_iterations,
         cron_service=cron,
     )
     
-    # Set cron callback (needs agent)
+    # Set cron callback: entrega de lembrete = 1 chamada barata (Xiaomi), não o agente completo (DeepSeek)
     async def on_cron_job(job: CronJob) -> str | None:
-        """Execute a cron job through the agent."""
+        from nanobot.bus.events import OutboundMessage
+        if scope_provider and scope_model and job.payload.deliver and job.payload.to:
+            try:
+                # Xiaomi: embelezar + emojis + frase de rapport conforme o tipo (médico, cinema, etc.)
+                prompt = (
+                    "Mensagem curta com este lembrete para o utilizador. Inclui 1-2 emojis. "
+                    "Acrescenta UMA frase de rapport (sem pedir resposta): médico/consulta → 'Espero que esteja tudo bem' ou similar; "
+                    "cinema/filme → 'Não se esqueça do filme, divirta-se!' ou 'Bom filme!'; compras → 'Boa compra!'; água → 'Saudável!'; outro → frase calorosa curta. "
+                    "Responde só com o texto da mensagem. Lembrete: "
+                ) + job.payload.message
+                r = await scope_provider.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=scope_model,
+                    max_tokens=200,
+                    temperature=0.4,  # um pouco de variação para não ficar sempre o mesmo texto
+                )
+                response = (r.content or job.payload.message or "").strip()
+            except Exception as e:
+                logger.warning(f"Cron (scope LLM) failed: {e}")
+                response = job.payload.message or ""
+            ch, to = job.payload.channel or "cli", job.payload.to
+            logger.info(f"Cron deliver: channel={ch} to={to[:20]}... content_len={len(response or '')}")
+            await bus.publish_outbound(OutboundMessage(
+                channel=ch,
+                chat_id=to,
+                content=response or ""
+            ))
+            return response
+        # Sem scope_provider ou job sem deliver: usa o agente completo (fallback)
         response = await agent.process_direct(
             job.payload.message,
             session_key=f"cron:{job.id}",
@@ -234,7 +282,6 @@ def gateway(
             chat_id=job.payload.to or "direct",
         )
         if job.payload.deliver and job.payload.to:
-            from nanobot.bus.events import OutboundMessage
             ch, to = job.payload.channel or "cli", job.payload.to
             logger.info(f"Cron deliver: channel={ch} to={to[:20]}... content_len={len(response or '')}")
             await bus.publish_outbound(OutboundMessage(
@@ -248,9 +295,20 @@ def gateway(
         return response
     cron.on_job = on_cron_job
     
-    # Create heartbeat service
+    # Create heartbeat service (scope provider = Xiaomi barato; senão usa o agente completo)
     async def on_heartbeat(prompt: str) -> str:
-        """Execute heartbeat through the agent."""
+        if scope_provider and scope_model:
+            try:
+                r = await scope_provider.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=scope_model,
+                    max_tokens=500,
+                    temperature=0,
+                )
+                return (r.content or "").strip()
+            except Exception as e:
+                logger.warning(f"Heartbeat (scope LLM) failed: {e}")
+                return "HEARTBEAT_OK"
         return await agent.process_direct(prompt, session_key="heartbeat")
     
     heartbeat = HeartbeatService(
@@ -326,6 +384,8 @@ def agent(
     
     bus = MessageBus()
     provider = _make_provider(config)
+    scope_model = (config.agents.defaults.scope_model or "").strip() or None
+    scope_provider = _make_provider_for_model(config, scope_model) if scope_model else None
     cron_store_path = get_data_dir() / "cron" / "jobs.json"
     cron = CronService(cron_store_path)
     
@@ -334,6 +394,8 @@ def agent(
         provider=provider,
         workspace=config.workspace_path,
         model=config.agents.defaults.model,
+        scope_model=scope_model or config.agents.defaults.model,
+        scope_provider=scope_provider,
         max_iterations=config.agents.defaults.max_tool_iterations,
         cron_service=cron,
     )
@@ -651,6 +713,8 @@ def status():
         console.print(f"Model: {config.agents.defaults.model}")
         
         # Check API keys
+        has_deepseek = bool(config.providers.deepseek.api_key)
+        has_xiaomi = bool(config.providers.xiaomi.api_key)
         has_openrouter = bool(config.providers.openrouter.api_key)
         has_anthropic = bool(config.providers.anthropic.api_key)
         has_openai = bool(config.providers.openai.api_key)
@@ -659,7 +723,10 @@ def status():
         has_vllm = bool(config.providers.vllm.api_base)
         has_aihubmix = bool(config.providers.aihubmix.api_key)
         
-        console.print(f"OpenRouter API: {'[green]✓[/green]' if has_openrouter else '[dim]not set[/dim]'}")
+        console.print(f"DeepSeek API: {'[green]✓[/green]' if has_deepseek else '[dim]not set[/dim]'}")
+        console.print(f"Xiaomi MiMo API: {'[green]✓[/green]' if has_xiaomi else '[dim]not set[/dim]'}")
+        if has_openrouter:
+            console.print("OpenRouter API: [green]✓[/green] (opcional)")
         console.print(f"Anthropic API: {'[green]✓[/green]' if has_anthropic else '[dim]not set[/dim]'}")
         console.print(f"OpenAI API: {'[green]✓[/green]' if has_openai else '[dim]not set[/dim]'}")
         console.print(f"Gemini API: {'[green]✓[/green]' if has_gemini else '[dim]not set[/dim]'}")

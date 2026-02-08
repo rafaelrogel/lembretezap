@@ -13,7 +13,7 @@
 
 - Python 3.11+
 - Node.js (para o bridge WhatsApp)
-- Chave de API (OpenRouter ou outro provedor)
+- Chaves de API: **DeepSeek** (agente) e **Xiaomi MiMo** (scope/heartbeat), APIs diretas — ou outro provedor
 
 ## Instalação
 
@@ -32,7 +32,8 @@ Crie `~/.nanobot/config.json` (ou `%USERPROFILE%\.nanobot\config.json` no Window
   "agents": {
     "defaults": {
       "workspace": "~/.nanobot/workspace",
-      "model": "openrouter/anthropic/claude-sonnet-4",
+      "model": "deepseek/deepseek-chat",
+      "scopeModel": "xiaomi_mimo/mimo-v2-flash",
       "max_tokens": 8192,
       "temperature": 0.7
     }
@@ -45,14 +46,14 @@ Crie `~/.nanobot/config.json` (ou `%USERPROFILE%\.nanobot\config.json` no Window
     }
   },
   "providers": {
-    "openrouter": {
-      "api_key": "SUA_CHAVE_AQUI"
-    }
+    "deepseek": { "api_key": "" },
+    "xiaomi": { "api_key": "" }
   }
 }
 ```
 
 - `allow_from`: lista vazia = qualquer número; ou `["5511999999999"]` (país + número, sem + nem espaços).
+- As chaves **DeepSeek** e **Xiaomi** põem-se no `.env` (`NANOBOT_PROVIDERS__DEEPSEEK__API_KEY`, `NANOBOT_PROVIDERS__XIAOMI__API_KEY`). Ver [DEPLOY.md](DEPLOY.md) § 1.1.
 
 ## Uso
 

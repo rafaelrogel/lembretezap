@@ -50,7 +50,39 @@ Assim o `config.json` e o resto dos dados ficam no teu disco.
 
 **Opção C – API key via .env (opcional)**
 
-Para não deixar a chave só no config do volume, podes usar ficheiro `.env`: copia `.env.example` para `.env`, define `NANOBOT_PROVIDERS__OPENROUTER__API_KEY=...` (ou outro provider), e no `docker-compose.yml` descomenta `env_file: .env` nos serviços **gateway** e **api**. O `.env` não deve ser commitado (já está no `.gitignore`).
+Por defeito usamos **APIs diretas** (DeepSeek + Xiaomi MiMo), não OpenRouter. As chaves ficam no `.env`: copia `.env.example` para `.env`, define `NANOBOT_PROVIDERS__DEEPSEEK__API_KEY` e `NANOBOT_PROVIDERS__XIAOMI__API_KEY`. No VPS o script de instalação gera o `.env`; com docker-compose local, descomenta `env_file: .env` nos serviços **gateway** e **api**. O `.env` não deve ser commitado (já está no `.gitignore`).
+
+---
+
+### 1.1 Modelo e custos (DeepSeek + Xiaomi MiMo)
+
+**Não precisas do Claude Sonnet.** Para os créditos durarem muito mais, usa **DeepSeek (agente)** e **Xiaomi MiMo-V2-Flash (scope + heartbeat)** com API direta de cada um.
+
+**Exemplo: agente = DeepSeek, scope e heartbeat = Xiaomi**
+
+No `config.json`:
+
+```json
+"agents": {
+  "defaults": {
+    "model": "deepseek/deepseek-chat",
+    "scopeModel": "xiaomi_mimo/mimo-v2-flash"
+  }
+},
+"providers": {
+  "deepseek": { "api_key": "sua-chave-deepseek" },
+  "xiaomi": { "api_key": "sua-chave-xiaomi-mimo" }
+}
+```
+
+- **Agente (lembretes, listas, ferramentas):** usa `model` e a chave em `providers.deepseek.apiKey` (API direta DeepSeek).
+- **Scope filter (SIM/NAO) e heartbeat:** usam `scopeModel` e a chave em `providers.xiaomi.apiKey` (API direta Xiaomi MiMo; o LiteLLM usa o prefixo `xiaomi_mimo/`).
+- **Opção B (recomendada):** Colocar as chaves **só no `.env`** (nunca no repo). O loader aplica os overrides:
+  - `NANOBOT_PROVIDERS__DEEPSEEK__API_KEY=sk-...`
+  - `NANOBOT_PROVIDERS__XIAOMI__API_KEY=sk-...`
+  No `config.json` podes deixar `providers.deepseek.api_key` e `providers.xiaomi.api_key` vazios (ou omitir); o `.env` prevalece.
+
+Se omitires `scopeModel`, o scope e o heartbeat usam o mesmo `model` (e o mesmo provider) que o agente.
 
 ---
 

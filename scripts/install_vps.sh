@@ -2,7 +2,7 @@
 #
 # Instalação do ZapAssist (organizador WhatsApp) num VPS Linux.
 # Uso: sudo bash install_vps.sh
-# Ou: OPENROUTER_API_KEY="sk-or-v1-..." sudo -E bash install_vps.sh
+# Ou: DEEPSEEK_API_KEY="sk-..." XIAOMI_API_KEY="sk-..." sudo -E bash install_vps.sh
 #
 set -e
 
@@ -22,16 +22,26 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-# --- 2. Pedir ou usar chave OpenRouter ---
-if [ -z "$OPENROUTER_API_KEY" ]; then
-  echo "Introduz a tua chave da API OpenRouter (sk-or-v1-...)."
-  echo "(Não partilhes esta chave com ninguém; o script usa-a só localmente.)"
-  read -r -p "Chave OpenRouter: " OPENROUTER_API_KEY
-  if [ -z "$OPENROUTER_API_KEY" ]; then
-    echo "Erro: é obrigatório indicar a chave OpenRouter."
+# --- 2. Pedir ou usar chaves DeepSeek e Xiaomi MiMo ---
+if [ -z "$DEEPSEEK_API_KEY" ]; then
+  echo "Chave DeepSeek (agente: lembretes, listas). Obtém em: https://platform.deepseek.com"
+  read -r -s -p "Chave DeepSeek: " DEEPSEEK_API_KEY
+  echo ""
+  if [ -z "$DEEPSEEK_API_KEY" ]; then
+    echo "Erro: é obrigatório indicar a chave DeepSeek."
     exit 1
   fi
 fi
+if [ -z "$XIAOMI_API_KEY" ]; then
+  echo "Chave Xiaomi MiMo (scope + heartbeat). Obtém em: https://platform.xiaomimimo.com"
+  read -r -s -p "Chave Xiaomi MiMo: " XIAOMI_API_KEY
+  echo ""
+  if [ -z "$XIAOMI_API_KEY" ]; then
+    echo "Erro: é obrigatório indicar a chave Xiaomi MiMo."
+    exit 1
+  fi
+fi
+echo "Chaves recebidas (serão guardadas apenas no .env local)."
 
 # --- 3. Instalar dependências (apt) ---
 echo ""
@@ -76,14 +86,14 @@ echo "[5/6] A criar configuração e dados..."
 mkdir -p "$DATA_DIR"
 mkdir -p "$DATA_DIR/whatsapp-auth"
 
-# config.json com a chave OpenRouter (escape para JSON)
-API_KEY_ESC=$(echo "$OPENROUTER_API_KEY" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-cat > "$DATA_DIR/config.json" << EOF
+# config.json: modelos DeepSeek (agente) + Xiaomi (scope/heartbeat); chaves ficam no .env
+cat > "$DATA_DIR/config.json" << 'CONFIG_EOF'
 {
   "agents": {
     "defaults": {
       "workspace": "~/.nanobot/workspace",
-      "model": "openrouter/anthropic/claude-sonnet-4",
+      "model": "deepseek/deepseek-chat",
+      "scopeModel": "xiaomi_mimo/mimo-v2-flash",
       "max_tokens": 8192,
       "temperature": 0.7
     }
@@ -96,27 +106,28 @@ cat > "$DATA_DIR/config.json" << EOF
     }
   },
   "providers": {
-    "openrouter": {
-      "api_key": "$API_KEY_ESC"
-    }
+    "deepseek": { "api_key": "" },
+    "xiaomi": { "api_key": "" }
   }
 }
-EOF
+CONFIG_EOF
 chmod 600 "$DATA_DIR/config.json"
 
-# .env para o Compose (chave também aqui para o gateway)
-cat > "$INSTALL_DIR/.env" << EOF
+# .env: chaves DeepSeek e Xiaomi (opção B - não colocar no config.json)
+_esc() { echo "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'; }
+cat > "$INSTALL_DIR/.env" << ENV_EOF
 # Gerado por install_vps.sh - não commitar
-NANOBOT_PROVIDERS__OPENROUTER__API_KEY=$API_KEY_ESC
+NANOBOT_PROVIDERS__DEEPSEEK__API_KEY="$( _esc "$DEEPSEEK_API_KEY" )"
+NANOBOT_PROVIDERS__XIAOMI__API_KEY="$( _esc "$XIAOMI_API_KEY" )"
 HEALTH_CHECK_TOKEN=health-$(openssl rand -hex 8)
 API_SECRET_KEY=api-$(openssl rand -hex 12)
 CORS_ORIGINS=*
-EOF
+ENV_EOF
 chmod 600 "$INSTALL_DIR/.env"
 
-# docker-compose.vps.yml: usar pasta local em vez de volume
+# docker-compose.vps.yml: dados em pasta local + .env para chaves
 cat > "$INSTALL_DIR/docker-compose.vps.yml" << EOF
-# Override para VPS: dados em pasta local
+# Override para VPS: dados em pasta local e .env (DeepSeek + Xiaomi)
 volumes:
   nanobot_data:
     driver: local
@@ -124,6 +135,11 @@ volumes:
       type: none
       device: $DATA_DIR
       o: bind
+services:
+  gateway:
+    env_file: .env
+  api:
+    env_file: .env
 EOF
 
 # O Compose carrega automaticamente o .env da pasta para substituir ${VAR}.

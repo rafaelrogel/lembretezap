@@ -18,9 +18,10 @@ class ChannelsConfig(BaseModel):
 
 
 class AgentDefaults(BaseModel):
-    """Default agent configuration."""
+    """Default agent configuration. Por defeito: DeepSeek (agente) + Xiaomi MiMo (scope/heartbeat), APIs diretas."""
     workspace: str = "~/.nanobot/workspace"
-    model: str = "anthropic/claude-opus-4-5"
+    model: str = "deepseek/deepseek-chat"
+    scope_model: str | None = "xiaomi_mimo/mimo-v2-flash"  # scope + heartbeat; APIs diretas Xiaomi
     max_tokens: int = 8192
     temperature: float = 0.7
     max_tool_iterations: int = 20
@@ -51,6 +52,7 @@ class ProvidersConfig(BaseModel):
     gemini: ProviderConfig = Field(default_factory=ProviderConfig)
     moonshot: ProviderConfig = Field(default_factory=ProviderConfig)
     aihubmix: ProviderConfig = Field(default_factory=ProviderConfig)  # AiHubMix API gateway
+    xiaomi: ProviderConfig = Field(default_factory=ProviderConfig)  # Xiaomi MiMo (scope + heartbeat)
 
 
 class GatewayConfig(BaseModel):
@@ -92,6 +94,7 @@ class Config(BaseSettings):
             "zhipu": p.zhipu, "glm": p.zhipu, "zai": p.zhipu,
             "dashscope": p.dashscope, "qwen": p.dashscope,
             "groq": p.groq, "moonshot": p.moonshot, "kimi": p.moonshot, "vllm": p.vllm,
+            "xiaomi": p.xiaomi, "mimo": p.xiaomi,
         }
         for kw, provider in keyword_map.items():
             if kw in model:
@@ -101,7 +104,7 @@ class Config(BaseSettings):
                 break
         # Fallback: gateways first (can serve any model), then specific providers
         all_providers = [p.openrouter, p.aihubmix, p.anthropic, p.openai, p.deepseek,
-                         p.gemini, p.zhipu, p.dashscope, p.moonshot, p.vllm, p.groq]
+                         p.gemini, p.zhipu, p.dashscope, p.moonshot, p.vllm, p.groq, p.xiaomi]
         p = next((pr for pr in all_providers if (pr.api_key or "").strip()), None)
         # Defensive: never return a provider with empty api_key
         return p if (p and (p.api_key or "").strip()) else None
