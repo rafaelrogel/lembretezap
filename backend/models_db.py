@@ -23,6 +23,9 @@ class User(Base):
     phone_hash = Column(String(64), unique=True, nullable=False, index=True)  # hash(phone) for lookup
     phone_truncated = Column(String(32), nullable=False)  # 55119***9999
     preferred_name = Column(String(128), nullable=True)  # como o cliente gostaria de ser chamado (perguntado via Xiaomi)
+    city = Column(String(128), nullable=True)  # cidade do utilizador (onboarding); usada para timezone quando reconhecida
+    default_reminder_lead_seconds = Column(Integer, nullable=True)  # aviso X segundos antes do evento (ex.: 86400 = 1 dia)
+    extra_reminder_leads = Column(Text, nullable=True)  # JSON array de até 3 ints (ex.: [259200,86400,7200] = 3d, 1d, 2h)
     language = Column(String(8), nullable=True)  # pt-BR, pt-PT, es, en (None = infer from phone)
     timezone = Column(String(64), nullable=True)  # IANA e.g. Europe/Lisbon, America/Sao_Paulo (None = infer from phone)
     created_at = Column(DateTime, default=datetime.utcnow)

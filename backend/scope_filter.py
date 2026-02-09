@@ -69,3 +69,47 @@ async def is_in_scope_llm(text: str, provider=None, model: str | None = None) ->
         return is_in_scope_fast(text)
     except Exception:
         return is_in_scope_fast(text)
+
+
+_FOLLOW_UP_PROMPT = """O utilizador disse antes: «{prev}»
+Agora disse: «{current}»
+
+A mensagem atual é continuação do mesmo tema (lista, lembrete, compras, evento, organização)? Responde apenas: SIM ou NAO."""
+
+
+async def is_follow_up_llm(
+    prev_message: str,
+    current_message: str,
+    provider=None,
+    model: str | None = None,
+) -> bool:
+    """
+    Usa o LLM (ex.: Mimo) para decidir se a mensagem atual é follow-up da anterior.
+    Só usar quando is_in_scope_fast(prev_message) é False (regex não apanhou).
+    """
+    if not prev_message or not (current_message or "").strip():
+        return False
+    if provider is None or not (model or "").strip():
+        return False
+    try:
+        prompt = _FOLLOW_UP_PROMPT.format(
+            prev=(prev_message or "")[:300],
+            current=(current_message or "").strip()[:300],
+        )
+        response = await provider.chat(
+            messages=[{"role": "user", "content": prompt}],
+            tools=None,
+            model=model,
+            max_tokens=10,
+            temperature=0,
+        )
+        if not response or not response.content:
+            return False
+        raw = response.content.strip().upper()
+        if "SIM" in raw or raw.startswith("S"):
+            return True
+        if "NAO" in raw or "NÃO" in raw.upper() or raw.startswith("N"):
+            return False
+        return False
+    except Exception:
+        return False

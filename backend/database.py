@@ -25,6 +25,9 @@ def init_db() -> None:
     Base.metadata.create_all(bind=ENGINE)
     for col_sql in (
         "ALTER TABLE users ADD COLUMN preferred_name VARCHAR(128)",
+        "ALTER TABLE users ADD COLUMN city VARCHAR(128)",
+        "ALTER TABLE users ADD COLUMN default_reminder_lead_seconds INTEGER",
+        "ALTER TABLE users ADD COLUMN extra_reminder_leads TEXT",
         "ALTER TABLE users ADD COLUMN language VARCHAR(8)",
         "ALTER TABLE users ADD COLUMN timezone VARCHAR(64)",
     ):

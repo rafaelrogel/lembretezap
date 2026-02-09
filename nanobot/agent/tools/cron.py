@@ -134,6 +134,45 @@ class CronTool(Tool):
             to=self._chat_id,
             delete_after_run=delete_after_run,
         )
+        # Avisos antes do evento (preferências do onboarding): 1 default + até 3 extras
+        pre_reminder_count = 0
+        if in_seconds is not None and in_seconds > 0:
+            try:
+                from backend.database import SessionLocal
+                from backend.user_store import get_default_reminder_lead_seconds, get_extra_reminder_leads_seconds
+                db = SessionLocal()
+                try:
+                    default_lead = get_default_reminder_lead_seconds(db, self._chat_id)
+                    extra_leads = get_extra_reminder_leads_seconds(db, self._chat_id)
+                    seen = set()
+                    leads = []
+                    if default_lead and default_lead not in seen:
+                        seen.add(default_lead)
+                        leads.append(default_lead)
+                    for L in extra_leads:
+                        if L and L not in seen:
+                            seen.add(L)
+                            leads.append(L)
+                    leads.sort(reverse=True)  # maior antecedência primeiro
+                    for lead_sec in leads[:4]:  # max 4 (1 default + 3 extras)
+                        when_sec = in_seconds - lead_sec
+                        if when_sec <= 0:
+                            continue
+                        at_ms = int(time.time() * 1000) + when_sec * 1000
+                        self._cron.add_job(
+                            name=(message[:26] + " (antes)"),
+                            schedule=CronSchedule(kind="at", at_ms=at_ms),
+                            message=message,
+                            deliver=True,
+                            channel=self._channel,
+                            to=self._chat_id,
+                            delete_after_run=True,
+                        )
+                        pre_reminder_count += 1
+                finally:
+                    db.close()
+            except Exception:
+                pass
         try:
             from backend.database import SessionLocal
             from backend.reminder_history import add_scheduled
@@ -145,6 +184,8 @@ class CronTool(Tool):
         except Exception:
             pass
         msg = f"Lembrete agendado (id: {job.id})."
+        if pre_reminder_count > 0:
+            msg += f" + {pre_reminder_count} aviso(s) antes do evento (conforme as tuas preferências)."
         # Para lembretes "daqui a X min", mostrar a hora no timezone do utilizador
         if in_seconds is not None and in_seconds > 0 and job.state.next_run_at_ms:
             at_sec = job.state.next_run_at_ms // 1000

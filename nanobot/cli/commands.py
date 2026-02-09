@@ -264,7 +264,7 @@ def gateway(
                 logger.exception(f"Yearly recap failed: {e}")
                 return f"Recap Ano Novo falhou: {e}"
 
-        if scope_provider and scope_model and job.payload.deliver and job.payload.to:
+        if job.payload.deliver and job.payload.to and provider and (config.agents.defaults.model or "").strip():
             try:
                 # Idioma do destinatário (pt-PT, pt-BR, es, en) para a mensagem do lembrete
                 user_lang = "en"
@@ -284,22 +284,28 @@ def gateway(
                     "es": "Escribe el mensaje en español.",
                     "en": "Write the message in English.",
                 }.get(user_lang, "Write the message in English.")
-                # Xiaomi: embelezar + emojis + frase de rapport conforme o tipo (médico, cinema, etc.)
+                # DeepSeek: mensagem criativa e variada a partir do contexto do lembrete (sem frases fixas)
                 prompt = (
-                    "Short message with this reminder for the user. Include 1-2 emojis. "
-                    "Add ONE rapport phrase (no question): doctor/consultation → hope you're well; "
-                    "cinema/film → don't forget the film, enjoy!; shopping → happy shopping; water → healthy!; other → short warm phrase. "
-                    f"{lang_instruction} Reply only with the message text. Reminder: "
-                ) + job.payload.message
-                r = await scope_provider.chat(
-                    messages=[{"role": "user", "content": prompt}],
-                    model=scope_model,
-                    max_tokens=200,
-                    temperature=0.4,  # um pouco de variação para não ficar sempre o mesmo texto
-                )
-                response = (r.content or job.payload.message or "").strip()
+                    "You are sending a reminder to the user. Below is the reminder content. "
+                    "Write ONE short, friendly message that delivers this reminder. "
+                    "Be CREATIVE and NATURAL: look at the context (e.g. jantar, médico, compras, cinema) and choose a tone that fits (warm, encouraging, light). "
+                    "Use 1-2 emojis. Do NOT repeat the same phrase every time (e.g. avoid always saying 'hope you're well'). "
+                    "Vary your wording. Be positive and human. One or two short sentences only. "
+                    f"{lang_instruction} Reply only with the message text, nothing else.\n\nReminder: "
+                ) + (job.payload.message or "")
+                try:
+                    r = await provider.chat(
+                        messages=[{"role": "user", "content": prompt}],
+                        model=config.agents.defaults.model or "",
+                        max_tokens=220,
+                        temperature=0.7,
+                    )
+                    response = (r.content or job.payload.message or "").strip()
+                except Exception as e:
+                    logger.warning(f"Cron (DeepSeek reminder message) failed: {e}")
+                    response = job.payload.message or ""
             except Exception as e:
-                logger.warning(f"Cron (scope LLM) failed: {e}")
+                logger.warning(f"Cron deliver failed: {e}")
                 response = job.payload.message or ""
             ch, to = job.payload.channel or "cli", job.payload.to
             logger.info(f"Cron deliver: channel={ch} to={to[:20]}... content_len={len(response or '')}")

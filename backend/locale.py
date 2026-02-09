@@ -121,6 +121,39 @@ def preferred_name_confirmation(lang: LangCode, name: str) -> str:
     return msgs.get(lang, msgs["en"])
 
 
+def _seconds_to_lead_label(sec: int) -> str:
+    """Converte segundos em etiqueta curta (ex.: 86400 -> '1 dia')."""
+    if sec >= 86400:
+        d = sec // 86400
+        return f"{d} dia" if d == 1 else f"{d} dias"
+    if sec >= 3600:
+        h = sec // 3600
+        return f"{h} hora" if h == 1 else f"{h} horas"
+    m = sec // 60
+    return f"{m} min" if m == 1 else f"{m} min"
+
+
+def lead_time_confirmation(lang: LangCode, default_seconds: int | None, extra_seconds: list[int]) -> str:
+    """Mensagem de confirmação após gravar preferências de avisos antes do evento."""
+    default_str = _seconds_to_lead_label(default_seconds) if default_seconds else ""
+    extra_str = ", ".join(_seconds_to_lead_label(s) for s in extra_seconds) if extra_seconds else ""
+    if lang == "pt-PT":
+        if extra_str:
+            return f"Tudo certo! ✨ Receberás um aviso {default_str} antes, mais avisos a {extra_str} antes, e o lembrete na hora do evento. Qualquer coisa, é só dizeres. 😊"
+        return f"Tudo certo! ✨ Receberás um aviso {default_str} antes e o lembrete na hora do evento. 😊"
+    if lang == "pt-BR":
+        if extra_str:
+            return f"Beleza! ✨ Você receberá um aviso {default_str} antes, mais avisos a {extra_str} antes, e o lembrete na hora do evento. Qualquer coisa, manda mensagem. 😊"
+        return f"Beleza! ✨ Você receberá um aviso {default_str} antes e o lembrete na hora do evento. 😊"
+    if lang == "es":
+        if extra_str:
+            return f"¡Listo! ✨ Recibirás un aviso {default_str} antes, más avisos a {extra_str} antes, y el recordatorio en el momento del evento. Cualquier cosa, dila. 😊"
+        return f"¡Listo! ✨ Recibirás un aviso {default_str} antes y el recordatorio en el momento del evento. 😊"
+    if extra_str:
+        return f"Done! ✨ You'll get a reminder {default_str} before, plus reminders at {extra_str} before, and at the event time. 😊"
+    return f"Done! ✨ You'll get a reminder {default_str} before and at the event time. 😊"
+
+
 # Fallbacks para mensagem "fora do escopo" por idioma (quando não há Xiaomi ou falha)
 OUT_OF_SCOPE_FALLBACKS: dict[LangCode, list[str]] = {
     "pt-PT": [
