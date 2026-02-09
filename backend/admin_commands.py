@@ -1,0 +1,286 @@
+"""God Mode: comandos admin prefixados por #. Apenas números em ADMIN_NUMBERS podem executar.
+
+Comandos: #status, #users, #paid, #cron, #server, #system, #ai, #painpoints.
+Nunca retornar secrets (tokens, API keys, connection strings).
+"""
+
+import json
+import os
+import re
+import time
+from pathlib import Path
+from typing import Any
+
+from loguru import logger
+
+# Admin numbers: env ADMIN_NUMBERS, lista separada por vírgula (ex.: 351912345678,5511999999999)
+def _admin_numbers() -> set[str]:
+    raw = os.environ.get("ADMIN_NUMBERS", "").strip()
+    if not raw:
+        return set()
+    return {_normalize_phone(p.strip()) for p in raw.split(",") if p.strip()}
+
+
+def _normalize_phone(phone: str) -> str:
+    """Apenas dígitos para comparação."""
+    return "".join(c for c in str(phone) if c.isdigit())
+
+
+def is_admin(phone_number: str) -> bool:
+    """True se o número está em ADMIN_NUMBERS (comparação por dígitos)."""
+    if not phone_number:
+        return False
+    digits = _normalize_phone(phone_number)
+    if not digits:
+        return False
+    admins = _admin_numbers()
+    if digits in admins:
+        return True
+    return any(digits == _normalize_phone(a) for a in admins)
+
+
+# Comandos aceites: #cmd (case-insensitive)
+_ADMIN_CMD_RE = re.compile(r"^\s*#(\w+)\s*$", re.I)
+_VALID_COMMANDS = frozenset({"status", "users", "paid", "cron", "server", "system", "ai", "painpoints"})
+
+
+def parse_admin_command(text: str) -> str | None:
+    """
+    Se a mensagem for um comando admin (#cmd), retorna o cmd em minúsculas.
+    Caso contrário retorna None.
+    """
+    if not text or not text.strip():
+        return None
+    m = _ADMIN_CMD_RE.match(text.strip())
+    if not m:
+        return None
+    cmd = m.group(1).lower()
+    return cmd if cmd in _VALID_COMMANDS else None
+
+
+def log_unauthorized(from_id: str, command: str) -> None:
+    """Log de tentativa não autorizada (sem PII além do identificador do comando)."""
+    logger.warning(
+        "admin_unauthorized from={} cmd={} ts={}",
+        from_id[:8] + "***" if len(from_id) > 8 else "***",
+        command,
+        int(time.time()),
+    )
+
+
+async def handle_admin_command(
+    command: str,
+    *,
+    cron_store_path: Path | None = None,
+    db_session_factory: Any = None,
+) -> str:
+    """
+    Executa o comando admin e retorna texto curto (1–2 telas).
+    Nunca inclui secrets.
+    """
+    raw = (command or "").strip()
+    cmd = raw.lstrip("#").strip().lower() if raw.startswith("#") else raw.lower()
+    if not cmd or cmd not in _VALID_COMMANDS:
+        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #paid #cron #server #system #ai #painpoints"
+
+    if cmd == "status":
+        return _cmd_status()
+
+    if cmd == "users":
+        return await _cmd_users(db_session_factory)
+
+    if cmd == "paid":
+        return await _cmd_paid(db_session_factory)
+
+    if cmd == "cron":
+        return _cmd_cron(cron_store_path)
+
+    if cmd == "server":
+        return _cmd_server()
+
+    if cmd == "system":
+        return _cmd_system()
+
+    if cmd == "ai":
+        return _cmd_ai()
+
+    if cmd == "painpoints":
+        return _cmd_painpoints(cron_store_path)
+
+    return "?"
+
+
+def _cmd_status() -> str:
+    """Resumo rápido do sistema."""
+    lines = ["#status", "God Mode ativo. Comandos: #users #paid #cron #server #system #ai #painpoints"]
+    return "\n".join(lines)
+
+
+async def _cmd_users(db_session_factory: Any) -> str:
+    """Total de usuários registrados."""
+    if not db_session_factory:
+        return "#users\nErro: DB não disponível."
+    try:
+        from backend.models_db import User
+        db = db_session_factory()
+        try:
+            total = db.query(User).count()
+            return f"#users\nTotal: {total} utilizadores registados."
+        finally:
+            db.close()
+    except Exception as e:
+        logger.debug(f"admin #users failed: {e}")
+        return "#users\nErro ao consultar DB."
+
+
+async def _cmd_paid(db_session_factory: Any) -> str:
+    """Total pagantes (critério: assinatura ativa – por definir no modelo)."""
+    if not db_session_factory:
+        return "#paid\nErro: DB não disponível."
+    try:
+        from backend.models_db import User
+        db = db_session_factory()
+        try:
+            # Critério futuro: coluna subscription_active ou tabela payments
+            total_users = db.query(User).count()
+            paid = 0  # TODO: quando existir coluna/tabela de pagamento
+            return f"#paid\nTotal pagantes: {paid} (critério: assinatura ativa – a definir)\nTotal users: {total_users}"
+        finally:
+            db.close()
+    except Exception as e:
+        logger.debug(f"admin #paid failed: {e}")
+        return "#paid\nErro ao consultar DB."
+
+
+def _cmd_cron(cron_store_path: Path | None) -> str:
+    """Quantidade de cron jobs e status (último run / next run)."""
+    path = cron_store_path or (Path.home() / ".nanobot" / "cron" / "jobs.json")
+    if not path.exists():
+        return "#cron\n0 jobs (ficheiro não encontrado)."
+    try:
+        data = json.loads(path.read_text())
+        jobs = data.get("jobs", [])
+        total = len(jobs)
+        enabled = sum(1 for j in jobs if j.get("enabled", True))
+        lines = [f"#cron\nJobs: {total} (ativos: {enabled})"]
+        for j in jobs[:10]:
+            state = j.get("state", {})
+            next_ms = state.get("nextRunAtMs")
+            last_ms = state.get("lastRunAtMs")
+            name = j.get("name", j.get("id", "?"))[:20]
+            next_str = f"next: {_ms_to_short(next_ms)}" if next_ms else "next: -"
+            last_str = f"last: {_ms_to_short(last_ms)}" if last_ms else "last: -"
+            lines.append(f"  {name} | {next_str} | {last_str}")
+        if total > 10:
+            lines.append(f"  ... e mais {total - 10}")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.debug(f"admin #cron failed: {e}")
+        return "#cron\nErro ao ler jobs."
+
+
+def _ms_to_short(ms: int | None) -> str:
+    if ms is None:
+        return "-"
+    try:
+        t = ms / 1000
+        if t < 60:
+            return f"{int(t)}s"
+        if t < 3600:
+            return f"{int(t // 60)}m"
+        if t < 86400:
+            return f"{int(t // 3600)}h"
+        return f"{int(t // 86400)}d"
+    except Exception:
+        return "-"
+
+
+def _cmd_server() -> str:
+    """RAM, CPU, disco (sem secrets)."""
+    lines = ["#server"]
+    try:
+        import psutil
+        mem = psutil.virtual_memory()
+        lines.append(f"RAM: {mem.percent}% usado | livre: {_bytes_short(mem.available)}")
+        try:
+            load = os.getloadavg()
+            lines.append(f"Load (1m): {load[0]:.2f}")
+        except (AttributeError, OSError):
+            if hasattr(psutil, "getloadavg"):
+                try:
+                    load = psutil.getloadavg()
+                    lines.append(f"Load (1m): {load[0]:.2f}")
+                except Exception:
+                    lines.append("Load: N/A")
+            else:
+                lines.append("Load: N/A (Windows)")
+        disk = psutil.disk_usage("/")
+        lines.append(f"Disco: {disk.percent}% usado | livre: {_bytes_short(disk.free)}")
+    except ImportError:
+        lines.append("psutil não instalado. pip install psutil")
+    except Exception as e:
+        logger.debug(f"admin #server failed: {e}")
+        lines.append(f"Erro: {type(e).__name__}")
+    return "\n".join(lines)
+
+
+def _bytes_short(n: int) -> str:
+    for u, s in [(1 << 30, "G"), (1 << 20, "M"), (1 << 10, "K")]:
+        if n >= u:
+            return f"{n / u:.1f}{s}"
+    return f"{n}B"
+
+
+def _cmd_system() -> str:
+    """Erros últimos 60 min, latência média (estrutura; métricas a integrar)."""
+    lines = ["#system"]
+    # Placeholder: sem store de erros/latência ainda
+    lines.append("Erros (60 min): N/A – configurar logging agregado")
+    lines.append("Latência média: N/A – configurar métricas")
+    return "\n".join(lines)
+
+
+def _cmd_ai() -> str:
+    """Uso de tokens por provedor (dia/7d, input/output, custo estimado)."""
+    lines = ["#ai"]
+    try:
+        from backend.token_usage import get_usage_summary
+        summary = get_usage_summary()
+        if summary:
+            lines.append(summary)
+        else:
+            lines.append("Nenhuma métrica de tokens registada (por dia/7d).")
+    except ImportError:
+        lines.append("Módulo token_usage não configurado. Tokens por provedor (DeepSeek, Mimo) a implementar.")
+    except Exception as e:
+        logger.debug(f"admin #ai failed: {e}")
+        lines.append("Erro ao obter métricas de tokens.")
+    return "\n".join(lines)
+
+
+def _cmd_painpoints(cron_store_path: Path | None) -> str:
+    """Heurísticas: jobs atrasados, etc."""
+    lines = ["#painpoints"]
+    path = cron_store_path or (Path.home() / ".nanobot" / "cron" / "jobs.json")
+    now_ms = int(time.time() * 1000)
+    atrasados = 0
+    if path.exists():
+        try:
+            data = json.loads(path.read_text())
+            for j in data.get("jobs", []):
+                if not j.get("enabled", True):
+                    continue
+                next_run = (j.get("state") or {}).get("nextRunAtMs")
+                if next_run and next_run < now_ms - 60_000:  # 1 min atraso
+                    atrasados += 1
+            if atrasados:
+                lines.append(f"Jobs em atraso: {atrasados}")
+            else:
+                lines.append("Jobs em atraso: 0")
+        except Exception:
+            lines.append("Jobs: erro ao ler")
+    else:
+        lines.append("Jobs: ficheiro não encontrado")
+    lines.append("Endpoints lentos: N/A – configurar APM")
+    lines.append("Picos de erro: N/A – configurar agregado")
+    return "\n".join(lines)

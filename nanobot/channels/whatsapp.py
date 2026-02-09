@@ -179,7 +179,46 @@ class WhatsAppChannel(BaseChannel):
             if content == "[Voice Message]":
                 logger.info(f"Voice message received from {sender_id}, but direct download from bridge is not yet supported.")
                 content = "[Voice Message: Transcription not available for WhatsApp yet]"
-            
+
+            # God Mode: comandos # só para admins (ADMIN_NUMBERS)
+            if (content or "").strip().startswith("#"):
+                from backend.admin_commands import (
+                    is_admin,
+                    handle_admin_command,
+                    log_unauthorized,
+                )
+                from nanobot.bus.events import OutboundMessage
+                if not is_admin(sender_id):
+                    log_unauthorized(sender_id, (content or "").strip()[:50])
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content="Não autorizado.",
+                    ))
+                    return
+                try:
+                    from backend.database import SessionLocal
+                    from pathlib import Path
+                    cron_path = Path.home() / ".nanobot" / "cron" / "jobs.json"
+                    response = await handle_admin_command(
+                        (content or "").strip(),
+                        db_session_factory=SessionLocal,
+                        cron_store_path=cron_path,
+                    )
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content=response or "—",
+                    ))
+                except Exception as e:
+                    logger.exception(f"Admin command failed: {e}")
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content="Erro ao executar comando admin.",
+                    ))
+                return
+
             # Forward to agent only for private chats (groups already filtered above)
             trace_id = uuid.uuid4().hex[:12]
             await self._handle_message(

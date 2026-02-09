@@ -55,6 +55,41 @@ Crie `~/.nanobot/config.json` (ou `%USERPROFILE%\.nanobot\config.json` no Window
 - `allow_from`: lista vazia = qualquer número; ou `["5511999999999"]` (país + número, sem + nem espaços).
 - As chaves **DeepSeek** e **Xiaomi** põem-se no `.env` (`NANOBOT_PROVIDERS__DEEPSEEK__API_KEY`, `NANOBOT_PROVIDERS__XIAOMI__API_KEY`). Ver [DEPLOY.md](DEPLOY.md) § 1.1.
 
+### God Mode (comandos admin)
+
+Apenas números listados em **`ADMIN_NUMBERS`** (variável de ambiente, lista separada por vírgula) podem executar comandos prefixados por `#`. Quem não for admin recebe «Não autorizado.» e a tentativa é registada em log (sem vazar dados).
+
+**Variável:** `ADMIN_NUMBERS=351912345678,5511999999999` (exemplo: tu e outro admin).
+
+**Comandos (1–2 telas de texto):**
+
+| Comando   | Conteúdo |
+|-----------|----------|
+| `#status` | Resumo e lista de comandos |
+| `#users`  | Total de utilizadores registados (DB) |
+| `#paid`   | Total pagantes (critério a definir) |
+| `#cron`   | N.º de jobs agendados, último/next run |
+| `#server` | RAM, CPU (load), disco (psutil) |
+| `#system` | Erros 60 min, latência (estrutura para métricas) |
+| `#ai`     | Uso de tokens por provedor (dia/7d; a implementar) |
+| `#painpoints` | Jobs atrasados, endpoints lentos (heurísticas) |
+
+**Exemplo de output (admin envia `#users`):**
+```
+#users
+Total: 12 utilizadores registados.
+```
+
+**Exemplo de output (`#server`):**
+```
+#server
+RAM: 45% usado | livre: 2.1G
+Load (1m): N/A (Windows)
+Disco: 62% usado | livre: 120.5G
+```
+
+Segurança: as respostas **nunca** incluem secrets (tokens, API keys, connection strings). Tentativas não autorizadas são logadas com identificador truncado, comando e timestamp.
+
 ## Uso
 
 1. **Inicializar:** `zapassist onboard`
