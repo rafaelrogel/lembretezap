@@ -37,6 +37,21 @@ Por agora a arquitetura assume **uma instância** por deploy.
 - O **trace_id** é definido no contexto da request e incluído nos logs (formato texto ou JSON), permitindo seguir uma mensagem em todos os componentes.
 - **JSON logs:** definir `NANOBOT_LOG_JSON=1` (e opcionalmente `NANOBOT_LOG_LEVEL=DEBUG`) para saída em JSON, adequada a agregadores (e.g. ELK, Datadog).
 
+## Escolha de modelo (DeepSeek vs Mimo)
+
+**Escolhe Mimo quando:**
+
+1. **Há muita lógica de raciocínio** — cálculos de tempo, otimizações, resolução de conflitos (ex.: horários, sobreposição de lembretes).
+2. **Utilizadores pedem frequentemente análises de histórico** — rever conversa, quantos lembretes, resumos, horas mais comuns, estatísticas.
+3. **Velocidade de resposta é crítica** — alto volume; Mimo é mais leve e rápido para respostas analíticas.
+
+**Escolhe DeepSeek quando:**
+
+- O pedido é **conversacional** (diálogo, agendar em linguagem natural, listas, eventos).
+- É preciso **raciocínio com ferramentas** (cron, list_tool, event_tool) e múltiplos passos.
+
+O loop aplica esta regra antes de chamar o agente: se `is_analytical_message(content)`, trata com Mimo (handlers de rever/analytics); caso contrário segue para o agente (DeepSeek).
+
 ## Circuit breaker (LLM e chamadas externas)
 
 - **Implementado:** um circuit breaker protege as chamadas ao LLM (incluindo o scope filter).

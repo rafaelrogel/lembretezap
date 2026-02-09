@@ -235,7 +235,8 @@ class CronService:
         job.state.last_run_at_ms = start_ms
         job.updated_at_ms = _now_ms()
         
-        # Handle one-shot jobs
+        # Política: não recorrente = esquecer após entrega (remover do cron); recorrente = manter até fim da recorrência
+        # One-shot (kind="at", delete_after_run): apagar da memória/cron após a lembrança; pode ficar em histórico noutra camada se desejado
         if job.schedule.kind == "at":
             if job.delete_after_run:
                 self._store.jobs = [j for j in self._store.jobs if j.id != job.id]
@@ -243,7 +244,7 @@ class CronService:
                 job.enabled = False
                 job.state.next_run_at_ms = None
         else:
-            # Compute next run
+            # Recorrente: manter listado e agendar próxima execução até o utilizador remover (ou fim da recorrência se implementado)
             job.state.next_run_at_ms = _compute_next_run(job.schedule, _now_ms())
     
     # ========== Public API ==========
@@ -263,18 +264,19 @@ class CronService:
         channel: str | None = None,
         to: str | None = None,
         delete_after_run: bool = False,
+        payload_kind: str = "agent_turn",
     ) -> CronJob:
-        """Add a new job."""
+        """Add a new job. payload_kind: 'agent_turn' (default) ou 'system_event' (ex.: yearly_recap)."""
         store = self._load_store()
         now = _now_ms()
-        
+        kind = payload_kind if payload_kind in ("agent_turn", "system_event") else "agent_turn"
         job = CronJob(
             id=str(uuid.uuid4())[:8],
             name=name,
             enabled=True,
             schedule=schedule,
             payload=CronPayload(
-                kind="agent_turn",
+                kind=kind,
                 message=message,
                 deliver=deliver,
                 channel=channel,

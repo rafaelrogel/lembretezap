@@ -22,7 +22,9 @@ class User(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     phone_hash = Column(String(64), unique=True, nullable=False, index=True)  # hash(phone) for lookup
     phone_truncated = Column(String(32), nullable=False)  # 55119***9999
+    preferred_name = Column(String(128), nullable=True)  # como o cliente gostaria de ser chamado (perguntado via Xiaomi)
     language = Column(String(8), nullable=True)  # pt-BR, pt-PT, es, en (None = infer from phone)
+    timezone = Column(String(64), nullable=True)  # IANA e.g. Europe/Lisbon, America/Sao_Paulo (None = infer from phone)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -67,6 +69,17 @@ class Event(Base):
     deleted = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="events")
+
+
+class ReminderHistory(Base):
+    """Histórico de pedidos e lembretes entregues para o cliente poder rever («foi este o pedido», «foi esta a lembrança»)."""
+    __tablename__ = "reminder_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    kind = Column(String(16), nullable=False)  # 'scheduled' = pedido agendado, 'delivered' = lembrança enviada
+    message = Column(Text, nullable=False)     # texto do pedido ou da mensagem enviada
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class AuditLog(Base):

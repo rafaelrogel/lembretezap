@@ -101,6 +101,26 @@ def language_switch_confirmation_message(lang: LangCode) -> str:
     return msgs.get(lang, msgs["en"])
 
 
+# Pergunta "como gostaria de ser chamado" (fallback quando não há Xiaomi)
+PREFERRED_NAME_QUESTION: dict[LangCode, str] = {
+    "pt-PT": "Como gostaria que eu te chamasse?",
+    "pt-BR": "Como você gostaria que eu te chamasse?",
+    "es": "¿Cómo te gustaría que te llamara?",
+    "en": "What would you like me to call you?",
+}
+
+
+def preferred_name_confirmation(lang: LangCode, name: str) -> str:
+    """Mensagem de confirmação após gravar o nome preferido do utilizador."""
+    msgs = {
+        "pt-PT": f"Obrigado! A partir de agora vou chamar-te {name}. 📋",
+        "pt-BR": f"Valeu! A partir de agora vou te chamar de {name}. 📋",
+        "es": f"¡Gracias! A partir de ahora te llamaré {name}. 📋",
+        "en": f"Thanks! I'll call you {name} from now on. 📋",
+    }
+    return msgs.get(lang, msgs["en"])
+
+
 # Fallbacks para mensagem "fora do escopo" por idioma (quando não há Xiaomi ou falha)
 OUT_OF_SCOPE_FALLBACKS: dict[LangCode, list[str]] = {
     "pt-PT": [

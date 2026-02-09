@@ -110,10 +110,12 @@ class CronTool(Tool):
         if every_seconds is not None and (every_seconds < 1800 or every_seconds > 86400 * 30):
             return "O intervalo mínimo para lembretes recorrentes é 30 minutos. Ex.: «a cada 30 minutos» ou «a cada 1 hora»."
 
+        # Pontual (não recorrente): após a entrega o job é removido do cron (esquecido pelo sistema); pode existir histórico noutra camada
         if in_seconds is not None and in_seconds > 0:
             at_ms = int(time.time() * 1000) + in_seconds * 1000
             schedule = CronSchedule(kind="at", at_ms=at_ms)
             delete_after_run = True
+        # Recorrente: mantém-se listado até o utilizador remover ou fim da recorrência
         elif every_seconds:
             schedule = CronSchedule(kind="every", every_ms=every_seconds * 1000)
             delete_after_run = False
@@ -132,13 +134,34 @@ class CronTool(Tool):
             to=self._chat_id,
             delete_after_run=delete_after_run,
         )
+        try:
+            from backend.database import SessionLocal
+            from backend.reminder_history import add_scheduled
+            db = SessionLocal()
+            try:
+                add_scheduled(db, self._chat_id, message)
+            finally:
+                db.close()
+        except Exception:
+            pass
         msg = f"Lembrete agendado (id: {job.id})."
-        # Para lembretes "daqui a X min", mostrar a hora e lembrar de manter o gateway ligado
+        # Para lembretes "daqui a X min", mostrar a hora no timezone do utilizador
         if in_seconds is not None and in_seconds > 0 and job.state.next_run_at_ms:
-            from datetime import datetime
             at_sec = job.state.next_run_at_ms // 1000
-            hora_str = datetime.fromtimestamp(at_sec).strftime("%H:%M")
-            msg += f" Será enviado às {hora_str}. Mantém o ZapAssist ligado para receberes a notificação."
+            try:
+                from backend.database import SessionLocal
+                from backend.user_store import get_user_timezone
+                from backend.timezone import format_utc_timestamp_for_user
+                db = SessionLocal()
+                try:
+                    tz = get_user_timezone(db, self._chat_id)
+                    hora_str = format_utc_timestamp_for_user(at_sec, tz)
+                finally:
+                    db.close()
+            except Exception:
+                from datetime import datetime
+                hora_str = datetime.fromtimestamp(at_sec).strftime("%H:%M")
+            msg += f" Será enviado às {hora_str} (no teu fuso). Mantém o ZapAssist ligado para receberes a notificação."
         if self._channel == "cli":
             msg += " (Criado pelo terminal; para receber no WhatsApp, envia o lembrete pelo próprio WhatsApp.)"
         return msg

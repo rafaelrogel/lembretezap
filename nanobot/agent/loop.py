@@ -232,6 +232,35 @@ class AgentLoop:
                 logger.debug(f"Out-of-scope message (Xiaomi) failed: {e}")
         return random.choice(fallbacks)
 
+    async def _ask_preferred_name_question(self, user_lang: str) -> str:
+        """Pergunta amigável «como gostaria de ser chamado» no idioma do utilizador (Xiaomi ou fallback)."""
+        from backend.locale import PREFERRED_NAME_QUESTION, LangCode, SUPPORTED_LANGS
+        lang_instruction = {
+            "pt-PT": "em português de Portugal",
+            "pt-BR": "em português do Brasil",
+            "es": "en español",
+            "en": "in English",
+        }.get(user_lang, "in English")
+        if self.scope_provider and self.scope_model:
+            try:
+                prompt = (
+                    "You are a friendly assistant. Ask the user in ONE short sentence how they would like to be called. "
+                    f"Reply only with that question, {lang_instruction}. No other text."
+                )
+                r = await self.scope_provider.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.scope_model,
+                    max_tokens=80,
+                    temperature=0.3,
+                )
+                out = (r.content or "").strip()
+                if out and len(out) <= 200:
+                    return out
+            except Exception as e:
+                logger.debug(f"Ask preferred name (Xiaomi) failed: {e}")
+        lang = user_lang if user_lang in SUPPORTED_LANGS else "en"
+        return PREFERRED_NAME_QUESTION.get(lang, PREFERRED_NAME_QUESTION["en"])
+
     async def _process_message(self, msg: InboundMessage) -> OutboundMessage | None:
         """
         Process a single inbound message.
@@ -299,6 +328,55 @@ class AgentLoop:
             logger.debug(f"User language check failed: {e}")
             user_lang = "en"
 
+        # Perguntar como gostaria de ser chamado (uma vez por cliente), usando Xiaomi para a pergunta
+        try:
+            from backend.database import SessionLocal
+            from backend.user_store import get_or_create_user, set_user_preferred_name
+            from backend.locale import preferred_name_confirmation, PREFERRED_NAME_QUESTION
+            db = SessionLocal()
+            try:
+                user = get_or_create_user(db, msg.chat_id)
+                session = self.sessions.get_or_create(msg.session_key)
+                has_name = bool((user.preferred_name or "").strip())
+                pending = session.metadata.get("pending_preferred_name") is True
+
+                if not has_name and pending:
+                    # Esta mensagem é a resposta: gravar nome e confirmar (ignorar comandos que começam com /)
+                    content_stripped = (msg.content or "").strip()
+                    if not content_stripped.startswith("/"):
+                        name_raw = content_stripped[:128]
+                        if name_raw and set_user_preferred_name(db, msg.chat_id, name_raw):
+                            session.metadata.pop("pending_preferred_name", None)
+                            self.sessions.save(session)
+                            conf = preferred_name_confirmation(user_lang, name_raw)
+                            session.add_message("user", msg.content)
+                            session.add_message("assistant", conf)
+                            self.sessions.save(session)
+                            return OutboundMessage(
+                                channel=msg.channel,
+                                chat_id=msg.chat_id,
+                                content=conf,
+                            )
+                    session.metadata.pop("pending_preferred_name", None)
+                    self.sessions.save(session)
+
+                if not has_name and not pending:
+                    question = await self._ask_preferred_name_question(user_lang)
+                    session.metadata["pending_preferred_name"] = True
+                    self.sessions.save(session)
+                    session.add_message("user", msg.content)
+                    session.add_message("assistant", question)
+                    self.sessions.save(session)
+                    return OutboundMessage(
+                        channel=msg.channel,
+                        chat_id=msg.chat_id,
+                        content=question,
+                    )
+            finally:
+                db.close()
+        except Exception as e:
+            logger.debug(f"Preferred name flow failed: {e}")
+
         # Handlers de comandos (README: /lembrete, /list, /feito, /add, /done, /start, etc.)
         # Confirmações sem botões: 1=sim 2=não. TODO: Após WhatsApp Business API, use buttons.
         try:
@@ -310,9 +388,20 @@ class AgentLoop:
                 cron_tool=self.tools.get("cron"),
                 list_tool=self.tools.get("list"),
                 event_tool=self.tools.get("event"),
+                session_manager=self.sessions,
+                scope_provider=self.scope_provider,
+                scope_model=self.scope_model,
             )
             result = await handlers_route(ctx, msg.content)
             if result is not None:
+                # Persistir também na sessão para o histórico da conversa ficar completo
+                try:
+                    session = self.sessions.get_or_create(msg.session_key)
+                    session.add_message("user", msg.content)
+                    session.add_message("assistant", result)
+                    self.sessions.save(session)
+                except Exception:
+                    pass
                 return OutboundMessage(
                     channel=msg.channel,
                     chat_id=msg.chat_id,
@@ -337,12 +426,52 @@ class AgentLoop:
             in_scope = is_in_scope_fast(msg.content)
         if not in_scope:
             content = await self._out_of_scope_message(msg.content, user_lang)
+            try:
+                session = self.sessions.get_or_create(msg.session_key)
+                session.add_message("user", msg.content)
+                session.add_message("assistant", content)
+                self.sessions.save(session)
+            except Exception:
+                pass
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
                 content=content,
             )
-        
+
+        # Escolha de modelo: Mimo se (1) muita lógica/raciocínio (cálculos, otimizações, conflitos),
+        # (2) pedidos de análise de histórico, (3) velocidade crítica (alto volume). Caso contrário → DeepSeek.
+        try:
+            from backend.handlers import is_analytical_message, HandlerContext, handle_analytics
+            if is_analytical_message(msg.content):
+                ctx = HandlerContext(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    cron_service=self.cron_service,
+                    cron_tool=self.tools.get("cron"),
+                    list_tool=self.tools.get("list"),
+                    event_tool=self.tools.get("event"),
+                    session_manager=self.sessions,
+                    scope_provider=self.scope_provider,
+                    scope_model=self.scope_model,
+                )
+                result = await handle_analytics(ctx, msg.content)
+                if result is not None:
+                    try:
+                        session = self.sessions.get_or_create(msg.session_key)
+                        session.add_message("user", msg.content)
+                        session.add_message("assistant", result)
+                        self.sessions.save(session)
+                    except Exception:
+                        pass
+                    return OutboundMessage(
+                        channel=msg.channel,
+                        chat_id=msg.chat_id,
+                        content=result,
+                    )
+        except Exception as e:
+            logger.debug(f"Analytics (Mimo) pre-agent check failed: {e}")
+
         # Circuit open: skip LLM, return degraded message (parser already ran above)
         if self.circuit_breaker.is_open():
             logger.warning("Circuit breaker open: responding in degraded mode (parser-only)")
@@ -355,6 +484,7 @@ class AgentLoop:
         preview = msg.content[:80] + "..." if len(msg.content) > 80 else msg.content
         logger.info(f"Processing message from {msg.channel}:{msg.sender_id}: {preview}")
 
+        # Conversacional: agente principal (DeepSeek)
         # Get or create session
         session = self.sessions.get_or_create(msg.session_key)
 

@@ -244,9 +244,26 @@ def gateway(
         cron_service=cron,
     )
     
-    # Set cron callback: entrega de lembrete = 1 chamada barata (Xiaomi), não o agente completo (DeepSeek)
+    # Recap de Ano Novo (1º jan): system_event yearly_recap → DeepSeek + Mimo para cada utilizador
     async def on_cron_job(job: CronJob) -> str | None:
         from nanobot.bus.events import OutboundMessage
+        if getattr(job.payload, "kind", None) == "system_event" and (job.payload.message or "").strip() == "yearly_recap":
+            try:
+                from backend.yearly_recap import run_year_recap
+                sent, errors = await run_year_recap(
+                    bus=bus,
+                    session_manager=agent.sessions,
+                    deepseek_provider=provider,
+                    deepseek_model=config.agents.defaults.model or "",
+                    mimo_provider=scope_provider,
+                    mimo_model=scope_model or "",
+                    default_channel="whatsapp",
+                )
+                return f"Recap Ano Novo: enviados={sent}, erros={errors}"
+            except Exception as e:
+                logger.exception(f"Yearly recap failed: {e}")
+                return f"Recap Ano Novo falhou: {e}"
+
         if scope_provider and scope_model and job.payload.deliver and job.payload.to:
             try:
                 # Idioma do destinatário (pt-PT, pt-BR, es, en) para a mensagem do lembrete
@@ -286,6 +303,16 @@ def gateway(
                 response = job.payload.message or ""
             ch, to = job.payload.channel or "cli", job.payload.to
             logger.info(f"Cron deliver: channel={ch} to={to[:20]}... content_len={len(response or '')}")
+            try:
+                from backend.database import SessionLocal
+                from backend.reminder_history import add_delivered
+                db = SessionLocal()
+                try:
+                    add_delivered(db, to, response or job.payload.message or "")
+                finally:
+                    db.close()
+            except Exception:
+                pass
             await bus.publish_outbound(OutboundMessage(
                 channel=ch,
                 chat_id=to,
@@ -312,7 +339,22 @@ def gateway(
                 logger.debug(f"Cron job {job.id}: not delivering (deliver={job.payload.deliver}, to={bool(job.payload.to)})")
         return response
     cron.on_job = on_cron_job
-    
+
+    # Garantir que o job de Recap de Ano Novo (1º de janeiro) existe
+    try:
+        from nanobot.cron.types import CronSchedule
+        existing = [j for j in cron.list_jobs(include_disabled=True) if (getattr(j.payload, "message", None) or "") == "yearly_recap"]
+        if not existing:
+            cron.add_job(
+                name="Recap Ano Novo",
+                schedule=CronSchedule(kind="cron", expr="0 9 1 1 *"),  # 9h UTC todo 1º jan
+                message="yearly_recap",
+                payload_kind="system_event",
+            )
+            console.print("[dim]Job 'Recap Ano Novo' (1º jan) registado.[/dim]")
+    except Exception as e:
+        logger.debug(f"Yearly recap job setup: {e}")
+
     # Create heartbeat service (scope provider = Xiaomi barato; senão usa o agente completo)
     async def on_heartbeat(prompt: str) -> str:
         if scope_provider and scope_model:
