@@ -329,53 +329,55 @@ class AgentLoop:
             user_lang = "en"
 
         # Perguntar como gostaria de ser chamado (uma vez por cliente), usando Xiaomi para a pergunta
-        try:
-            from backend.database import SessionLocal
-            from backend.user_store import get_or_create_user, set_user_preferred_name
-            from backend.locale import preferred_name_confirmation, PREFERRED_NAME_QUESTION
-            db = SessionLocal()
+        # Skip no canal cli (testes e uso por terminal) para não interceptar comandos
+        if msg.channel != "cli":
             try:
-                user = get_or_create_user(db, msg.chat_id)
-                session = self.sessions.get_or_create(msg.session_key)
-                has_name = bool((user.preferred_name or "").strip())
-                pending = session.metadata.get("pending_preferred_name") is True
+                from backend.database import SessionLocal
+                from backend.user_store import get_or_create_user, set_user_preferred_name
+                from backend.locale import preferred_name_confirmation, PREFERRED_NAME_QUESTION
+                db = SessionLocal()
+                try:
+                    user = get_or_create_user(db, msg.chat_id)
+                    session = self.sessions.get_or_create(msg.session_key)
+                    has_name = bool((user.preferred_name or "").strip())
+                    pending = session.metadata.get("pending_preferred_name") is True
 
-                if not has_name and pending:
-                    # Esta mensagem é a resposta: gravar nome e confirmar (ignorar comandos que começam com /)
-                    content_stripped = (msg.content or "").strip()
-                    if not content_stripped.startswith("/"):
-                        name_raw = content_stripped[:128]
-                        if name_raw and set_user_preferred_name(db, msg.chat_id, name_raw):
-                            session.metadata.pop("pending_preferred_name", None)
-                            self.sessions.save(session)
-                            conf = preferred_name_confirmation(user_lang, name_raw)
-                            session.add_message("user", msg.content)
-                            session.add_message("assistant", conf)
-                            self.sessions.save(session)
-                            return OutboundMessage(
-                                channel=msg.channel,
-                                chat_id=msg.chat_id,
-                                content=conf,
-                            )
-                    session.metadata.pop("pending_preferred_name", None)
-                    self.sessions.save(session)
+                    if not has_name and pending:
+                        # Esta mensagem é a resposta: gravar nome e confirmar (ignorar comandos que começam com /)
+                        content_stripped = (msg.content or "").strip()
+                        if not content_stripped.startswith("/"):
+                            name_raw = content_stripped[:128]
+                            if name_raw and set_user_preferred_name(db, msg.chat_id, name_raw):
+                                session.metadata.pop("pending_preferred_name", None)
+                                self.sessions.save(session)
+                                conf = preferred_name_confirmation(user_lang, name_raw)
+                                session.add_message("user", msg.content)
+                                session.add_message("assistant", conf)
+                                self.sessions.save(session)
+                                return OutboundMessage(
+                                    channel=msg.channel,
+                                    chat_id=msg.chat_id,
+                                    content=conf,
+                                )
+                        session.metadata.pop("pending_preferred_name", None)
+                        self.sessions.save(session)
 
-                if not has_name and not pending:
-                    question = await self._ask_preferred_name_question(user_lang)
-                    session.metadata["pending_preferred_name"] = True
-                    self.sessions.save(session)
-                    session.add_message("user", msg.content)
-                    session.add_message("assistant", question)
-                    self.sessions.save(session)
-                    return OutboundMessage(
-                        channel=msg.channel,
-                        chat_id=msg.chat_id,
-                        content=question,
-                    )
-            finally:
-                db.close()
-        except Exception as e:
-            logger.debug(f"Preferred name flow failed: {e}")
+                    if not has_name and not pending:
+                        question = await self._ask_preferred_name_question(user_lang)
+                        session.metadata["pending_preferred_name"] = True
+                        self.sessions.save(session)
+                        session.add_message("user", msg.content)
+                        session.add_message("assistant", question)
+                        self.sessions.save(session)
+                        return OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content=question,
+                        )
+                finally:
+                    db.close()
+            except Exception as e:
+                logger.debug(f"Preferred name flow failed: {e}")
 
         # Handlers de comandos (README: /lembrete, /list, /feito, /add, /done, /start, etc.)
         # Confirmações sem botões: 1=sim 2=não. TODO: Após WhatsApp Business API, use buttons.
