@@ -1,9 +1,9 @@
 #!/bin/bash
 #
-# ZapAssist — Instalador no VPS Linux (atualização + configuração fácil)
+# ZapAssist — Instalador no VPS Linux (instalação do zero)
 # Uso: sudo bash install_vps.sh
 #
-# Faz: remove sistema antigo → atualiza o sistema → pede chaves API → pede números god-mode → instala e arranca.
+# Faz: remove TUDO do VPS (pasta de instalação) → atualiza o sistema → pede chaves e senha god-mode → instala e arranca.
 #
 set -e
 
@@ -13,15 +13,15 @@ REPO_URL="${ZAPASSIST_REPO_URL:-https://github.com/rafaelrogel/lembretezap.git}"
 
 echo ""
 echo "=============================================="
-echo "  ZapAssist — Instalador no VPS"
+echo "  ZapAssist — Instalador no VPS (do zero)"
 echo "=============================================="
 echo ""
 echo "Este script vai:"
-echo "  1. Parar e remover a instalação antiga (se existir)"
+echo "  1. Parar contentores e APAGAR toda a instalação anterior em $INSTALL_DIR"
 echo "  2. Atualizar o sistema (apt update + upgrade)"
 echo "  3. Pedir as chaves de API (DeepSeek e Xiaomi MiMo)"
-echo "  4. Pedir os números de WhatsApp em modo god-mode (quem pode usar o bot)"
-echo "  5. Instalar Docker, baixar o código e arrancar tudo"
+echo "  4. Pedir a senha de god-mode (comandos admin no chat)"
+echo "  5. Instalar Docker (se precisar), clonar o código e arrancar tudo"
 echo ""
 
 # --- 1. Verificar root/sudo ---
@@ -31,8 +31,8 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-# --- 2. Remover sistema antigo ---
-echo "[Passo 1/7] A remover o sistema antigo..."
+# --- 2. Parar contentores e apagar toda a instalação ---
+echo "[Passo 1/7] A parar contentores e a remover toda a instalação em $INSTALL_DIR ..."
 if [ -d "$INSTALL_DIR" ]; then
   cd "$INSTALL_DIR"
   if [ -f "docker-compose.yml" ]; then
@@ -40,7 +40,8 @@ if [ -d "$INSTALL_DIR" ]; then
     docker compose down 2>/dev/null || true
   fi
   cd - > /dev/null
-  echo "    Contentores parados."
+  rm -rf "$INSTALL_DIR"
+  echo "    Pasta removida. Instalação anterior apagada."
 else
   echo "    Nenhuma instalação anterior encontrada."
 fi
@@ -119,20 +120,11 @@ else
 fi
 echo ""
 
-# --- 7. Clonar ou atualizar repositório ---
-echo "[Passo 6/7] Código do ZapAssist em ${INSTALL_DIR}..."
+# --- 7. Clonar repositório (sempre do zero) ---
+echo "[Passo 6/7] A clonar o código do ZapAssist em ${INSTALL_DIR}..."
 mkdir -p "$(dirname "$INSTALL_DIR")"
-if [ -d "${INSTALL_DIR}/.git" ]; then
-  cd "$INSTALL_DIR"
-  git fetch origin
-  git reset --hard origin/main
-  git pull --ff-only origin main || true
-  cd - > /dev/null
-  echo "    Código atualizado (main)."
-else
-  git clone "$REPO_URL" "$INSTALL_DIR"
-  echo "    Repositório clonado."
-fi
+git clone "$REPO_URL" "$INSTALL_DIR"
+echo "    Repositório clonado (main)."
 echo ""
 
 # --- 8. Dados, config.json (com allow_from) e .env ---
