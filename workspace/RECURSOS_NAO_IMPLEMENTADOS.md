@@ -130,5 +130,19 @@ Lista de funcionalidades com documento de viabilidade, “em breve” no código
 | Redis no deploy      | FEASIBILITY, CONFORMIDADE  | Média                     |
 | SQLite cripto        | FEASIBILITY, CONFORMIDADE  | Média (opcional prod)     |
 | Botões Business API  | TODOs em vários ficheiros  | Depende da migração API   |
+| Summarization / filtragem histórico | session/context/loop (fase posterior) | Média–alta          |
 
 Para implementar algo no estilo do .ics (documento de viabilidade + fluxo concreto), os candidatos mais diretos são **/hoje** e **/semana** (visões) e **/livro** e **/musica** (comandos espelhando /filme).
+
+---
+
+## 10. Otimização de tokens — summarization e filtragem de histórico (fase posterior)
+
+**Onde:** `nanobot/session/manager.py` (histórico), `nanobot/agent/context.py` (contexto), `nanobot/agent/loop.py` (build_messages).  
+**Estado:** Não implementado. Registado para **fase posterior** (após medir uso real: tamanho das sessões, tokens, custo).
+
+**Ideia:**  
+- **Summarization do histórico:** em vez de manter todas as mensagens na janela de contexto, condensar periodicamente mensagens antigas em resumos que ocupam menos tokens mas preservam a essência das interações. Permite conversas mais longas sem atingir o limite da janela.  
+- **Filtragem inteligente do histórico:** incluir no contexto apenas mensagens relevantes para a tarefa atual (ex.: ao processar um lembrete, não enviar todo o histórico de listas). Atenção: filtrar demais pode remover contexto útil (“como combinamos ontem”).
+
+**Quando implementar:** Quando houver métricas que justifiquem (sessões longas, custo de tokens alto). Até lá, o limite atual de 50 mensagens recentes (`get_history(max_messages=50)`) e o uso do Xiaomi/MiMo em fluxos simples já reduzem custo.

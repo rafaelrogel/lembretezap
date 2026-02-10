@@ -238,7 +238,7 @@ class AgentLoop:
         return random.choice(fallbacks)
 
     async def _get_onboarding_intro(self, user_lang: str) -> str:
-        """Mensagem de apresentação na primeira interação: quem somos, o que fazemos, engajadora (DeepSeek)."""
+        """Mensagem de apresentação na primeira interação. Xiaomi primeiro (fluxo simples), fallback DeepSeek."""
         lang_instruction = {
             "pt-PT": "em português de Portugal",
             "pt-BR": "em português do Brasil",
@@ -258,6 +258,19 @@ class AgentLoop:
             "4) End by asking how they would like to be called (first name or nickname).\n"
             f"Use 1-2 emojis. Reply ONLY with the message, {lang_instruction}. No preamble, no quotes."
         )
+        if self.scope_provider and self.scope_model:
+            try:
+                r = await self.scope_provider.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.scope_model,
+                    max_tokens=420,
+                    temperature=0.6,
+                )
+                out = (r.content or "").strip().strip('"\'')
+                if out and len(out) <= 800:
+                    return out
+            except Exception as e:
+                logger.debug(f"Onboarding intro (Xiaomi) failed: {e}")
         try:
             r = await self.provider.chat(
                 messages=[{"role": "user", "content": prompt}],
@@ -384,33 +397,26 @@ class AgentLoop:
                 logger.debug(f"Mimo timezone for city failed: {e}")
         return city_name, tz_iana if (tz_iana and is_valid_iana(tz_iana)) else None
 
-    def _is_calling_organizer(self, content: str) -> bool:
-        """True se a mensagem parece ser só uma 'chamada' ao bot (organizador?, cadê você?), sem pedido concreto."""
-        if not content or not content.strip():
-            return False
-        text = content.strip()
-        # Só mensagens curtas: evita que "Organizador, você consegue lembrar de tudo..." vire só "Estou aqui!"
-        if len(text) > 50:
-            return False
-        if text.startswith("/"):
-            return False
-        lower = text.lower()
-        keywords = (
-            "organizador", "organizadora", "robô", "robot", "secretária", "secretario",
-            "cadê você", "cadê tu", "onde você", "tá aí", "está aí", "estou aqui?",
-            "assistente", "oi organizador", "olá organizador", "e aí organizador",
-        )
-        return any(k in lower for k in keywords)
-
-    async def _reply_calling_organizer_with_mimo(self) -> str:
-        """Resposta curta e proativa ao ser 'chamado' (Mimo, barato). Uma só frase, à postos."""
+    async def _reply_calling_organizer_with_mimo(self, user_lang: str) -> str:
+        """Resposta curta e proativa ao ser 'chamado' (Mimo, barato). Uma só frase, no idioma do utilizador."""
+        lang_instruction = {
+            "pt-PT": "in European Portuguese (Portugal). Examples: Estou aqui!, À postos!, Chamou?",
+            "pt-BR": "in Brazilian Portuguese. Examples: Estou aqui!, Opa!, Chamou?, À postos!",
+            "es": "in Spanish. Examples: ¡Estoy aquí!, ¿Sí?, ¡Aquí!",
+            "en": "in English. Examples: I'm here!, Hey!, What's up?",
+        }.get(user_lang, "in English. Examples: I'm here!, What's up?")
         if not self.scope_provider or not self.scope_model:
-            return "Estou aqui! Em que posso ajudar?"
+            fallbacks = {
+                "pt-PT": "Estou aqui! Em que posso ajudar?",
+                "pt-BR": "Estou aqui! Em que posso ajudar?",
+                "es": "¡Estoy aquí! ¿En qué puedo ayudarte?",
+                "en": "I'm here! How can I help?",
+            }
+            return fallbacks.get(user_lang, fallbacks["en"])
         try:
             prompt = (
-                "The user just called the assistant (e.g. 'Organizador?', 'Cadê você?'). "
-                "Reply with ONE very short, friendly, proactive phrase in Portuguese (Brazil) showing you're here and ready to help. "
-                "Examples: Estou aqui!, Opa!, Chamou?, À postos!, Estou aqui, em que posso ajudar? "
+                "The user just called the assistant (short call like 'Organizador?', 'Tá aí?', 'Are you there?', 'Rapaz?'). "
+                f"Reply with ONE very short, friendly, proactive phrase {lang_instruction}. "
                 "Output ONLY that phrase, nothing else. No quotes."
             )
             r = await self.scope_provider.chat(
@@ -424,10 +430,16 @@ class AgentLoop:
                 return out
         except Exception as e:
             logger.debug(f"Mimo reply calling organizer failed: {e}")
-        return "Estou aqui! Em que posso ajudar?"
+        fallbacks = {
+            "pt-PT": "Estou aqui! Em que posso ajudar?",
+            "pt-BR": "Estou aqui! Em que posso ajudar?",
+            "es": "¡Estoy aquí! ¿En qué puedo ayudarte?",
+            "en": "I'm here! How can I help?",
+        }
+        return fallbacks.get(user_lang, fallbacks["en"])
 
     async def _ask_city_question(self, user_lang: str, name: str) -> str:
-        """Pergunta natural (DeepSeek) em que cidade está (para fuso horário). Aceita qualquer cidade do mundo."""
+        """Pergunta natural em que cidade está (para fuso horário). Xiaomi primeiro (fluxo simples), fallback DeepSeek."""
         lang_instruction = {
             "pt-PT": "em português de Portugal",
             "pt-BR": "em português do Brasil",
@@ -439,6 +451,19 @@ class AgentLoop:
             "Accept any city in the world. Write ONE short, friendly question. Use 1 emoji (e.g. 🌍). "
             "Reply only with the question, no preamble. " + lang_instruction + "."
         )
+        if self.scope_provider and self.scope_model:
+            try:
+                r = await self.scope_provider.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.scope_model,
+                    max_tokens=100,
+                    temperature=0.5,
+                )
+                out = (r.content or "").strip()
+                if out and len(out) <= 220:
+                    return out
+            except Exception as e:
+                logger.debug(f"Ask city (Xiaomi) failed: {e}")
         try:
             r = await self.provider.chat(
                 messages=[{"role": "user", "content": prompt}],
@@ -460,7 +485,7 @@ class AgentLoop:
         return fallbacks.get(user_lang, fallbacks["en"])
 
     async def _ask_lead_time_question(self, user_lang: str, name: str) -> str:
-        """Pergunta natural (DeepSeek) quanto tempo antes do evento deseja o primeiro aviso."""
+        """Pergunta natural quanto tempo antes do evento deseja o primeiro aviso. Xiaomi primeiro (fluxo simples), fallback DeepSeek."""
         lang_instruction = {
             "pt-PT": "em português de Portugal",
             "pt-BR": "em português do Brasil",
@@ -474,6 +499,19 @@ class AgentLoop:
             "Use 1-2 emojis (e.g. ⏰ 📋). Reply only with the question, no preamble. "
             f"{lang_instruction}."
         )
+        if self.scope_provider and self.scope_model:
+            try:
+                r = await self.scope_provider.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.scope_model,
+                    max_tokens=120,
+                    temperature=0.5,
+                )
+                out = (r.content or "").strip()
+                if out and len(out) <= 250:
+                    return out
+            except Exception as e:
+                logger.debug(f"Ask lead time (Xiaomi) failed: {e}")
         try:
             r = await self.provider.chat(
                 messages=[{"role": "user", "content": prompt}],
@@ -495,7 +533,7 @@ class AgentLoop:
         return fallbacks.get(user_lang, fallbacks["en"])
 
     async def _ask_extra_leads_question(self, user_lang: str, name: str) -> str:
-        """Pergunta natural (DeepSeek) se quer mais avisos antes (até 3)."""
+        """Pergunta natural se quer mais avisos antes (até 3). Xiaomi primeiro (fluxo simples), fallback DeepSeek."""
         lang_instruction = {
             "pt-PT": "em português de Portugal",
             "pt-BR": "em português do Brasil",
@@ -508,6 +546,19 @@ class AgentLoop:
             "Say they can say 'no' if they don't want any. One short, friendly sentence with 1 emoji. "
             f"Reply only with the question. {lang_instruction}."
         )
+        if self.scope_provider and self.scope_model:
+            try:
+                r = await self.scope_provider.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.scope_model,
+                    max_tokens=120,
+                    temperature=0.5,
+                )
+                out = (r.content or "").strip()
+                if out and len(out) <= 250:
+                    return out
+            except Exception as e:
+                logger.debug(f"Ask extra leads (Xiaomi) failed: {e}")
         try:
             r = await self.provider.chat(
                 messages=[{"role": "user", "content": prompt}],
@@ -592,15 +643,21 @@ class AgentLoop:
         except Exception:
             pass
 
-        # Resposta rápida quando o utilizador "chama" o organizador (ex.: "Organizador?", "Cadê você?") — Mimo, barato e proativo
-        if self._is_calling_organizer(content):
-            reply = await self._reply_calling_organizer_with_mimo()
-            if reply:
-                return OutboundMessage(
-                    channel=msg.channel,
-                    chat_id=msg.chat_id,
-                    content=reply,
-                )
+        # Resposta rápida quando o utilizador "chama" o bot (ex.: "Organizador?", "Rapaz?", "Tá aí?", "Are you there?") — Mimo, barato e proativo
+        try:
+            from backend.calling_phrases import is_calling_message
+            from backend.locale import phone_to_default_language
+            if is_calling_message(content):
+                reply_lang = phone_to_default_language(msg.chat_id)
+                reply = await self._reply_calling_organizer_with_mimo(reply_lang)
+                if reply:
+                    return OutboundMessage(
+                        channel=msg.channel,
+                        chat_id=msg.chat_id,
+                        content=reply,
+                    )
+        except Exception as e:
+            logger.debug(f"Calling-phrases check failed: {e}")
 
         # Idioma: 1º número do telemóvel, 2º configuração guardada, 3º língua do chat (se pt-PT/pt-BR/es/en)
         # Em caso de falha (ex.: DB), usar sempre idioma do número — nunca assumir "en" sem número.
