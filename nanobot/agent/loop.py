@@ -515,6 +515,18 @@ class AgentLoop:
 
         self._set_tool_context(msg.channel, msg.chat_id)
 
+        # Aviso "Estou a pesquisar" quando o pedido pode demorar (receita, lista de compras, URL)
+        try:
+            from nanobot.utils.research_hint import is_research_intent, get_searching_message
+            if is_research_intent(content):
+                await self.bus.publish_outbound(OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content=get_searching_message(),
+                ))
+        except Exception:
+            pass
+
         # Resposta rápida quando o utilizador "chama" o organizador (ex.: "Organizador?", "Cadê você?") — Mimo, barato e proativo
         if self._is_calling_organizer(content):
             reply = await self._reply_calling_organizer_with_mimo()
