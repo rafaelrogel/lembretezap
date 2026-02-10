@@ -237,6 +237,71 @@ class AgentLoop:
                 logger.debug(f"Out-of-scope message (Xiaomi) failed: {e}")
         return random.choice(fallbacks)
 
+    async def _get_onboarding_intro(self, user_lang: str) -> str:
+        """Mensagem de apresentação na primeira interação: quem somos, o que fazemos, engajadora (DeepSeek)."""
+        lang_instruction = {
+            "pt-PT": "em português de Portugal",
+            "pt-BR": "em português do Brasil",
+            "es": "en español",
+            "en": "in English",
+        }.get(user_lang, "in the user's language")
+        prompt = (
+            "You are an AI assistant for personal organization. The user is seeing you for the FIRST time. "
+            "Write a single welcome message (2-4 short paragraphs) that:\n"
+            "1) Introduces yourself as their AI for organization — friendly and warm, not robotic.\n"
+            "2) Explains clearly what you can do: create and manage lists (shopping, to-do, recipes, ingredients); "
+            "set reminders and remember appointments, meetings, special dates, commitments; "
+            "register things to look up later (films, books, music, sites to visit); "
+            "search for ingredient lists and recipes online; help with anything within organization and reminders — "
+            "'the sky is the limit' within that scope.\n"
+            "3) Makes the user feel excited and eager to try you. Be concise and scannable (short sentences, no wall of text).\n"
+            "4) End by asking how they would like to be called (first name or nickname).\n"
+            f"Use 1-2 emojis. Reply ONLY with the message, {lang_instruction}. No preamble, no quotes."
+        )
+        try:
+            r = await self.provider.chat(
+                messages=[{"role": "user", "content": prompt}],
+                model=self.model,
+                max_tokens=420,
+                temperature=0.6,
+            )
+            out = (r.content or "").strip().strip('"\'')
+            if out and len(out) <= 800:
+                return out
+        except Exception as e:
+            logger.debug(f"Onboarding intro (DeepSeek) failed: {e}")
+        fallbacks = {
+            "pt-PT": (
+                "Olá! Sou a tua assistente de organização. 📋\n\n"
+                "Posso criar listas (compras, tarefas, receitas, ingredientes), definir lembretes, "
+                "registar consultas e compromissos, datas especiais, reuniões — e até pesquisar listas de ingredientes na Internet. "
+                "Livros, filmes, sites a visitar: tudo o que precisares para não esquecer nada.\n\n"
+                "Como gostarias de ser chamado? 😊"
+            ),
+            "pt-BR": (
+                "Oi! Sou sua assistente de organização. 📋\n\n"
+                "Posso criar listas (compras, tarefas, receitas, ingredientes), definir lembretes, "
+                "registrar consultas e compromissos, datas especiais, reuniões — e até pesquisar listas de ingredientes na internet. "
+                "Livros, filmes, sites para visitar: tudo que você precisar para não esquecer nada.\n\n"
+                "Como você gostaria de ser chamado? 😊"
+            ),
+            "es": (
+                "¡Hola! Soy tu asistente de organización. 📋\n\n"
+                "Puedo crear listas (compras, tareas, recetas, ingredientes), definir recordatorios, "
+                "registrar consultas y compromisos, fechas especiales, reuniones — y hasta buscar listas de ingredientes en internet. "
+                "Libros, películas, sitios para visitar: todo lo que necesites para no olvidar nada.\n\n"
+                "¿Cómo te gustaría que te llamara? 😊"
+            ),
+            "en": (
+                "Hi! I'm your organization assistant. 📋\n\n"
+                "I can create lists (shopping, to-do, recipes, ingredients), set reminders, "
+                "register appointments and commitments, special dates, meetings — and even search for ingredient lists online. "
+                "Books, films, sites to visit: whatever you need so nothing slips through the cracks.\n\n"
+                "How would you like to be called? 😊"
+            ),
+        }
+        return fallbacks.get(user_lang, fallbacks["en"])
+
     async def _ask_preferred_name_question(self, user_lang: str) -> str:
         """Pergunta amigável «como gostaria de ser chamado» no idioma do utilizador (Xiaomi ou fallback)."""
         from backend.locale import PREFERRED_NAME_QUESTION, LangCode, SUPPORTED_LANGS
@@ -595,6 +660,21 @@ class AgentLoop:
                         self.sessions.save(session)
 
                     if not has_name and not pending:
+                        # Primeira interação: apresentação clara e engajadora (DeepSeek), depois pedir nome
+                        intro_sent = session.metadata.get("onboarding_intro_sent") is True
+                        if not intro_sent:
+                            intro = await self._get_onboarding_intro(user_lang)
+                            session.metadata["onboarding_intro_sent"] = True
+                            session.metadata["pending_preferred_name"] = True
+                            self.sessions.save(session)
+                            session.add_message("user", msg.content)
+                            session.add_message("assistant", intro)
+                            self.sessions.save(session)
+                            return OutboundMessage(
+                                channel=msg.channel,
+                                chat_id=msg.chat_id,
+                                content=intro,
+                            )
                         question = await self._ask_preferred_name_question(user_lang)
                         session.metadata["pending_preferred_name"] = True
                         self.sessions.save(session)
