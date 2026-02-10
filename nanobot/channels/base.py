@@ -66,9 +66,10 @@ class BaseChannel(ABC):
         """
         Check if a sender is allowed to use this bot.
         Compara o identificador exato e também só os dígitos (ex.: 351912540117 = 351 912 540 117).
-        Se o WhatsApp enviar LID (ex.: 123456789@lid), o sender_id será o número antes do @; podes adicionar esse valor à allow_from.
+        Lista = allow_from (config) + números adicionados via #add (allowed_extra.json).
         """
-        allow_list = getattr(self.config, "allow_from", [])
+        from nanobot.utils.extra_allowed import get_extra_allowed_list
+        allow_list = list(getattr(self.config, "allow_from", [])) + get_extra_allowed_list()
         
         if not allow_list:
             return True
@@ -117,6 +118,11 @@ class BaseChannel(ABC):
                 chat_id=str(chat_id),
                 content="Não estás autorizado a usar este bot. O teu número tem de estar na lista do administrador. Se és o dono, adiciona este número em allow_from no config e reinicia o gateway.",
             ))
+            return
+
+        # Muted/penalidade: não responder (silêncio)
+        from nanobot.utils.muted_store import is_muted
+        if is_muted(sender_id):
             return
 
         meta = metadata or {}

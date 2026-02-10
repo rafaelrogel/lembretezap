@@ -63,7 +63,10 @@ def test_parse_admin_command():
     assert parse_admin_command("#") is None
     assert parse_admin_command("hello") is None
     assert parse_admin_command("") is None
-    assert parse_admin_command("#users extra") is None  # só #cmd sozinho
+    # Com argumento: #cmd arg passa a ser aceite (ex.: #add 351...)
+    assert parse_admin_command("#users extra") == "users"
+    assert parse_admin_command("#add 351912345678") == "add"
+    assert parse_admin_command("#quit") == "quit"
 
 
 @pytest.mark.asyncio

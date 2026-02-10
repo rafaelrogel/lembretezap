@@ -43,6 +43,11 @@ def is_god_mode_activated(chat_id: str) -> bool:
     return True
 
 
+def deactivate_god_mode(chat_id: str) -> None:
+    """Desativa god-mode para este chat (ex.: comando #quit)."""
+    _god_mode_activated.pop(str(chat_id), None)
+
+
 def is_god_mode_password(content_after_hash: str) -> bool:
     """True se o texto após # corresponde à senha de god-mode."""
     pwd = get_god_mode_password()
@@ -51,14 +56,17 @@ def is_god_mode_password(content_after_hash: str) -> bool:
     return (content_after_hash or "").strip() == pwd
 
 
-# Comandos aceites: #cmd (case-insensitive)
-_ADMIN_CMD_RE = re.compile(r"^\s*#(\w+)\s*$", re.I)
-_VALID_COMMANDS = frozenset({"status", "users", "paid", "cron", "server", "system", "ai", "painpoints"})
+# Comandos aceites: #cmd ou #cmd <arg> (case-insensitive)
+_ADMIN_CMD_RE = re.compile(r"^\s*#(\w+)(?:\s+(.*))?\s*$", re.I)
+_VALID_COMMANDS = frozenset({
+    "status", "users", "paid", "cron", "server", "system", "ai", "painpoints",
+    "add", "remove", "mute", "quit",
+})
 
 
 def parse_admin_command(text: str) -> str | None:
     """
-    Se a mensagem for um comando admin (#cmd), retorna o cmd em minúsculas.
+    Se a mensagem for um comando admin (#cmd ou #cmd arg), retorna o cmd em minúsculas.
     Caso contrário retorna None.
     """
     if not text or not text.strip():
@@ -68,6 +76,21 @@ def parse_admin_command(text: str) -> str | None:
         return None
     cmd = m.group(1).lower()
     return cmd if cmd in _VALID_COMMANDS else None
+
+
+def parse_admin_command_arg(text: str) -> tuple[str | None, str]:
+    """
+    Retorna (cmd, arg) para #cmd ou #cmd <arg>. arg é o resto da linha (strip).
+    Se não for comando válido, retorna (None, "").
+    """
+    if not text or not text.strip():
+        return None, ""
+    m = _ADMIN_CMD_RE.match(text.strip())
+    if not m:
+        return None, ""
+    cmd = m.group(1).lower()
+    arg = (m.group(2) or "").strip()
+    return (cmd, arg) if cmd in _VALID_COMMANDS else (None, "")
 
 
 def log_unauthorized(from_id: str, command: str) -> None:
@@ -93,7 +116,7 @@ async def handle_admin_command(
     raw = (command or "").strip()
     cmd = raw.lstrip("#").strip().lower() if raw.startswith("#") else raw.lower()
     if not cmd or cmd not in _VALID_COMMANDS:
-        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #paid #cron #server #system #ai #painpoints"
+        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #paid #cron #server #system #ai #painpoints #add <nr> #remove <nr> #mute <nr> #quit"
 
     if cmd == "status":
         return _cmd_status()
@@ -119,12 +142,46 @@ async def handle_admin_command(
     if cmd == "painpoints":
         return _cmd_painpoints(cron_store_path)
 
+    if cmd == "add":
+        _, arg = parse_admin_command_arg(raw)
+        if not arg:
+            return "#add\nUso: #add <número de telefone>"
+        from nanobot.utils.extra_allowed import add_extra_allowed
+        digits = "".join(c for c in str(arg or "") if c.isdigit())
+        if not digits:
+            return "#add\nNúmero inválido."
+        if add_extra_allowed(arg):
+            return f"#add\nAdicionado: {digits}"
+        return f"#add\nO número {digits} já estava na lista."
+
+    if cmd == "remove":
+        _, arg = parse_admin_command_arg(raw)
+        if not arg:
+            return "#remove\nUso: #remove <número de telefone>"
+        from nanobot.utils.extra_allowed import remove_extra_allowed
+        digits = "".join(c for c in str(arg or "") if c.isdigit())
+        if not digits:
+            return "#remove\nNúmero inválido."
+        if remove_extra_allowed(arg):
+            return f"#remove\nRemovido: {digits}"
+        return f"#remove\nO número {digits} não estava na lista."
+
+    # quit e mute são tratados no canal (WhatsApp) para enviar mensagem ao utilizador muted
+    if cmd == "quit":
+        return "God-mode desativado. (Use #<senha> para ativar de novo.)"
+    if cmd == "mute":
+        return "#mute\nUso: #mute <número de telefone> (tratado no canal)"
+
     return "?"
 
 
 def _cmd_status() -> str:
     """Resumo rápido do sistema."""
-    lines = ["#status", "God Mode ativo. Comandos: #users #paid #cron #server #system #ai #painpoints"]
+    lines = [
+        "#status",
+        "God Mode ativo. Comandos: #users #paid #cron #server #system #ai #painpoints",
+        "#add <nr> #remove <nr> #mute <nr> #quit",
+    ]
     return "\n".join(lines)
 
 
