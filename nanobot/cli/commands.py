@@ -408,11 +408,6 @@ def gateway(
     # Create channel manager
     channels = ChannelManager(config, bus)
 
-    # Fila Redis: drenar outbound da fila para a queue local (deploy com REDIS_URL)
-    if bus.redis_url:
-        bus.start_redis_feeder()
-        console.print("[green]✓[/green] Redis outbound queue enabled")
-
     # Injetar cron_tool no canal WhatsApp para lembretes 15 min antes de eventos .ics
     wa_channel = channels.get_channel("whatsapp")
     if wa_channel is not None and hasattr(wa_channel, "set_ics_cron_tool"):
@@ -432,6 +427,10 @@ def gateway(
     console.print(f"[green]✓[/green] Heartbeat: every 30m")
     
     async def run():
+        # Fila Redis: iniciar feeder só com event loop a correr (evita RuntimeError: no running event loop)
+        if bus.redis_url:
+            bus.start_redis_feeder()
+            console.print("[green]✓[/green] Redis outbound queue enabled")
         try:
             await cron.start()
             await heartbeat.start()
