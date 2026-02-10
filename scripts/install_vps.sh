@@ -64,7 +64,7 @@ echo ""
 if [ -z "$DEEPSEEK_API_KEY" ]; then
   echo "  DeepSeek — para o agente (lembretes, listas, conversa)."
   echo "  Obtém em: https://platform.deepseek.com"
-  read -r -s -p "  Cola aqui a chave DeepSeek: " DEEPSEEK_API_KEY
+  read -r -p "  Cola aqui a chave DeepSeek: " DEEPSEEK_API_KEY
   echo ""
   if [ -z "$DEEPSEEK_API_KEY" ]; then
     echo "  Erro: a chave DeepSeek é obrigatória."
@@ -75,7 +75,7 @@ fi
 if [ -z "$XIAOMI_API_KEY" ]; then
   echo "  Xiaomi MiMo — para respostas rápidas e análises."
   echo "  Obtém em: https://platform.xiaomimimo.com"
-  read -r -s -p "  Cola aqui a chave Xiaomi MiMo: " XIAOMI_API_KEY
+  read -r -p "  Cola aqui a chave Xiaomi MiMo: " XIAOMI_API_KEY
   echo ""
   if [ -z "$XIAOMI_API_KEY" ]; then
     echo "  Erro: a chave Xiaomi MiMo é obrigatória."
