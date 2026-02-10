@@ -67,12 +67,15 @@ def truncate_string(s: str, max_len: int = 100, suffix: str = "...") -> str:
 
 
 def safe_filename(name: str) -> str:
-    """Convert a string to a safe filename."""
-    # Replace unsafe characters
-    unsafe = '<>:"/\\|?*'
+    """Convert a string to a safe filename. Evita path traversal (..) e caracteres perigosos."""
+    if not name:
+        return ""
+    # Remove path traversal e segmentos de path que poderiam escapar do diretório
+    name = name.replace("..", "_").replace("/", "_").replace("\\", "_")
+    unsafe = '<>:"|?*'
     for char in unsafe:
         name = name.replace(char, "_")
-    return name.strip()
+    return name.strip() or ""
 
 
 def parse_session_key(key: str) -> tuple[str, str]:

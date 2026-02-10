@@ -68,6 +68,24 @@ chmod 600 ~/.nanobot/config.json
 - Use full phone numbers with country code for WhatsApp
 - Review access logs regularly for unauthorized access attempts
 
+### 3.1 Data Isolation Between Users (Multi-tenant)
+
+To prevent data leakage between users, every user-visible resource is scoped by **chat_id** (e.g. WhatsApp JID / phone):
+
+| Resource | Isolation |
+|----------|-----------|
+| **Sessions** | `session_key = channel:chat_id`; one JSONL file per key under `~/.nanobot/sessions/` (safe filename, no path traversal). |
+| **Cron (lembretes)** | Jobs store `payload.to = chat_id`. List and remove only show/allow jobs where `payload.to == current chat_id`. |
+| **Lists / List items** | DB: `List.user_id` from `get_or_create_user(chat_id)`. All queries filter by `user_id`. |
+| **Events** | DB: `Event.user_id` from `get_or_create_user(chat_id)`. Same for ICS import. |
+| **Reminder history** | DB: `ReminderHistory.user_id`; all reads/writes use `get_or_create_user(chat_id)`. |
+| **User prefs** | Language, timezone, city, quiet window, etc.: keyed by `chat_id` (via User.phone_hash). |
+| **Memory** | `MemoryStore` uses `session_key` (channel:chat_id); each user has `workspace/memory/<safe_key>/MEMORY.md` and daily notes. |
+| **Confirmations** | Pending state keyed by `(channel, chat_id)`. |
+| **Rate limit** | Per `(channel, chat_id)`. |
+
+Handlers and tools always call `set_context(channel, chat_id)` before executing; DB queries use `user_id` from `get_or_create_user(db, chat_id)`. Session file names are sanitized with `safe_filename()` (no `..`, `/`, `\`, or other path-unsafe characters).
+
 ### 4. Shell Command Execution
 
 The `exec` tool can execute shell commands. While dangerous command patterns are blocked, you should:

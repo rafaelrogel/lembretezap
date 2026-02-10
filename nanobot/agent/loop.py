@@ -93,9 +93,13 @@ class AgentLoop:
         message_tool = MessageTool(send_callback=self.bus.publish_outbound)
         self.tools.register(message_tool)
         
-        # Cron tool (for scheduling)
+        # Cron tool (for scheduling; MIMO opcional para sugerir ID quando fora da lista de palavras)
         if self.cron_service:
-            self.tools.register(CronTool(self.cron_service))
+            self.tools.register(CronTool(
+                self.cron_service,
+                scope_provider=self.scope_provider,
+                scope_model=self.scope_model or "",
+            ))
         # List and event tools (per-user DB)
         self.tools.register(ListTool())
         self.tools.register(EventTool())
@@ -315,6 +319,48 @@ class AgentLoop:
                 logger.debug(f"Mimo timezone for city failed: {e}")
         return city_name, tz_iana if (tz_iana and is_valid_iana(tz_iana)) else None
 
+    def _is_calling_organizer(self, content: str) -> bool:
+        """True se a mensagem parece ser só uma 'chamada' ao bot (organizador?, cadê você?), sem pedido concreto."""
+        if not content or not content.strip():
+            return False
+        text = content.strip()
+        # Só mensagens curtas: evita que "Organizador, você consegue lembrar de tudo..." vire só "Estou aqui!"
+        if len(text) > 50:
+            return False
+        if text.startswith("/"):
+            return False
+        lower = text.lower()
+        keywords = (
+            "organizador", "organizadora", "robô", "robot", "secretária", "secretario",
+            "cadê você", "cadê tu", "onde você", "tá aí", "está aí", "estou aqui?",
+            "assistente", "oi organizador", "olá organizador", "e aí organizador",
+        )
+        return any(k in lower for k in keywords)
+
+    async def _reply_calling_organizer_with_mimo(self) -> str:
+        """Resposta curta e proativa ao ser 'chamado' (Mimo, barato). Uma só frase, à postos."""
+        if not self.scope_provider or not self.scope_model:
+            return "Estou aqui! Em que posso ajudar?"
+        try:
+            prompt = (
+                "The user just called the assistant (e.g. 'Organizador?', 'Cadê você?'). "
+                "Reply with ONE very short, friendly, proactive phrase in Portuguese (Brazil) showing you're here and ready to help. "
+                "Examples: Estou aqui!, Opa!, Chamou?, À postos!, Estou aqui, em que posso ajudar? "
+                "Output ONLY that phrase, nothing else. No quotes."
+            )
+            r = await self.scope_provider.chat(
+                messages=[{"role": "user", "content": prompt}],
+                model=self.scope_model,
+                max_tokens=40,
+                temperature=0.3,
+            )
+            out = (r.content or "").strip().strip('"\'')
+            if out and len(out) <= 120:
+                return out
+        except Exception as e:
+            logger.debug(f"Mimo reply calling organizer failed: {e}")
+        return "Estou aqui! Em que posso ajudar?"
+
     async def _ask_city_question(self, user_lang: str, name: str) -> str:
         """Pergunta natural (DeepSeek) em que cidade está (para fuso horário). Aceita qualquer cidade do mundo."""
         lang_instruction = {
@@ -468,6 +514,16 @@ class AgentLoop:
             pass
 
         self._set_tool_context(msg.channel, msg.chat_id)
+
+        # Resposta rápida quando o utilizador "chama" o organizador (ex.: "Organizador?", "Cadê você?") — Mimo, barato e proativo
+        if self._is_calling_organizer(content):
+            reply = await self._reply_calling_organizer_with_mimo()
+            if reply:
+                return OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content=reply,
+                )
 
         # Idioma do utilizador (por número: pt-BR, pt-PT, es, en) e pedidos explícitos de mudança
         user_lang: str = "en"

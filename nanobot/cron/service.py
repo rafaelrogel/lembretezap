@@ -3,12 +3,15 @@
 import asyncio
 import json
 import time
-import uuid
 from pathlib import Path
 from typing import Any, Callable, Coroutine
 
 from loguru import logger
 
+from nanobot.cron.friendly_id import (
+    generate_friendly_job_id,
+    generate_friendly_job_id_with_prefix,
+)
 from nanobot.cron.types import CronJob, CronJobState, CronPayload, CronSchedule, CronStore
 
 
@@ -265,13 +268,19 @@ class CronService:
         to: str | None = None,
         delete_after_run: bool = False,
         payload_kind: str = "agent_turn",
+        suggested_prefix: str | None = None,
     ) -> CronJob:
-        """Add a new job. payload_kind: 'agent_turn' (default) ou 'system_event' (ex.: yearly_recap)."""
+        """Add a new job. suggested_prefix: quando dado (ex. pelo MIMO), usa para o ID em vez de derivar da mensagem."""
         store = self._load_store()
         now = _now_ms()
         kind = payload_kind if payload_kind in ("agent_turn", "system_event") else "agent_turn"
+        existing_ids = [j.id for j in store.jobs]
+        if suggested_prefix:
+            job_id = generate_friendly_job_id_with_prefix(suggested_prefix, existing_ids)
+        else:
+            job_id = generate_friendly_job_id(message or name, existing_ids)
         job = CronJob(
-            id=str(uuid.uuid4())[:8],
+            id=job_id,
             name=name,
             enabled=True,
             schedule=schedule,

@@ -25,12 +25,17 @@ class ContextBuilder:
         self.memory = MemoryStore(workspace)
         self.skills = SkillsLoader(workspace)
     
-    def build_system_prompt(self, skill_names: list[str] | None = None) -> str:
+    def build_system_prompt(
+        self,
+        skill_names: list[str] | None = None,
+        session_key: str | None = None,
+    ) -> str:
         """
         Build the system prompt from bootstrap files, memory, and skills.
         
         Args:
             skill_names: Optional list of skills to include.
+            session_key: Optional session key (channel:chat_id) to scope memory per user and avoid data leakage.
         
         Returns:
             Complete system prompt.
@@ -45,8 +50,8 @@ class ContextBuilder:
         if bootstrap:
             parts.append(bootstrap)
         
-        # Memory context
-        memory = self.memory.get_memory_context()
+        # Memory context (scoped by session_key so each user has isolated memory)
+        memory = self.memory.get_memory_context(session_key=session_key)
         if memory:
             parts.append(f"# Memory\n\n{memory}")
         
@@ -142,8 +147,9 @@ Only use the 'message' tool when you need to send something to a specific chat c
         """
         messages = []
 
-        # System prompt
-        system_prompt = self.build_system_prompt(skill_names)
+        # System prompt (memory scoped by session so users don't see each other's data)
+        session_key = f"{channel}:{chat_id}" if (channel and chat_id) else None
+        system_prompt = self.build_system_prompt(skill_names, session_key=session_key)
         if channel and chat_id:
             system_prompt += f"\n\n## Current Session\nChannel: {channel}\nChat ID: {chat_id}"
         messages.append({"role": "system", "content": system_prompt})

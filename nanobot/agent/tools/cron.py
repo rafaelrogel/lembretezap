@@ -1,21 +1,32 @@
 """Cron tool for scheduling reminders and tasks."""
 
 import time
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from nanobot.agent.tools.base import Tool
 from nanobot.cron.service import CronService
 from nanobot.cron.types import CronSchedule
+from nanobot.cron.friendly_id import get_prefix_from_list
 from backend.sanitize import sanitize_string, validate_cron_expr, MAX_MESSAGE_LEN
+
+if TYPE_CHECKING:
+    from nanobot.providers.base import LLMProvider
 
 
 class CronTool(Tool):
     """Tool to schedule reminders and recurring tasks."""
     
-    def __init__(self, cron_service: CronService):
+    def __init__(
+        self,
+        cron_service: CronService,
+        scope_provider: "LLMProvider | None" = None,
+        scope_model: str = "",
+    ):
         self._cron = cron_service
         self._channel = ""
         self._chat_id = ""
+        self._scope_provider = scope_provider
+        self._scope_model = (scope_model or "").strip()
     
     def set_context(self, channel: str, chat_id: str) -> None:
         """Set the current session context for delivery."""
@@ -84,19 +95,45 @@ class CronTool(Tool):
             absurd = is_absurd_request(message)
             if absurd:
                 return absurd
-            return self._add_job(message, every_seconds, in_seconds, cron_expr)
+            prefix = get_prefix_from_list(message or "")
+            if prefix is None and self._scope_provider and self._scope_model:
+                prefix = await self._ask_mimo_abbreviation(message or "")
+            return self._add_job(message, every_seconds, in_seconds, cron_expr, suggested_prefix=prefix)
         elif action == "list":
             return self._list_jobs()
         elif action == "remove":
             return self._remove_job(job_id)
         return f"Unknown action: {action}"
     
+    async def _ask_mimo_abbreviation(self, message: str) -> str | None:
+        """Pede ao Xiaomi MIMO 2–3 letras para o ID do lembrete quando a mensagem não está na lista de palavras."""
+        if not message or not self._scope_provider or not self._scope_model:
+            return None
+        try:
+            prompt = (
+                f"The user created a reminder: «{message[:200]}». "
+                "Reply with ONLY 2 or 3 uppercase letters to use as a short ID (e.g. AL for lunch, PIX for payment). "
+                "No explanation, no punctuation. Only the letters."
+            )
+            r = await self._scope_provider.chat(
+                messages=[{"role": "user", "content": prompt}],
+                model=self._scope_model,
+                max_tokens=10,
+                temperature=0,
+            )
+            raw = (r.content or "").strip().upper()
+            letters = "".join(c for c in raw if c.isalpha())[:3]
+            return letters if len(letters) >= 2 else None
+        except Exception:
+            return None
+
     def _add_job(
         self,
         message: str,
         every_seconds: int | None,
         in_seconds: int | None,
         cron_expr: str | None,
+        suggested_prefix: str | None = None,
     ) -> str:
         message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
@@ -133,6 +170,7 @@ class CronTool(Tool):
             channel=self._channel,
             to=self._chat_id,
             delete_after_run=delete_after_run,
+            suggested_prefix=suggested_prefix,
         )
         # Avisos antes do evento (preferências do onboarding): 1 default + até 3 extras
         pre_reminder_count = 0
@@ -208,11 +246,13 @@ class CronTool(Tool):
         return msg
     
     def _list_jobs(self) -> str:
-        jobs = self._cron.list_jobs()
+        """Lista apenas os lembretes do utilizador atual (payload.to == chat_id). Isolamento por conversa."""
+        all_jobs = self._cron.list_jobs()
+        jobs = [j for j in all_jobs if getattr(j.payload, "to", None) == self._chat_id]
         if not jobs:
-            return "No scheduled jobs."
+            return "Nenhum lembrete agendado."
         lines = [f"- {j.name} (id: {j.id}, {j.schedule.kind})" for j in jobs]
-        return "Scheduled jobs:\n" + "\n".join(lines)
+        return "Lembretes agendados:\n" + "\n".join(lines)
     
     def _remove_job(self, job_id: str | None) -> str:
         if not job_id:
@@ -220,6 +260,12 @@ class CronTool(Tool):
         job_id = sanitize_string(str(job_id), max_len=64)
         if not job_id:
             return "Error: job_id is required for remove"
-        if self._cron.remove_job(job_id):
-            return f"Removed job {job_id}"
-        return f"Job {job_id} not found"
+        # Só permite remover jobs que pertencem a este chat_id (segurança e isolamento)
+        for j in self._cron.list_jobs():
+            if j.id == job_id:
+                if getattr(j.payload, "to", None) != self._chat_id:
+                    return f"Job {job_id} não te pertence."
+                if self._cron.remove_job(job_id):
+                    return f"Removido: {job_id}"
+                return f"Job {job_id} não encontrado."
+        return f"Job {job_id} não encontrado."
