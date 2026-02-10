@@ -414,6 +414,12 @@ def gateway(
         cron_tool = agent.tools.get("cron") if getattr(agent, "tools", None) else None
         if cron_tool:
             wa_channel.set_ics_cron_tool(cron_tool)
+    # Injetar executor do /restart (sessão + cron + listas + eventos)
+    if wa_channel is not None and hasattr(wa_channel, "set_restart_executor"):
+        from nanobot.utils.restart_flow import run_restart
+        async def _restart_executor(channel: str, chat_id: str):
+            await run_restart(channel, chat_id, session_manager=agent.sessions, cron_service=cron)
+        wa_channel.set_restart_executor(_restart_executor)
 
     if channels.enabled_channels:
         console.print(f"[green]✓[/green] Channels enabled: {', '.join(channels.enabled_channels)}")

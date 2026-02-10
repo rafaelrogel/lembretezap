@@ -74,6 +74,11 @@ class WhatsAppChannel(BaseChannel):
         self._ws = None
         self._connected = False
         self._cron_tool = None  # opcional: para lembretes 15 min antes de eventos .ics
+        self._restart_executor = None  # (channel, chat_id) -> awaitable; injetado pelo gateway
+
+    def set_restart_executor(self, executor) -> None:
+        """Injetar função async execute_restart(channel, chat_id) para o comando /restart."""
+        self._restart_executor = executor
 
     def set_ics_cron_tool(self, cron_tool) -> None:
         """Injetar CronTool para criar lembretes 15 min antes de cada evento ao importar .ics."""
@@ -295,6 +300,70 @@ class WhatsAppChannel(BaseChannel):
                         chat_id=sender,
                         content="Erro ao executar comando admin.",
                     ))
+                return
+
+            # /restart: confirmação dupla (sim/não) e depois execução do reset
+            from nanobot.utils.restart_flow import (
+                get_restart_stage,
+                set_restart_stage,
+                clear_restart_stage,
+                MSG_FIRST,
+                MSG_SECOND,
+                MSG_CANCELLED,
+                MSG_DONE,
+                is_confirm_reply,
+                is_confirm_no,
+                run_restart,
+            )
+            raw_content = (content or "").strip()
+            is_restart_cmd = raw_content.lower() in ("/restart", "restart")
+            stage = get_restart_stage(self.name, sender)
+            if is_restart_cmd and not stage:
+                set_restart_stage(self.name, sender, "1")
+                await self.bus.publish_outbound(OutboundMessage(
+                    channel=self.name,
+                    chat_id=sender,
+                    content=MSG_FIRST,
+                ))
+                return
+            if stage and is_confirm_reply(raw_content):
+                if is_confirm_no(raw_content):
+                    clear_restart_stage(self.name, sender)
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content=MSG_CANCELLED,
+                    ))
+                    return
+                if stage == "1":
+                    set_restart_stage(self.name, sender, "2")
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content=MSG_SECOND,
+                    ))
+                    return
+                if stage == "2":
+                    clear_restart_stage(self.name, sender)
+                    if self._restart_executor:
+                        try:
+                            await self._restart_executor(self.name, sender)
+                        except Exception as e:
+                            logger.exception(f"Restart executor failed: {e}")
+                            await self.bus.publish_outbound(OutboundMessage(
+                                channel=self.name,
+                                chat_id=sender,
+                                content="Erro ao reiniciar. Tenta de novo ou contacta o suporte.",
+                            ))
+                            return
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content=MSG_DONE,
+                    ))
+                    return
+            if stage:
+                # Continua à espera de sim/não; ignorar outras mensagens ou repetir o aviso
                 return
 
             # Forward to agent only for private chats (groups already filtered above)
