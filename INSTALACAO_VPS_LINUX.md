@@ -53,7 +53,16 @@ Se o repositório for outro, substitui o URL pelo teu (e garante que o ficheiro 
 sudo bash /tmp/install_vps.sh
 ```
 
-O script pede **Chave DeepSeek** e **Chave Xiaomi MiMo** (a escrita fica oculta por segurança). As chaves são guardadas apenas no `.env` no servidor; o `config.json` fica só com os modelos (opção B). **Nunca partilhes nem coles chaves em chats, emails ou repositórios.**
+O script faz tudo de forma guiada:
+
+1. **Remove o sistema antigo** — para os contentores anteriores (se existirem) e prepara para atualizar.
+2. **Atualiza o sistema** — `apt update` e `apt upgrade`.
+3. **Pede a Chave DeepSeek** — (agente: lembretes, listas). A escrita fica oculta. Obtém em [platform.deepseek.com](https://platform.deepseek.com).
+4. **Pede a Chave Xiaomi MiMo** — (respostas rápidas e análises). Obtém em [platform.xiaomimimo.com](https://platform.xiaomimimo.com).
+5. **Pede os números em modo god-mode** — os números de WhatsApp que podem usar o bot. Formato: código do país + número, sem + nem espaços (ex.: `351912345678`). Um número por linha; linha vazia para terminar. **Se não introduzires nenhum e carregares Enter, qualquer número poderá usar o bot.**
+6. Instala Docker (se precisar), atualiza o código do repositório, cria o `config.json` com os números permitidos e o `.env` com as chaves, e arranca os serviços.
+
+As chaves ficam só no `.env` no servidor; **nunca as partilhes em chats, emails ou repositórios.**
 
 **Alternativa (menos segura):** podes passar as chaves por variáveis de ambiente para não as colar no terminal, mas **ficam no histórico do bash** (ex.: `history`). Em produção é mais seguro introduzi-las quando o script pedir:
 

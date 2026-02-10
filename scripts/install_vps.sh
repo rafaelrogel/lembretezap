@@ -1,8 +1,9 @@
 #!/bin/bash
 #
-# Instalação do ZapAssist (organizador WhatsApp) num VPS Linux.
+# ZapAssist — Instalador no VPS Linux (atualização + configuração fácil)
 # Uso: sudo bash install_vps.sh
-# Ou: DEEPSEEK_API_KEY="sk-..." XIAOMI_API_KEY="sk-..." sudo -E bash install_vps.sh
+#
+# Faz: remove sistema antigo → atualiza o sistema → pede chaves API → pede números god-mode → instala e arranca.
 #
 set -e
 
@@ -10,66 +11,137 @@ INSTALL_DIR="${ZAPASSIST_INSTALL_DIR:-/opt/zapassist}"
 DATA_DIR="${INSTALL_DIR}/data"
 REPO_URL="${ZAPASSIST_REPO_URL:-https://github.com/rafaelrogel/lembretezap.git}"
 
+echo ""
 echo "=============================================="
-echo "  ZapAssist - Instalação no VPS"
+echo "  ZapAssist — Instalador no VPS"
 echo "=============================================="
+echo ""
+echo "Este script vai:"
+echo "  1. Parar e remover a instalação antiga (se existir)"
+echo "  2. Atualizar o sistema (apt update + upgrade)"
+echo "  3. Pedir as chaves de API (DeepSeek e Xiaomi MiMo)"
+echo "  4. Pedir os números de WhatsApp em modo god-mode (quem pode usar o bot)"
+echo "  5. Instalar Docker, baixar o código e arrancar tudo"
 echo ""
 
 # --- 1. Verificar root/sudo ---
 if [ "$(id -u)" -ne 0 ]; then
-  echo "Este script deve ser executado como root (ou com sudo)."
+  echo "Este script deve ser executado com sudo."
   echo "Exemplo: sudo bash install_vps.sh"
   exit 1
 fi
 
-# --- 2. Pedir ou usar chaves DeepSeek e Xiaomi MiMo ---
-if [ -z "$DEEPSEEK_API_KEY" ]; then
-  echo "Chave DeepSeek (agente: lembretes, listas). Obtém em: https://platform.deepseek.com"
-  read -r -s -p "Chave DeepSeek: " DEEPSEEK_API_KEY
-  echo ""
-  if [ -z "$DEEPSEEK_API_KEY" ]; then
-    echo "Erro: é obrigatório indicar a chave DeepSeek."
-    exit 1
+# --- 2. Remover sistema antigo ---
+echo "[Passo 1/7] A remover o sistema antigo..."
+if [ -d "$INSTALL_DIR" ]; then
+  cd "$INSTALL_DIR"
+  if [ -f "docker-compose.yml" ]; then
+    docker compose -f docker-compose.yml -f docker-compose.vps.yml down 2>/dev/null || true
+    docker compose down 2>/dev/null || true
   fi
+  cd - > /dev/null
+  echo "    Contentores parados."
+else
+  echo "    Nenhuma instalação anterior encontrada."
 fi
-if [ -z "$XIAOMI_API_KEY" ]; then
-  echo "Chave Xiaomi MiMo (scope + heartbeat). Obtém em: https://platform.xiaomimimo.com"
-  read -r -s -p "Chave Xiaomi MiMo: " XIAOMI_API_KEY
-  echo ""
-  if [ -z "$XIAOMI_API_KEY" ]; then
-    echo "Erro: é obrigatório indicar a chave Xiaomi MiMo."
-    exit 1
-  fi
-fi
-echo "Chaves recebidas (serão guardadas apenas no .env local)."
-
-# --- 3. Instalar dependências (apt) ---
 echo ""
-echo "[1/6] A atualizar o sistema e a instalar dependências..."
+
+# --- 3. Atualizar o sistema ---
+echo "[Passo 2/7] A atualizar o sistema (pode demorar um pouco)..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
+apt-get upgrade -y -qq
 apt-get install -y -qq curl git ca-certificates
+echo "    Sistema atualizado."
+echo ""
 
-# --- 4. Instalar Docker se não existir ---
+# --- 4. Pedir chaves API ---
+echo "[Passo 3/7] Chaves de API"
+echo "    (As chaves ficam só no servidor, no ficheiro .env — não são enviadas para lado nenhum.)"
+echo ""
+
+if [ -z "$DEEPSEEK_API_KEY" ]; then
+  echo "  DeepSeek — para o agente (lembretes, listas, conversa)."
+  echo "  Obtém em: https://platform.deepseek.com"
+  read -r -s -p "  Cola aqui a chave DeepSeek: " DEEPSEEK_API_KEY
+  echo ""
+  if [ -z "$DEEPSEEK_API_KEY" ]; then
+    echo "  Erro: a chave DeepSeek é obrigatória."
+    exit 1
+  fi
+fi
+
+if [ -z "$XIAOMI_API_KEY" ]; then
+  echo "  Xiaomi MiMo — para respostas rápidas e análises."
+  echo "  Obtém em: https://platform.xiaomimimo.com"
+  read -r -s -p "  Cola aqui a chave Xiaomi MiMo: " XIAOMI_API_KEY
+  echo ""
+  if [ -z "$XIAOMI_API_KEY" ]; then
+    echo "  Erro: a chave Xiaomi MiMo é obrigatória."
+    exit 1
+  fi
+fi
+echo "    Chaves guardadas (só no .env)."
+echo ""
+
+# --- 5. Números god-mode (allow_from) ---
+echo "[Passo 4/7] Números em modo god-mode (quem pode usar o bot)"
+echo "    Estes números de WhatsApp vão poder falar com o organizador."
+echo "    Formato: código do país + número, SEM + e SEM espaços."
+echo "    Exemplo: 351912345678  ou  5511999999999"
+echo "    Se deixares em branco e carregares Enter, QUALQUER número poderá usar o bot."
+echo ""
+ALLOW_FROM_JSON="[]"
+ALLOW_NUMBERS=""
+echo "  Escreve um número e Enter; repete para mais números; linha vazia para terminar:"
+while true; do
+  read -r -p "  Número: " line
+  line=$(echo "$line" | tr -d ' \t+' | tr -cd '0-9')
+  if [ -z "$line" ]; then
+    break
+  fi
+  if [ -n "$ALLOW_NUMBERS" ]; then
+    ALLOW_NUMBERS="$ALLOW_NUMBERS $line"
+  else
+    ALLOW_NUMBERS="$line"
+  fi
+done
+
+if [ -n "$ALLOW_NUMBERS" ]; then
+  # Construir JSON array ["num1","num2",...]
+  ALLOW_FROM_JSON="["
+  first=1
+  for n in $ALLOW_NUMBERS; do
+    [ "$first" -eq 1 ] && first=0 || ALLOW_FROM_JSON="$ALLOW_FROM_JSON,"
+    ALLOW_FROM_JSON="$ALLOW_FROM_JSON\"$n\""
+  done
+  ALLOW_FROM_JSON="$ALLOW_FROM_JSON]"
+  echo "    Números permitidos: $ALLOW_NUMBERS"
+else
+  echo "    Qualquer número poderá usar o bot (lista vazia)."
+fi
+echo ""
+
+# --- 6. Docker e Docker Compose ---
+echo "[Passo 5/7] Docker..."
 if ! command -v docker &> /dev/null; then
-  echo "[2/6] A instalar Docker..."
+  echo "    A instalar Docker..."
   curl -fsSL https://get.docker.com | sh
   systemctl enable docker
   systemctl start docker
 else
-  echo "[2/6] Docker já está instalado."
+  echo "    Docker já está instalado."
 fi
-
-# --- 5. Instalar Docker Compose se não existir ---
 if ! command -v docker compose &> /dev/null 2>&1; then
-  echo "[3/6] A instalar Docker Compose plugin..."
+  echo "    A instalar Docker Compose..."
   apt-get install -y -qq docker-compose-plugin
 else
-  echo "[3/6] Docker Compose já está instalado."
+  echo "    Docker Compose já está instalado."
 fi
+echo ""
 
-# --- 6. Clonar ou atualizar o repositório ---
-echo "[4/6] A preparar o código em ${INSTALL_DIR}..."
+# --- 7. Clonar ou atualizar repositório ---
+echo "[Passo 6/7] Código do ZapAssist em ${INSTALL_DIR}..."
 mkdir -p "$(dirname "$INSTALL_DIR")"
 if [ -d "${INSTALL_DIR}/.git" ]; then
   cd "$INSTALL_DIR"
@@ -77,17 +149,20 @@ if [ -d "${INSTALL_DIR}/.git" ]; then
   git reset --hard origin/main
   git pull --ff-only origin main || true
   cd - > /dev/null
+  echo "    Código atualizado (main)."
 else
   git clone "$REPO_URL" "$INSTALL_DIR"
+  echo "    Repositório clonado."
 fi
+echo ""
 
-# --- 7. Criar dados e config.json ---
-echo "[5/6] A criar configuração e dados..."
+# --- 8. Dados, config.json (com allow_from) e .env ---
+echo "[Passo 7/7] Configuração e arranque..."
 mkdir -p "$DATA_DIR"
 mkdir -p "$DATA_DIR/whatsapp-auth"
 
-# config.json: modelos DeepSeek (agente) + Xiaomi (scope/heartbeat); chaves ficam no .env
-cat > "$DATA_DIR/config.json" << 'CONFIG_EOF'
+# config.json com allow_from preenchido
+cat > "$DATA_DIR/config.json" << CONFIG_EOF
 {
   "agents": {
     "defaults": {
@@ -102,7 +177,7 @@ cat > "$DATA_DIR/config.json" << 'CONFIG_EOF'
     "whatsapp": {
       "enabled": true,
       "bridge_url": "ws://bridge:3001",
-      "allow_from": []
+      "allow_from": $ALLOW_FROM_JSON
     }
   },
   "providers": {
@@ -113,10 +188,9 @@ cat > "$DATA_DIR/config.json" << 'CONFIG_EOF'
 CONFIG_EOF
 chmod 600 "$DATA_DIR/config.json"
 
-# .env: chaves DeepSeek e Xiaomi (opção B - não colocar no config.json)
 _esc() { echo "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'; }
 cat > "$INSTALL_DIR/.env" << ENV_EOF
-# Gerado por install_vps.sh - não commitar
+# Gerado por install_vps.sh — não commitar
 NANOBOT_PROVIDERS__DEEPSEEK__API_KEY="$( _esc "$DEEPSEEK_API_KEY" )"
 NANOBOT_PROVIDERS__XIAOMI__API_KEY="$( _esc "$XIAOMI_API_KEY" )"
 HEALTH_CHECK_TOKEN=health-$(openssl rand -hex 8)
@@ -125,9 +199,8 @@ CORS_ORIGINS=*
 ENV_EOF
 chmod 600 "$INSTALL_DIR/.env"
 
-# docker-compose.vps.yml: dados em pasta local + .env para chaves
 cat > "$INSTALL_DIR/docker-compose.vps.yml" << EOF
-# Override para VPS: dados em pasta local e .env (DeepSeek + Xiaomi)
+# Override para VPS: dados em pasta local e .env (chaves)
 volumes:
   nanobot_data:
     driver: local
@@ -142,11 +215,8 @@ services:
     env_file: .env
 EOF
 
-# O Compose carrega automaticamente o .env da pasta para substituir ${VAR}.
-
-# --- 8. Build e arranque ---
-echo "[6/6] A construir imagens e a iniciar os serviços (pode demorar alguns minutos)..."
 cd "$INSTALL_DIR"
+echo "    A construir imagens e a iniciar os serviços (alguns minutos)..."
 docker compose -f docker-compose.yml -f docker-compose.vps.yml build --no-cache 2>/dev/null || docker compose -f docker-compose.yml -f docker-compose.vps.yml build
 docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
 
@@ -155,17 +225,18 @@ echo "=============================================="
 echo "  Instalação concluída"
 echo "=============================================="
 echo ""
-echo "Próximo passo OBRIGATÓRIO: ligar o WhatsApp ao bridge (QR code)."
+echo "Próximo passo OBRIGATÓRIO — ligar o WhatsApp (QR code):"
 echo ""
-echo "  cd $INSTALL_DIR"
-echo "  docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f bridge"
+echo "  1. Executa:"
+echo "     cd $INSTALL_DIR"
+echo "     docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f bridge"
 echo ""
-echo "Quando aparecer o QR no terminal:"
-echo "  1. Abre o WhatsApp no telemóvel"
-echo "  2. Menu (⋮) → Aparelhos ligados → Ligar um aparelho"
-echo "  3. Escaneia o QR"
-echo "  4. Para sair dos logs: Ctrl+C (os contentores continuam a correr)"
+echo "  2. Quando aparecer o QR no ecrã:"
+echo "     • Abre o WhatsApp no telemóvel"
+echo "     • Menu (⋮) → Aparelhos ligados → Ligar um aparelho"
+echo "     • Escaneia o QR"
 echo ""
-echo "Portas: bridge 3001, API 8000, gateway 18790."
+echo "  3. Quando aparecer 'Connected', sai dos logs com Ctrl+C (os serviços continuam a correr)."
+echo ""
 echo "Dados e config: $DATA_DIR"
 echo ""
