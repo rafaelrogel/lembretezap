@@ -214,43 +214,51 @@ class WhatsAppChannel(BaseChannel):
                     ))
                 return
 
-            # God Mode: comandos # só para admins (ADMIN_NUMBERS)
+            # God Mode: #<senha> ativa; #cmd só se já ativou. Senha errada ou #inválido = silêncio.
             if (content or "").strip().startswith("#"):
                 from backend.admin_commands import (
-                    is_admin,
+                    is_god_mode_password,
+                    is_god_mode_activated,
+                    activate_god_mode,
+                    parse_admin_command,
                     handle_admin_command,
-                    log_unauthorized,
                 )
                 from nanobot.bus.events import OutboundMessage
-                if not is_admin(sender_id):
-                    log_unauthorized(sender_id, (content or "").strip()[:50])
+                raw = (content or "").strip()
+                rest = raw[1:].strip()  # texto após #
+                if is_god_mode_password(rest):
+                    activate_god_mode(sender)
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=sender,
-                        content="Não autorizado.",
+                        content="God-mode ativo. Comandos: #status #users #cron #server #system #ai #painpoints",
                     ))
                     return
-                try:
-                    from backend.database import SessionLocal
-                    from pathlib import Path
-                    cron_path = Path.home() / ".nanobot" / "cron" / "jobs.json"
-                    response = await handle_admin_command(
-                        (content or "").strip(),
-                        db_session_factory=SessionLocal,
-                        cron_store_path=cron_path,
-                    )
-                    await self.bus.publish_outbound(OutboundMessage(
-                        channel=self.name,
-                        chat_id=sender,
-                        content=response or "—",
-                    ))
-                except Exception as e:
-                    logger.exception(f"Admin command failed: {e}")
-                    await self.bus.publish_outbound(OutboundMessage(
-                        channel=self.name,
-                        chat_id=sender,
-                        content="Erro ao executar comando admin.",
-                    ))
+                cmd = parse_admin_command(raw)
+                if cmd and is_god_mode_activated(sender):
+                    try:
+                        from backend.database import SessionLocal
+                        from pathlib import Path
+                        cron_path = Path.home() / ".nanobot" / "cron" / "jobs.json"
+                        response = await handle_admin_command(
+                            raw,
+                            db_session_factory=SessionLocal,
+                            cron_store_path=cron_path,
+                        )
+                        await self.bus.publish_outbound(OutboundMessage(
+                            channel=self.name,
+                            chat_id=sender,
+                            content=response or "—",
+                        ))
+                    except Exception as e:
+                        logger.exception(f"Admin command failed: {e}")
+                        await self.bus.publish_outbound(OutboundMessage(
+                            channel=self.name,
+                            chat_id=sender,
+                            content="Erro ao executar comando admin.",
+                        ))
+                    return
+                # Senha errada ou #qualquer_outra_coisa sem god-mode ativo: não responder (silêncio)
                 return
 
             # Forward to agent only for private chats (groups already filtered above)

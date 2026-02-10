@@ -57,11 +57,14 @@ Crie `~/.nanobot/config.json` (ou `%USERPROFILE%\.nanobot\config.json` no Window
 
 ### God Mode (comandos admin)
 
-Apenas números listados em **`ADMIN_NUMBERS`** (variável de ambiente, lista separada por vírgula) podem executar comandos prefixados por `#`. Quem não for admin recebe «Não autorizado.» e a tentativa é registada em log (sem vazar dados).
+O bot está **disponível para qualquer pessoa** no WhatsApp. Os comandos admin (`#status`, `#users`, etc.) são protegidos por **senha**:
 
-**Variável:** `ADMIN_NUMBERS=351912345678,5511999999999` (exemplo: tu e outro admin).
+1. Na instalação no VPS, defines uma **senha de god-mode** (guardada no `.env` como `GOD_MODE_PASSWORD`).
+2. No chat, quem quiser rodar comandos admin envia **`#<senha>`** (ex.: `#minhasenha123`) — o bot responde «God-mode ativo» e a partir daí pode usar os comandos.
+3. A ativação dura **24 horas** por chat; depois é preciso enviar `#<senha>` de novo.
+4. Se alguém enviar **`#` com senha errada** ou **`#comando` sem ter ativado**, o bot **não responde** (silêncio total).
 
-**Comandos (1–2 telas de texto):**
+**Comandos (após ativar com #senha):**
 
 | Comando   | Conteúdo |
 |-----------|----------|
@@ -88,7 +91,12 @@ Load (1m): N/A (Windows)
 Disco: 62% usado | livre: 120.5G
 ```
 
-Segurança: as respostas **nunca** incluem secrets (tokens, API keys, connection strings). Tentativas não autorizadas são logadas com identificador truncado, comando e timestamp.
+Segurança: as respostas **nunca** incluem secrets (tokens, API keys, connection strings).
+
+### O bot não responde a ninguém / ao cliente
+
+1. **Por defeito qualquer pessoa pode falar com o bot** (instalação VPS usa `allow_from: []`). Se não há resposta, vê os logs do gateway: `docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f gateway`. Confirma que aparecem linhas como "WhatsApp from sender ..." e que o bridge está ligado (`docker compose logs bridge`, QR escaneado).
+2. **God Mode:** Envia `#<tua_senha>` para ativar; depois podes usar `#status`, `#users`, etc. Senha errada = o bot não responde (silêncio).
 
 ## Uso
 

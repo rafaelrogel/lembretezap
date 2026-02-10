@@ -84,41 +84,20 @@ fi
 echo "    Chaves guardadas (só no .env)."
 echo ""
 
-# --- 5. Números god-mode (allow_from) ---
-echo "[Passo 4/7] Números em modo god-mode (quem pode usar o bot)"
-echo "    Estes números de WhatsApp vão poder falar com o organizador."
-echo "    Formato: código do país + número, SEM + e SEM espaços."
-echo "    Exemplo: 351912345678  ou  5511999999999"
-echo "    Se deixares em branco e carregares Enter, QUALQUER número poderá usar o bot."
+# --- 5. Senha de god-mode ---
+echo "[Passo 4/7] Senha de god-mode (comandos admin)"
+echo "    Qualquer pessoa pode falar com o bot. Para rodar comandos admin (#status, #users, etc.),"
+echo "    o administrador envia no chat: #<esta_senha> — isso ativa o god-mode e depois pode usar #status, #cron, etc."
+echo "    Se alguém enviar # com senha errada, o bot não responde (silêncio)."
 echo ""
-ALLOW_FROM_JSON="[]"
-ALLOW_NUMBERS=""
-echo "  Escreve um número e Enter; repete para mais números; linha vazia para terminar:"
-while true; do
-  read -r -p "  Número: " line
-  line=$(echo "$line" | tr -d ' \t+' | tr -cd '0-9')
-  if [ -z "$line" ]; then
-    break
-  fi
-  if [ -n "$ALLOW_NUMBERS" ]; then
-    ALLOW_NUMBERS="$ALLOW_NUMBERS $line"
+if [ -z "$GOD_MODE_PASSWORD" ]; then
+  read -r -s -p "  Define a senha de god-mode: " GOD_MODE_PASSWORD
+  echo ""
+  if [ -z "$GOD_MODE_PASSWORD" ]; then
+    echo "  Aviso: senha vazia — god-mode ficará desativado (qualquer # será ignorado em silêncio)."
   else
-    ALLOW_NUMBERS="$line"
+    echo "    Senha guardada no .env (só no servidor)."
   fi
-done
-
-if [ -n "$ALLOW_NUMBERS" ]; then
-  # Construir JSON array ["num1","num2",...]
-  ALLOW_FROM_JSON="["
-  first=1
-  for n in $ALLOW_NUMBERS; do
-    [ "$first" -eq 1 ] && first=0 || ALLOW_FROM_JSON="$ALLOW_FROM_JSON,"
-    ALLOW_FROM_JSON="$ALLOW_FROM_JSON\"$n\""
-  done
-  ALLOW_FROM_JSON="$ALLOW_FROM_JSON]"
-  echo "    Números permitidos: $ALLOW_NUMBERS"
-else
-  echo "    Qualquer número poderá usar o bot (lista vazia)."
 fi
 echo ""
 
@@ -161,8 +140,8 @@ echo "[Passo 7/7] Configuração e arranque..."
 mkdir -p "$DATA_DIR"
 mkdir -p "$DATA_DIR/whatsapp-auth"
 
-# config.json com allow_from preenchido
-cat > "$DATA_DIR/config.json" << CONFIG_EOF
+# config.json: allow_from vazio = qualquer pessoa pode falar com o bot
+cat > "$DATA_DIR/config.json" << 'CONFIG_EOF'
 {
   "agents": {
     "defaults": {
@@ -177,7 +156,7 @@ cat > "$DATA_DIR/config.json" << CONFIG_EOF
     "whatsapp": {
       "enabled": true,
       "bridge_url": "ws://bridge:3001",
-      "allow_from": $ALLOW_FROM_JSON
+      "allow_from": []
     }
   },
   "providers": {
@@ -196,6 +175,7 @@ NANOBOT_PROVIDERS__XIAOMI__API_KEY="$( _esc "$XIAOMI_API_KEY" )"
 HEALTH_CHECK_TOKEN=health-$(openssl rand -hex 8)
 API_SECRET_KEY=api-$(openssl rand -hex 12)
 CORS_ORIGINS=*
+GOD_MODE_PASSWORD="$( _esc "$GOD_MODE_PASSWORD" )"
 ENV_EOF
 chmod 600 "$INSTALL_DIR/.env"
 

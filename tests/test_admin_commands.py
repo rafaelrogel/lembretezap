@@ -1,4 +1,4 @@
-"""Testes unitários para God Mode: is_admin, parse_admin_command, handle_admin_command."""
+"""Testes unitários para God Mode: senha, ativação por chat, parse_admin_command, handle_admin_command."""
 
 import json
 import os
@@ -9,38 +9,43 @@ from unittest.mock import MagicMock
 import pytest
 
 
-def test_is_admin_empty_env():
-    """Sem ADMIN_NUMBERS, ninguém é admin."""
-    prev = os.environ.pop("ADMIN_NUMBERS", None)
+def test_god_mode_password_empty():
+    """Sem GOD_MODE_PASSWORD, senha nunca confere."""
+    prev = os.environ.pop("GOD_MODE_PASSWORD", None)
     try:
-        from backend.admin_commands import is_admin
-        assert is_admin("351912345678") is False
-        assert is_admin("") is False
+        from backend.admin_commands import is_god_mode_password, get_god_mode_password
+        assert get_god_mode_password() == ""
+        assert is_god_mode_password("qualquer") is False
     finally:
         if prev is not None:
-            os.environ["ADMIN_NUMBERS"] = prev
+            os.environ["GOD_MODE_PASSWORD"] = prev
 
 
-def test_is_admin_with_env():
-    """Com ADMIN_NUMBERS definido, apenas esses números são admin."""
-    prev = os.environ.get("ADMIN_NUMBERS")
+def test_god_mode_password_match():
+    """Com GOD_MODE_PASSWORD definido, só essa senha confere."""
+    prev = os.environ.get("GOD_MODE_PASSWORD")
     try:
-        os.environ["ADMIN_NUMBERS"] = "351912345678,5511999999999"
+        os.environ["GOD_MODE_PASSWORD"] = "minhasenha123"
         from backend import admin_commands
-        # Reload to pick up new env
-        from backend.admin_commands import is_admin, _admin_numbers
-        admins = _admin_numbers()
-        assert "351912345678" in admins
-        assert is_admin("351912345678") is True
-        assert is_admin("351 912 345 678") is True
-        assert is_admin("5511999999999") is True
-        assert is_admin("5511999999999@s.whatsapp.net") is True  # sender_id may include @
-        assert is_admin("359999999999") is False
+        from backend.admin_commands import is_god_mode_password, get_god_mode_password
+        assert get_god_mode_password() == "minhasenha123"
+        assert is_god_mode_password("minhasenha123") is True
+        assert is_god_mode_password("  minhasenha123  ") is True
+        assert is_god_mode_password("errada") is False
+        assert is_god_mode_password("") is False
     finally:
         if prev is not None:
-            os.environ["ADMIN_NUMBERS"] = prev
+            os.environ["GOD_MODE_PASSWORD"] = prev
         else:
-            os.environ.pop("ADMIN_NUMBERS", None)
+            os.environ.pop("GOD_MODE_PASSWORD", None)
+
+
+def test_god_mode_activate_and_check():
+    """Activate god-mode para um chat_id; is_god_mode_activated retorna True."""
+    from backend.admin_commands import activate_god_mode, is_god_mode_activated
+    activate_god_mode("5511999999999@s.whatsapp.net")
+    assert is_god_mode_activated("5511999999999@s.whatsapp.net") is True
+    assert is_god_mode_activated("outro_chat") is False
 
 
 def test_parse_admin_command():

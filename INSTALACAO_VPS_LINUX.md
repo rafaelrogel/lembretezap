@@ -59,8 +59,8 @@ O script faz tudo de forma guiada:
 2. **Atualiza o sistema** — `apt update` e `apt upgrade`.
 3. **Pede a Chave DeepSeek** — (agente: lembretes, listas). A escrita fica oculta. Obtém em [platform.deepseek.com](https://platform.deepseek.com).
 4. **Pede a Chave Xiaomi MiMo** — (respostas rápidas e análises). Obtém em [platform.xiaomimimo.com](https://platform.xiaomimimo.com).
-5. **Pede os números em modo god-mode** — os números de WhatsApp que podem usar o bot. Formato: código do país + número, sem + nem espaços (ex.: `351912345678`). Um número por linha; linha vazia para terminar. **Se não introduzires nenhum e carregares Enter, qualquer número poderá usar o bot.**
-6. Instala Docker (se precisar), atualiza o código do repositório, cria o `config.json` com os números permitidos e o `.env` com as chaves, e arranca os serviços.
+5. **Pede a senha de god-mode** — qualquer pessoa pode falar com o bot. Para rodar comandos admin (`#status`, `#users`, etc.), o administrador envia no chat `#<senha>`; isso ativa o god-mode (válido 24 h). Quem enviar `#` com senha errada não recebe resposta (silêncio).
+6. Instala Docker (se precisar), atualiza o código, cria o `config.json` com `allow_from: []` (todos podem falar) e o `.env` com as chaves e `GOD_MODE_PASSWORD`, e arranca os serviços.
 
 As chaves ficam só no `.env` no servidor; **nunca as partilhes em chats, emails ou repositórios.**
 

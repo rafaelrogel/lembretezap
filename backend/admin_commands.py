@@ -1,6 +1,7 @@
-"""God Mode: comandos admin prefixados por #. Apenas números em ADMIN_NUMBERS podem executar.
+"""God Mode: ativado por #<senha> no chat; depois o utilizador pode rodar #status, #users, etc.
 
-Comandos: #status, #users, #paid, #cron, #server, #system, #ai, #painpoints.
+Senha em GOD_MODE_PASSWORD (env). Quem enviar #<senha_correta> ativa god-mode para esse chat.
+#<senha_errada> ou #cmd sem ter ativado = sem resposta (silêncio).
 Nunca retornar secrets (tokens, API keys, connection strings).
 """
 
@@ -13,30 +14,41 @@ from typing import Any
 
 from loguru import logger
 
-# Admin numbers: env ADMIN_NUMBERS, lista separada por vírgula (ex.: 351912345678,5511999999999)
-def _admin_numbers() -> set[str]:
-    raw = os.environ.get("ADMIN_NUMBERS", "").strip()
-    if not raw:
-        return set()
-    return {_normalize_phone(p.strip()) for p in raw.split(",") if p.strip()}
+# Senha de god-mode (env). Se vazia, god-mode desativado (qualquer # = silêncio).
+GOD_MODE_PASSWORD_ENV = "GOD_MODE_PASSWORD"
+
+# chat_id -> timestamp de ativação (para TTL)
+_god_mode_activated: dict[str, float] = {}
+_GOD_MODE_TTL_SECONDS = 24 * 3600  # 24 horas
 
 
-def _normalize_phone(phone: str) -> str:
-    """Apenas dígitos para comparação."""
-    return "".join(c for c in str(phone) if c.isdigit())
+def get_god_mode_password() -> str:
+    """Senha definida na instalação (env)."""
+    return (os.environ.get(GOD_MODE_PASSWORD_ENV) or "").strip()
 
 
-def is_admin(phone_number: str) -> bool:
-    """True se o número está em ADMIN_NUMBERS (comparação por dígitos)."""
-    if not phone_number:
+def activate_god_mode(chat_id: str) -> None:
+    """Marca este chat como tendo god-mode ativo (por TTL)."""
+    _god_mode_activated[str(chat_id)] = time.time()
+
+
+def is_god_mode_activated(chat_id: str) -> bool:
+    """True se este chat ativou god-mode com a senha e ainda está dentro do TTL."""
+    t = _god_mode_activated.get(str(chat_id))
+    if t is None:
         return False
-    digits = _normalize_phone(phone_number)
-    if not digits:
+    if time.time() - t > _GOD_MODE_TTL_SECONDS:
+        del _god_mode_activated[str(chat_id)]
         return False
-    admins = _admin_numbers()
-    if digits in admins:
-        return True
-    return any(digits == _normalize_phone(a) for a in admins)
+    return True
+
+
+def is_god_mode_password(content_after_hash: str) -> bool:
+    """True se o texto após # corresponde à senha de god-mode."""
+    pwd = get_god_mode_password()
+    if not pwd:
+        return False
+    return (content_after_hash or "").strip() == pwd
 
 
 # Comandos aceites: #cmd (case-insensitive)

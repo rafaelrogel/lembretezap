@@ -111,6 +111,12 @@ class BaseChannel(ABC):
                 f"Access denied for sender {sender_id} on channel {self.name}. "
                 f"Add them to allowFrom list in config to grant access."
             )
+            # Enviar resposta para o utilizador em vez de silêncio (assim sabe que está bloqueado)
+            await self.bus.publish_outbound(OutboundMessage(
+                channel=self.name,
+                chat_id=str(chat_id),
+                content="Não estás autorizado a usar este bot. O teu número tem de estar na lista do administrador. Se és o dono, adiciona este número em allow_from no config e reinicia o gateway.",
+            ))
             return
 
         meta = metadata or {}
