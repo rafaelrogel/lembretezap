@@ -602,12 +602,18 @@ class AgentLoop:
                     content=reply,
                 )
 
-        # Idioma do utilizador (por número: pt-BR, pt-PT, es, en) e pedidos explícitos de mudança
+        # Idioma: 1º número do telemóvel, 2º configuração guardada, 3º língua do chat (se pt-PT/pt-BR/es/en)
+        # Em caso de falha (ex.: DB), usar sempre idioma do número — nunca assumir "en" sem número.
         user_lang: str = "en"
         try:
             from backend.database import SessionLocal
             from backend.user_store import get_user_language, set_user_language
-            from backend.locale import parse_language_switch_request, language_switch_confirmation_message
+            from backend.locale import (
+                parse_language_switch_request,
+                language_switch_confirmation_message,
+                phone_to_default_language,
+                SUPPORTED_LANGS,
+            )
             db = SessionLocal()
             try:
                 user_lang = get_user_language(db, msg.chat_id)
@@ -623,21 +629,27 @@ class AgentLoop:
                 db.close()
         except Exception as e:
             logger.debug(f"User language check failed: {e}")
-            user_lang = "en"
+            user_lang = phone_to_default_language(msg.chat_id)
 
         # Perguntar como gostaria de ser chamado (uma vez por cliente), usando Xiaomi para a pergunta
         # Skip no canal cli (testes e uso por terminal) para não interceptar comandos
+        # Intro e pergunta do nome: sempre no idioma do número (nunca assumir inglês por defeito).
         if msg.channel != "cli":
             try:
                 from backend.database import SessionLocal
-                from backend.user_store import get_or_create_user, set_user_preferred_name
-                from backend.locale import preferred_name_confirmation, PREFERRED_NAME_QUESTION
+                from backend.user_store import get_or_create_user, set_user_preferred_name, get_user_preferred_name
+                from backend.locale import (
+                    preferred_name_confirmation,
+                    PREFERRED_NAME_QUESTION,
+                    phone_to_default_language as _phone_lang,
+                )
                 db = SessionLocal()
                 try:
                     user = get_or_create_user(db, msg.chat_id)
                     session = self.sessions.get_or_create(msg.session_key)
                     has_name = bool((user.preferred_name or "").strip())
                     pending = session.metadata.get("pending_preferred_name") is True
+                    intro_lang = _phone_lang(msg.chat_id)  # 1.º idioma = número; usado na intro e no pedido do nome
 
                     if not has_name and pending:
                         # Esta mensagem é a resposta: gravar nome e confirmar (ignorar comandos que começam com /)
@@ -660,10 +672,10 @@ class AgentLoop:
                         self.sessions.save(session)
 
                     if not has_name and not pending:
-                        # Primeira interação: apresentação clara e engajadora (DeepSeek), depois pedir nome
+                        # Primeira interação: apresentação no idioma do número, depois pedir nome
                         intro_sent = session.metadata.get("onboarding_intro_sent") is True
                         if not intro_sent:
-                            intro = await self._get_onboarding_intro(user_lang)
+                            intro = await self._get_onboarding_intro(intro_lang)
                             session.metadata["onboarding_intro_sent"] = True
                             session.metadata["pending_preferred_name"] = True
                             self.sessions.save(session)
@@ -675,8 +687,39 @@ class AgentLoop:
                                 chat_id=msg.chat_id,
                                 content=intro,
                             )
-                        question = await self._ask_preferred_name_question(user_lang)
+                        question = await self._ask_preferred_name_question(intro_lang)
                         session.metadata["pending_preferred_name"] = True
+                        self.sessions.save(session)
+                        session.add_message("user", msg.content)
+                        session.add_message("assistant", question)
+                        self.sessions.save(session)
+                        return OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content=question,
+                        )
+
+                    # --- Idioma preferido (após o nome): "quer comunicar noutro idioma?" ---
+                    from backend.user_store import set_user_language
+                    from backend.locale import ONBOARDING_LANGUAGE_QUESTION, parse_language_switch_request as _parse_lang
+
+                    onboarding_language_asked = session.metadata.get("onboarding_language_asked") is True
+                    pending_language_choice = session.metadata.get("pending_language_choice") is True
+
+                    if has_name and pending_language_choice:
+                        # Resposta à pergunta "quer outro idioma?": aplicar se escolheu um idioma e seguir para cidade
+                        content_stripped = (msg.content or "").strip()
+                        if not content_stripped.startswith("/"):
+                            chosen = _parse_lang(content_stripped)
+                            if chosen:
+                                set_user_language(db, msg.chat_id, chosen)
+                                user_lang = chosen
+                        session.metadata.pop("pending_language_choice", None)
+                        session.metadata["onboarding_language_asked"] = True
+                        self.sessions.save(session)
+                        name_for_prompt = get_user_preferred_name(db, msg.chat_id) or "utilizador"
+                        question = await self._ask_city_question(user_lang, name_for_prompt)
+                        session.metadata["pending_city"] = True
                         self.sessions.save(session)
                         session.add_message("user", msg.content)
                         session.add_message("assistant", question)
@@ -696,6 +739,7 @@ class AgentLoop:
                         get_extra_reminder_leads_seconds,
                         set_extra_reminder_leads_seconds,
                         get_user_preferred_name,
+                        get_user_language as _get_user_lang,
                     )
                     from backend.lead_time import parse_lead_time_to_seconds, parse_lead_times_to_seconds
                     from backend.locale import lead_time_confirmation
@@ -706,6 +750,26 @@ class AgentLoop:
                     pending_lead = session.metadata.get("pending_lead_time") is True
                     pending_extra = session.metadata.get("pending_extra_leads") is True
                     name_for_prompt = get_user_preferred_name(db, msg.chat_id) or "utilizador"
+                    # Atualizar user_lang após possível escolha no onboarding (para cidade/lead time)
+                    if has_name:
+                        try:
+                            user_lang = _get_user_lang(db, msg.chat_id)
+                        except Exception:
+                            pass
+
+                    if has_name and pending_language_choice is False and not onboarding_language_asked and not has_city and not pending_city and not pending_lead and not pending_extra:
+                        # Perguntar se quer comunicar noutro idioma (pt-PT, pt-BR, es, en)
+                        lang_question = ONBOARDING_LANGUAGE_QUESTION.get(user_lang, ONBOARDING_LANGUAGE_QUESTION["en"])
+                        session.metadata["pending_language_choice"] = True
+                        self.sessions.save(session)
+                        session.add_message("user", msg.content)
+                        session.add_message("assistant", lang_question)
+                        self.sessions.save(session)
+                        return OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content=lang_question,
+                        )
 
                     if has_name and not has_city and not pending_city and not pending_lead and not pending_extra:
                         question = await self._ask_city_question(user_lang, name_for_prompt)
@@ -930,12 +994,14 @@ class AgentLoop:
         session = self.sessions.get_or_create(msg.session_key)
 
         # Build initial messages (use get_history for LLM-formatted messages)
+        # user_lang já definido acima: 1.º número, 2.º config, 3.º mensagem (se pt-PT/pt-BR/es/en)
         messages = self.context.build_messages(
             history=session.get_history(),
             current_message=msg.content,
             media=msg.media if msg.media else None,
             channel=msg.channel,
             chat_id=msg.chat_id,
+            user_lang=user_lang,
         )
         
         # Agent loop
