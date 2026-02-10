@@ -238,12 +238,12 @@ class WhatsAppChannel(BaseChannel):
                 if cmd and is_god_mode_activated(sender):
                     try:
                         from backend.database import SessionLocal
-                        from pathlib import Path
-                        cron_path = Path.home() / ".nanobot" / "cron" / "jobs.json"
+                        from nanobot.config.loader import get_data_dir
+                        cron_store_path = get_data_dir() / "cron" / "jobs.json"
                         response = await handle_admin_command(
                             raw,
                             db_session_factory=SessionLocal,
-                            cron_store_path=cron_path,
+                            cron_store_path=cron_store_path,
                         )
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,

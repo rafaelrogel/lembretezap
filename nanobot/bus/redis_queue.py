@@ -94,10 +94,12 @@ async def pop_outbound_blocking(redis_url: str) -> OutboundMessage | None:
     try:
         client = Redis.from_url(redis_url, decode_responses=True)
         result = await client.brpop(QUEUE_KEY, timeout=BLOCK_TIMEOUT_SECONDS)
-        if not result:
+        if not result or not isinstance(result, (list, tuple)) or len(result) < 2:
             return None
-        # brpop returns (key, value) or None
+        # brpop returns (key, value)
         _, value = result
+        if value is None or not isinstance(value, str):
+            return None
         return _deserialize_message(value)
     except Exception:
         return None

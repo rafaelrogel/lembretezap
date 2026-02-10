@@ -189,6 +189,8 @@ class LiteLLMProvider(LLMProvider):
     
     def _parse_response(self, response: Any) -> LLMResponse:
         """Parse LiteLLM response into our standard format."""
+        if not getattr(response, "choices", None) or len(response.choices) == 0:
+            return LLMResponse(content="", finish_reason="empty")
         choice = response.choices[0]
         message = choice.message
         
