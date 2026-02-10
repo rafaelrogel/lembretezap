@@ -1,7 +1,23 @@
-"""Guardrails sem custo de tokens: intervalo mínimo para recorrentes e filtro de pedidos absurdos."""
+"""Guardrails sem custo de tokens: intervalo mínimo para recorrentes, filtro de pedidos absurdos
+e evitação de loop infinito (não responder a mensagens triviais: ok, tá, não, emojis soltos).
+"""
 
 import re
 import random
+
+# Mensagens curtas/irrelevantes para as quais não respondemos (evita loop + custo de tokens)
+TRIVIAL_REPLIES = frozenset({
+    "ok", "ok.", "tá", "ta", "tá.", "ta.",
+    "não", "nao", "não.", "nao.", "sim", "sim.",
+    "nope", "yes", "no", "ya", "yep", "yup", "nop",
+    "ah ok", "ah tá", "ah ta", "ah ok.", "ah tá.",
+    "blz", "beleza", "tranquilo", "tranquilo.", "tudo bem", "tudo bom",
+    "👍", "👌", "🙂", "😊", "👋", "✌", "🤝",
+    "k", "k.", "kk", "kkk", "certo", "certinho",
+    "valeu", "obrigado", "obrigada", "obg", "thx", "thanks",
+})
+# Máximo de caracteres para considerar "só emojis/símbolos" como trivial
+MAX_LEN_EMOJI_ONLY = 4
 
 # Intervalo mínimo para lembretes recorrentes (ex.: "a cada 10 min" → rejeitar)
 MIN_EVERY_SECONDS = 30 * 60  # 30 minutos
@@ -57,3 +73,23 @@ def is_absurd_request(text: str) -> str | None:
     if ABSURD_PATTERNS.search(t):
         return random.choice(FUN_RESPONSES_ABSURD)
     return None
+
+
+def should_skip_reply(content: str) -> bool:
+    """
+    True se a mensagem é trivial e não devemos responder (evita loop e custo de tokens).
+    Ex.: "ok", "tá", "não", "sim", emojis soltos (👍, 😊). Zero tokens — só regex e set.
+    """
+    if not content:
+        return True
+    t = content.strip()
+    if not t:
+        return True
+    # Normalizado para comparação: minúsculas, sem pontuação final
+    normalized = t.lower().rstrip(".!?¿¡").strip()
+    if normalized in TRIVIAL_REPLIES:
+        return True
+    # Mensagem muito curta e sem letras/números (só emojis ou símbolos)
+    if len(t) <= MAX_LEN_EMOJI_ONLY and not any(c.isalnum() for c in t):
+        return True
+    return False

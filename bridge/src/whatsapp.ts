@@ -9,6 +9,7 @@ import makeWASocket, {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
+  downloadMediaMessage,
 } from '@whiskeysockets/baileys';
 
 import { Boom } from '@hapi/boom';
@@ -24,6 +25,8 @@ export interface InboundMessage {
   content: string;
   timestamp: number;
   isGroup: boolean;
+  /** Raw .ics file content when the user sends a document with .ics / text/calendar */
+  attachmentIcs?: string;
 }
 
 export interface WhatsAppClientOptions {
@@ -44,6 +47,7 @@ export class WhatsAppClient {
 
   async connect(): Promise<void> {
     const logger = pino({ level: 'silent' });
+    const self = this;
     const { state, saveCreds } = await useMultiFileAuthState(this.options.authDir);
     const { version } = await fetchLatestBaileysVersion();
 
@@ -109,20 +113,54 @@ export class WhatsAppClient {
     const allowSelfMessages = process.env.ALLOW_SELF_MESSAGES === '1' || process.env.ALLOW_SELF_MESSAGES === 'true';
 
     // Handle incoming messages
+    const MAX_ICS_BYTES = 500 * 1024; // 500 KB
     this.sock.ev.on('messages.upsert', async ({ messages, type }: { messages: any[]; type: string }) => {
       if (type !== 'notify') return;
 
       for (const msg of messages) {
-        // Skip own messages (unless ALLOW_SELF_MESSAGES=1 for testing "message to self")
         if (msg.key.fromMe && !allowSelfMessages) continue;
-
-        // Skip status updates
         if (msg.key.remoteJid === 'status@broadcast') continue;
+
+        const isGroup = msg.key.remoteJid?.endsWith('@g.us') || false;
+
+        // Document .ics: download and send to gateway with attachmentIcs
+        const doc = msg.message?.documentMessage;
+        if (doc) {
+          const fileName = (doc.fileName || doc.title || '').toString().toLowerCase();
+          const mime = (doc.mimeType || '').toString().toLowerCase();
+          const isIcs = fileName.endsWith('.ics') || mime.includes('calendar');
+          if (isIcs) {
+            try {
+              const buffer = await downloadMediaMessage(
+                msg,
+                'buffer',
+                {},
+                { logger, reuploadRequest: this.sock.updateMediaMessage },
+              );
+              if (buffer && buffer.length > 0 && buffer.length <= MAX_ICS_BYTES) {
+                const icsContent = buffer.toString('utf-8');
+                if (icsContent.trim()) {
+                  const caption = doc.caption ? (typeof doc.caption === 'string' ? doc.caption : '') : '';
+                  self.options.onMessage({
+                    id: msg.key.id || '',
+                    sender: msg.key.remoteJid || '',
+                    pn: msg.key.remoteJidAlt || '',
+                    content: caption || '[Calendar]',
+                    timestamp: msg.messageTimestamp as number,
+                    isGroup,
+                    attachmentIcs: icsContent,
+                  });
+                  continue;
+                }
+              }
+            } catch (err) {
+              console.error('ICS download failed:', (err as Error).message);
+            }
+          }
+        }
 
         const content = this.extractMessageContent(msg);
         if (!content) continue;
-
-        const isGroup = msg.key.remoteJid?.endsWith('@g.us') || false;
 
         this.options.onMessage({
           id: msg.key.id || '',

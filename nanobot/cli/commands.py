@@ -169,11 +169,18 @@ def _make_provider(config):
         console.print("[red]Error: No API key configured.[/red]")
         console.print("Set one in ~/.nanobot/config.json under providers section")
         raise typer.Exit(1)
+    usage_cb = None
+    try:
+        from backend.token_usage import record_usage
+        usage_cb = record_usage
+    except ImportError:
+        pass
     return LiteLLMProvider(
         api_key=p.api_key if p else None,
         api_base=config.get_api_base(),
         default_model=model,
         extra_headers=p.extra_headers if p else None,
+        usage_callback=usage_cb,
     )
 
 
@@ -185,11 +192,18 @@ def _make_provider_for_model(config, model_str: str):
     p = config.get_provider(model_str.strip())
     if not p or not (getattr(p, "api_key", None) or "").strip():
         return None
+    usage_cb = None
+    try:
+        from backend.token_usage import record_usage
+        usage_cb = record_usage
+    except ImportError:
+        pass
     return LiteLLMProvider(
         api_key=p.api_key,
         api_base=config.get_api_base(model_str),
         default_model=model_str.strip(),
         extra_headers=p.extra_headers if p else None,
+        usage_callback=usage_cb,
     )
 
 
@@ -265,6 +279,13 @@ def gateway(
                 return f"Recap Ano Novo falhou: {e}"
 
         if job.payload.deliver and job.payload.to and provider and (config.agents.defaults.model or "").strip():
+            try:
+                from backend.user_store import is_user_in_quiet_window
+                if is_user_in_quiet_window(job.payload.to):
+                    logger.info(f"Cron deliver skipped (quiet window): to={job.payload.to[:20]}...")
+                    return "skipped (quiet window)"
+            except Exception:
+                pass
             try:
                 # Idioma do destinatário (pt-PT, pt-BR, es, en) para a mensagem do lembrete
                 user_lang = "en"
@@ -386,7 +407,19 @@ def gateway(
     
     # Create channel manager
     channels = ChannelManager(config, bus)
-    
+
+    # Fila Redis: drenar outbound da fila para a queue local (deploy com REDIS_URL)
+    if bus.redis_url:
+        bus.start_redis_feeder()
+        console.print("[green]✓[/green] Redis outbound queue enabled")
+
+    # Injetar cron_tool no canal WhatsApp para lembretes 15 min antes de eventos .ics
+    wa_channel = channels.get_channel("whatsapp")
+    if wa_channel is not None and hasattr(wa_channel, "set_ics_cron_tool"):
+        cron_tool = agent.tools.get("cron") if getattr(agent, "tools", None) else None
+        if cron_tool:
+            wa_channel.set_ics_cron_tool(cron_tool)
+
     if channels.enabled_channels:
         console.print(f"[green]✓[/green] Channels enabled: {', '.join(channels.enabled_channels)}")
     else:
@@ -411,6 +444,7 @@ def gateway(
             heartbeat.stop()
             cron.stop()
             agent.stop()
+            bus.stop()
             await channels.stop_all()
     
     asyncio.run(run())

@@ -75,13 +75,19 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
 
 
 async def handle_list(ctx: HandlerContext, content: str) -> str | None:
-    """/list nome add item ou /list [nome]."""
+    """/list nome add item, /list filme|livro|musica|receita item, ou /list [nome]. Filme/livro/musica/receita são listas dentro de /list."""
     from backend.command_parser import parse
+    from backend.guardrails import is_absurd_request
     intent = parse(content)
     if not intent or intent.get("type") not in ("list_add", "list_show"):
         return None
     if not ctx.list_tool:
         return None
+    if intent.get("type") == "list_add":
+        list_name = intent.get("list_name", "")
+        item_text = intent.get("item", "")
+        if list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(item_text):
+            return is_absurd_request(item_text)
     ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
     if intent.get("type") == "list_add":
         return await ctx.list_tool.execute(
@@ -105,25 +111,10 @@ async def handle_feito(ctx: HandlerContext, content: str) -> str | None:
         return None
     list_name = intent.get("list_name")
     item_id = intent.get("item_id")
-    if list_name is None:
-        return "Use: /feito nome_da_lista id (ex: /feito mercado 1)"
+    if item_id is None:
+        return "Use: /feito nome_da_lista id (ex: /feito mercado 1) ou /feito id (ex: /feito 1)"
     ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
     return await ctx.list_tool.execute(action="feito", list_name=list_name, item_id=item_id)
-
-
-async def handle_filme(ctx: HandlerContext, content: str) -> str | None:
-    """/filme Nome."""
-    from backend.command_parser import parse
-    from backend.guardrails import is_absurd_request
-    intent = parse(content)
-    if not intent or intent.get("type") != "filme":
-        return None
-    if is_absurd_request(content) or is_absurd_request(intent.get("nome", "") or ""):
-        return is_absurd_request(content) or is_absurd_request(intent.get("nome", "") or "")
-    if not ctx.event_tool:
-        return None
-    ctx.event_tool.set_context(ctx.channel, ctx.chat_id)
-    return await ctx.event_tool.execute(action="add", tipo="filme", nome=intent.get("nome", ""))
 
 
 # ---------------------------------------------------------------------------
@@ -171,8 +162,25 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
         return None
     return (
         "Olá! Sou o ZapAssist: lembretes, listas e eventos.\n"
-        "Comandos: /lembrete, /list, /add, /done, /filme.\n"
-        "Para timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en."
+        "Comandos: /lembrete, /list (filme, livro, musica, receita, compras…), /feito.\n"
+        "Para timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.  /help para ver tudo."
+    )
+
+
+async def handle_help(ctx: HandlerContext, content: str) -> str | None:
+    """/help: lista de comandos e como usar o assistente."""
+    if not content.strip().lower().startswith("/help"):
+        return None
+    return (
+        "📋 **Comandos disponíveis:**\n"
+        "• /lembrete — agendar lembrete (ex.: lembra-me amanhã às 9h)\n"
+        "• /list — listas: /list mercado add leite  ou  /list filme Matrix  /list livro 1984  /list musica Nome  /list receita Bolo\n"
+        "• /feito — marcar item como feito: /feito mercado 1  ou  /feito 1\n"
+        "• /hoje, /semana — ver o que tens hoje ou esta semana\n"
+        "• /tz Cidade — definir fuso (ex.: /tz Lisboa)\n"
+        "• /lang pt-pt ou pt-br — idioma\n"
+        "• /quiet 22:00-08:00 — horário silencioso\n\n"
+        "Ou simplesmente conversa comigo: diz o que precisas e eu ajudo a organizar. 😊"
     )
 
 
@@ -215,18 +223,94 @@ async def handle_pendente(ctx: HandlerContext, content: str) -> str | None:
     # Por agora devolve listas; depois pode agregar itens pendentes de todas.
 
 
+def _visao_hoje_semana(ctx: HandlerContext, dias: int) -> str:
+    """dias=1 para hoje, dias=7 para semana. Retorna texto com lembretes e eventos no período."""
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    from backend.database import SessionLocal
+    from backend.user_store import get_or_create_user, get_user_timezone
+    from backend.models_db import Event
+
+    try:
+        db = SessionLocal()
+        try:
+            user = get_or_create_user(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id)
+            try:
+                tz = ZoneInfo(tz_iana)
+            except Exception:
+                tz = ZoneInfo("UTC")
+            now = datetime.now(tz)
+            today = now.date()
+            end_date = today + timedelta(days=dias - 1) if dias > 1 else today
+            today_start = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=tz)
+            period_end = datetime(end_date.year, end_date.month, end_date.day, 23, 59, 59, tzinfo=tz)
+            today_start_utc_ms = int(today_start.timestamp() * 1000)
+            period_end_utc_ms = int(period_end.timestamp() * 1000)
+
+            lines = []
+            if dias == 1:
+                lines.append("📅 **Hoje**")
+            else:
+                lines.append(f"📅 **Próximos {dias} dias** (até {end_date.strftime('%d/%m')})")
+
+            reminders = []
+            if ctx.cron_service:
+                for job in ctx.cron_service.list_jobs():
+                    if getattr(job.payload, "to", None) != ctx.chat_id:
+                        continue
+                    nr = getattr(job.state, "next_run_at_ms", None)
+                    if nr and today_start_utc_ms <= nr <= period_end_utc_ms:
+                        dt = datetime.fromtimestamp(nr / 1000, tz=ZoneInfo("UTC")).astimezone(tz)
+                        reminders.append((dt, getattr(job.payload, "message", "") or job.name))
+            reminders.sort(key=lambda x: x[0])
+            if reminders:
+                for dt, msg in reminders[:15]:
+                    lines.append(f"• {dt.strftime('%H:%M')} — {msg[:50]}{'…' if len(msg) > 50 else ''}")
+            else:
+                lines.append("• Nenhum lembrete agendado.")
+
+            events = db.query(Event).filter(Event.user_id == user.id, Event.deleted == False, Event.data_at.isnot(None)).all()
+            event_list = []
+            for ev in events:
+                if not ev.data_at:
+                    continue
+                ev_date = ev.data_at if ev.data_at.tzinfo else ev.data_at.replace(tzinfo=ZoneInfo("UTC"))
+                try:
+                    ev_local = ev_date.astimezone(tz).date()
+                except Exception:
+                    ev_local = ev_date.date()
+                if today <= ev_local <= end_date:
+                    nome = (ev.payload or {}).get("nome", "") if isinstance(ev.payload, dict) else str(ev.payload)[:40]
+                    event_list.append((ev_local, ev.data_at, nome or "Evento"))
+            event_list.sort(key=lambda x: (x[0], x[1] or datetime.min))
+            if event_list:
+                lines.append("")
+                for d, _, nome in event_list[:15]:
+                    lines.append(f"• {d.strftime('%d/%m')} — {nome[:50]}")
+            else:
+                if dias == 1:
+                    lines.append("• Nenhum evento hoje.")
+
+            return "\n".join(lines) if lines else "Nada para mostrar."
+        finally:
+            db.close()
+    except Exception as e:
+        return f"Erro ao carregar visão: {e}"
+
+
 async def handle_hoje(ctx: HandlerContext, content: str) -> str | None:
-    """/hoje: visão rápida do dia (lembretes hoje)."""
+    """/hoje: visão rápida do dia (lembretes e eventos de hoje)."""
     if not content.strip().lower().startswith("/hoje"):
         return None
-    return "Visão /hoje: em breve. Use /list para ver listas e lembretes agendados."
+    return _visao_hoje_semana(ctx, 1)
 
 
 async def handle_semana(ctx: HandlerContext, content: str) -> str | None:
-    """/semana: visão rápida da semana."""
+    """/semana: visão rápida da semana (lembretes e eventos nos próximos 7 dias)."""
     if not content.strip().lower().startswith("/semana"):
         return None
-    return "Visão /semana: em breve. Use /list para ver listas."
+    return _visao_hoje_semana(ctx, 7)
 
 
 async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
@@ -289,10 +373,42 @@ async def handle_lang(ctx: HandlerContext, content: str) -> str | None:
 
 
 async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
-    """/quiet 22:00-08:00: horários silenciosos (não notificar)."""
+    """/quiet 22:00-08:00 ou /quiet 22:00 08:00: horário silencioso (não recebes notificações). /quiet off para desativar."""
+    import re
     if not content.strip().lower().startswith("/quiet"):
         return None
-    return "Horário silencioso: em breve. Ex: /quiet 22:00-08:00"
+    rest = content.strip()[6:].strip()
+    if not rest or rest.lower() in ("off", "desligar", "não", "nao"):
+        try:
+            from backend.database import SessionLocal
+            from backend.user_store import set_user_quiet
+            db = SessionLocal()
+            try:
+                if set_user_quiet(db, ctx.chat_id, None, None):
+                    return "Horário silencioso desativado. Voltaste a receber notificações a qualquer hora."
+            finally:
+                db.close()
+        except Exception:
+            pass
+        return "Erro ao desativar."
+    parts = re.split(r"[\s\-–—]+", rest, maxsplit=1)
+    if len(parts) < 2:
+        return "Usa: /quiet 22:00-08:00 (não notificar entre 22h e 8h) ou /quiet off para desativar."
+    start_hhmm, end_hhmm = parts[0].strip(), parts[1].strip()
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import set_user_quiet, _parse_time_hhmm
+        if _parse_time_hhmm(start_hhmm) is None or _parse_time_hhmm(end_hhmm) is None:
+            return "Horas em HH:MM (ex.: 22:00, 08:00)."
+        db = SessionLocal()
+        try:
+            if set_user_quiet(db, ctx.chat_id, start_hhmm, end_hhmm):
+                return f"Horário silencioso ativo: {start_hhmm}–{end_hhmm}. Não receberás lembretes nessa janela."
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return "Erro ao guardar. Usa /quiet 22:00-08:00."
 
 
 async def handle_stop(ctx: HandlerContext, content: str) -> str | None:
@@ -719,10 +835,10 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         handle_lembrete,
         handle_list,
         handle_feito,
-        handle_filme,
         handle_add,
         handle_done,
         handle_start,
+        handle_help,
         handle_recorrente,
         handle_pendente,
         handle_hoje,

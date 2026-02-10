@@ -154,27 +154,35 @@ def lead_time_confirmation(lang: LangCode, default_seconds: int | None, extra_se
     return f"Done! ✨ You'll get a reminder {default_str} before and at the event time. 😊"
 
 
-# Fallbacks para mensagem "fora do escopo" por idioma (quando não há Xiaomi ou falha)
+# Fallbacks para mensagem "fora do escopo": referem /help para comandos e "conversar comigo" (assistente IA).
 OUT_OF_SCOPE_FALLBACKS: dict[LangCode, list[str]] = {
     "pt-PT": [
-        "Sou só o teu organizador: lembretes, listas e eventos. Experimenta /lembrete, /list ou /filme. 📋",
-        "Por aqui só organizo a vida: lembretes, listas, filmes. Manda /lembrete, /list ou /filme! ✨",
-        "Nesse assunto não te consigo ajudar — sou só para lembretes, listas e eventos. /lembrete, /list, /filme. 😊",
+        "Esse assunto foge ao que consigo fazer — mas adorava ajudar noutra coisa! 😊 Por aqui organizo lembretes, listas e até filmes ou livros que queiras ver. Podes usar /help para ver todos os comandos, ou simplesmente conversar comigo: sou o teu assistente pessoal de IA.",
+        "Não tenho superpoderes para isso, mas posso ser o teu assistente do dia a dia! 📋 Lembretes, listas, compromissos. Manda /help para ver o que está disponível, ou fala comigo em linguagem natural que eu ajudo a organizar.",
+        "Nesse tema não te consigo ajudar, desculpa! O que faço bem é lembretes, listas e um bocadinho de cultura. Usa /help para ver os comandos, ou conversa comigo — sou aqui o teu assistente pessoal. ✨",
+        "Ah, isso fica fora da minha zona! 😅 Por aqui o foco é organizar o teu tempo. Queres ver o que podes fazer? /help mostra tudo. Ou diz-me em palavras tuas o que precisas e eu guio-te.",
+        "Não chego a esse ponto, mas adorava ajudar noutra coisa. Podes escrever /help para ver os comandos, ou falar comigo à vontade — sou o teu assistente de lembretes e listas. 😊",
     ],
     "pt-BR": [
-        "Sou só seu organizador: lembretes, listas e eventos. Use /lembrete, /list ou /filme. 📋",
-        "Por aqui só organizo sua vida: lembretes, listas, filmes. Manda /lembrete, /list ou /filme! ✨",
-        "Nesse assunto não consigo ajudar — sou só para lembretes, listas e eventos. /lembrete, /list, /filme. 😊",
+        "Esse assunto foge do que eu consigo fazer — mas adoraria ajudar em outra coisa! 😊 Por aqui eu organizo lembretes, listas e até filmes e livros que você queira ver. Você pode usar /help para ver todos os comandos, ou simplesmente conversar comigo: sou seu assistente pessoal de IA.",
+        "Não tenho superpoderes para isso, mas posso ser seu assistente do dia a dia! 📋 Lembretes, listas, compromissos. Mande /help para ver o que está disponível, ou fale comigo em linguagem natural que eu ajudo a organizar.",
+        "Nesse tema não consigo te ajudar, desculpa! O que eu faço bem é lembretes, listas e um pouquinho de cultura. Use /help para ver os comandos, ou converse comigo — sou seu assistente pessoal aqui. ✨",
+        "Ah, isso fica fora da minha área! 😅 Por aqui o foco é organizar seu tempo. Quer ver o que você pode fazer? /help mostra tudo. Ou me diga com suas palavras o que precisa que eu te guio.",
+        "Não chego a esse ponto, mas adoraria ajudar em outra coisa. Você pode digitar /help para ver os comandos, ou falar comigo à vontade — sou seu assistente de lembretes e listas. 😊",
     ],
     "es": [
-        "Solo soy tu organizador: recordatorios, listas y eventos. Prueba /lembrete, /list o /filme. 📋",
-        "Por aquí solo organizo: recordatorios, listas, películas. Envía /lembrete, /list o /filme. ✨",
-        "En ese tema no puedo ayudarte — solo recordatorios, listas y eventos. /lembrete, /list, /filme. 😊",
+        "Ese tema se sale de lo que puedo hacer — ¡pero me encantaría ayudarte en otra cosa! 😊 Por aquí organizo recordatorios, listas y hasta películas o libros. Puedes usar /help para ver todos los comandos, o simplemente conversar conmigo: soy tu asistente personal de IA.",
+        "No tengo superpoderes para eso, pero puedo ser tu asistente del día a día. 📋 Recordatorios, listas, compromisos. Envía /help para ver qué hay disponible, o háblame con naturalidad y te ayudo a organizarte.",
+        "En ese tema no te puedo ayudar, ¡perdón! Lo mío son recordatorios, listas y un poco de cultura. Usa /help para ver los comandos, o conversa conmigo — soy tu asistente personal aquí. ✨",
+        "¡Eso se sale de mi zona! 😅 Por aquí me centro en organizar tu tiempo. ¿Quieres ver qué puedes hacer? /help lo muestra todo. O dime con tus palabras qué necesitas y te guío.",
+        "No llego a ese punto, pero me encantaría ayudarte en otra cosa. Puedes escribir /help para ver los comandos, o hablar conmigo con libertad — soy tu asistente de recordatorios y listas. 😊",
     ],
     "en": [
-        "I'm just your organizer: reminders, lists and events. Try /lembrete, /list or /filme. 📋",
-        "Here I only handle reminders, lists and events. Send /lembrete, /list or /filme! ✨",
-        "I can't help with that — only reminders, lists and events. /lembrete, /list, /filme. 😊",
+        "That's a bit outside what I can do — but I'd love to help with something else! 😊 Here I help with reminders, lists, and even films or books you want to watch. You can use /help to see all commands, or just chat with me: I'm your personal AI assistant.",
+        "I don't have superpowers for that, but I can be your day-to-day assistant! 📋 Reminders, lists, appointments. Send /help to see what's available, or talk to me in plain language and I'll help you get organised.",
+        "I can't help with that topic, sorry! What I do well is reminders, lists, and a bit of culture. Use /help to see the commands, or chat with me — I'm your personal assistant here. ✨",
+        "That's outside my lane! 😅 Here I focus on organising your time. Want to see what you can do? /help shows everything. Or tell me in your own words what you need and I'll guide you.",
+        "I can't go that far, but I'd love to help with something else. You can type /help to see the commands, or chat with me freely — I'm your reminders and lists assistant. 😊",
     ],
 }
 

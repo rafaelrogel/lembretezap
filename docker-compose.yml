@@ -1,7 +1,8 @@
-# Deploy: WhatsApp AI Organizer — bridge + gateway + API.
+# Deploy: WhatsApp AI Organizer — bridge + gateway + API + Redis.
 # Uso: docker-compose up -d
 # Primeira vez: ver QR do WhatsApp com docker-compose logs -f bridge
 #
+# Redis: fila assíncrona para outbound (mensagens); gateway consome da fila.
 # Nota: o volume nanobot_data é partilhado por todos os serviços. Para uma única
 # instância está correto. Escala horizontal (vários gateways) exige armazenamento
 # distribuído/BD centralizado (ver workspace/ARCHITECTURE.md).
@@ -9,6 +10,20 @@
 version: "3.8"
 
 services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
   bridge:
     build: .
     entrypoint: []  # override Dockerfile ENTRYPOINT ["nanobot"] so we run shell, not nanobot sh
@@ -46,6 +61,10 @@ services:
       - HEALTH_CHECK_TOKEN=${HEALTH_CHECK_TOKEN:-}
       - API_SECRET_KEY=${API_SECRET_KEY:-}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
     # env_file: .env  # optional: copy .env.example to .env for API key override
     healthcheck:
       test: ["CMD", "sh", "-c", "curl -sf -H \"X-Health-Token: $$HEALTH_CHECK_TOKEN\" http://localhost:8000/health"]
@@ -64,13 +83,18 @@ services:
     environment:
       - NANOBOT_DATA=/root/.nanobot
       - NANOBOT_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001
+      # Fila Redis para outbound (mensagens); se definido, gateway produz e consome desta fila.
+      - REDIS_URL=redis://redis:6379/0
       # Limite de mensagens por minuto por utilizador (default 15). Aumentar para testes (ex.: 60).
       - RATE_LIMIT_MAX_PER_MINUTE=${RATE_LIMIT_MAX_PER_MINUTE:-15}
     # env_file: .env  # optional: copy .env.example to .env
     depends_on:
       bridge:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
   nanobot_data:
+  redis_data:

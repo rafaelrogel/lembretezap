@@ -1,12 +1,24 @@
 """LiteLLM provider implementation for multi-provider support."""
 
 import os
-from typing import Any
+from typing import Any, Callable
 
 import litellm
 from litellm import acompletion
 
 from nanobot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+
+
+def _provider_from_model(model: str) -> str:
+    """De model string devolve 'deepseek', 'mimo' ou 'other' (para métricas #ai)."""
+    if not model:
+        return "other"
+    m = model.lower()
+    if "deepseek" in m:
+        return "deepseek"
+    if "xiaomi" in m or "mimo" in m:
+        return "mimo"
+    return "other"
 
 
 class LiteLLMProvider(LLMProvider):
@@ -23,10 +35,12 @@ class LiteLLMProvider(LLMProvider):
         api_base: str | None = None,
         default_model: str = "anthropic/claude-opus-4-5",
         extra_headers: dict[str, str] | None = None,
+        usage_callback: Callable[..., None] | None = None,
     ):
         super().__init__(api_key, api_base)
         self.default_model = default_model
         self.extra_headers = extra_headers or {}
+        self.usage_callback = usage_callback
         
         # Detect OpenRouter by api_key prefix or explicit api_base
         self.is_openrouter = (
@@ -151,7 +165,21 @@ class LiteLLMProvider(LLMProvider):
         
         try:
             response = await acompletion(**kwargs)
-            return self._parse_response(response)
+            parsed = self._parse_response(response)
+            if getattr(self, "usage_callback", None) and parsed.usage:
+                inp = parsed.usage.get("prompt_tokens") or 0
+                out = parsed.usage.get("completion_tokens") or 0
+                if inp or out:
+                    try:
+                        self.usage_callback(
+                            provider=_provider_from_model(model),
+                            model=model,
+                            input_tokens=inp,
+                            output_tokens=out,
+                        )
+                    except Exception:
+                        pass
+            return parsed
         except Exception as e:
             # Return error as content for graceful handling
             return LLMResponse(
@@ -182,12 +210,12 @@ class LiteLLMProvider(LLMProvider):
                     arguments=args,
                 ))
         
-        usage = {}
+        usage: dict[str, int] = {}
         if hasattr(response, "usage") and response.usage:
             usage = {
-                "prompt_tokens": response.usage.prompt_tokens,
-                "completion_tokens": response.usage.completion_tokens,
-                "total_tokens": response.usage.total_tokens,
+                "prompt_tokens": getattr(response.usage, "prompt_tokens", 0) or 0,
+                "completion_tokens": getattr(response.usage, "completion_tokens", 0) or 0,
+                "total_tokens": getattr(response.usage, "total_tokens", 0) or 0,
             }
         
         return LLMResponse(

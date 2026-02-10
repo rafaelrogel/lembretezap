@@ -45,6 +45,27 @@ async def test_scope_filter_llm_sim_nao():
     assert await is_in_scope_llm("text", None) == is_in_scope_fast("text")
 
 
+def test_guardrails_should_skip_reply():
+    """Não responder a mensagens triviais (ok, tá, não, emojis) para evitar loop e custo."""
+    from backend.guardrails import should_skip_reply
+    assert should_skip_reply("") is True
+    assert should_skip_reply("   ") is True
+    assert should_skip_reply("ok") is True
+    assert should_skip_reply("OK") is True
+    assert should_skip_reply("tá") is True
+    assert should_skip_reply("não") is True
+    assert should_skip_reply("nao") is True
+    assert should_skip_reply("sim") is True
+    assert should_skip_reply("nope") is True
+    assert should_skip_reply("ah ok") is True
+    assert should_skip_reply("👍") is True
+    assert should_skip_reply("😊") is True
+    assert should_skip_reply("  ok  ") is True
+    assert should_skip_reply("bom dia") is False
+    assert should_skip_reply("lembra-me às 9h") is False
+    assert should_skip_reply("não quero") is False
+
+
 def test_models_and_db():
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
@@ -134,11 +155,17 @@ def test_command_parser():
     i = parse("/feito mercado 2")
     assert i == {"type": "feito", "list_name": "mercado", "item_id": 2}
 
-    # /filme
+    # /filme, /livro, /musica, /receita → list_add (tudo dentro de /list)
     i = parse("/filme Matrix")
-    assert i == {"type": "filme", "nome": "Matrix"}
+    assert i == {"type": "list_add", "list_name": "filme", "item": "Matrix"}
     i = parse("/filme O Senhor dos Anéis")
-    assert i is not None and i["type"] == "filme" and "Senhor" in i["nome"]
+    assert i is not None and i["type"] == "list_add" and i["list_name"] == "filme" and "Senhor" in i["item"]
+    i = parse("/list filme Inception")
+    assert i == {"type": "list_add", "list_name": "filme", "item": "Inception"}
+    i = parse("/list receita Bolo de chocolate")
+    assert i is not None and i["type"] == "list_add" and i["list_name"] == "receita"
+    i = parse("/receita Torta de maçã")
+    assert i == {"type": "list_add", "list_name": "receita", "item": "Torta de maçã"}
 
     # Não comando
     assert parse("me lembre amanhã") is None

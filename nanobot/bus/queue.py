@@ -1,11 +1,22 @@
-"""Async message queue for decoupled channel-agent communication."""
+"""Async message queue for decoupled channel-agent communication.
+
+Com Redis (REDIS_URL): outbound vai para a fila Redis; um feeder task
+drena Redis para a queue local; o dispatch envia como antes.
+Sem Redis: outbound vai só para a queue in-memory.
+"""
 
 import asyncio
+import os
 from typing import Callable, Awaitable
 
 from loguru import logger
 
 from nanobot.bus.events import InboundMessage, OutboundMessage
+
+
+def _redis_url_from_env() -> str | None:
+    u = os.environ.get("REDIS_URL", "").strip()
+    return u or None
 
 
 class MessageBus:
@@ -14,13 +25,17 @@ class MessageBus:
     
     Channels push messages to the inbound queue, and the agent processes
     them and pushes responses to the outbound queue.
+    When REDIS_URL is set, outbound is pushed to Redis and a feeder task
+    drains Redis into the local outbound queue for dispatch.
     """
     
-    def __init__(self):
+    def __init__(self, redis_url: str | None = None):
+        self.redis_url = redis_url or _redis_url_from_env()
         self.inbound: asyncio.Queue[InboundMessage] = asyncio.Queue()
         self.outbound: asyncio.Queue[OutboundMessage] = asyncio.Queue()
         self._outbound_subscribers: dict[str, list[Callable[[OutboundMessage], Awaitable[None]]]] = {}
         self._running = False
+        self._redis_feeder_task: asyncio.Task | None = None
     
     async def publish_inbound(self, msg: InboundMessage) -> None:
         """Publish a message from a channel to the agent."""
@@ -31,7 +46,14 @@ class MessageBus:
         return await self.inbound.get()
     
     async def publish_outbound(self, msg: OutboundMessage) -> None:
-        """Publish a response from the agent to channels."""
+        """Publish a response from the agent to channels (local queue or Redis)."""
+        if self.redis_url:
+            try:
+                from nanobot.bus.redis_queue import push_outbound
+                if await push_outbound(self.redis_url, msg):
+                    return
+            except Exception as e:
+                logger.warning(f"Redis push failed, falling back to local queue: {e}")
         await self.outbound.put(msg)
     
     async def consume_outbound(self) -> OutboundMessage:
@@ -67,8 +89,36 @@ class MessageBus:
                 continue
     
     def stop(self) -> None:
-        """Stop the dispatcher loop."""
+        """Stop the dispatcher loop and Redis feeder."""
         self._running = False
+        if self._redis_feeder_task and not self._redis_feeder_task.done():
+            self._redis_feeder_task.cancel()
+
+    async def _redis_feeder_loop(self) -> None:
+        """Drena a fila Redis para a queue local outbound (correr como task)."""
+        if not self.redis_url:
+            return
+        from nanobot.bus.redis_queue import pop_outbound_blocking
+        logger.info("Redis outbound feeder started")
+        try:
+            while True:
+                try:
+                    msg = await pop_outbound_blocking(self.redis_url)
+                    if msg:
+                        await self.outbound.put(msg)
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.debug(f"Redis feeder: {e}")
+        finally:
+            logger.info("Redis outbound feeder stopped")
+
+    def start_redis_feeder(self) -> asyncio.Task | None:
+        """Inicia o task que drena Redis para outbound. Retorna o task ou None."""
+        if not self.redis_url:
+            return None
+        self._redis_feeder_task = asyncio.create_task(self._redis_feeder_loop())
+        return self._redis_feeder_task
     
     @property
     def inbound_size(self) -> int:

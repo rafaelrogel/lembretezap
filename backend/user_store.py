@@ -70,6 +70,77 @@ def set_user_timezone(db: Session, chat_id: str, tz_iana: str) -> bool:
     return True
 
 
+def _parse_time_hhmm(s: str) -> tuple[int, int] | None:
+    """Valida HH:MM (0-23, 0-59). Retorna (h, m) ou None."""
+    if not s or len(s) > 5:
+        return None
+    s = s.strip()
+    if len(s) == 5 and s[2] == ":":
+        try:
+            h, m = int(s[:2]), int(s[3:5])
+            if 0 <= h <= 23 and 0 <= m <= 59:
+                return (h, m)
+        except ValueError:
+            pass
+    return None
+
+
+def get_user_quiet(db: Session, chat_id: str) -> tuple[str | None, str | None]:
+    """Retorna (quiet_start, quiet_end) em HH:MM ou (None, None)."""
+    user = get_or_create_user(db, chat_id)
+    return (user.quiet_start, user.quiet_end)
+
+
+def set_user_quiet(db: Session, chat_id: str, start_hhmm: str | None, end_hhmm: str | None) -> bool:
+    """Grava horário silencioso. start/end em HH:MM (ex.: 22:00, 08:00). None para desativar. Retorna True se válido."""
+    user = get_or_create_user(db, chat_id)
+    if start_hhmm is None and end_hhmm is None:
+        user.quiet_start = None
+        user.quiet_end = None
+        db.commit()
+        return True
+    start = _parse_time_hhmm(start_hhmm or "")
+    end = _parse_time_hhmm(end_hhmm or "")
+    if start is None or end is None:
+        return False
+    user.quiet_start = start_hhmm.strip()[:5]
+    user.quiet_end = end_hhmm.strip()[:5]
+    db.commit()
+    return True
+
+
+def is_user_in_quiet_window(chat_id: str) -> bool:
+    """
+    True se o utilizador está no horário silencioso (não enviar notificações).
+    Usa timezone do user e hora atual nesse fuso.
+    """
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from backend.database import SessionLocal
+    db = SessionLocal()
+    try:
+        user = get_or_create_user(db, chat_id)
+        if not user.quiet_start or not user.quiet_end:
+            return False
+        start = _parse_time_hhmm(user.quiet_start)
+        end = _parse_time_hhmm(user.quiet_end)
+        if not start or not end:
+            return False
+        tz_iana = user.timezone or phone_to_default_timezone(chat_id)
+        try:
+            now = datetime.now(ZoneInfo(tz_iana))
+        except Exception:
+            return False
+        now_m = now.hour * 60 + now.minute
+        start_m = start[0] * 60 + start[1]
+        end_m = end[0] * 60 + end[1]
+        if start_m <= end_m:
+            return start_m <= now_m < end_m
+        return now_m >= start_m or now_m < end_m
+    finally:
+        db.close()
+
+
 def _sanitize_preferred_name(raw: str, max_len: int = 128) -> str | None:
     """Normaliza o nome preferido: trim, limite de caracteres. Retorna None se vazio ou inválido."""
     if not raw or not isinstance(raw, str):

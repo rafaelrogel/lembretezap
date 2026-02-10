@@ -73,7 +73,12 @@ class WhatsAppChannel(BaseChannel):
         self.config: WhatsAppConfig = config
         self._ws = None
         self._connected = False
-    
+        self._cron_tool = None  # opcional: para lembretes 15 min antes de eventos .ics
+
+    def set_ics_cron_tool(self, cron_tool) -> None:
+        """Injetar CronTool para criar lembretes 15 min antes de cada evento ao importar .ics."""
+        self._cron_tool = cron_tool
+
     async def start(self) -> None:
         """Start the WhatsApp channel by connecting to the bridge."""
         import websockets
@@ -179,6 +184,35 @@ class WhatsAppChannel(BaseChannel):
             if content == "[Voice Message]":
                 logger.info(f"Voice message received from {sender_id}, but direct download from bridge is not yet supported.")
                 content = "[Voice Message: Transcription not available for WhatsApp yet]"
+
+            # Anexo .ics: parse e registar eventos (sem passar ao agente)
+            attachment_ics = data.get("attachmentIcs") or data.get("attachment_ics")
+            if attachment_ics and isinstance(attachment_ics, str) and attachment_ics.strip():
+                from nanobot.bus.events import OutboundMessage
+                try:
+                    from backend.ics_handler import handle_ics_payload
+                    from backend.database import SessionLocal
+                    response = await handle_ics_payload(
+                        chat_id=sender,
+                        sender_id=sender_id,
+                        ics_content=attachment_ics.strip(),
+                        db_session_factory=SessionLocal,
+                        cron_tool=getattr(self, "_cron_tool", None),
+                        cron_channel=self.name,
+                    )
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content=response or "—",
+                    ))
+                except Exception as e:
+                    logger.exception(f"ICS handler failed: {e}")
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content="Erro ao processar o calendário. Tenta outro ficheiro .ics.",
+                    ))
+                return
 
             # God Mode: comandos # só para admins (ADMIN_NUMBERS)
             if (content or "").strip().startswith("#"):

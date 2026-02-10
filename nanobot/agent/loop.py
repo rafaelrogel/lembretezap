@@ -174,10 +174,14 @@ class AgentLoop:
         if t == "list_add":
             if not list_tool:
                 return None
+            list_name = intent.get("list_name", "")
+            item_text = intent.get("item", "")
+            if list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(item_text):
+                return is_absurd_request(item_text)
             return await list_tool.execute(
                 action="add",
-                list_name=intent.get("list_name", ""),
-                item_text=intent.get("item", ""),
+                list_name=list_name,
+                item_text=item_text,
             )
         if t == "list_show":
             if not list_tool:
@@ -192,17 +196,10 @@ class AgentLoop:
             if list_name is None:
                 return "Use: /feito nome_da_lista id (ex: /feito mercado 1)"
             return await list_tool.execute(action="feito", list_name=list_name, item_id=item_id)
-        if t == "filme":
-            absurd = is_absurd_request(msg.content) or is_absurd_request(intent.get("nome", "") or "")
-            if absurd:
-                return absurd
-            if not event_tool:
-                return None
-            return await event_tool.execute(action="add", tipo="filme", nome=intent.get("nome", ""))
         return None
 
     async def _out_of_scope_message(self, user_content: str, lang: str = "en") -> str:
-        """Resposta variada e amigável quando o pedido está fora do escopo (Xiaomi ou fallback). Respeita idioma (pt-PT, pt-BR, es, en)."""
+        """Resposta natural e amigável quando o pedido está fora do escopo (Xiaomi ou fallback). Explica o que o bot faz, sugere acção e CTA."""
         from backend.locale import OUT_OF_SCOPE_FALLBACKS
         fallbacks = OUT_OF_SCOPE_FALLBACKS.get(lang if lang in OUT_OF_SCOPE_FALLBACKS else "en", OUT_OF_SCOPE_FALLBACKS["en"])
         lang_instruction = {
@@ -214,19 +211,23 @@ class AgentLoop:
         if self.scope_provider and self.scope_model:
             try:
                 prompt = (
-                    "You are an organization assistant (reminders, lists, events). The user said: «"
+                    "You are a friendly organization assistant. The user said something that is OUT OF YOUR SCOPE: «"
                     + (user_content[:200] if user_content else "")
-                    + "». Reply in ONE short, friendly sentence with personality: say you only help with reminders, lists and events and suggest /lembrete, /list or /filme. You may use 1 emoji. Reply only with the message text, "
-                    + lang_instruction + "."
+                    + "». Reply in 2-4 short sentences, natural and warm (not robotic). "
+                    "1) Politely say you can't help with that. "
+                    "2) Briefly say what you CAN do: reminders, lists, and noting films/books/music they want to see. "
+                    "3) Tell them they can use /help to see all commands, OR simply chat with you — you are their personal AI assistant. Do NOT list specific commands like /lembrete or /list. "
+                    "Use 1-2 emojis. Reply ONLY with the message text, "
+                    + lang_instruction + ". No preamble."
                 )
                 r = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
                     model=self.scope_model,
-                    max_tokens=100,
-                    temperature=0.6,
+                    max_tokens=180,
+                    temperature=0.7,
                 )
                 out = (r.content or "").strip()
-                if out and len(out) <= 300:
+                if out and len(out) <= 500:
                     return out
             except Exception as e:
                 logger.debug(f"Out-of-scope message (Xiaomi) failed: {e}")
@@ -444,6 +445,14 @@ class AgentLoop:
             metadata=msg.metadata,
             trace_id=msg.trace_id,
         )
+        # Não responder a mensagens triviais (ok, tá, não, emojis soltos) — evita loop e custo de tokens
+        try:
+            from backend.guardrails import should_skip_reply
+            if should_skip_reply(content):
+                logger.debug("Skip reply: trivial message (ok/tá/não/emoji)")
+                return None
+        except Exception:
+            pass
         # Rate limit per user (channel:chat_id); enviar a mensagem no máximo 1x por minuto por chat
         try:
             from backend.rate_limit import is_rate_limited
@@ -762,7 +771,7 @@ class AgentLoop:
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
-                content="Serviço temporariamente limitado. Use comandos /lembrete, /list ou /filme.",
+                content="Serviço temporariamente limitado. Use /help para ver os comandos.",
             )
 
         preview = msg.content[:80] + "..." if len(msg.content) > 80 else msg.content
@@ -802,7 +811,7 @@ class AgentLoop:
                 return OutboundMessage(
                     channel=msg.channel,
                     chat_id=msg.chat_id,
-                    content="Serviço temporariamente indisponível. Tente /lembrete, /list ou /filme.",
+                    content="Serviço temporariamente indisponível. Tente /help para ver os comandos.",
                 )
 
             # Handle tool calls

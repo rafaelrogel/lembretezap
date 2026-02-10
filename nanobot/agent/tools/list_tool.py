@@ -66,6 +66,10 @@ class ListTool(Tool):
             if action == "remove":
                 return self._remove(db, user.id, list_name, item_id)
             if action == "feito":
+                if (not list_name or not list_name.strip()) and item_id is not None:
+                    list_name = self._resolve_list_by_item_id(db, user.id, item_id)
+                    if not list_name:
+                        return f"Item {item_id} não encontrado. Use /feito nome_da_lista {item_id} se souber a lista."
                 return self._feito(db, user.id, list_name, item_id)
             return f"Unknown action: {action}"
         finally:
@@ -117,6 +121,11 @@ class ListTool(Tool):
         db.add(AuditLog(user_id=user_id, action="list_remove", resource=f"{list_name}#{item_id}"))
         db.commit()
         return f"Removido item {item_id} de '{list_name}'."
+
+    def _resolve_list_by_item_id(self, db, user_id: int, item_id: int) -> str | None:
+        """Encontra o nome da lista que contém o item com este id (do utilizador)."""
+        item = db.query(ListItem).join(List).filter(List.user_id == user_id, ListItem.id == item_id).first()
+        return item.list_ref.name if item and item.list_ref else None
 
     def _feito(self, db, user_id: int, list_name: str, item_id: int | None) -> str:
         list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)

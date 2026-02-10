@@ -28,6 +28,8 @@ class User(Base):
     extra_reminder_leads = Column(Text, nullable=True)  # JSON array de até 3 ints (ex.: [259200,86400,7200] = 3d, 1d, 2h)
     language = Column(String(8), nullable=True)  # pt-BR, pt-PT, es, en (None = infer from phone)
     timezone = Column(String(64), nullable=True)  # IANA e.g. Europe/Lisbon, America/Sao_Paulo (None = infer from phone)
+    quiet_start = Column(String(5), nullable=True)  # HH:MM início do horário silencioso (ex.: 22:00)
+    quiet_end = Column(String(5), nullable=True)    # HH:MM fim (ex.: 08:00); janela pode ser overnight
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

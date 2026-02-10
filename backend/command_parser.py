@@ -12,11 +12,29 @@ RE_LEMBRETE_DAQUI = re.compile(r"daqui\s+a\s+(\d+)\s*(min|minuto|hora|dia)s?", r
 RE_LEMBRETE_EM = re.compile(r"em\s+(\d+)\s*(min|minuto|hora|dia)s?", re.I)
 
 RE_LIST_ADD = re.compile(r"^/list\s+(\S+)\s+add\s+(.+)$", re.I)
+# /list filme|livro|musica|receita <item> (categorias especiais; sem "add")
+RE_LIST_CATEGORY_ADD = re.compile(
+    r"^/list\s+(filme|filmes|livro|livros|musica|musicas|música|músicas|receita|receitas)\s+(.+)$",
+    re.I,
+)
 RE_LIST_SHOW = re.compile(r"^/list\s+(\S+)\s*$", re.I)
 RE_LIST_ALL = re.compile(r"^/list\s*$", re.I)
 RE_FEITO_ID = re.compile(r"^/feito\s+(\d+)\s*$", re.I)
 RE_FEITO_LIST_ID = re.compile(r"^/feito\s+(\S+)\s+(\d+)\s*$", re.I)
+# Atalhos: /filme, /livro, /musica, /receita → equivalente a /list filme|livro|musica|receita <item>
 RE_FILME = re.compile(r"^/filme\s+(.+)$", re.I)
+RE_LIVRO = re.compile(r"^/livro\s+(.+)$", re.I)
+RE_MUSICA = re.compile(r"^/musica\s+(.+)$", re.I)
+RE_MUSICA_ACCENT = re.compile(r"^/música\s+(.+)$", re.I)
+RE_RECEITA = re.compile(r"^/receita\s+(.+)$", re.I)
+
+# Normalizar categoria para singular (list_name)
+_CATEGORY_TO_LIST = {
+    "filme": "filme", "filmes": "filme",
+    "livro": "livro", "livros": "livro",
+    "musica": "musica", "musicas": "musica", "música": "musica", "músicas": "musica",
+    "receita": "receita", "receitas": "receita",
+}
 
 # Recorrência: dia da semana em cron (0=domingo, 1=segunda, ..., 6=sábado)
 DIAS_SEMANA = {
@@ -150,6 +168,11 @@ def parse(raw: str) -> dict[str, Any] | None:
     m = RE_LIST_ADD.match(text)
     if m:
         return {"type": "list_add", "list_name": m.group(1).strip(), "item": m.group(2).strip()}
+    m = RE_LIST_CATEGORY_ADD.match(text)
+    if m:
+        cat = m.group(1).strip().lower()
+        list_name = _CATEGORY_TO_LIST.get(cat, cat)
+        return {"type": "list_add", "list_name": list_name, "item": m.group(2).strip()}
     m = RE_LIST_SHOW.match(text)
     if m:
         return {"type": "list_show", "list_name": m.group(1).strip()}
@@ -163,8 +186,18 @@ def parse(raw: str) -> dict[str, Any] | None:
     if m:
         return {"type": "feito", "list_name": None, "item_id": int(m.group(1))}
 
+    # Atalhos: /filme X, /livro X, /musica X, /receita X → list_add (tudo dentro de /list)
     m = RE_FILME.match(text)
     if m:
-        return {"type": "filme", "nome": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+    m = RE_LIVRO.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
+    m = RE_MUSICA.match(text) or RE_MUSICA_ACCENT.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "musica", "item": m.group(1).strip()}
+    m = RE_RECEITA.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "receita", "item": m.group(1).strip()}
 
     return None
