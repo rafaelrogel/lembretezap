@@ -235,3 +235,23 @@ def set_extra_reminder_leads_seconds(db: Session, chat_id: str, seconds_list: li
     user.extra_reminder_leads = extra_leads_to_json(seconds_list, max_count=3)
     db.commit()
     return True
+
+
+def clear_onboarding_data(db: Session, chat_id: str) -> bool:
+    """
+    Limpa dados do onboarding (nome, cidade) para permitir refazer.
+    Mantém idioma; timezone volta ao padrão do número.
+    Retorna True se alterou algo.
+    """
+    user = get_or_create_user(db, chat_id)
+    changed = False
+    if user.preferred_name:
+        user.preferred_name = None
+        changed = True
+    if user.city:
+        user.city = None
+        changed = True
+    user.timezone = None  # volta ao phone_to_default_timezone
+    changed = True
+    db.commit()
+    return changed

@@ -162,6 +162,38 @@ ONBOARDING_COMPLETE: dict[LangCode, str] = {
     "en": "All set! ✨ You can ask for reminders, lists and events. Anything else, just say. 😊",
 }
 
+# Quando usamos timezone do número (cliente não deu cidade)
+ONBOARDING_COMPLETE_TZ_FROM_PHONE: dict[LangCode, str] = {
+    "pt-PT": "Sem cidade, usei o fuso do teu número. Podes mudar com /tz Cidade. /reset para refazer o registro. LGPD: só guardamos o essencial. 😊",
+    "pt-BR": "Sem cidade, usei o fuso do seu número. Pode mudar com /tz Cidade. /reset para refazer o cadastro. LGPD: só guardamos o essencial. 😊",
+    "es": "Sin ciudad, usé el huso de tu número. Puedes cambiar con /tz Ciudad. /reset para rehacer. RGPD: solo guardamos lo esencial. 😊",
+    "en": "No city, using your number's timezone. Change with /tz City. /reset to redo. GDPR: we only store essentials. 😊",
+}
+
+# Nota de privacidade (LGPD/RGPD) a incluir no final do onboarding
+ONBOARDING_PRIVACY_NOTE: dict[LangCode, str] = {
+    "pt-PT": " Respeitamos LGPD/RGPD: só guardamos o essencial para o serviço funcionar.",
+    "pt-BR": " Respeitamos LGPD/RGPD: só guardamos o essencial para o serviço funcionar.",
+    "es": " Respetamos RGPD: solo guardamos lo esencial.",
+    "en": " We respect GDPR: we only store essentials.",
+}
+
+# Mensagem quando completa onboarding sem cidade (timezone do número)
+ONBOARDING_CITY_IMPORTANCE: dict[LangCode, str] = {
+    "pt-PT": "A cidade ajuda a enviar lembretes na hora certa. Sem ela, uso o fuso do teu número.",
+    "pt-BR": "A cidade ajuda a enviar lembretes na hora certa. Sem ela, uso o fuso do seu número.",
+    "es": "La ciudad ayuda a enviar recordatorios a la hora correcta. Sin ella, uso el huso de tu número.",
+    "en": "City helps send reminders at the right time. Without it, I use your number's timezone.",
+}
+
+# Sugestão de refazer cadastro (incluir no final do onboarding)
+ONBOARDING_RESET_HINT: dict[LangCode, str] = {
+    "pt-PT": " /reset para refazer o cadastro quando quiseres.",
+    "pt-BR": " /reset para refazer o cadastro quando quiser.",
+    "es": " /reset para rehacer el registro cuando quieras.",
+    "en": " /reset to redo registration anytime.",
+}
+
 
 # Fallbacks para mensagem "fora do escopo" — curtos (~30% menores)
 OUT_OF_SCOPE_FALLBACKS: dict[LangCode, list[str]] = {

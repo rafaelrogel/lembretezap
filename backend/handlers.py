@@ -286,6 +286,7 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
         "• /hoje, /semana — ver o que tens hoje ou esta semana\n"
         "• /tz Cidade — definir fuso (ex.: /tz Lisboa)\n"
         "• /lang pt-pt ou pt-br — idioma\n"
+        "• /reset — refazer cadastro (nome, cidade)\n"
         "• /quiet 22:00-08:00 — horário silencioso\n\n"
         "Ou simplesmente conversa comigo: diz o que precisas e eu ajudo a organizar. 😊"
     )
@@ -577,6 +578,41 @@ async def handle_stop(ctx: HandlerContext, content: str) -> str | None:
     return _reply_confirm_prompt(
         "🔕 Quer pausar as mensagens? Vais deixar de receber lembretes e notificações."
     )
+
+
+async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
+    """/reset: limpa dados do onboarding (nome, cidade) para refazer o cadastro."""
+    if not content.strip().lower().startswith("/reset"):
+        return None
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import clear_onboarding_data, get_user_language
+        from backend.locale import LangCode
+        db = SessionLocal()
+        try:
+            clear_onboarding_data(db, ctx.chat_id)
+            lang: LangCode = get_user_language(db, ctx.chat_id) or "pt-BR"
+        finally:
+            db.close()
+    except Exception:
+        lang = "pt-BR"
+    msgs = {
+        "pt-PT": "Cadastro apagado. Na próxima mensagem, recomeço o onboarding (nome, cidade). Respeitamos LGPD: só o essencial. 😊",
+        "pt-BR": "Cadastro apagado. Na próxima mensagem, recomeço o cadastro (nome, cidade). Respeitamos LGPD: só o essencial. 😊",
+        "es": "Registro borrado. En el próximo mensaje, reinicio (nombre, ciudad). Respetamos RGPD. 😊",
+        "en": "Registration cleared. Next message, I'll restart (name, city). We respect GDPR. 😊",
+    }
+    if ctx.session_manager:
+        try:
+            key = f"{ctx.channel}:{ctx.chat_id}"
+            session = ctx.session_manager.get_or_create(key)
+            for k in ("pending_preferred_name", "pending_language_choice", "pending_city",
+                      "onboarding_intro_sent", "onboarding_language_asked"):
+                session.metadata.pop(k, None)
+            ctx.session_manager.save(session)
+        except Exception:
+            pass
+    return msgs.get(lang, msgs["pt-BR"])
 
 
 # ---------------------------------------------------------------------------
@@ -1053,6 +1089,7 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         handle_rever,
         handle_quiet,
         handle_stop,
+        handle_reset,
         handle_exportar,
         handle_deletar_tudo,
     ]

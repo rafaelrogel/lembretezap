@@ -648,7 +648,13 @@ class AgentLoop:
                         # Esta mensagem é a resposta: gravar nome e confirmar (ignorar comandos que começam com /)
                         content_stripped = (msg.content or "").strip()
                         if not content_stripped.startswith("/"):
-                            name_raw = content_stripped[:128]
+                            from backend.onboarding_skip import is_onboarding_refusal_or_skip, is_likely_valid_name
+                            if is_onboarding_refusal_or_skip(content_stripped):
+                                name_raw = "utilizador"
+                            elif is_likely_valid_name(content_stripped):
+                                name_raw = content_stripped[:128]
+                            else:
+                                name_raw = "utilizador"
                             if name_raw and set_user_preferred_name(db, msg.chat_id, name_raw):
                                 session.metadata.pop("pending_preferred_name", None)
                                 self.sessions.save(session)
@@ -772,24 +778,38 @@ class AgentLoop:
 
                     if has_name and pending_city:
                         city_raw = (msg.content or "").strip()
-                        if not city_raw.startswith("/") and city_raw:
-                            city_name, tz_iana = await self._extract_city_and_timezone_with_mimo(city_raw)
-                            if city_name:
-                                set_user_city(db, msg.chat_id, city_name, tz_iana=tz_iana)
+                        if city_raw.startswith("/"):
+                            pass  # Deixar handlers processar /reset, /help, etc.
+                        else:
+                            from backend.onboarding_skip import is_likely_not_city
+                            from backend.timezone import phone_to_default_timezone
+                            from backend.user_store import set_user_timezone
+                            from backend.locale import ONBOARDING_COMPLETE_TZ_FROM_PHONE, ONBOARDING_RESET_HINT
+                            if city_raw and not is_likely_not_city(city_raw):
+                                city_name, tz_iana = await self._extract_city_and_timezone_with_mimo(city_raw)
+                                if city_name and not is_likely_not_city(city_name):
+                                    set_user_city(db, msg.chat_id, city_name, tz_iana=tz_iana)
+                                    complete_msg = ONBOARDING_COMPLETE.get(user_lang, ONBOARDING_COMPLETE["en"])
+                                    complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
+                                else:
+                                    tz = phone_to_default_timezone(msg.chat_id)
+                                    set_user_timezone(db, msg.chat_id, tz)
+                                    complete_msg = ONBOARDING_COMPLETE_TZ_FROM_PHONE.get(user_lang, ONBOARDING_COMPLETE_TZ_FROM_PHONE["en"])
                             else:
-                                set_user_city(db, msg.chat_id, city_raw[:128])
+                                tz = phone_to_default_timezone(msg.chat_id)
+                                set_user_timezone(db, msg.chat_id, tz)
+                                complete_msg = ONBOARDING_COMPLETE_TZ_FROM_PHONE.get(user_lang, ONBOARDING_COMPLETE_TZ_FROM_PHONE["en"])
+                            session.metadata.pop("pending_city", None)
                             self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
-                        session.metadata.pop("pending_city", None)
-                        complete_msg = ONBOARDING_COMPLETE.get(user_lang, ONBOARDING_COMPLETE["en"])
-                        self.sessions.save(session)
-                        session.add_message("user", msg.content)
-                        session.add_message("assistant", complete_msg)
-                        self.sessions.save(session)
-                        return OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=complete_msg,
-                        )
+                            self.sessions.save(session)
+                            session.add_message("user", msg.content)
+                            session.add_message("assistant", complete_msg)
+                            self.sessions.save(session)
+                            return OutboundMessage(
+                                channel=msg.channel,
+                                chat_id=msg.chat_id,
+                                content=complete_msg,
+                            )
                 finally:
                     db.close()
             except Exception as e:
