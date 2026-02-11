@@ -271,6 +271,19 @@ class CronService:
         suggested_prefix: str | None = None,
     ) -> CronJob:
         """Add a new job. suggested_prefix: quando dado (ex. pelo MIMO), usa para o ID em vez de derivar da mensagem."""
+        logger.debug(
+            "Cron add_job: name=%r schedule_kind=%s deliver=%s channel=%s to=%s delete_after_run=%s suggested_prefix=%s",
+            name[:50] if name else "",
+            getattr(schedule, "kind", "?"),
+            deliver,
+            channel or "(none)",
+            (to[:20] + "...") if to and len(to) > 20 else (to or "(none)"),
+            delete_after_run,
+            suggested_prefix or "(none)",
+        )
+        msg_preview = (message or "")[:60] + ("..." if len(message or "") > 60 else "")
+        logger.debug("Cron add_job: message_len=%d message_preview=%r", len(message or ""), msg_preview)
+
         store = self._load_store()
         now = _now_ms()
         kind = payload_kind if payload_kind in ("agent_turn", "system_event") else "agent_turn"
@@ -279,6 +292,15 @@ class CronService:
             job_id = generate_friendly_job_id_with_prefix(suggested_prefix, existing_ids)
         else:
             job_id = generate_friendly_job_id(message or name, existing_ids)
+        next_run_ms = _compute_next_run(schedule, now)
+
+        logger.debug(
+            "Cron add_job: generated job_id=%s next_run_at_ms=%s schedule_at=%s",
+            job_id,
+            next_run_ms,
+            time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(next_run_ms / 1000)) if next_run_ms else "N/A",
+        )
+
         job = CronJob(
             id=job_id,
             name=name,
@@ -291,17 +313,34 @@ class CronService:
                 channel=channel,
                 to=to,
             ),
-            state=CronJobState(next_run_at_ms=_compute_next_run(schedule, now)),
+            state=CronJobState(next_run_at_ms=next_run_ms),
             created_at_ms=now,
             updated_at_ms=now,
             delete_after_run=delete_after_run,
         )
-        
+
         store.jobs.append(job)
         self._save_store()
         self._arm_timer()
-        
-        logger.info(f"Cron: added job '{name}' ({job.id})")
+
+        sched_desc = schedule.kind
+        if schedule.kind == "at" and schedule.at_ms:
+            sched_desc += f" at={time.strftime('%Y-%m-%d %H:%M', time.localtime(schedule.at_ms / 1000))}"
+        elif schedule.kind == "every" and schedule.every_ms:
+            sched_desc += f" every={schedule.every_ms // 1000}s"
+        elif schedule.kind == "cron" and schedule.expr:
+            sched_desc += f" expr={schedule.expr!r}"
+        logger.info(
+            "Cron: added job id=%s name=%r schedule=%s deliver=%s channel=%s to=%s next_run=%s total_jobs=%d",
+            job_id,
+            name[:40] if name else "",
+            sched_desc,
+            deliver,
+            channel or "—",
+            (to[:15] + "...") if to and len(to) > 15 else (to or "—"),
+            time.strftime("%Y-%m-%d %H:%M", time.localtime(next_run_ms / 1000)) if next_run_ms else "N/A",
+            len(store.jobs),
+        )
         if deliver and channel == "cli":
             logger.info("Cron: job will not be delivered to WhatsApp (channel=cli); create reminder from WhatsApp to receive there.")
         return job

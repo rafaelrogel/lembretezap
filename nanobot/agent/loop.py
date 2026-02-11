@@ -602,6 +602,27 @@ class AgentLoop:
             logger.debug(f"User language check failed: {e}")
             user_lang = phone_to_default_language(msg.chat_id)
 
+        # Proteção contra prompt injection: rejeitar antes de chegar ao agente
+        try:
+            from backend.injection_guard import is_injection_attempt, get_injection_response
+            if is_injection_attempt(content):
+                logger.info(f"Injection attempt blocked: {content[:80]}...")
+                injection_msg = get_injection_response(user_lang)
+                try:
+                    session = self.sessions.get_or_create(msg.session_key)
+                    session.add_message("user", msg.content)
+                    session.add_message("assistant", injection_msg)
+                    self.sessions.save(session)
+                except Exception:
+                    pass
+                return OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content=injection_msg,
+                )
+        except Exception as e:
+            logger.debug(f"Injection guard failed: {e}")
+
         # Perguntar como gostaria de ser chamado (uma vez por cliente), usando Xiaomi para a pergunta
         # Skip no canal cli (testes e uso por terminal) para não interceptar comandos
         # Intro e pergunta do nome: sempre no idioma do número (nunca assumir inglês por defeito).
