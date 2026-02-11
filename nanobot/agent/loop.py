@@ -238,23 +238,19 @@ class AgentLoop:
         if self.scope_provider and self.scope_model:
             try:
                 prompt = (
-                    "You are a friendly organization assistant. The user said something that is OUT OF YOUR SCOPE: «"
-                    + (user_content[:200] if user_content else "")
-                    + "». Reply in 2-4 short sentences, natural and warm (not robotic). "
-                    "1) Politely say you can't help with that. "
-                    "2) Briefly say what you CAN do: reminders, lists, and noting films/books/music they want to see. "
-                    "3) Tell them they can use /help to see all commands, OR simply chat with you — you are their personal AI assistant. Do NOT list specific commands like /lembrete or /list. "
-                    "Use 1-2 emojis. Reply ONLY with the message text, "
-                    + lang_instruction + ". No preamble."
+                    "Out of scope: «"
+                    + (user_content[:150] if user_content else "")
+                    + "». Reply in 1 SHORT sentence. Say you help with reminders and lists. /help. 1 emoji. "
+                    "Reply ONLY the message, " + lang_instruction + ". No preamble."
                 )
                 r = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
                     model=self.scope_model,
-                    max_tokens=180,
+                    max_tokens=70,
                     temperature=0.7,
                 )
                 out = (r.content or "").strip()
-                if out and len(out) <= 500:
+                if out and len(out) <= 245:
                     return out
             except Exception as e:
                 logger.debug(f"Out-of-scope message (Xiaomi) failed: {e}")
@@ -269,28 +265,19 @@ class AgentLoop:
             "en": "in English",
         }.get(user_lang, "in the user's language")
         prompt = (
-            "You are an AI assistant for personal organization. The user is seeing you for the FIRST time. "
-            "Write a single welcome message (2-4 short paragraphs) that:\n"
-            "1) Introduces yourself as their AI for organization — friendly and warm, not robotic.\n"
-            "2) Explains clearly what you can do. Use this structure (do NOT mix the two):\n"
-            "   - LISTS: shopping, to-do, recipes, ingredients, books, films, music, sites to visit — things to note and look up later.\n"
-            "   - EVENTS: appointments, consultations, meetings, special dates, commitments — things with a date/time to remember.\n"
-            "   You can also set reminders and search for ingredient lists online. 'The sky is the limit' within organization and reminders.\n"
-            "   IMPORTANT: Do NOT put recipes, books or films under 'events' or 'eventos'; they belong in LISTS.\n"
-            "3) Makes the user feel excited and eager to try you. Be concise and scannable (short sentences, no wall of text).\n"
-            "4) End by asking how they would like to be called (first name or nickname).\n"
-            f"Use 1-2 emojis. Reply ONLY with the message, {lang_instruction}. No preamble, no quotes."
+            "AI org assistant. First contact. One SHORT paragraph (2-3 sentences): intro, what you do (lists+events), ask their name. 1 emoji. "
+            f"Reply ONLY the message, {lang_instruction}. No preamble."
         )
         if self.scope_provider and self.scope_model:
             try:
                 r = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
                     model=self.scope_model,
-                    max_tokens=420,
+                    max_tokens=196,
                     temperature=0.6,
                 )
                 out = (r.content or "").strip().strip('"\'')
-                if out and len(out) <= 800:
+                if out and len(out) <= 385:
                     return out
             except Exception as e:
                 logger.debug(f"Onboarding intro (Xiaomi) failed: {e}")
@@ -298,43 +285,19 @@ class AgentLoop:
             r = await self.provider.chat(
                 messages=[{"role": "user", "content": prompt}],
                 model=self.model,
-                max_tokens=420,
+                max_tokens=196,
                 temperature=0.6,
             )
             out = (r.content or "").strip().strip('"\'')
-            if out and len(out) <= 800:
+            if out and len(out) <= 385:
                 return out
         except Exception as e:
             logger.debug(f"Onboarding intro (DeepSeek) failed: {e}")
         fallbacks = {
-            "pt-PT": (
-                "Olá! Sou a tua assistente de organização. 📋\n\n"
-                "Posso criar listas (compras, tarefas, receitas, ingredientes), definir lembretes, "
-                "registar consultas e compromissos, datas especiais, reuniões — e até pesquisar listas de ingredientes na Internet. "
-                "Livros, filmes, sites a visitar: tudo o que precisares para não esquecer nada.\n\n"
-                "Como gostarias de ser chamado? 😊"
-            ),
-            "pt-BR": (
-                "Oi! Sou sua assistente de organização. 📋\n\n"
-                "Posso criar listas (compras, tarefas, receitas, ingredientes), definir lembretes, "
-                "registrar consultas e compromissos, datas especiais, reuniões — e até pesquisar listas de ingredientes na internet. "
-                "Livros, filmes, sites para visitar: tudo que você precisar para não esquecer nada.\n\n"
-                "Como você gostaria de ser chamado? 😊"
-            ),
-            "es": (
-                "¡Hola! Soy tu asistente de organización. 📋\n\n"
-                "Puedo crear listas (compras, tareas, recetas, ingredientes), definir recordatorios, "
-                "registrar consultas y compromisos, fechas especiales, reuniones — y hasta buscar listas de ingredientes en internet. "
-                "Libros, películas, sitios para visitar: todo lo que necesites para no olvidar nada.\n\n"
-                "¿Cómo te gustaría que te llamara? 😊"
-            ),
-            "en": (
-                "Hi! I'm your organization assistant. 📋\n\n"
-                "I can create lists (shopping, to-do, recipes, ingredients), set reminders, "
-                "register appointments and commitments, special dates, meetings — and even search for ingredient lists online. "
-                "Books, films, sites to visit: whatever you need so nothing slips through the cracks.\n\n"
-                "How would you like to be called? 😊"
-            ),
+            "pt-PT": "Olá! Sou a tua assistente de organização. 📋 Listas (compras, receitas), lembretes e eventos. Como gostarias de ser chamado? 😊",
+            "pt-BR": "Oi! Sou sua assistente de organização. 📋 Listas (compras, receitas), lembretes e eventos. Como gostaria de ser chamado? 😊",
+            "es": "¡Hola! Soy tu asistente de organización. 📋 Listas, recordatorios y eventos. ¿Cómo te gustaría que te llamara? 😊",
+            "en": "Hi! I'm your organization assistant. 📋 Lists, reminders and events. How would you like to be called? 😊",
         }
         return fallbacks.get(user_lang, fallbacks["en"])
 
@@ -430,10 +393,10 @@ class AgentLoop:
         }.get(user_lang, "in English. Examples: I'm here!, What's up?")
         if not self.scope_provider or not self.scope_model:
             fallbacks = {
-                "pt-PT": "Estou aqui! Em que posso ajudar?",
-                "pt-BR": "Estou aqui! Em que posso ajudar?",
-                "es": "¡Estoy aquí! ¿En qué puedo ayudarte?",
-                "en": "I'm here! How can I help?",
+                "pt-PT": "Estou aqui! O que precisa?",
+                "pt-BR": "Estou aqui! O que precisa?",
+                "es": "¡Aquí! ¿Qué necesitas?",
+                "en": "Here! What do you need?",
             }
             return fallbacks.get(user_lang, fallbacks["en"])
         try:
@@ -454,10 +417,10 @@ class AgentLoop:
         except Exception as e:
             logger.debug(f"Mimo reply calling organizer failed: {e}")
         fallbacks = {
-            "pt-PT": "Estou aqui! Em que posso ajudar?",
-            "pt-BR": "Estou aqui! Em que posso ajudar?",
-            "es": "¡Estoy aquí! ¿En qué puedo ayudarte?",
-            "en": "I'm here! How can I help?",
+            "pt-PT": "Estou aqui! O que precisa?",
+            "pt-BR": "Estou aqui! O que precisa?",
+            "es": "¡Aquí! ¿Qué necesitas?",
+            "en": "Here! What do you need?",
         }
         return fallbacks.get(user_lang, fallbacks["en"])
 
@@ -567,6 +530,20 @@ class AgentLoop:
             pass
 
         self._set_tool_context(msg.channel, msg.chat_id)
+        # Reset + set: se o cliente insistir/reclamar após rejeição por intervalo, permitir até 30 min
+        cron_tool = self.tools.get("cron")
+        if cron_tool:
+            cron_tool.set_allow_relaxed_interval(False)
+            try:
+                from backend.guardrails import user_insisting_on_interval_rejection
+                insisting = await user_insisting_on_interval_rejection(
+                    self.sessions, msg.channel, msg.chat_id, content or "",
+                    self.scope_provider, self.scope_model or "",
+                )
+                if insisting:
+                    cron_tool.set_allow_relaxed_interval(True)
+            except Exception:
+                pass
 
         # Aviso "Estou a pesquisar" quando o pedido pode demorar (receita, lista de compras, URL)
         try:

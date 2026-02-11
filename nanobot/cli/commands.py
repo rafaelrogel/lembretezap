@@ -318,18 +318,15 @@ def gateway(
                 if response is None:
                     # DeepSeek: mensagem criativa e variada a partir do contexto do lembrete (sem frases fixas)
                     prompt = (
-                    "You are sending a reminder to the user. Below is the reminder content. "
-                    "Write ONE short, friendly message that delivers this reminder. "
-                    "Be CREATIVE and NATURAL: look at the context (e.g. jantar, médico, compras, cinema) and choose a tone that fits (warm, encouraging, light). "
-                    "Use 1-2 emojis. Do NOT repeat the same phrase every time (e.g. avoid always saying 'hope you're well'). "
-                    "Vary your wording. Be positive and human. One or two short sentences only. "
-                    f"{lang_instruction} Reply only with the message text, nothing else.\n\nReminder: "
+                    "Reminder to user. Write ONE very short, friendly sentence. 1 emoji. "
+                    "Context-aware tone. No filler. "
+                    f"{lang_instruction} Reply only with the message.\n\nReminder: "
                 ) + (job.payload.message or "")
                     try:
                         r = await provider.chat(
                             messages=[{"role": "user", "content": prompt}],
                             model=config.agents.defaults.model or "",
-                            max_tokens=220,
+                            max_tokens=154,
                             temperature=0.7,
                         )
                         response = (r.content or job.payload.message or "").strip()
@@ -404,7 +401,7 @@ def gateway(
                 r = await scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
                     model=scope_model,
-                    max_tokens=500,
+                    max_tokens=350,
                     temperature=0,
                 )
                 return (r.content or "").strip()

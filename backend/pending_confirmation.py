@@ -71,7 +71,7 @@ Regras:
         r = await scope_provider.chat(
             messages=[{"role": "user", "content": prompt}],
             model=scope_model,
-            max_tokens=120,
+            max_tokens=84,
             temperature=0,
         )
         out = (r.content or "").strip()

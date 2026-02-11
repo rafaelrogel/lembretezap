@@ -148,7 +148,7 @@ async def build_recap_message(
         r = await deepseek_provider.chat(
             messages=[{"role": "user", "content": deepseek_prompt}],
             model=deepseek_model,
-            max_tokens=280,
+            max_tokens=196,
             temperature=0.85,
         )
         part1 = (r.content or "").strip()
@@ -184,7 +184,7 @@ async def build_recap_message(
             r = await mimo_provider.chat(
                 messages=[{"role": "user", "content": f"{mimo_prompt}\n\nData:\n{stats_text}"}],
                 model=mimo_model,
-                max_tokens=450,
+                max_tokens=315,
                 temperature=0.5,
             )
             part2 = (r.content or "").strip()

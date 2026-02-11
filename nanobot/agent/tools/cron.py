@@ -32,6 +32,13 @@ class CronTool(Tool):
         """Set the current session context for delivery."""
         self._channel = channel
         self._chat_id = chat_id
+
+    def set_allow_relaxed_interval(self, allow: bool) -> None:
+        """Para este turno: cliente insistiu, permitir intervalo até 30 min."""
+        self._allow_relaxed_interval = allow
+
+    def _get_allow_relaxed(self, explicit: bool | None = None) -> bool:
+        return explicit if explicit is not None else getattr(self, "_allow_relaxed_interval", False)
     
     @property
     def name(self) -> str:
@@ -93,11 +100,13 @@ class CronTool(Tool):
         cron_expr: str | None = None,
         start_date: str | None = None,
         job_id: str | None = None,
+        allow_relaxed_interval: bool = False,
         **kwargs: Any
     ) -> str:
         if action == "add":
             from backend.guardrails import is_absurd_request
-            absurd = is_absurd_request(message)
+            allow_relaxed = allow_relaxed_interval or self._get_allow_relaxed()
+            absurd = is_absurd_request(message, allow_relaxed=allow_relaxed)
             if absurd:
                 return absurd
             prefix = get_prefix_from_list(message or "")
@@ -117,6 +126,7 @@ class CronTool(Tool):
                 suggested_prefix=prefix,
                 use_pre_reminders=use_pre_reminders,
                 long_event_24h=long_event_24h,
+                allow_relaxed_interval=allow_relaxed,
             )
         elif action == "list":
             return self._list_jobs()
@@ -156,6 +166,7 @@ class CronTool(Tool):
         suggested_prefix: str | None = None,
         use_pre_reminders: bool = True,
         long_event_24h: bool = False,
+        allow_relaxed_interval: bool = False,
     ) -> str:
         message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
@@ -164,10 +175,15 @@ class CronTool(Tool):
             return "Error: no session context (channel/chat_id)"
         if cron_expr and not validate_cron_expr(cron_expr):
             return "Error: expressão cron inválida (use 5 campos: min hora dia mês dia-semana)"
+        if cron_expr:
+            from backend.guardrails import is_cron_interval_too_short
+            if is_cron_interval_too_short(cron_expr, allow_relaxed=allow_relaxed_interval):
+                return "O intervalo mínimo entre lembretes recorrentes é 2 horas. Ex.: «todo dia às 8h e às 14h» ou «a cada 2 horas»."
         if in_seconds is not None and (in_seconds < 0 or in_seconds > 86400 * 365):
             return "Error: in_seconds deve estar entre 0 e 1 ano"
-        if every_seconds is not None and (every_seconds < 1800 or every_seconds > 86400 * 30):
-            return "O intervalo mínimo para lembretes recorrentes é 30 minutos. Ex.: «a cada 30 minutos» ou «a cada 1 hora»."
+        min_every = 1800 if allow_relaxed_interval else 7200  # 30 min ou 2h
+        if every_seconds is not None and (every_seconds < min_every or every_seconds > 86400 * 30):
+            return "O intervalo mínimo para lembretes recorrentes é 2 horas. Ex.: «a cada 2 horas» ou «a cada 3 horas»."
 
         # Parse start_date (YYYY-MM-DD) → not_before_ms para recorrentes ("a partir de 1º julho")
         not_before_ms: int | None = None

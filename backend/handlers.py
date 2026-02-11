@@ -127,12 +127,21 @@ def _reply_confirm_prompt(msg: str) -> str:
 async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     """/lembrete [msg] [data/hora]. Ex: /lembrete reunião amanhã 14h."""
     from backend.command_parser import parse
-    from backend.guardrails import is_absurd_request
+    from backend.guardrails import is_absurd_request, user_insisting_on_interval_rejection
+    from backend.recurring_detector import maybe_ask_recurrence
+    from backend.locale import LangCode
+    from backend.user_store import get_user_language
+    from backend.database import SessionLocal
+
     intent = parse(content)
     if not intent or intent.get("type") != "lembrete":
         return None
-    if is_absurd_request(content):
-        return is_absurd_request(content)
+    allow_relaxed = await user_insisting_on_interval_rejection(
+        ctx.session_manager, ctx.channel, ctx.chat_id, content,
+        ctx.scope_provider, ctx.scope_model or "",
+    )
+    if is_absurd_request(content, allow_relaxed=allow_relaxed):
+        return is_absurd_request(content, allow_relaxed=allow_relaxed)
     if not ctx.cron_service or not ctx.cron_tool:
         return None
     msg_text = (intent.get("message") or "").strip()
@@ -143,6 +152,21 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     cron_expr = intent.get("cron_expr")
     start_date = intent.get("start_date")
     if not (in_sec or every_sec or cron_expr):
+        # Sem tempo: se parecer recorrente, solicitar recorrência
+        user_lang: LangCode = "pt-BR"
+        try:
+            db = SessionLocal()
+            try:
+                user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            finally:
+                db.close()
+        except Exception:
+            pass
+        ask_msg = await maybe_ask_recurrence(
+            content, user_lang, ctx.scope_provider, ctx.scope_model or "",
+        )
+        if ask_msg:
+            return ask_msg
         return None
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
     return await ctx.cron_tool.execute(
@@ -152,6 +176,7 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
         every_seconds=every_sec,
         cron_expr=cron_expr,
         start_date=start_date,
+        allow_relaxed_interval=allow_relaxed,
     )
 
 
@@ -560,18 +585,18 @@ async def _call_mimo(
     user_lang: str,
     instruction: str,
     data_text: str,
-    max_tokens: int = 600,
+    max_tokens: int = 420,
 ) -> str | None:
     """Chama o Mimo (scope_provider) para gerar resposta. Retorna None se não houver provider."""
     if not ctx.scope_provider or not ctx.scope_model:
         return None
     try:
         lang_instruction = {
-            "pt-PT": "Responde em português de Portugal.",
-            "pt-BR": "Responde em português do Brasil.",
-            "es": "Responde en español.",
-            "en": "Respond in English.",
-        }.get(user_lang, "Respond in the user's language.")
+            "pt-PT": "Responde em português de Portugal. Resposta curta (1-2 frases).",
+            "pt-BR": "Responde em português do Brasil. Resposta curta (1-2 frases).",
+            "es": "Responde en español. Respuesta corta (1-2 frases).",
+            "en": "Respond in English. Short answer (1-2 sentences).",
+        }.get(user_lang, "Respond in the user's language. Short answer (1-2 sentences).")
         prompt = f"{instruction}\n\n{lang_instruction}\n\nDados:\n{data_text}"
         r = await ctx.scope_provider.chat(
             messages=[{"role": "user", "content": prompt}],
@@ -669,10 +694,10 @@ async def handle_rever(ctx: HandlerContext, content: str) -> str | None:
                     lines.append(f"[{label}] {cont}")
             data_text = "\n".join(lines)
             if N is not None:
-                instruction = f"O utilizador pediu para rever as últimas {len(recent)} mensagens da conversa (total na sessão: {total}). Apresenta um resumo ou lista clara e amigável, sem inventar conteúdo. Máximo 2-3 parágrafos se for muito longo."
+                instruction = f"Resume as últimas {len(recent)} mensagens (total: {total}). Respostas curtas (1-2 frases). Sem inventar."
             else:
-                instruction = f"O utilizador pediu para rever todo o histórico da conversa ({len(recent)} mensagens). Apresenta um resumo ou lista clara e amigável. Se for muito longo, resume por períodos ou destaca os pontos principais."
-            out = await _call_mimo(ctx, user_lang, instruction, data_text, max_tokens=800)
+                instruction = f"Resume o histórico ({len(recent)} mensagens). Curto e direto."
+            out = await _call_mimo(ctx, user_lang, instruction, data_text, max_tokens=560)
             if out:
                 return out
             # Fallback sem Mimo
@@ -714,11 +739,9 @@ async def handle_rever(ctx: HandlerContext, content: str) -> str | None:
                     data_lines.append(f"Pedido: {pedido} | Agendado para: {agendado} | Status: {status}")
                 data_text = "\n".join(data_lines)
                 instruction = (
-                    "O utilizador pediu para rever a lista de lembretes. "
-                    "Cada linha tem: Pedido (texto) | Agendado para (data/hora) | Status (agendado/entregue/falhou). "
-                    "Apresenta de forma clara e organizada, por data. Se um lembrete único já foi disparado, mostra «entregue» e quando disparou."
+                    "Lista de lembretes: Pedido | Agendado | Status. Apresenta de forma concisa, por data."
                 )
-                out = await _call_mimo(ctx, user_lang, instruction, data_text, max_tokens=500)
+                out = await _call_mimo(ctx, user_lang, instruction, data_text, max_tokens=350)
                 if out:
                     return out
                 return "Lembretes:\n" + "\n".join(data_lines[:20])
@@ -744,12 +767,12 @@ async def handle_rever(ctx: HandlerContext, content: str) -> str | None:
                 return "Ainda não tens pedidos nem lembranças registados."
             data_text = "\n".join(data_parts)
             if intent == "pedido":
-                instruction = "O utilizador pediu para rever o último pedido de lembrete. Indica claramente qual foi esse pedido."
+                instruction = "Indica o último pedido de lembrete. Uma frase."
             elif intent == "lembrete":
-                instruction = "O utilizador pediu para rever a última lembrança que recebeu. Indica claramente qual foi."
+                instruction = "Indica a última lembrança entregue. Uma frase."
             else:
-                instruction = "O utilizador pediu para rever o último pedido e a última lembrança. Apresenta ambos de forma clara."
-            out = await _call_mimo(ctx, user_lang, instruction, data_text, max_tokens=300)
+                instruction = "Apresenta último pedido e última lembrança. 1-2 frases."
+            out = await _call_mimo(ctx, user_lang, instruction, data_text, max_tokens=210)
             if out:
                 return out
             if intent == "pedido":
@@ -868,15 +891,12 @@ async def handle_analytics(ctx: HandlerContext, content: str) -> str | None:
     )
 
     instruction = (
-        "O utilizador fez uma pergunta analítica sobre os dados dele (lembretes, conversa, horas, resumos). "
-        "Responde de forma clara e concisa, com números quando fizer sentido (ex.: quantos lembretes, em que horas). "
-        "Se pedir 'horas mais comuns', analisa as horas (coluna data/hora) e indica os horários mais frequentes. "
-        "Não inventes dados; usa apenas o que está nos Dados abaixo. Se não houver dados suficientes, diz isso."
+        "Pergunta analítica sobre lembretes/dados. Resposta curta (1-3 frases). Com números se pedido. Sem inventar."
     )
     question = (content or "").strip()
     full_instruction = f"{instruction}\n\nPergunta do utilizador: «{question}»"
 
-    out = await _call_mimo(ctx, user_lang, full_instruction, data_text, max_tokens=500)
+    out = await _call_mimo(ctx, user_lang, full_instruction, data_text, max_tokens=350)
     if out:
         return out
     # Fallback: resposta mínima
@@ -967,6 +987,31 @@ async def _resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# Pedido de lembrete sem tempo (natural language) → solicitar recorrência se recorrente
+# ---------------------------------------------------------------------------
+
+async def handle_recurring_prompt(ctx: HandlerContext, content: str) -> str | None:
+    """Quando o usuário pede lembrete em linguagem natural sem data (ex: 'lembrar de tomar remédio'), e parece recorrente, pergunta a frequência."""
+    from backend.recurring_detector import maybe_ask_recurrence
+    from backend.user_store import get_user_language
+    from backend.database import SessionLocal
+    from backend.locale import LangCode
+
+    user_lang: LangCode = "pt-BR"
+    try:
+        db = SessionLocal()
+        try:
+            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return await maybe_ask_recurrence(
+        content, user_lang, ctx.scope_provider, ctx.scope_model or "",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Router: confirmação pendente → parse → handlers
 # ---------------------------------------------------------------------------
 
@@ -985,6 +1030,7 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         handle_atendimento_request,   # «Quero falar com atendimento» → DeepSeek empático + contacto
         handle_pending_confirmation,  # «Quero sim» após oferta de lembrete — Mimo
         handle_eventos_unificado,    # «Meus eventos» = lembretes + eventos
+        handle_recurring_prompt,      # «lembrar de tomar remédio» sem tempo → pedir recorrência
         handle_lembrete,
         handle_list,
         handle_feito,

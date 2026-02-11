@@ -139,59 +139,59 @@ def lead_time_confirmation(lang: LangCode, default_seconds: int | None, extra_se
     extra_str = ", ".join(_seconds_to_lead_label(s) for s in extra_seconds) if extra_seconds else ""
     if lang == "pt-PT":
         if extra_str:
-            return f"Tudo certo! ✨ Receberás um aviso {default_str} antes, mais avisos a {extra_str} antes, e o lembrete na hora do evento. Qualquer coisa, é só dizeres. 😊"
-        return f"Tudo certo! ✨ Receberás um aviso {default_str} antes e o lembrete na hora do evento. 😊"
+            return f"Tudo certo! ✨ Aviso {default_str} antes + {extra_str}. Lembrete na hora. 😊"
+        return f"Tudo certo! ✨ Aviso {default_str} antes e lembrete na hora. 😊"
     if lang == "pt-BR":
         if extra_str:
-            return f"Beleza! ✨ Você receberá um aviso {default_str} antes, mais avisos a {extra_str} antes, e o lembrete na hora do evento. Qualquer coisa, manda mensagem. 😊"
-        return f"Beleza! ✨ Você receberá um aviso {default_str} antes e o lembrete na hora do evento. 😊"
+            return f"Beleza! ✨ Aviso {default_str} antes + {extra_str}. Lembrete na hora. 😊"
+        return f"Beleza! ✨ Aviso {default_str} antes e lembrete na hora. 😊"
     if lang == "es":
         if extra_str:
-            return f"¡Listo! ✨ Recibirás un aviso {default_str} antes, más avisos a {extra_str} antes, y el recordatorio en el momento del evento. Cualquier cosa, dila. 😊"
-        return f"¡Listo! ✨ Recibirás un aviso {default_str} antes y el recordatorio en el momento del evento. 😊"
+            return f"¡Listo! ✨ Aviso {default_str} antes + {extra_str}. Recordatorio en el momento. 😊"
+        return f"¡Listo! ✨ Aviso {default_str} antes y recordatorio en el momento. 😊"
     if extra_str:
-        return f"Done! ✨ You'll get a reminder {default_str} before, plus reminders at {extra_str} before, and at the event time. 😊"
-    return f"Done! ✨ You'll get a reminder {default_str} before and at the event time. 😊"
+        return f"Done! ✨ Reminder {default_str} before + {extra_str}. At event time. 😊"
+    return f"Done! ✨ Reminder {default_str} before and at event time. 😊"
 
 
-# Mensagem quando o onboarding termina (após cidade; sem perguntar avisos antes do evento)
+# Mensagem quando o onboarding termina (após cidade)
 ONBOARDING_COMPLETE: dict[LangCode, str] = {
-    "pt-PT": "Tudo certo! ✨ Já podes pedir lembretes, listas e eventos. Para reuniões e compromissos, aviso-te antes na hora que fizer sentido. Qualquer coisa, é só dizeres. 😊",
-    "pt-BR": "Beleza! ✨ Já pode pedir lembretes, listas e eventos. Para reuniões e compromissos, te aviso antes na hora que fizer sentido. Qualquer coisa, manda mensagem. 😊",
-    "es": "¡Listo! ✨ Ya puedes pedir recordatorios, listas y eventos. Para reuniones y compromisos, te aviso antes cuando tenga sentido. Cualquier cosa, dilo. 😊",
-    "en": "All set! ✨ You can ask for reminders, lists and events. For meetings and appointments I'll remind you in advance when it makes sense. Anything else, just say. 😊",
+    "pt-PT": "Tudo certo! ✨ Já podes pedir lembretes, listas e eventos. Qualquer coisa, diz. 😊",
+    "pt-BR": "Beleza! ✨ Já pode pedir lembretes, listas e eventos. Qualquer coisa, manda mensagem. 😊",
+    "es": "¡Listo! ✨ Ya puedes pedir recordatorios, listas y eventos. Cualquier cosa, dilo. 😊",
+    "en": "All set! ✨ You can ask for reminders, lists and events. Anything else, just say. 😊",
 }
 
 
-# Fallbacks para mensagem "fora do escopo": referem /help para comandos e "conversar comigo" (assistente IA).
+# Fallbacks para mensagem "fora do escopo" — curtos (~30% menores)
 OUT_OF_SCOPE_FALLBACKS: dict[LangCode, list[str]] = {
     "pt-PT": [
-        "Esse assunto foge ao que consigo fazer — mas adorava ajudar noutra coisa! 😊 Por aqui organizo lembretes, listas e até filmes ou livros que queiras ver. Podes usar /help para ver todos os comandos, ou simplesmente conversar comigo: sou o teu assistente pessoal de IA.",
-        "Não tenho superpoderes para isso, mas posso ser o teu assistente do dia a dia! 📋 Lembretes, listas, compromissos. Manda /help para ver o que está disponível, ou fala comigo em linguagem natural que eu ajudo a organizar.",
-        "Nesse tema não te consigo ajudar, desculpa! O que faço bem é lembretes, listas e um bocadinho de cultura. Usa /help para ver os comandos, ou conversa comigo — sou aqui o teu assistente pessoal. ✨",
-        "Ah, isso fica fora da minha zona! 😅 Por aqui o foco é organizar o teu tempo. Queres ver o que podes fazer? /help mostra tudo. Ou diz-me em palavras tuas o que precisas e eu guio-te.",
-        "Não chego a esse ponto, mas adorava ajudar noutra coisa. Podes escrever /help para ver os comandos, ou falar comigo à vontade — sou o teu assistente de lembretes e listas. 😊",
+        "Esse assunto foge ao que consigo fazer, mas adorava ajudar noutra coisa! 😊 Organizo lembretes e listas. Usa /help ou fala comigo.",
+        "Não tenho superpoderes para isso. Posso ajudar com lembretes e listas. /help mostra os comandos.",
+        "Nesse tema não consigo ajudar. O que faço: lembretes e listas. /help ou conversa comigo. ✨",
+        "Isso fica fora da minha zona. Foco: organizar teu tempo. /help mostra tudo.",
+        "Adorava ajudar noutra coisa. /help para comandos ou fala comigo. 😊",
     ],
     "pt-BR": [
-        "Esse assunto foge do que eu consigo fazer — mas adoraria ajudar em outra coisa! 😊 Por aqui eu organizo lembretes, listas e até filmes e livros que você queira ver. Você pode usar /help para ver todos os comandos, ou simplesmente conversar comigo: sou seu assistente pessoal de IA.",
-        "Não tenho superpoderes para isso, mas posso ser seu assistente do dia a dia! 📋 Lembretes, listas, compromissos. Mande /help para ver o que está disponível, ou fale comigo em linguagem natural que eu ajudo a organizar.",
-        "Nesse tema não consigo te ajudar, desculpa! O que eu faço bem é lembretes, listas e um pouquinho de cultura. Use /help para ver os comandos, ou converse comigo — sou seu assistente pessoal aqui. ✨",
-        "Ah, isso fica fora da minha área! 😅 Por aqui o foco é organizar seu tempo. Quer ver o que você pode fazer? /help mostra tudo. Ou me diga com suas palavras o que precisa que eu te guio.",
-        "Não chego a esse ponto, mas adoraria ajudar em outra coisa. Você pode digitar /help para ver os comandos, ou falar comigo à vontade — sou seu assistente de lembretes e listas. 😊",
+        "Esse assunto foge do que consigo fazer, mas adoraria ajudar em outra coisa! 😊 Organizo lembretes e listas. Use /help ou fale comigo.",
+        "Não tenho superpoderes para isso. Posso ajudar com lembretes e listas. /help mostra os comandos.",
+        "Nesse tema não consigo ajudar. O que faço: lembretes e listas. /help ou converse comigo. ✨",
+        "Isso fica fora da minha área. Foco: organizar seu tempo. /help mostra tudo.",
+        "Adoraria ajudar em outra coisa. /help para comandos ou fale comigo. 😊",
     ],
     "es": [
-        "Ese tema se sale de lo que puedo hacer — ¡pero me encantaría ayudarte en otra cosa! 😊 Por aquí organizo recordatorios, listas y hasta películas o libros. Puedes usar /help para ver todos los comandos, o simplemente conversar conmigo: soy tu asistente personal de IA.",
-        "No tengo superpoderes para eso, pero puedo ser tu asistente del día a día. 📋 Recordatorios, listas, compromisos. Envía /help para ver qué hay disponible, o háblame con naturalidad y te ayudo a organizarte.",
-        "En ese tema no te puedo ayudar, ¡perdón! Lo mío son recordatorios, listas y un poco de cultura. Usa /help para ver los comandos, o conversa conmigo — soy tu asistente personal aquí. ✨",
-        "¡Eso se sale de mi zona! 😅 Por aquí me centro en organizar tu tiempo. ¿Quieres ver qué puedes hacer? /help lo muestra todo. O dime con tus palabras qué necesitas y te guío.",
-        "No llego a ese punto, pero me encantaría ayudarte en otra cosa. Puedes escribir /help para ver los comandos, o hablar conmigo con libertad — soy tu asistente de recordatorios y listas. 😊",
+        "Ese tema se sale de lo que puedo hacer, ¡pero me encantaría ayudarte! 😊 Organizo recordatorios y listas. Usa /help o habla conmigo.",
+        "No tengo superpoderes para eso. Ayudo con recordatorios y listas. /help muestra comandos.",
+        "En ese tema no puedo ayudar. Lo mío: recordatorios y listas. /help o conversa conmigo. ✨",
+        "Eso se sale de mi zona. Foco: organizar tu tiempo. /help lo muestra todo.",
+        "Me encantaría ayudarte en otra cosa. /help o háblame. 😊",
     ],
     "en": [
-        "That's a bit outside what I can do — but I'd love to help with something else! 😊 Here I help with reminders, lists, and even films or books you want to watch. You can use /help to see all commands, or just chat with me: I'm your personal AI assistant.",
-        "I don't have superpowers for that, but I can be your day-to-day assistant! 📋 Reminders, lists, appointments. Send /help to see what's available, or talk to me in plain language and I'll help you get organised.",
-        "I can't help with that topic, sorry! What I do well is reminders, lists, and a bit of culture. Use /help to see the commands, or chat with me — I'm your personal assistant here. ✨",
-        "That's outside my lane! 😅 Here I focus on organising your time. Want to see what you can do? /help shows everything. Or tell me in your own words what you need and I'll guide you.",
-        "I can't go that far, but I'd love to help with something else. You can type /help to see the commands, or chat with me freely — I'm your reminders and lists assistant. 😊",
+        "That's outside what I can do, but I'd love to help with something else! 😊 I do reminders and lists. Use /help or chat with me.",
+        "I don't have superpowers for that. I help with reminders and lists. /help shows commands.",
+        "I can't help with that topic. What I do: reminders and lists. /help or chat with me. ✨",
+        "That's outside my lane. I focus on organising your time. /help shows everything.",
+        "I'd love to help with something else. /help or chat with me. 😊",
     ],
 }
 
