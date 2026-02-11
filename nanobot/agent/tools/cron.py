@@ -98,7 +98,20 @@ class CronTool(Tool):
             prefix = get_prefix_from_list(message or "")
             if prefix is None and self._scope_provider and self._scope_model:
                 prefix = await self._ask_mimo_abbreviation(message or "")
-            return self._add_job(message, every_seconds, in_seconds, cron_expr, suggested_prefix=prefix)
+            use_pre_reminders = True
+            long_event_24h = False
+            if in_seconds is not None and in_seconds > 0:
+                from backend.reminder_lead_classifier import needs_advance_alert, is_long_duration
+                long_event_24h = is_long_duration(in_seconds)
+                use_pre_reminders = long_event_24h or await needs_advance_alert(
+                    message or "", in_seconds, self._scope_provider, self._scope_model
+                )
+            return self._add_job(
+                message, every_seconds, in_seconds, cron_expr,
+                suggested_prefix=prefix,
+                use_pre_reminders=use_pre_reminders,
+                long_event_24h=long_event_24h,
+            )
         elif action == "list":
             return self._list_jobs()
         elif action == "remove":
@@ -134,6 +147,8 @@ class CronTool(Tool):
         in_seconds: int | None,
         cron_expr: str | None,
         suggested_prefix: str | None = None,
+        use_pre_reminders: bool = True,
+        long_event_24h: bool = False,
     ) -> str:
         message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
@@ -172,51 +187,84 @@ class CronTool(Tool):
             delete_after_run=delete_after_run,
             suggested_prefix=suggested_prefix,
         )
-        # Avisos antes do evento (preferências do onboarding): 1 default + até 3 extras
+        # Avisos antes do evento: só quando o tipo de lembrete exige (reunião, voo, consulta...) ou evento muito longo (24h automático)
         pre_reminder_count = 0
-        if in_seconds is not None and in_seconds > 0:
+        if in_seconds is not None and in_seconds > 0 and use_pre_reminders:
             try:
                 from backend.database import SessionLocal
                 from backend.user_store import get_default_reminder_lead_seconds, get_extra_reminder_leads_seconds
+                from backend.reminder_lead_classifier import AUTO_LEAD_LONG_EVENT_SECONDS
                 db = SessionLocal()
                 try:
-                    default_lead = get_default_reminder_lead_seconds(db, self._chat_id)
-                    extra_leads = get_extra_reminder_leads_seconds(db, self._chat_id)
-                    seen = set()
-                    leads = []
-                    if default_lead and default_lead not in seen:
-                        seen.add(default_lead)
-                        leads.append(default_lead)
-                    for L in extra_leads:
-                        if L and L not in seen:
-                            seen.add(L)
-                            leads.append(L)
-                    leads.sort(reverse=True)  # maior antecedência primeiro
-                    for lead_sec in leads[:4]:  # max 4 (1 default + 3 extras)
+                    if long_event_24h:
+                        # Evento muito longo (ex.: > 5 dias): um único aviso 24h antes, sem perguntar ao cliente
+                        lead_sec = AUTO_LEAD_LONG_EVENT_SECONDS
                         when_sec = in_seconds - lead_sec
-                        if when_sec <= 0:
-                            continue
-                        at_ms = int(time.time() * 1000) + when_sec * 1000
-                        self._cron.add_job(
-                            name=(message[:26] + " (antes)"),
-                            schedule=CronSchedule(kind="at", at_ms=at_ms),
-                            message=message,
-                            deliver=True,
-                            channel=self._channel,
-                            to=self._chat_id,
-                            delete_after_run=True,
-                        )
-                        pre_reminder_count += 1
+                        if when_sec > 0:
+                            at_ms = int(time.time() * 1000) + when_sec * 1000
+                            self._cron.add_job(
+                                name=(message[:26] + " (antes)"),
+                                schedule=CronSchedule(kind="at", at_ms=at_ms),
+                                message=message,
+                                deliver=True,
+                                channel=self._channel,
+                                to=self._chat_id,
+                                delete_after_run=True,
+                            )
+                            pre_reminder_count = 1
+                    else:
+                        # Preferências do user (quando tinha onboarding de avisos) ou fallback 24h para novos users
+                        default_lead = get_default_reminder_lead_seconds(db, self._chat_id)
+                        extra_leads = get_extra_reminder_leads_seconds(db, self._chat_id)
+                        if default_lead is None:
+                            default_lead = AUTO_LEAD_LONG_EVENT_SECONDS  # 24h para reuniões/compromissos quando user não definiu
+                        seen = set()
+                        leads = []
+                        if default_lead and default_lead not in seen:
+                            seen.add(default_lead)
+                            leads.append(default_lead)
+                        for L in extra_leads:
+                            if L and L not in seen:
+                                seen.add(L)
+                                leads.append(L)
+                        leads.sort(reverse=True)
+                        for lead_sec in leads[:4]:
+                            when_sec = in_seconds - lead_sec
+                            if when_sec <= 0:
+                                continue
+                            at_ms = int(time.time() * 1000) + when_sec * 1000
+                            self._cron.add_job(
+                                name=(message[:26] + " (antes)"),
+                                schedule=CronSchedule(kind="at", at_ms=at_ms),
+                                message=message,
+                                deliver=True,
+                                channel=self._channel,
+                                to=self._chat_id,
+                                delete_after_run=True,
+                            )
+                            pre_reminder_count += 1
                 finally:
                     db.close()
             except Exception:
                 pass
         try:
+            from datetime import datetime
             from backend.database import SessionLocal
             from backend.reminder_history import add_scheduled
             db = SessionLocal()
             try:
-                add_scheduled(db, self._chat_id, message)
+                schedule_at_dt = None
+                if job.state.next_run_at_ms:
+                    schedule_at_dt = datetime.utcfromtimestamp(job.state.next_run_at_ms / 1000)
+                add_scheduled(
+                    db,
+                    self._chat_id,
+                    message,
+                    job_id=job.id,
+                    schedule_at=schedule_at_dt,
+                    channel=self._channel,
+                    recipient=self._chat_id,
+                )
             finally:
                 db.close()
         except Exception:
@@ -268,4 +316,24 @@ class CronTool(Tool):
                 if self._cron.remove_job(job_id):
                     return f"Removido: {job_id}"
                 return f"Job {job_id} não encontrado."
-        return f"Job {job_id} não encontrado."
+        # Lembrete único pode já ter sido executado e removido automaticamente
+        try:
+            from backend.database import SessionLocal
+            from backend.reminder_history import get_reminder_history
+            db = SessionLocal()
+            try:
+                entries = get_reminder_history(db, self._chat_id, kind="delivered", limit=5)
+                if entries:
+                    last = entries[0]
+                    delivered = last.get("delivered_at") or last.get("created_at")
+                    if delivered and hasattr(delivered, "strftime"):
+                        return (
+                            f"Job {job_id} não está na lista (lembretes únicos são removidos após disparar). "
+                            f"O último lembrete entregue foi em {delivered.strftime('%d/%m/%Y %H:%M')}. "
+                            "Use «rever lembretes» para ver o histórico completo."
+                        )
+            finally:
+                db.close()
+        except Exception:
+            pass
+        return f"Job {job_id} não encontrado. Se era um lembrete único, pode já ter sido executado. Use «rever lembretes» para ver o histórico."

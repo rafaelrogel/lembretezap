@@ -33,6 +33,52 @@ class HandlerContext:
 
 
 # ---------------------------------------------------------------------------
+# Confirmação de oferta pendente: «Quero sim» após oferta de lembrete — Mimo
+# ---------------------------------------------------------------------------
+
+async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str | None:
+    """
+    Se a mensagem for curta e parecer confirmação (sim, quero, ok) E a última do assistente
+    foi uma oferta de lembrete, usa Mimo para extrair os params e executa cron add.
+    """
+    from backend.pending_confirmation import looks_like_confirmation, try_extract_pending_cron
+
+    if not looks_like_confirmation(content):
+        return None
+    if not ctx.cron_tool or not ctx.session_manager or not ctx.scope_provider or not ctx.scope_model:
+        return None
+
+    session_key = f"{ctx.channel}:{ctx.chat_id}"
+    session = ctx.session_manager.get_or_create(session_key)
+    history = session.get_history(max_messages=10)
+    if len(history) < 2:
+        return None
+
+    params = await try_extract_pending_cron(
+        ctx.scope_provider,
+        ctx.scope_model,
+        history,
+        content,
+    )
+    if not params:
+        return None
+
+    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+    msg_text = (params.get("message") or "").strip()
+    if not msg_text:
+        return None
+    every = params.get("every_seconds")
+    in_sec = params.get("in_seconds")
+    result = await ctx.cron_tool.execute(
+        action="add",
+        message=msg_text,
+        every_seconds=every,
+        in_seconds=in_sec,
+    )
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Confirmações (1=sim 2=não). Sem botões.
 # ---------------------------------------------------------------------------
 
@@ -209,6 +255,56 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
         every_seconds=every_sec,
         cron_expr=cron_expr,
     )
+
+
+def _is_eventos_unificado_intent(content: str) -> bool:
+    """Detecta pedidos de visão unificada: eventos + lembretes."""
+    import re
+    t = (content or "").strip().lower()
+    patterns = [
+        r"meus?\s+eventos?",
+        r"meus?\s+lembretes?",
+        r"meus?\s+lembran[cç]as?",
+        r"o\s+que\s+tenho\s+agendado",
+        r"lista\s+(de\s+)?(lembretes?|eventos?)",
+        r"meus?\s+agendamentos?",
+        r"o\s+que\s+(tenho|est[aá]\s+agendado)",
+        r"quais?\s+(s[aã]o\s+)?(os\s+)?(meus\s+)?(lembretes?|eventos?)",
+    ]
+    return any(re.search(p, t) for p in patterns)
+
+
+async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | None:
+    """Visão unificada: lembretes (cron) + eventos (filme, livro, etc.)."""
+    if not _is_eventos_unificado_intent(content):
+        return None
+
+    parts = []
+
+    # Lembretes (cron)
+    if ctx.cron_tool:
+        ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+        cron_out = await ctx.cron_tool.execute(action="list")
+        if "Nenhum lembrete" not in cron_out:
+            parts.append(cron_out)
+        else:
+            parts.append("📅 **Lembretes:** Nenhum agendado.")
+
+    # Eventos (Event model)
+    if ctx.event_tool:
+        ctx.event_tool.set_context(ctx.channel, ctx.chat_id)
+        try:
+            event_out = await ctx.event_tool.execute(action="list", tipo="")
+        except Exception:
+            event_out = "Nenhum evento."
+        if isinstance(event_out, str) and "Nenhum" not in event_out:
+            parts.append("📋 **Eventos (filmes, livros, etc.):**\n" + event_out)
+        else:
+            parts.append("📋 **Eventos:** Nenhum registado.")
+
+    if not parts:
+        return "Não tens lembretes nem eventos agendados. Queres adicionar algum?"
+    return "\n\n".join(parts)
 
 
 async def handle_pendente(ctx: HandlerContext, content: str) -> str | None:
@@ -551,7 +647,7 @@ async def handle_rever(ctx: HandlerContext, content: str) -> str | None:
         except Exception as e:
             return f"Erro ao buscar conversa: {e}"
 
-    # --- Rever lembretes (lista) ---
+    # --- Rever lembretes (lista: Pedido | Agendado para | Status) ---
     if intent == "lembretes":
         try:
             from backend.database import SessionLocal
@@ -563,11 +659,28 @@ async def handle_rever(ctx: HandlerContext, content: str) -> str | None:
                     return "Ainda não tens lembretes registados (pedidos agendados ou entregues)."
                 data_lines = []
                 for e in entries:
-                    k = "agendado" if e["kind"] == "scheduled" else "entregue"
-                    ts = e["created_at"].strftime("%Y-%m-%d %H:%M") if e.get("created_at") else ""
-                    data_lines.append(f"[{k}] {e.get('message', '')} {ts}")
+                    pedido = (e.get("message") or "").strip() or "(sem texto)"
+                    agendado = ""
+                    if e.get("schedule_at"):
+                        agendado = e["schedule_at"].strftime("%d/%m/%Y %H:%M")
+                    elif e.get("created_at"):
+                        agendado = e["created_at"].strftime("%d/%m/%Y %H:%M") + " (pedido)"
+                    status = e.get("status") or ("agendado" if e["kind"] == "scheduled" else "entregue")
+                    if status == "sent":
+                        status = "entregue"
+                        if e.get("delivered_at"):
+                            agendado = agendado or e["delivered_at"].strftime("%d/%m/%Y %H:%M") + " (disparou)"
+                    elif status == "failed":
+                        status = "falhou"
+                    elif status == "scheduled":
+                        status = "agendado"
+                    data_lines.append(f"Pedido: {pedido} | Agendado para: {agendado} | Status: {status}")
                 data_text = "\n".join(data_lines)
-                instruction = "O utilizador pediu para rever a lista de lembretes (agendados e entregues). Apresenta de forma clara e organizada, por data se fizer sentido."
+                instruction = (
+                    "O utilizador pediu para rever a lista de lembretes. "
+                    "Cada linha tem: Pedido (texto) | Agendado para (data/hora) | Status (agendado/entregue/falhou). "
+                    "Apresenta de forma clara e organizada, por data. Se um lembrete único já foi disparado, mostra «entregue» e quando disparou."
+                )
                 out = await _call_mimo(ctx, user_lang, instruction, data_text, max_tokens=500)
                 if out:
                     return out
@@ -832,6 +945,8 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         return reply
 
     handlers = [
+        handle_pending_confirmation,  # «Quero sim» após oferta de lembrete — Mimo
+        handle_eventos_unificado,    # «Meus eventos» = lembretes + eventos
         handle_lembrete,
         handle_list,
         handle_feito,

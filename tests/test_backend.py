@@ -46,21 +46,25 @@ async def test_scope_filter_llm_sim_nao():
 
 
 def test_guardrails_should_skip_reply():
-    """Não responder a mensagens triviais (ok, tá, não, emojis) para evitar loop e custo."""
+    """Não responder a mensagens triviais (ok, tá, emojis); sim/não passam para confirmações."""
     from backend.guardrails import should_skip_reply
     assert should_skip_reply("") is True
     assert should_skip_reply("   ") is True
     assert should_skip_reply("ok") is True
     assert should_skip_reply("OK") is True
     assert should_skip_reply("tá") is True
-    assert should_skip_reply("não") is True
-    assert should_skip_reply("nao") is True
-    assert should_skip_reply("sim") is True
     assert should_skip_reply("nope") is True
     assert should_skip_reply("ah ok") is True
     assert should_skip_reply("👍") is True
     assert should_skip_reply("😊") is True
     assert should_skip_reply("  ok  ") is True
+    # sim/não/yes/no não são triviais: usados em confirmações (lembrete) e devem ser processados
+    assert should_skip_reply("sim") is False
+    assert should_skip_reply("Sim") is False
+    assert should_skip_reply("não") is False
+    assert should_skip_reply("nao") is False
+    assert should_skip_reply("yes") is False
+    assert should_skip_reply("no") is False
     assert should_skip_reply("bom dia") is False
     assert should_skip_reply("lembra-me às 9h") is False
     assert should_skip_reply("não quero") is False

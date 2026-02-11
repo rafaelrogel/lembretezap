@@ -484,100 +484,14 @@ class AgentLoop:
         }
         return fallbacks.get(user_lang, fallbacks["en"])
 
-    async def _ask_lead_time_question(self, user_lang: str, name: str) -> str:
-        """Pergunta natural quanto tempo antes do evento deseja o primeiro aviso. Xiaomi primeiro (fluxo simples), fallback DeepSeek."""
-        lang_instruction = {
-            "pt-PT": "em português de Portugal",
-            "pt-BR": "em português do Brasil",
-            "es": "en español",
-            "en": "in English",
-        }.get(user_lang, "in the user's language")
-        prompt = (
-            f"The user is {name}. We are onboarding: we need to ask how much time BEFORE an event they want "
-            "the first reminder (e.g. 1 day before, 2 hours before, 30 min before). "
-            "Write ONE short, friendly question. Give examples like 1 dia, 2 horas, 30 min. "
-            "Use 1-2 emojis (e.g. ⏰ 📋). Reply only with the question, no preamble. "
-            f"{lang_instruction}."
-        )
-        if self.scope_provider and self.scope_model:
-            try:
-                r = await self.scope_provider.chat(
-                    messages=[{"role": "user", "content": prompt}],
-                    model=self.scope_model,
-                    max_tokens=120,
-                    temperature=0.5,
-                )
-                out = (r.content or "").strip()
-                if out and len(out) <= 250:
-                    return out
-            except Exception as e:
-                logger.debug(f"Ask lead time (Xiaomi) failed: {e}")
+    def _sync_onboarding_to_memory(self, db, chat_id: str, session_key: str) -> None:
+        """Regista os dados do onboarding na memória longa do cliente (MEMORY.md) para o agente saber e aceder."""
         try:
-            r = await self.provider.chat(
-                messages=[{"role": "user", "content": prompt}],
-                model=self.model,
-                max_tokens=120,
-                temperature=0.5,
-            )
-            out = (r.content or "").strip()
-            if out and len(out) <= 250:
-                return out
+            from backend.onboarding_memory import build_onboarding_profile_md, SECTION_HEADING
+            md = build_onboarding_profile_md(db, chat_id)
+            self.context.memory.upsert_section(session_key, SECTION_HEADING, md)
         except Exception as e:
-            logger.debug(f"Ask lead time (DeepSeek) failed: {e}")
-        fallbacks = {
-            "pt-PT": "Quanto tempo antes do evento queres o primeiro aviso? (ex.: 1 dia, 2 horas, 30 min) ⏰",
-            "pt-BR": "Quanto tempo antes do evento você quer o primeiro aviso? (ex.: 1 dia, 2 horas, 30 min) ⏰",
-            "es": "¿Cuánto tiempo antes del evento quieres el primer aviso? (ej.: 1 día, 2 horas, 30 min) ⏰",
-            "en": "How long before the event do you want the first reminder? (e.g. 1 day, 2 hours, 30 min) ⏰",
-        }
-        return fallbacks.get(user_lang, fallbacks["en"])
-
-    async def _ask_extra_leads_question(self, user_lang: str, name: str) -> str:
-        """Pergunta natural se quer mais avisos antes (até 3). Xiaomi primeiro (fluxo simples), fallback DeepSeek."""
-        lang_instruction = {
-            "pt-PT": "em português de Portugal",
-            "pt-BR": "em português do Brasil",
-            "es": "en español",
-            "en": "in English",
-        }.get(user_lang, "in the user's language")
-        prompt = (
-            f"The user is {name}. We already set the first reminder (X before event). Now ask if they want "
-            "UP TO 3 MORE reminders before the event (same idea: e.g. 3 days before, 1 day before, 30 min before). "
-            "Say they can say 'no' if they don't want any. One short, friendly sentence with 1 emoji. "
-            f"Reply only with the question. {lang_instruction}."
-        )
-        if self.scope_provider and self.scope_model:
-            try:
-                r = await self.scope_provider.chat(
-                    messages=[{"role": "user", "content": prompt}],
-                    model=self.scope_model,
-                    max_tokens=120,
-                    temperature=0.5,
-                )
-                out = (r.content or "").strip()
-                if out and len(out) <= 250:
-                    return out
-            except Exception as e:
-                logger.debug(f"Ask extra leads (Xiaomi) failed: {e}")
-        try:
-            r = await self.provider.chat(
-                messages=[{"role": "user", "content": prompt}],
-                model=self.model,
-                max_tokens=120,
-                temperature=0.5,
-            )
-            out = (r.content or "").strip()
-            if out and len(out) <= 250:
-                return out
-        except Exception as e:
-            logger.debug(f"Ask extra leads (DeepSeek) failed: {e}")
-        fallbacks = {
-            "pt-PT": "Queres mais algum aviso antes? (até 3, ex.: 3 dias, 1 dia, 30 min — ou diz «não») 📌",
-            "pt-BR": "Quer mais algum aviso antes? (até 3, ex.: 3 dias, 1 dia, 30 min — ou diga «não») 📌",
-            "es": "¿Quieres más avisos antes? (hasta 3, ej.: 3 días, 1 día, 30 min — o di «no») 📌",
-            "en": "Want more reminders before? (up to 3, e.g. 3 days, 1 day, 30 min — or say no) 📌",
-        }
-        return fallbacks.get(user_lang, fallbacks["en"])
+            logger.debug(f"Onboarding memory sync failed: {e}")
 
     async def _process_message(self, msg: InboundMessage) -> OutboundMessage | None:
         """
@@ -716,6 +630,7 @@ class AgentLoop:
                             if name_raw and set_user_preferred_name(db, msg.chat_id, name_raw):
                                 session.metadata.pop("pending_preferred_name", None)
                                 self.sessions.save(session)
+                                self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
                                 conf = preferred_name_confirmation(user_lang, name_raw)
                                 session.add_message("user", msg.content)
                                 session.add_message("assistant", conf)
@@ -771,6 +686,7 @@ class AgentLoop:
                             if chosen:
                                 set_user_language(db, msg.chat_id, chosen)
                                 user_lang = chosen
+                                self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
                         session.metadata.pop("pending_language_choice", None)
                         session.metadata["onboarding_language_asked"] = True
                         self.sessions.save(session)
@@ -787,34 +703,25 @@ class AgentLoop:
                             content=question,
                         )
 
-                    # --- Cidade (qualquer cidade do mundo; reconhecidas ajustam o fuso) ---
+                    # --- Cidade (qualquer cidade do mundo; reconhecidas ajustam o fuso). Onboarding termina aqui (sem perguntar avisos antes do evento). ---
                     from backend.user_store import (
                         get_user_city,
                         set_user_city,
-                        get_default_reminder_lead_seconds,
-                        set_default_reminder_lead_seconds,
-                        get_extra_reminder_leads_seconds,
-                        set_extra_reminder_leads_seconds,
                         get_user_preferred_name,
                         get_user_language as _get_user_lang,
                     )
-                    from backend.lead_time import parse_lead_time_to_seconds, parse_lead_times_to_seconds
-                    from backend.locale import lead_time_confirmation
+                    from backend.locale import ONBOARDING_COMPLETE
 
                     has_city = get_user_city(db, msg.chat_id) is not None
                     pending_city = session.metadata.get("pending_city") is True
-                    default_lead = get_default_reminder_lead_seconds(db, msg.chat_id)
-                    pending_lead = session.metadata.get("pending_lead_time") is True
-                    pending_extra = session.metadata.get("pending_extra_leads") is True
                     name_for_prompt = get_user_preferred_name(db, msg.chat_id) or "utilizador"
-                    # Atualizar user_lang após possível escolha no onboarding (para cidade/lead time)
                     if has_name:
                         try:
                             user_lang = _get_user_lang(db, msg.chat_id)
                         except Exception:
                             pass
 
-                    if has_name and pending_language_choice is False and not onboarding_language_asked and not has_city and not pending_city and not pending_lead and not pending_extra:
+                    if has_name and pending_language_choice is False and not onboarding_language_asked and not has_city and not pending_city:
                         # Perguntar se quer comunicar noutro idioma (pt-PT, pt-BR, es, en)
                         lang_question = ONBOARDING_LANGUAGE_QUESTION.get(user_lang, ONBOARDING_LANGUAGE_QUESTION["en"])
                         session.metadata["pending_language_choice"] = True
@@ -828,7 +735,7 @@ class AgentLoop:
                             content=lang_question,
                         )
 
-                    if has_name and not has_city and not pending_city and not pending_lead and not pending_extra:
+                    if has_name and not has_city and not pending_city:
                         question = await self._ask_city_question(user_lang, name_for_prompt)
                         session.metadata["pending_city"] = True
                         self.sessions.save(session)
@@ -849,69 +756,17 @@ class AgentLoop:
                                 set_user_city(db, msg.chat_id, city_name, tz_iana=tz_iana)
                             else:
                                 set_user_city(db, msg.chat_id, city_raw[:128])
+                            self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
                         session.metadata.pop("pending_city", None)
-                        question = await self._ask_lead_time_question(user_lang, name_for_prompt)
-                        session.metadata["pending_lead_time"] = True
+                        complete_msg = ONBOARDING_COMPLETE.get(user_lang, ONBOARDING_COMPLETE["en"])
                         self.sessions.save(session)
                         session.add_message("user", msg.content)
-                        session.add_message("assistant", question)
+                        session.add_message("assistant", complete_msg)
                         self.sessions.save(session)
                         return OutboundMessage(
                             channel=msg.channel,
                             chat_id=msg.chat_id,
-                            content=question,
-                        )
-
-                    # --- Lead time: quanto tempo antes do evento (default + até 3 extras) ---
-                    if has_name and has_city and default_lead is None and not pending_lead and not pending_extra:
-                        question = await self._ask_lead_time_question(user_lang, name_for_prompt)
-                        session.metadata["pending_lead_time"] = True
-                        self.sessions.save(session)
-                        session.add_message("user", msg.content)
-                        session.add_message("assistant", question)
-                        self.sessions.save(session)
-                        return OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=question,
-                        )
-
-                    if has_name and pending_lead:
-                        sec = parse_lead_time_to_seconds(msg.content or "")
-                        session.metadata.pop("pending_lead_time", None)
-                        if sec and 60 <= sec <= 86400 * 365:
-                            set_default_reminder_lead_seconds(db, msg.chat_id, sec)
-                        question = await self._ask_extra_leads_question(user_lang, name_for_prompt)
-                        session.metadata["pending_extra_leads"] = True
-                        self.sessions.save(session)
-                        session.add_message("user", msg.content)
-                        session.add_message("assistant", question)
-                        self.sessions.save(session)
-                        return OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=question,
-                        )
-
-                    if has_name and pending_extra:
-                        session.metadata.pop("pending_extra_leads", None)
-                        current_default = get_default_reminder_lead_seconds(db, msg.chat_id)
-                        content_lower = (msg.content or "").strip().lower()
-                        if content_lower in ("não", "nao", "no", "nope") or content_lower.startswith("não ") or content_lower.startswith("nao "):
-                            set_extra_reminder_leads_seconds(db, msg.chat_id, [])
-                            conf = lead_time_confirmation(user_lang, current_default, [])
-                        else:
-                            leads = parse_lead_times_to_seconds(msg.content or "", 3)
-                            leads = [s for s in leads if 60 <= s <= 86400 * 365][:3]
-                            set_extra_reminder_leads_seconds(db, msg.chat_id, leads)
-                            conf = lead_time_confirmation(user_lang, current_default, leads)
-                        session.add_message("user", msg.content)
-                        session.add_message("assistant", conf)
-                        self.sessions.save(session)
-                        return OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=conf,
+                            content=complete_msg,
                         )
                 finally:
                     db.close()

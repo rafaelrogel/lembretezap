@@ -154,6 +154,15 @@ def lead_time_confirmation(lang: LangCode, default_seconds: int | None, extra_se
     return f"Done! ✨ You'll get a reminder {default_str} before and at the event time. 😊"
 
 
+# Mensagem quando o onboarding termina (após cidade; sem perguntar avisos antes do evento)
+ONBOARDING_COMPLETE: dict[LangCode, str] = {
+    "pt-PT": "Tudo certo! ✨ Já podes pedir lembretes, listas e eventos. Para reuniões e compromissos, aviso-te antes na hora que fizer sentido. Qualquer coisa, é só dizeres. 😊",
+    "pt-BR": "Beleza! ✨ Já pode pedir lembretes, listas e eventos. Para reuniões e compromissos, te aviso antes na hora que fizer sentido. Qualquer coisa, manda mensagem. 😊",
+    "es": "¡Listo! ✨ Ya puedes pedir recordatorios, listas y eventos. Para reuniones y compromisos, te aviso antes cuando tenga sentido. Cualquier cosa, dilo. 😊",
+    "en": "All set! ✨ You can ask for reminders, lists and events. For meetings and appointments I'll remind you in advance when it makes sense. Anything else, just say. 😊",
+}
+
+
 # Fallbacks para mensagem "fora do escopo": referem /help para comandos e "conversar comigo" (assistente IA).
 OUT_OF_SCOPE_FALLBACKS: dict[LangCode, list[str]] = {
     "pt-PT": [

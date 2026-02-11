@@ -73,3 +73,26 @@ def extra_leads_from_json(json_str: str | None) -> list[int]:
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
     return []
+
+
+def seconds_to_lead_str(seconds: int) -> str:
+    """Formata segundos em texto legível (ex.: 86400 -> '1 dia', 7200 -> '2 horas')."""
+    if seconds <= 0:
+        return ""
+    if seconds >= 86400 and seconds % 86400 == 0:
+        d = seconds // 86400
+        return f"{d} dia" if d == 1 else f"{d} dias"
+    if seconds >= 3600 and seconds % 3600 == 0:
+        h = seconds // 3600
+        return f"{h} hora" if h == 1 else f"{h} horas"
+    if seconds >= 60 and seconds % 60 == 0:
+        m = seconds // 60
+        return f"{m} min" if m == 1 else f"{m} min"
+    return f"{seconds}s"
+
+
+def seconds_list_to_lead_str(seconds_list: list[int]) -> str:
+    """Formata lista de segundos para texto (ex.: '3 dias, 1 dia, 30 min')."""
+    if not seconds_list:
+        return ""
+    return ", ".join(seconds_to_lead_str(s) for s in seconds_list)

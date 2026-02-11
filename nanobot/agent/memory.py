@@ -97,6 +97,38 @@ class MemoryStore:
         files = list(d.glob("????-??-??.md"))
         return sorted(files, reverse=True)
     
+    def upsert_section(self, session_key: str | None, section_heading: str, section_content: str) -> None:
+        """
+        Atualiza ou insere uma secção no MEMORY.md do utilizador.
+        section_heading deve ser do tipo "## Título" (com ##). Substitui o conteúdo
+        dessa secção até à próxima ## ou fim do ficheiro; se não existir, acrescenta.
+        """
+        if not session_key or not str(session_key).strip():
+            return
+        current = self.read_long_term(session_key)
+        lines = current.split("\n") if current else []
+        new_section = section_heading.rstrip() + "\n\n" + section_content.strip() + "\n"
+        marker = section_heading.strip().lower()
+        out: list[str] = []
+        i = 0
+        replaced = False
+        while i < len(lines):
+            line = lines[i]
+            if line.strip().lower() == marker:
+                replaced = True
+                out.append(new_section.rstrip())
+                i += 1
+                while i < len(lines) and not lines[i].strip().startswith("## "):
+                    i += 1
+                continue
+            out.append(line)
+            i += 1
+        if not replaced:
+            if out and out[-1].strip():
+                out.append("")
+            out.append(new_section.rstrip())
+        self.write_long_term("\n".join(out), session_key)
+
     def get_memory_context(self, session_key: str | None = None) -> str:
         """
         Get memory context for the agent. Pass session_key (e.g. channel:chat_id) to scope

@@ -5,16 +5,17 @@ e evitação de loop infinito (não responder a mensagens triviais: ok, tá, nã
 import re
 import random
 
-# Mensagens curtas/irrelevantes para as quais não respondemos (evita loop + custo de tokens)
+# Mensagens curtas/irrelevantes para as quais não respondemos (evita loop + custo de tokens).
+# NÃO incluir "sim", "s", "yes", "1", "não", "no", "2": são usados em confirmações (ex.: lembrete)
+# e precisam de ser processados pelo agente para executar a ação (criar lembrete, etc.).
 TRIVIAL_REPLIES = frozenset({
     "ok", "ok.", "tá", "ta", "tá.", "ta.",
-    "não", "nao", "não.", "nao.", "sim", "sim.",
-    "nope", "yes", "no", "ya", "yep", "yup", "nop",
     "ah ok", "ah tá", "ah ta", "ah ok.", "ah tá.",
     "blz", "beleza", "tranquilo", "tranquilo.", "tudo bem", "tudo bom",
     "👍", "👌", "🙂", "😊", "👋", "✌", "🤝",
     "k", "k.", "kk", "kkk", "certo", "certinho",
     "valeu", "obrigado", "obrigada", "obg", "thx", "thanks",
+    "ya", "yep", "yup", "nop", "nope",
 })
 # Máximo de caracteres para considerar "só emojis/símbolos" como trivial
 MAX_LEN_EMOJI_ONLY = 4

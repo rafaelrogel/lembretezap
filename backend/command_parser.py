@@ -92,6 +92,90 @@ def _parse_lembrete_time(text: str) -> dict[str, Any]:
             message = re.sub(r"a\s+cada\s+\d+\s*(minuto?s?|hora?s?|dia?s?)\s*", "", text, flags=re.I).strip()
             return {"every_seconds": every, "message": _clean_message(message)}
 
+    # --- Pontual: "amanhã às 12h" / "amanhã 12h" / "amanhã 9h"
+    from datetime import datetime, timedelta
+    m = re.search(
+        r"amanh[ãa]\s+(?:às?\s*)?(\d{1,2})\s*h?\b",
+        text_lower,
+        re.I,
+    )
+    if m:
+        hora = min(23, max(0, int(m.group(1))))
+        message = re.sub(
+            r"amanh[ãa]\s+(?:às?\s*)?\d{1,2}\s*h?\s*",
+            "",
+            text,
+            flags=re.I,
+        ).strip()
+        tomorrow = (datetime.now() + timedelta(days=1)).replace(
+            hour=hora, minute=0, second=0, microsecond=0
+        )
+        delta = (tomorrow - datetime.now()).total_seconds()
+        if delta > 0 and delta <= 86400 * 30:
+            return {"in_seconds": int(delta), "message": _clean_message(message)}
+
+    # --- Pontual: "1º de julho às 20h" / "dia 15 de março às 10h" (data+hora)
+    _pat_data_hora = (
+        r"(?:dia\s+)?(\d{1,2})[ºª]?\s*(?:de|/)\s*"
+        r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
+        r"\s*(?:de\s+\d{4})?\s*(?:às?|as)\s*(\d{1,2})\s*h?\b"
+    )
+    m = re.search(_pat_data_hora, text_lower, re.I)
+    if m:
+        dia = int(m.group(1))
+        mes_str = m.group(2).lower()
+        meses = {
+            "janeiro": 1, "fevereiro": 2, "março": 3, "marco": 3, "abril": 4, "maio": 5,
+            "junho": 6, "julho": 7, "agosto": 8, "setembro": 9, "outubro": 10,
+            "novembro": 11, "dezembro": 12,
+        }
+        mes = int(mes_str) if mes_str.isdigit() else meses.get(mes_str)
+        if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
+            hora = min(23, max(0, int(m.group(3))))
+            ano = datetime.now().year
+            try:
+                target = datetime(ano, mes, min(dia, 28), hora, 0, 0)
+                if target < datetime.now():
+                    target = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0)
+                delta = (target - datetime.now()).total_seconds()
+                if delta > 0 and delta <= 86400 * 365:
+                    message = re.sub(_pat_data_hora, "", text, flags=re.I).strip()
+                    return {"in_seconds": int(delta), "message": _clean_message(message)}
+            except (ValueError, TypeError):
+                pass
+
+    # --- Pontual: "1º de julho" / "dia 15 de março" (data sem hora → 9h)
+    m = re.search(
+        r"(?:dia\s+)?(\d{1,2})[ºª]?\s*(?:de|/)\s*"
+        r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
+        r"\s*(?:de\s+\d{4})?\b",
+        text_lower,
+        re.I,
+    )
+    if m:
+        dia = int(m.group(1))
+        mes_str = m.group(2).lower()
+        meses = {
+            "janeiro": 1, "fevereiro": 2, "março": 3, "marco": 3, "abril": 4, "maio": 5,
+            "junho": 6, "julho": 7, "agosto": 8, "setembro": 9, "outubro": 10,
+            "novembro": 11, "dezembro": 12,
+        }
+        mes = int(mes_str) if mes_str.isdigit() else meses.get(mes_str)
+        if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
+            hora = 9
+            ano = datetime.now().year
+            try:
+                target = datetime(ano, mes, min(dia, 28), hora, 0, 0)
+                if target < datetime.now():
+                    target = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0)
+                delta = (target - datetime.now()).total_seconds()
+                if delta > 0 and delta <= 86400 * 365:
+                    _pat_data = r"(?:dia\s+)?\d{1,2}[ºª]?\s*(?:de|/)\s*(?:\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de\s+\d{4})?\s*"
+                    message = re.sub(_pat_data, "", text, flags=re.I).strip()
+                    return {"in_seconds": int(delta), "message": _clean_message(message)}
+            except (ValueError, TypeError):
+                pass
+
     # --- Diário: "todo dia às 9h" / "todos os dias às 14h" / "diariamente às 8h"
     m = re.search(
         r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+às?\s*(\d{1,2})\s*h?\b",

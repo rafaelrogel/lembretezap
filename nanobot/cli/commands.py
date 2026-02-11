@@ -305,8 +305,19 @@ def gateway(
                     "es": "Escribe el mensaje en español.",
                     "en": "Write the message in English.",
                 }.get(user_lang, "Write the message in English.")
-                # DeepSeek: mensagem criativa e variada a partir do contexto do lembrete (sem frases fixas)
-                prompt = (
+                # Lembrete "mandar mensagem para X: texto" → entregar com o texto isolado para o cliente encaminhar
+                try:
+                    from backend.reminder_format import format_delivery_with_isolated_message
+                    formatted = format_delivery_with_isolated_message(job.payload.message or "", user_lang)
+                    if formatted:
+                        response = formatted
+                    else:
+                        response = None
+                except Exception:
+                    response = None
+                if response is None:
+                    # DeepSeek: mensagem criativa e variada a partir do contexto do lembrete (sem frases fixas)
+                    prompt = (
                     "You are sending a reminder to the user. Below is the reminder content. "
                     "Write ONE short, friendly message that delivers this reminder. "
                     "Be CREATIVE and NATURAL: look at the context (e.g. jantar, médico, compras, cinema) and choose a tone that fits (warm, encouraging, light). "
@@ -314,17 +325,17 @@ def gateway(
                     "Vary your wording. Be positive and human. One or two short sentences only. "
                     f"{lang_instruction} Reply only with the message text, nothing else.\n\nReminder: "
                 ) + (job.payload.message or "")
-                try:
-                    r = await provider.chat(
-                        messages=[{"role": "user", "content": prompt}],
-                        model=config.agents.defaults.model or "",
-                        max_tokens=220,
-                        temperature=0.7,
-                    )
-                    response = (r.content or job.payload.message or "").strip()
-                except Exception as e:
-                    logger.warning(f"Cron (DeepSeek reminder message) failed: {e}")
-                    response = job.payload.message or ""
+                    try:
+                        r = await provider.chat(
+                            messages=[{"role": "user", "content": prompt}],
+                            model=config.agents.defaults.model or "",
+                            max_tokens=220,
+                            temperature=0.7,
+                        )
+                        response = (r.content or job.payload.message or "").strip()
+                    except Exception as e:
+                        logger.warning(f"Cron (DeepSeek reminder message) failed: {e}")
+                        response = job.payload.message or ""
             except Exception as e:
                 logger.warning(f"Cron deliver failed: {e}")
                 response = job.payload.message or ""
@@ -332,10 +343,14 @@ def gateway(
             logger.info(f"Cron deliver: channel={ch} to={to[:20]}... content_len={len(response or '')}")
             try:
                 from backend.database import SessionLocal
-                from backend.reminder_history import add_delivered
+                from backend.reminder_history import update_on_delivery, add_delivered
                 db = SessionLocal()
                 try:
-                    add_delivered(db, to, response or job.payload.message or "")
+                    updated = update_on_delivery(
+                        db, to, job.id, response or job.payload.message or ""
+                    )
+                    if not updated:
+                        add_delivered(db, to, response or job.payload.message or "")
                 finally:
                     db.close()
             except Exception:

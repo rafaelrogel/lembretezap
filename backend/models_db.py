@@ -77,14 +77,23 @@ class Event(Base):
 
 
 class ReminderHistory(Base):
-    """Histórico de pedidos e lembretes entregues para o cliente poder rever («foi este o pedido», «foi esta a lembrança»)."""
+    """Histórico de pedidos e lembretes para o cliente rever (agendados, enviados, falhados, cancelados)."""
     __tablename__ = "reminder_history"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    kind = Column(String(16), nullable=False)  # 'scheduled' = pedido agendado, 'delivered' = lembrança enviada
+    kind = Column(String(16), nullable=False)  # 'scheduled' | 'delivered' (legado); preferir status
     message = Column(Text, nullable=False)     # texto do pedido ou da mensagem enviada
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Campos expandidos: correlação com job e auditoria (evita "sumiu", "cadê a mensagem?")
+    job_id = Column(String(64), nullable=True, index=True)   # ID do job cron; permite update_on_delivery
+    schedule_at = Column(DateTime, nullable=True)          # quando agendado para disparar
+    channel = Column(String(32), nullable=True)              # whatsapp, cli, etc.
+    recipient = Column(String(256), nullable=True)           # JID/chat_id do destinatário
+    status = Column(String(16), nullable=True)               # scheduled | sent | failed | canceled | expired
+    delivered_at = Column(DateTime, nullable=True)          # quando foi entregue (se status=sent)
+    provider_error = Column(String(256), nullable=True)     # erro do gateway se status=failed
 
 
 class AuditLog(Base):

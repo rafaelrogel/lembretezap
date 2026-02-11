@@ -85,6 +85,13 @@ def init_db() -> None:
         "ALTER TABLE users ADD COLUMN timezone VARCHAR(64)",
         "ALTER TABLE users ADD COLUMN quiet_start VARCHAR(5)",
         "ALTER TABLE users ADD COLUMN quiet_end VARCHAR(5)",
+        "ALTER TABLE reminder_history ADD COLUMN job_id VARCHAR(64)",
+        "ALTER TABLE reminder_history ADD COLUMN schedule_at DATETIME",
+        "ALTER TABLE reminder_history ADD COLUMN channel VARCHAR(32)",
+        "ALTER TABLE reminder_history ADD COLUMN recipient VARCHAR(256)",
+        "ALTER TABLE reminder_history ADD COLUMN status VARCHAR(16)",
+        "ALTER TABLE reminder_history ADD COLUMN delivered_at DATETIME",
+        "ALTER TABLE reminder_history ADD COLUMN provider_error VARCHAR(256)",
     ):
         try:
             from sqlalchemy import text
