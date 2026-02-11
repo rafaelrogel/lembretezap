@@ -117,7 +117,7 @@ async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str 
 
 def _reply_confirm_prompt(msg: str) -> str:
     """Sufixo padrão para pedir confirmação sem botões."""
-    return f"{msg}\n\n1=sim  2=não"
+    return f"{msg}\n\n1️⃣ Sim  2️⃣ Não"
 
 
 # ---------------------------------------------------------------------------
@@ -267,9 +267,10 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
     if not content.strip().lower().startswith("/start"):
         return None
     return (
-        "Olá! Sou o ZapAssist: lembretes, listas e eventos.\n"
-        "Comandos: /lembrete, /list (filme, livro, musica, receita, compras…), /feito.\n"
-        "Para timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.  /help para ver tudo."
+        "👋 Olá! Sou o ZapAssist: lembretes, listas e eventos.\n\n"
+        "📌 Comandos: /lembrete, /list (filme, livro, musica, receita, compras…), /feito.\n"
+        "🌍 Timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.\n\n"
+        "Digite /help para ver tudo. 😊"
     )
 
 
@@ -308,7 +309,7 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
     cron_expr = intent.get("cron_expr")
     start_date = intent.get("start_date")
     if not (every_sec or cron_expr):
-        return "Use algo como: /recorrente academia segunda 7h  ou  /recorrente beber água a cada 1 hora"
+        return "📅 Usa algo como: /recorrente academia segunda 7h  ou  /recorrente beber água a cada 1 hora"
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
     return await ctx.cron_tool.execute(
         action="add",
@@ -479,7 +480,7 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
         return None
     raw = m.group(1).strip()
     if not raw:
-        return "Use: /tz Cidade (ex: /tz Lisboa) ou /tz Europe/Lisbon"
+        return "🌍 Use: /tz Cidade (ex: /tz Lisboa) ou /tz Europe/Lisbon"
     from backend.timezone import city_to_iana, is_valid_iana
     tz_iana = None
     if "/" in raw:
@@ -489,15 +490,15 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
         if not tz_iana:
             tz_iana = city_to_iana(raw.replace(" ", ""))
     if not tz_iana:
-        return f"Cidade «{raw}» não reconhecida. Use /tz Lisboa, /tz São Paulo ou /tz Europe/Lisbon (IANA)."
+        return f"🌍 Cidade «{raw}» não reconhecida. Tenta: /tz Lisboa, /tz São Paulo ou /tz Europe/Lisbon (IANA)."
     try:
         from backend.database import SessionLocal
         from backend.user_store import set_user_timezone
         db = SessionLocal()
         try:
             if set_user_timezone(db, ctx.chat_id, tz_iana):
-                return f"Timezone definido: {tz_iana}. As horas dos lembretes passam a ser mostradas no teu fuso."
-            return "Timezone inválido."
+                return f"✅ Timezone definido: {tz_iana}. As horas dos lembretes passam a ser mostradas no teu fuso."
+            return "❌ Timezone inválido."
         finally:
             db.close()
     except Exception as e:
@@ -515,18 +516,18 @@ async def handle_lang(ctx: HandlerContext, content: str) -> str | None:
     mapping = {"pt-pt": "pt-PT", "ptpt": "pt-PT", "ptbr": "pt-BR", "pt-br": "pt-BR", "es": "es", "en": "en"}
     code = mapping.get(lang) or (lang if lang in ("pt-PT", "pt-BR", "es", "en") else None)
     if not code:
-        return "Idiomas: /lang pt-pt | pt-br | es | en"
+        return "🌐 Idiomas disponíveis: /lang pt-pt | pt-br | es | en"
     try:
         from backend.database import SessionLocal
         from backend.user_store import set_user_language
         db = SessionLocal()
         try:
             set_user_language(db, ctx.chat_id, code)
-            return f"Idioma definido: {code}."
+            return f"✅ Idioma definido: {code}."
         finally:
             db.close()
     except Exception:
-        return "Erro ao gravar idioma."
+        return "❌ Erro ao gravar idioma."
     return None
 
 
@@ -543,37 +544,39 @@ async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
             db = SessionLocal()
             try:
                 if set_user_quiet(db, ctx.chat_id, None, None):
-                    return "Horário silencioso desativado. Voltaste a receber notificações a qualquer hora."
+                    return "🔔 Horário silencioso desativado. Voltaste a receber notificações a qualquer hora."
             finally:
                 db.close()
         except Exception:
             pass
-        return "Erro ao desativar."
+        return "❌ Erro ao desativar."
     parts = re.split(r"[\s\-–—]+", rest, maxsplit=1)
     if len(parts) < 2:
-        return "Usa: /quiet 22:00-08:00 (não notificar entre 22h e 8h) ou /quiet off para desativar."
+        return "🔇 Usa: /quiet 22:00-08:00 (não notificar entre 22h e 8h) ou /quiet off para desativar."
     start_hhmm, end_hhmm = parts[0].strip(), parts[1].strip()
     try:
         from backend.database import SessionLocal
         from backend.user_store import set_user_quiet, _parse_time_hhmm
         if _parse_time_hhmm(start_hhmm) is None or _parse_time_hhmm(end_hhmm) is None:
-            return "Horas em HH:MM (ex.: 22:00, 08:00)."
+            return "🕐 Horas em HH:MM (ex.: 22:00, 08:00)."
         db = SessionLocal()
         try:
             if set_user_quiet(db, ctx.chat_id, start_hhmm, end_hhmm):
-                return f"Horário silencioso ativo: {start_hhmm}–{end_hhmm}. Não receberás lembretes nessa janela."
+                return f"🔇 Horário silencioso ativo: {start_hhmm}–{end_hhmm}. Não receberás lembretes nessa janela."
         finally:
             db.close()
     except Exception:
         pass
-    return "Erro ao guardar. Usa /quiet 22:00-08:00."
+    return "❌ Erro ao guardar. Usa /quiet 22:00-08:00."
 
 
 async def handle_stop(ctx: HandlerContext, content: str) -> str | None:
     """/stop: opt-out."""
     if not content.strip().lower().startswith("/stop"):
         return None
-    return _reply_confirm_prompt("Quer deixar de receber mensagens? (opt-out)")
+    return _reply_confirm_prompt(
+        "🔕 Quer pausar as mensagens? Vais deixar de receber lembretes e notificações."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -915,7 +918,7 @@ async def handle_exportar(ctx: HandlerContext, content: str) -> str | None:
         return None
     from backend.confirmations import set_pending
     set_pending(ctx.channel, ctx.chat_id, "exportar", {})
-    return _reply_confirm_prompt("Exportar todas as suas listas e lembretes?")
+    return _reply_confirm_prompt("📤 Queres exportar todas as tuas listas e lembretes?")
 
 
 async def handle_deletar_tudo(ctx: HandlerContext, content: str) -> str | None:
@@ -925,7 +928,9 @@ async def handle_deletar_tudo(ctx: HandlerContext, content: str) -> str | None:
         return None
     from backend.confirmations import set_pending
     set_pending(ctx.channel, ctx.chat_id, "deletar_tudo", {})
-    return _reply_confirm_prompt("Apagar TODOS os dados (listas, lembretes, eventos)? Esta ação não tem volta.")
+    return _reply_confirm_prompt(
+        "⚠️ Apagar TODOS os dados? (listas, lembretes, eventos) — Esta ação não tem volta."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -943,7 +948,7 @@ async def _resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
     action = pending.get("action")
     if action == "exportar":
         if is_confirm_no(content):
-            return "Exportação cancelada."
+            return "❌ Exportação cancelada."
         try:
             from backend.database import SessionLocal
             from backend.user_store import get_or_create_user
@@ -958,14 +963,14 @@ async def _resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                     lines.append(f"[{lst.name}]")
                     for i in items:
                         lines.append(f"  - {i.text}" + (" (feito)" if i.done else ""))
-                return "Exportação:\n" + "\n".join(lines) if lines else "Nada para exportar."
+                return "📤 Exportação:\n" + "\n".join(lines) if lines else "📭 Nada para exportar."
             finally:
                 db.close()
         except Exception as e:
             return f"Erro ao exportar: {e}"
     if action == "deletar_tudo":
         if is_confirm_no(content):
-            return "Cancelado. Nenhum dado apagado."
+            return "✅ Cancelado. Nenhum dado foi apagado."
         try:
             from backend.database import SessionLocal
             from backend.user_store import get_or_create_user
@@ -978,7 +983,7 @@ async def _resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                     db.delete(lst)
                 db.query(Event).filter(Event.user_id == user.id).delete()
                 db.commit()
-                return "Todos os seus dados foram apagados."
+                return "🗑️ Todos os teus dados foram apagados."
             finally:
                 db.close()
         except Exception as e:
