@@ -56,6 +56,46 @@ def _clean_message(t: str) -> str:
     return t or "Lembrete"
 
 
+def _extract_start_date(text: str) -> str | None:
+    """Extrai «a partir de 1º de julho» → '2026-07-01'. Retorna None se não encontrar."""
+    from datetime import datetime
+    text_lower = (text or "").strip().lower()
+    meses = {
+        "janeiro": 1, "fevereiro": 2, "março": 3, "marco": 3, "abril": 4, "maio": 5,
+        "junho": 6, "julho": 7, "agosto": 8, "setembro": 9, "outubro": 10,
+        "novembro": 11, "dezembro": 12,
+    }
+    m = re.search(
+        r"a\s+partir\s+de\s+(\d{1,2})[ºª]?\s*(?:de\s+)?"
+        r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
+        r"(?:\s+de\s+(\d{4}))?\b",
+        text_lower,
+        re.I,
+    )
+    if m:
+        dia = int(m.group(1))
+        mes_str = m.group(2).lower()
+        mes = int(mes_str) if mes_str.isdigit() else meses.get(mes_str)
+        ano = int(m.group(3)) if m.group(3) else datetime.now().year
+        if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
+            try:
+                dt = datetime(ano, mes, min(dia, 28))
+                return dt.strftime("%Y-%m-%d")
+            except (ValueError, TypeError):
+                pass
+    m = re.search(r"a\s+partir\s+de\s+(\d{1,2})/(\d{1,2})(?:/(\d{4}))?\b", text_lower, re.I)
+    if m:
+        dia, mes = int(m.group(1)), int(m.group(2))
+        ano = int(m.group(3)) if m.group(3) else datetime.now().year
+        if 1 <= dia <= 31 and 1 <= mes <= 12:
+            try:
+                dt = datetime(ano, mes, min(dia, 28))
+                return dt.strftime("%Y-%m-%d")
+            except (ValueError, TypeError):
+                pass
+    return None
+
+
 def _parse_lembrete_time(text: str) -> dict[str, Any]:
     """Extrai in_seconds, every_seconds ou cron_expr e message. Suporta recorrência."""
     text = text.strip()
@@ -113,6 +153,40 @@ def _parse_lembrete_time(text: str) -> dict[str, Any]:
         delta = (tomorrow - datetime.now()).total_seconds()
         if delta > 0 and delta <= 86400 * 30:
             return {"in_seconds": int(delta), "message": _clean_message(message)}
+
+    # --- Recorrentes ANTES de data pontual quando há "a partir de" (ex.: diariamente às 20h a partir de 1º julho)
+    if "a partir de" in text_lower:
+        # Diário (às/as sem acento)
+        m = re.search(
+            r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+(?:às?|as)\s*(\d{1,2})\s*h?\b",
+            text_lower,
+            re.I,
+        )
+        if m:
+            hora = min(23, max(0, int(m.group(1))))
+            message = re.sub(
+                r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+(?:às?|as)\s*\d{1,2}\s*h?\s*",
+                "",
+                text,
+                flags=re.I,
+            ).strip()
+            out = {"cron_expr": f"0 {hora} * * *", "message": _clean_message(message)}
+            sd = _extract_start_date(text)
+            if sd:
+                out["start_date"] = sd
+            return out
+        # Semanal
+        for dia_name, cron_dow in DIAS_SEMANA.items():
+            pat = rf"toda\s+(?:semana\s+)?{re.escape(dia_name)}\s+(?:às?|as)\s*(\d{{1,2}})\s*h?\b"
+            m = re.search(pat, text_lower, re.I)
+            if m:
+                hora = min(23, max(0, int(m.group(1))))
+                message = re.sub(pat, "", text, flags=re.I).strip()
+                out = {"cron_expr": f"0 {hora} * * {cron_dow}", "message": _clean_message(message)}
+                sd = _extract_start_date(text)
+                if sd:
+                    out["start_date"] = sd
+                return out
 
     # --- Pontual: "1º de julho às 20h" / "dia 15 de março às 10h" (data+hora)
     _pat_data_hora = (
@@ -246,6 +320,11 @@ def parse(raw: str) -> dict[str, Any] | None:
         if rest:
             intent = _parse_lembrete_time(rest)
             intent["type"] = "lembrete"
+            # "a partir de 1º de julho" → start_date para cron/every
+            if intent.get("cron_expr") or intent.get("every_seconds"):
+                sd = _extract_start_date(rest)
+                if sd:
+                    intent["start_date"] = sd
             return intent
         return None
 

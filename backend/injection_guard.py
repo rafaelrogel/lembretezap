@@ -8,8 +8,15 @@ Padrões comuns de injection:
 - «você não é mais», «you are no longer», «you are now»
 """
 
+import json
 import re
+import time
+from pathlib import Path
 from typing import Any
+
+# Ficheiro para registar tentativas bloqueadas (God mode #injection)
+_INJECTION_STORE_PATH = Path.home() / ".nanobot" / "security" / "injection_attempts.json"
+_MAX_ENTRIES = 500
 
 # Padrões de prompt injection (pt, en, es) — não devem ser passados ao agente
 _INJECTION_PATTERNS = [
@@ -63,3 +70,55 @@ def get_injection_response(lang: str = "pt-BR") -> str:
         "en": "I keep my role as a reminders and lists assistant. If you need to schedule something or organise your day, I'm here. 😊",
     }
     return msgs.get(lang, msgs["pt-BR"])
+
+
+def record_injection_blocked(chat_id: str, message_preview: str = "") -> None:
+    """Regista uma tentativa de injection bloqueada (para God mode #injection)."""
+    try:
+        _INJECTION_STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        entries: list[dict] = []
+        if _INJECTION_STORE_PATH.exists():
+            try:
+                entries = json.loads(_INJECTION_STORE_PATH.read_text())
+            except Exception:
+                entries = []
+        ts = int(time.time())
+        # Formato legível mas truncado: 55119***9999 (primeiros 5 + *** + últimos 4 dígitos)
+        digits = "".join(c for c in str(chat_id) if c.isdigit())
+        client_id = (digits[:5] + "***" + digits[-4:]) if len(digits) >= 9 else (digits or str(chat_id)[:12])
+        entries.append({
+            "chat_id": client_id,
+            "timestamp": ts,
+            "status": "bloqueado",
+            "message_preview": (message_preview or "")[:80],
+        })
+        if len(entries) > _MAX_ENTRIES:
+            entries = entries[-_MAX_ENTRIES:]
+        _INJECTION_STORE_PATH.write_text(json.dumps(entries, ensure_ascii=False))
+    except Exception:
+        pass
+
+
+def get_injection_stats() -> list[dict]:
+    """
+    Agrega tentativas por cliente para God mode #injection.
+    Retorna: [{"chat_id": "5511999***9999", "total": N, "bloqueadas": N, "bem_sucedidas": N}, ...]
+    """
+    try:
+        if not _INJECTION_STORE_PATH.exists():
+            return []
+        entries = json.loads(_INJECTION_STORE_PATH.read_text())
+    except Exception:
+        return []
+    by_client: dict[str, dict[str, Any]] = {}
+    for e in entries:
+        cid = e.get("chat_id", "?")
+        if cid not in by_client:
+            by_client[cid] = {"chat_id": cid, "total": 0, "bloqueadas": 0, "bem_sucedidas": 0}
+        by_client[cid]["total"] += 1
+        status = (e.get("status") or "").lower()
+        if status == "bloqueado":
+            by_client[cid]["bloqueadas"] += 1
+        elif status in ("sucesso", "bem_sucedida", "succeeded"):
+            by_client[cid]["bem_sucedidas"] += 1
+    return sorted(by_client.values(), key=lambda x: -x["total"])

@@ -30,6 +30,39 @@ class HandlerContext:
     session_manager: Any = None  # SessionManager: para «rever conversa»
     scope_provider: Any = None  # LLMProvider (Xiaomi Mimo) para rever histórico e perguntas analíticas
     scope_model: str | None = None  # modelo a usar (ex. xiaomi_mimo/mimo-v2-flash)
+    main_provider: Any = None  # LLMProvider (DeepSeek) para mensagens empáticas (ex.: atendimento)
+    main_model: str | None = None  # modelo principal do agente
+
+
+# ---------------------------------------------------------------------------
+# Pedido de contacto com atendimento ao cliente — DeepSeek mensagem empática
+# ---------------------------------------------------------------------------
+
+async def handle_atendimento_request(ctx: HandlerContext, content: str) -> str | None:
+    """Quando o cliente pede falar com atendimento: registar em painpoints e responder com contacto + mensagem empática (DeepSeek)."""
+    from backend.atendimento_contact import is_atendimento_request, build_atendimento_response
+    from backend.painpoints_store import add_painpoint
+
+    if not is_atendimento_request(content):
+        return None
+    add_painpoint(ctx.chat_id, "pedido explícito de contacto")
+    user_lang = "pt-BR"
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import get_user_language
+        db = SessionLocal()
+        try:
+            user_lang = get_user_language(db, ctx.chat_id)
+        finally:
+            db.close()
+    except Exception:
+        pass
+    provider = ctx.main_provider or ctx.scope_provider
+    model = (ctx.main_model or ctx.scope_model or "").strip()
+    if not provider or not model:
+        from backend.atendimento_contact import ATENDIMENTO_PHONE, ATENDIMENTO_EMAIL
+        return f"Entendemos. Nossa equipe de atendimento está disponível:\n\n📞 {ATENDIMENTO_PHONE}\n📧 {ATENDIMENTO_EMAIL}"
+    return await build_atendimento_response(user_lang, provider, model)
 
 
 # ---------------------------------------------------------------------------
@@ -108,6 +141,7 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     in_sec = intent.get("in_seconds")
     every_sec = intent.get("every_seconds")
     cron_expr = intent.get("cron_expr")
+    start_date = intent.get("start_date")
     if not (in_sec or every_sec or cron_expr):
         return None
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
@@ -117,6 +151,7 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
         in_seconds=in_sec,
         every_seconds=every_sec,
         cron_expr=cron_expr,
+        start_date=start_date,
     )
 
 
@@ -246,6 +281,7 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
     msg_text = (intent.get("message") or "").strip() or rest
     every_sec = intent.get("every_seconds")
     cron_expr = intent.get("cron_expr")
+    start_date = intent.get("start_date")
     if not (every_sec or cron_expr):
         return "Use algo como: /recorrente academia segunda 7h  ou  /recorrente beber água a cada 1 hora"
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
@@ -254,6 +290,7 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
         message=msg_text,
         every_seconds=every_sec,
         cron_expr=cron_expr,
+        start_date=start_date,
     )
 
 
@@ -945,6 +982,7 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         return reply
 
     handlers = [
+        handle_atendimento_request,   # «Quero falar com atendimento» → DeepSeek empático + contacto
         handle_pending_confirmation,  # «Quero sim» após oferta de lembrete — Mimo
         handle_eventos_unificado,    # «Meus eventos» = lembretes + eventos
         handle_lembrete,

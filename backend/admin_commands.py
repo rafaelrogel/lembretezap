@@ -60,7 +60,7 @@ def is_god_mode_password(content_after_hash: str) -> bool:
 _ADMIN_CMD_RE = re.compile(r"^\s*#(\w+)(?:\s+(.*))?\s*$", re.I)
 _VALID_COMMANDS = frozenset({
     "status", "users", "paid", "cron", "server", "system", "ai", "painpoints",
-    "add", "remove", "mute", "quit",
+    "injection", "add", "remove", "mute", "quit",
 })
 
 
@@ -116,7 +116,7 @@ async def handle_admin_command(
     raw = (command or "").strip()
     cmd = raw.lstrip("#").strip().lower() if raw.startswith("#") else raw.lower()
     if not cmd or cmd not in _VALID_COMMANDS:
-        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #paid #cron #server #system #ai #painpoints #add <nr> #remove <nr> #mute <nr> #quit"
+        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #paid #cron #server #system #ai #painpoints #injection #add <nr> #remove <nr> #mute <nr> #quit"
 
     if cmd == "status":
         return _cmd_status()
@@ -141,6 +141,9 @@ async def handle_admin_command(
 
     if cmd == "painpoints":
         return _cmd_painpoints(cron_store_path)
+
+    if cmd == "injection":
+        return _cmd_injection()
 
     if cmd == "add":
         _, arg = parse_admin_command_arg(raw)
@@ -179,7 +182,7 @@ def _cmd_status() -> str:
     """Resumo rápido do sistema."""
     lines = [
         "#status",
-        "God Mode ativo. Comandos: #users #paid #cron #server #system #ai #painpoints",
+        "God Mode ativo. Comandos: #users #paid #cron #server #system #ai #painpoints #injection",
         "#add <nr> #remove <nr> #mute <nr> #quit",
     ]
     return "\n".join(lines)
@@ -327,8 +330,30 @@ def _cmd_ai() -> str:
     return "\n".join(lines)
 
 
+def _cmd_injection() -> str:
+    """Tentativas de prompt injection por cliente: número, quantas, bloqueadas vs bem-sucedidas."""
+    try:
+        from backend.injection_guard import get_injection_stats
+        stats = get_injection_stats()
+        if not stats:
+            return "#injection\nNenhuma tentativa de injection registada."
+        lines = ["#injection", "Cliente | Total | Bloqueadas | Bem-sucedidas"]
+        for s in stats[:20]:
+            cid = s.get("chat_id", "?")
+            total = s.get("total", 0)
+            blocked = s.get("bloqueadas", 0)
+            succeeded = s.get("bem_sucedidas", 0)
+            lines.append(f"  {cid} | {total} | {blocked} | {succeeded}")
+        if len(stats) > 20:
+            lines.append(f"  ... e mais {len(stats) - 20} clientes")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.debug(f"admin #injection failed: {e}")
+        return "#injection\nErro ao obter estatísticas."
+
+
 def _cmd_painpoints(cron_store_path: Path | None) -> str:
-    """Heurísticas: jobs atrasados, etc."""
+    """Heurísticas: jobs atrasados + clientes para atendimento contactar."""
     lines = ["#painpoints"]
     path = cron_store_path or (Path.home() / ".nanobot" / "cron" / "jobs.json")
     now_ms = int(time.time() * 1000)
@@ -350,6 +375,27 @@ def _cmd_painpoints(cron_store_path: Path | None) -> str:
             lines.append("Jobs: erro ao ler")
     else:
         lines.append("Jobs: ficheiro não encontrado")
+
+    # Clientes para atendimento contactar (frustração/reclamação ou pedido explícito)
+    try:
+        from backend.painpoints_store import get_painpoints
+        painpoints = get_painpoints()
+        if painpoints:
+            lines.append("")
+            lines.append("Clientes para contactar (WhatsApp):")
+            for p in painpoints[:15]:
+                ph = p.get("digits") or p.get("phone_display", "?")
+                reason = p.get("reason", "—")[:40]
+                ts = p.get("timestamp", 0)
+                from datetime import datetime
+                dt = datetime.fromtimestamp(ts).strftime("%d/%m %H:%M") if ts else ""
+                lines.append(f"  {ph} | {reason} | {dt}")
+            if len(painpoints) > 15:
+                lines.append(f"  ... e mais {len(painpoints) - 15}")
+        else:
+            lines.append("Clientes para contactar: 0")
+    except Exception:
+        lines.append("Clientes: erro ao ler")
     lines.append("Endpoints lentos: N/A – configurar APM")
     lines.append("Picos de erro: N/A – configurar agregado")
     return "\n".join(lines)

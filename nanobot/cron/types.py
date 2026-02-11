@@ -16,6 +16,8 @@ class CronSchedule:
     expr: str | None = None
     # Timezone for cron expressions
     tz: str | None = None
+    # Recorrentes: NÃO disparar antes desta data (ms). Ex.: lembretes «a partir de 1º julho»
+    not_before_ms: int | None = None
 
 
 @dataclass

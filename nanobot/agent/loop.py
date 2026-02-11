@@ -138,6 +138,27 @@ class AgentLoop:
         self._running = False
         logger.info("Agent loop stopping")
 
+    async def _maybe_sentiment_check(
+        self, session, channel: str, chat_id: str
+    ) -> None:
+        """A cada 20 mensagens: Mimo verifica frustração/reclamação; se houver, regista em painpoints."""
+        try:
+            total = len(session.messages)
+            if total < 20 or total % 20 != 0:
+                return
+            if not self.scope_provider or not self.scope_model:
+                return
+            from backend.sentiment_check import check_frustration_or_complaint
+            from backend.painpoints_store import add_painpoint
+            history = session.get_history(max_messages=25)
+            if await check_frustration_or_complaint(
+                history, self.scope_provider, self.scope_model
+            ):
+                add_painpoint(chat_id, "frustração/reclamação detectada pelo Mimo")
+                logger.info(f"Painpoint registado: {chat_id[:20]}... (frustração/reclamação)")
+        except Exception as e:
+            logger.debug(f"Sentiment check failed: {e}")
+
     def _set_tool_context(self, channel: str, chat_id: str) -> None:
         """Define canal/chat em todas as tools que suportam (parser e LLM usam o mesmo contexto)."""
         for name, tool in (("message", MessageTool), ("cron", CronTool), ("list", ListTool), ("event", EventTool)):
@@ -166,6 +187,7 @@ class AgentLoop:
             in_sec = intent.get("in_seconds")
             every_sec = intent.get("every_seconds")
             cron_expr = intent.get("cron_expr")
+            start_date = intent.get("start_date")
             if in_sec or every_sec or cron_expr:
                 return await cron_tool.execute(
                     action="add",
@@ -173,6 +195,7 @@ class AgentLoop:
                     in_seconds=in_sec,
                     every_seconds=every_sec,
                     cron_expr=cron_expr,
+                    start_date=start_date,
                 )
             return None  # tempo não parseado, deixar para o LLM
         if t == "list_add":
@@ -604,9 +627,10 @@ class AgentLoop:
 
         # Proteção contra prompt injection: rejeitar antes de chegar ao agente
         try:
-            from backend.injection_guard import is_injection_attempt, get_injection_response
+            from backend.injection_guard import is_injection_attempt, get_injection_response, record_injection_blocked
             if is_injection_attempt(content):
                 logger.info(f"Injection attempt blocked: {content[:80]}...")
+                record_injection_blocked(msg.chat_id, (content or "")[:80])
                 injection_msg = get_injection_response(user_lang)
                 try:
                     session = self.sessions.get_or_create(msg.session_key)
@@ -808,6 +832,8 @@ class AgentLoop:
                 session_manager=self.sessions,
                 scope_provider=self.scope_provider,
                 scope_model=self.scope_model,
+                main_provider=self.provider,
+                main_model=self.model,
             )
             result = await handlers_route(ctx, msg.content)
             if result is not None:
@@ -817,6 +843,7 @@ class AgentLoop:
                     session.add_message("user", msg.content)
                     session.add_message("assistant", result)
                     self.sessions.save(session)
+                    asyncio.create_task(self._maybe_sentiment_check(session, msg.channel, msg.chat_id))
                 except Exception:
                     pass
                 return OutboundMessage(
@@ -869,6 +896,7 @@ class AgentLoop:
                 session.add_message("user", msg.content)
                 session.add_message("assistant", content)
                 self.sessions.save(session)
+                asyncio.create_task(self._maybe_sentiment_check(session, msg.channel, msg.chat_id))
             except Exception:
                 pass
             return OutboundMessage(
@@ -892,6 +920,8 @@ class AgentLoop:
                     session_manager=self.sessions,
                     scope_provider=self.scope_provider,
                     scope_model=self.scope_model,
+                    main_provider=self.provider,
+                    main_model=self.model,
                 )
                 result = await handle_analytics(ctx, msg.content)
                 if result is not None:
@@ -900,6 +930,7 @@ class AgentLoop:
                         session.add_message("user", msg.content)
                         session.add_message("assistant", result)
                         self.sessions.save(session)
+                        asyncio.create_task(self._maybe_sentiment_check(session, msg.channel, msg.chat_id))
                     except Exception:
                         pass
                     return OutboundMessage(
@@ -1003,7 +1034,10 @@ class AgentLoop:
         session.add_message("user", msg.content)
         session.add_message("assistant", final_content)
         self.sessions.save(session)
-        
+
+        # A cada 20 mensagens: Mimo analisa frustração/reclamação → painpoints
+        asyncio.create_task(self._maybe_sentiment_check(session, msg.channel, msg.chat_id))
+
         return OutboundMessage(
             channel=msg.channel,
             chat_id=msg.chat_id,

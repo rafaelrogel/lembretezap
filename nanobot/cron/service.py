@@ -20,22 +20,30 @@ def _now_ms() -> int:
 
 
 def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
-    """Compute next run time in ms."""
+    """Compute next run time in ms. Respeita not_before_ms para recorrentes (ex.: «a partir de 1º julho»)."""
     if schedule.kind == "at":
         return schedule.at_ms if schedule.at_ms and schedule.at_ms > now_ms else None
     
     if schedule.kind == "every":
         if not schedule.every_ms or schedule.every_ms <= 0:
             return None
-        # Next interval from now
+        if schedule.not_before_ms and now_ms < schedule.not_before_ms:
+            return schedule.not_before_ms  # primeiro disparo na data de início
         return now_ms + schedule.every_ms
     
     if schedule.kind == "cron" and schedule.expr:
         try:
             from croniter import croniter
-            cron = croniter(schedule.expr, time.time())
+            # Só considerar ocorrências >= not_before_ms (evita disparar antes da data de início)
+            start_epoch = time.time()
+            if schedule.not_before_ms and schedule.not_before_ms > now_ms:
+                start_epoch = schedule.not_before_ms / 1000.0
+            elif schedule.not_before_ms and schedule.not_before_ms > 0:
+                start_epoch = max(time.time(), schedule.not_before_ms / 1000.0)
+            cron = croniter(schedule.expr, start_epoch)
             next_time = cron.get_next()
-            return int(next_time * 1000)
+            next_ms = int(next_time * 1000)
+            return next_ms if next_ms > now_ms else None
         except Exception:
             return None
     
@@ -76,6 +84,7 @@ class CronService:
                             every_ms=j["schedule"].get("everyMs"),
                             expr=j["schedule"].get("expr"),
                             tz=j["schedule"].get("tz"),
+                            not_before_ms=j["schedule"].get("notBeforeMs"),
                         ),
                         payload=CronPayload(
                             kind=j["payload"].get("kind", "agent_turn"),
@@ -123,6 +132,7 @@ class CronService:
                         "everyMs": j.schedule.every_ms,
                         "expr": j.schedule.expr,
                         "tz": j.schedule.tz,
+                        "notBeforeMs": j.schedule.not_before_ms,
                     },
                     "payload": {
                         "kind": j.payload.kind,

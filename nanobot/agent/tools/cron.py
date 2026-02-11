@@ -72,6 +72,10 @@ class CronTool(Tool):
                     "type": "string",
                     "description": "Cron expression for fixed times (e.g. '0 9 * * *' = daily at 9h)"
                 },
+                "start_date": {
+                    "type": "string",
+                    "description": "Recurring only: start date ISO YYYY-MM-DD. Reminders will NOT fire before this date (e.g. '2026-07-01' for 'a partir de 1º de julho')"
+                },
                 "job_id": {
                     "type": "string",
                     "description": "Job ID (for remove)"
@@ -87,6 +91,7 @@ class CronTool(Tool):
         every_seconds: int | None = None,
         in_seconds: int | None = None,
         cron_expr: str | None = None,
+        start_date: str | None = None,
         job_id: str | None = None,
         **kwargs: Any
     ) -> str:
@@ -108,6 +113,7 @@ class CronTool(Tool):
                 )
             return self._add_job(
                 message, every_seconds, in_seconds, cron_expr,
+                start_date=start_date,
                 suggested_prefix=prefix,
                 use_pre_reminders=use_pre_reminders,
                 long_event_24h=long_event_24h,
@@ -146,6 +152,7 @@ class CronTool(Tool):
         every_seconds: int | None,
         in_seconds: int | None,
         cron_expr: str | None,
+        start_date: str | None = None,
         suggested_prefix: str | None = None,
         use_pre_reminders: bool = True,
         long_event_24h: bool = False,
@@ -162,6 +169,15 @@ class CronTool(Tool):
         if every_seconds is not None and (every_seconds < 1800 or every_seconds > 86400 * 30):
             return "O intervalo mínimo para lembretes recorrentes é 30 minutos. Ex.: «a cada 30 minutos» ou «a cada 1 hora»."
 
+        # Parse start_date (YYYY-MM-DD) → not_before_ms para recorrentes ("a partir de 1º julho")
+        not_before_ms: int | None = None
+        if start_date and (every_seconds or cron_expr):
+            try:
+                from datetime import datetime, timezone
+                dt = datetime.strptime(start_date.strip()[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                not_before_ms = int(dt.timestamp() * 1000)
+            except (ValueError, TypeError):
+                pass
         # Pontual (não recorrente): após a entrega o job é removido do cron (esquecido pelo sistema); pode existir histórico noutra camada
         if in_seconds is not None and in_seconds > 0:
             at_ms = int(time.time() * 1000) + in_seconds * 1000
@@ -169,10 +185,10 @@ class CronTool(Tool):
             delete_after_run = True
         # Recorrente: mantém-se listado até o utilizador remover ou fim da recorrência
         elif every_seconds:
-            schedule = CronSchedule(kind="every", every_ms=every_seconds * 1000)
+            schedule = CronSchedule(kind="every", every_ms=every_seconds * 1000, not_before_ms=not_before_ms)
             delete_after_run = False
         elif cron_expr:
-            schedule = CronSchedule(kind="cron", expr=cron_expr)
+            schedule = CronSchedule(kind="cron", expr=cron_expr, not_before_ms=not_before_ms)
             delete_after_run = False
         else:
             return "Error: use every_seconds (repeat), in_seconds (once), or cron_expr"
