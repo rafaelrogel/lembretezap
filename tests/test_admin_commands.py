@@ -143,6 +143,14 @@ async def test_handle_admin_command_server():
 
 
 @pytest.mark.asyncio
+async def test_handle_admin_command_msgs():
+    from backend.admin_commands import handle_admin_command
+    out = await handle_admin_command("#msgs")
+    assert "#msgs" in out
+    assert "Hoje" in out or "mensagens" in out or "total" in out.lower()
+
+
+@pytest.mark.asyncio
 async def test_handle_admin_command_system():
     from backend.admin_commands import handle_admin_command
     out = await handle_admin_command("#system")

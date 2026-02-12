@@ -34,13 +34,24 @@ def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
     if schedule.kind == "cron" and schedule.expr:
         try:
             from croniter import croniter
+            from zoneinfo import ZoneInfo
             # Só considerar ocorrências >= not_before_ms (evita disparar antes da data de início)
             start_epoch = time.time()
             if schedule.not_before_ms and schedule.not_before_ms > now_ms:
                 start_epoch = schedule.not_before_ms / 1000.0
             elif schedule.not_before_ms and schedule.not_before_ms > 0:
                 start_epoch = max(time.time(), schedule.not_before_ms / 1000.0)
-            cron = croniter(schedule.expr, start_epoch)
+            # Usar timezone do utilizador para interpretar "0 9 * * *" como 9h no seu fuso (não no do VPS)
+            if schedule.tz:
+                try:
+                    from datetime import datetime
+                    tz = ZoneInfo(schedule.tz)
+                    start_dt = datetime.fromtimestamp(start_epoch, tz=tz)
+                    cron = croniter(schedule.expr, start_dt)
+                except Exception:
+                    cron = croniter(schedule.expr, start_epoch)
+            else:
+                cron = croniter(schedule.expr, start_epoch)
             next_time = cron.get_next()
             next_ms = int(next_time * 1000)
             return next_ms if next_ms > now_ms else None
@@ -295,6 +306,32 @@ class CronService:
         logger.debug("Cron add_job: message_len=%d message_preview=%r", len(message or ""), msg_preview)
 
         store = self._load_store()
+
+        # Verificação de duplicatas: mesmo destinatário + mesma mensagem + mesmo schedule
+        msg_norm = (message or "").lower().strip()
+        for existing in store.jobs:
+            if not existing.enabled:
+                continue
+            if getattr(existing.payload, "to", None) != to:
+                continue
+            if (existing.payload.message or "").lower().strip() != msg_norm:
+                continue
+            if existing.schedule.kind != schedule.kind:
+                continue
+            if schedule.kind == "every":
+                if existing.schedule.every_ms != schedule.every_ms:
+                    continue
+            elif schedule.kind == "cron":
+                if (existing.schedule.expr or "").strip() != (schedule.expr or "").strip():
+                    continue
+            elif schedule.kind == "at":
+                if existing.schedule.at_ms != schedule.at_ms:
+                    continue
+            else:
+                continue
+            logger.info(f"Cron: duplicate job detected, returning existing job '{existing.id}'")
+            return existing
+
         now = _now_ms()
         kind = payload_kind if payload_kind in ("agent_turn", "system_event") else "agent_turn"
         existing_ids = [j.id for j in store.jobs]

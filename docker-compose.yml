@@ -39,6 +39,7 @@ services:
     volumes:
       - nanobot_data:/root/.nanobot
     environment:
+      - TZ=${TZ:-Europe/Lisbon}
       - AUTH_DIR=/root/.nanobot/whatsapp-auth
       - BRIDGE_PORT=3001
       - BRIDGE_DEBUG=0
@@ -67,6 +68,7 @@ services:
     volumes:
       - nanobot_data:/root/.nanobot
     environment:
+      - TZ=${TZ:-Europe/Lisbon}
       - NANOBOT_DATA=/root/.nanobot
       - HEALTH_CHECK_TOKEN=${HEALTH_CHECK_TOKEN:-}
       - API_SECRET_KEY=${API_SECRET_KEY:-}
@@ -96,6 +98,7 @@ services:
     volumes:
       - nanobot_data:/root/.nanobot
     environment:
+      - TZ=${TZ:-Europe/Lisbon}
       - NANOBOT_DATA=/root/.nanobot
       - NANOBOT_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001
       # Fila Redis para outbound (mensagens); se definido, gateway produz e consome desta fila.

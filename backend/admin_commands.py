@@ -60,7 +60,7 @@ def is_god_mode_password(content_after_hash: str) -> bool:
 _ADMIN_CMD_RE = re.compile(r"^\s*#(\w+)(?:\s+(.*))?\s*$", re.I)
 _VALID_COMMANDS = frozenset({
     "status", "users", "paid", "cron", "server", "system", "ai", "painpoints",
-    "injection", "add", "remove", "mute", "quit",
+    "injection", "add", "remove", "mute", "quit", "msgs",
 })
 
 
@@ -117,7 +117,7 @@ async def handle_admin_command(
     raw = (command or "").strip()
     cmd = raw.lstrip("#").strip().lower() if raw.startswith("#") else raw.lower()
     if not cmd or cmd not in _VALID_COMMANDS:
-        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #paid #cron #server #system #ai #painpoints #injection #add <nr> #remove <nr> #mute <nr> #quit"
+        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #paid #cron #server #msgs #system #ai #painpoints #injection #add <nr> #remove <nr> #mute <nr> #quit"
 
     if cmd == "status":
         return _cmd_status()
@@ -133,6 +133,9 @@ async def handle_admin_command(
 
     if cmd == "server":
         return _cmd_server(cron_store_path=cron_store_path, wa_channel=wa_channel)
+
+    if cmd == "msgs":
+        return _cmd_msgs()
 
     if cmd == "system":
         return _cmd_system()
@@ -183,7 +186,7 @@ def _cmd_status() -> str:
     """Resumo rápido do sistema."""
     lines = [
         "#status",
-        "God Mode ativo. Comandos: #users #paid #cron #server #system #ai #painpoints #injection",
+        "God Mode ativo. Comandos: #users #paid #cron #server #msgs #system #ai #painpoints #injection",
         "#add <nr> #remove <nr> #mute <nr> #quit",
     ]
     return "\n".join(lines)
@@ -352,6 +355,73 @@ def _cmd_server(
                 prev_disk = disk_mb
             lines.append(line)
 
+    return "\n".join(lines)
+
+
+def _cmd_msgs() -> str:
+    """Total de mensagens tocadas: hoje, últimos 3 dias, semana, mês, histórico total."""
+    from datetime import date, datetime, timedelta
+
+    try:
+        from nanobot.utils.helpers import get_sessions_path
+        sessions_dir = get_sessions_path()
+    except ImportError:
+        sessions_dir = Path.home() / ".nanobot" / "sessions"
+
+    if not sessions_dir.exists():
+        return "#msgs\n0 mensagens (pasta de sessões não existe)."
+
+    today = date.today()
+    counts = {
+        "today": 0,
+        "last_3_days": 0,
+        "week": 0,
+        "month": 0,
+        "total": 0,
+    }
+    cutoff_3d = today - timedelta(days=2)  # hoje + 2 dias atrás = 3 dias
+    cutoff_week = today - timedelta(days=6)  # 7 dias
+    cutoff_month = today - timedelta(days=29)  # 30 dias
+
+    for path in sessions_dir.glob("*.jsonl"):
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    data = json.loads(line)
+                    if data.get("_type") == "metadata":
+                        continue
+                    ts_str = (data.get("timestamp") or "").strip()
+                    counts["total"] += 1
+                    if not ts_str or len(ts_str) < 10:
+                        continue
+                    try:
+                        msg_date = date.fromisoformat(ts_str[:10])
+                    except (ValueError, TypeError):
+                        continue
+                    if msg_date == today:
+                        counts["today"] += 1
+                    if msg_date >= cutoff_3d:
+                        counts["last_3_days"] += 1
+                    if msg_date >= cutoff_week:
+                        counts["week"] += 1
+                    if msg_date >= cutoff_month:
+                        counts["month"] += 1
+        except Exception as e:
+            logger.debug(f"#msgs: erro ao ler {path}: {e}")
+            continue
+
+    lines = [
+        "#msgs",
+        "Mensagens tocadas (user + assistant):",
+        f"Hoje: {counts['today']}",
+        f"Últimos 3 dias: {counts['last_3_days']}",
+        f"Esta semana (7d): {counts['week']}",
+        f"Este mês (30d): {counts['month']}",
+        f"Histórico total: {counts['total']}",
+    ]
     return "\n".join(lines)
 
 

@@ -101,6 +101,7 @@ class AgentLoop:
                 self.cron_service,
                 scope_provider=self.scope_provider,
                 scope_model=self.scope_model or "",
+                session_manager=self.sessions,
             ))
         # List and event tools (per-user DB)
         self.tools.register(ListTool(

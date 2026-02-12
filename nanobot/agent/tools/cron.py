@@ -15,18 +15,20 @@ if TYPE_CHECKING:
 
 class CronTool(Tool):
     """Tool to schedule reminders and recurring tasks."""
-    
+
     def __init__(
         self,
         cron_service: CronService,
         scope_provider: "LLMProvider | None" = None,
         scope_model: str = "",
+        session_manager: Any = None,
     ):
         self._cron = cron_service
         self._channel = ""
         self._chat_id = ""
         self._scope_provider = scope_provider
         self._scope_model = (scope_model or "").strip()
+        self._session_manager = session_manager
     
     def set_context(self, channel: str, chat_id: str) -> None:
         """Set the current session context for delivery."""
@@ -120,7 +122,7 @@ class CronTool(Tool):
                 use_pre_reminders = long_event_24h or await needs_advance_alert(
                     message or "", in_seconds, self._scope_provider, self._scope_model
                 )
-            return self._add_job(
+            return await self._add_job(
                 message, every_seconds, in_seconds, cron_expr,
                 start_date=start_date,
                 suggested_prefix=prefix,
@@ -156,7 +158,85 @@ class CronTool(Tool):
         except Exception:
             return None
 
-    def _add_job(
+    def _schedule_matches(self, existing_schedule: CronSchedule, new_schedule: CronSchedule) -> bool:
+        """True se o schedule existente corresponde ao novo (mesmo tipo e parâmetros)."""
+        if existing_schedule.kind != new_schedule.kind:
+            return False
+        if new_schedule.kind == "every":
+            return existing_schedule.every_ms == new_schedule.every_ms
+        if new_schedule.kind == "cron":
+            return (existing_schedule.expr or "").strip() == (new_schedule.expr or "").strip()
+        if new_schedule.kind == "at":
+            return existing_schedule.at_ms == new_schedule.at_ms
+        return False
+
+    async def _check_duplicate_with_context(
+        self,
+        message: str,
+        schedule: CronSchedule,
+    ) -> str | None:
+        """
+        Verifica duplicatas: exact match → "Já está registado".
+        Mesmo schedule mas mensagem diferente → Mimo decide com últimas 20 msgs.
+        Retorna mensagem a enviar se for duplicata, None para proseguir.
+        """
+        msg_norm = (message or "").lower().strip()
+        existing_jobs = [
+            j for j in self._cron.list_jobs(include_disabled=True)
+            if getattr(j.payload, "to", None) == self._chat_id
+            and j.enabled
+            and self._schedule_matches(j.schedule, schedule)
+        ]
+        if not existing_jobs:
+            return None
+
+        for existing in existing_jobs:
+            existing_msg = (existing.payload.message or "").lower().strip()
+            if existing_msg == msg_norm:
+                return f"Este lembrete já está registado. (id: {existing.id})"
+
+        # Mensagem diferente, mesmo schedule: Mimo decide com contexto
+        if not self._scope_provider or not self._scope_model or not self._session_manager:
+            return None  # sem Mimo → criar (cliente não fica na mão)
+
+        history_text = ""
+        try:
+            session_key = f"{self._channel}:{self._chat_id}"
+            session = self._session_manager.get_or_create(session_key)
+            history = (session.messages or [])[-20:]
+            history_text = "\n".join(
+                f"{m.get('role', '?')}: {(m.get('content') or '')[:150]}"
+                for m in history
+            )
+        except Exception:
+            return None
+
+        for existing in existing_jobs:
+            existing_msg = (existing.payload.message or "").strip()
+            if existing_msg.lower() == msg_norm:
+                continue
+            try:
+                prompt = (
+                    f"Conversa recente:\n{history_text[-2000:]}\n\n"
+                    f"Utilizador quer criar lembrete: «{message[:200]}»\n"
+                    f"Já existe lembrete: «{existing_msg[:200]}»\n\n"
+                    "O novo lembrete é o MESMO que o existente? (ex: mesmo remédio, mesma tarefa, mesmo compromisso)\n"
+                    "Responde APENAS: SIM ou NAO"
+                )
+                r = await self._scope_provider.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self._scope_model,
+                    max_tokens=10,
+                    temperature=0,
+                )
+                raw = (r.content or "").strip().upper()
+                if "SIM" in raw or raw.startswith("S"):
+                    return f"Este lembrete já está registado. (id: {existing.id})"
+            except Exception:
+                pass  # em caso de erro, criar (cliente não fica na mão)
+        return None
+
+    async def _add_job(
         self,
         message: str,
         every_seconds: int | None,
@@ -204,11 +284,35 @@ class CronTool(Tool):
             schedule = CronSchedule(kind="every", every_ms=every_seconds * 1000, not_before_ms=not_before_ms)
             delete_after_run = False
         elif cron_expr:
-            schedule = CronSchedule(kind="cron", expr=cron_expr, not_before_ms=not_before_ms)
+            tz_iana = None
+            try:
+                from backend.database import SessionLocal
+                from backend.user_store import get_user_timezone
+                db = SessionLocal()
+                try:
+                    tz_iana = get_user_timezone(db, self._chat_id)
+                finally:
+                    db.close()
+            except Exception:
+                pass
+            schedule = CronSchedule(
+                kind="cron",
+                expr=cron_expr,
+                tz=tz_iana,
+                not_before_ms=not_before_ms,
+            )
             delete_after_run = False
         else:
             return "Error: use every_seconds (repeat), in_seconds (once), or cron_expr"
-        
+
+        # Verificação de duplicatas com contexto: exact match ou Mimo (últimas 20 msgs)
+        dup_result = await self._check_duplicate_with_context(
+            message=message,
+            schedule=schedule,
+        )
+        if dup_result:
+            return dup_result
+
         job = self._cron.add_job(
             name=message[:30],
             schedule=schedule,
