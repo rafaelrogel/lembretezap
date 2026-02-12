@@ -19,7 +19,7 @@ echo ""
 echo "Este script vai:"
 echo "  1. Parar contentores e APAGAR toda a instalação anterior em $INSTALL_DIR"
 echo "  2. Atualizar o sistema (apt update + upgrade)"
-echo "  3. Pedir as chaves de API (DeepSeek e Xiaomi MiMo)"
+echo "  3. Pedir as chaves de API (DeepSeek, Xiaomi MiMo e Perplexity)"
 echo "  4. Pedir a senha de god-mode (comandos admin no chat)"
 echo "  5. Instalar Docker (se precisar), clonar o código e arrancar tudo"
 echo ""
@@ -82,6 +82,15 @@ if [ -z "$XIAOMI_API_KEY" ]; then
     exit 1
   fi
 fi
+
+echo "  Perplexity — para busca na web (pesquisas, informações em tempo real). Opcional."
+echo "  Obtém em: https://www.perplexity.ai/settings/api"
+read -r -p "  Cola aqui a chave Perplexity (ou Enter para omitir): " PERPLEXITY_API_KEY
+echo ""
+if [ -n "$PERPLEXITY_API_KEY" ]; then
+  echo "    Chave Perplexity guardada (só no .env)."
+fi
+
 echo "    Chaves guardadas (só no .env)."
 echo ""
 
@@ -153,7 +162,8 @@ cat > "$DATA_DIR/config.json" << 'CONFIG_EOF'
   },
   "providers": {
     "deepseek": { "api_key": "" },
-    "xiaomi": { "api_key": "" }
+    "xiaomi": { "api_key": "" },
+    "perplexity": { "api_key": "" }
   }
 }
 CONFIG_EOF
@@ -164,6 +174,7 @@ cat > "$INSTALL_DIR/.env" << ENV_EOF
 # Gerado por install_vps.sh — não commitar
 NANOBOT_PROVIDERS__DEEPSEEK__API_KEY="$( _esc "$DEEPSEEK_API_KEY" )"
 NANOBOT_PROVIDERS__XIAOMI__API_KEY="$( _esc "$XIAOMI_API_KEY" )"
+NANOBOT_PROVIDERS__PERPLEXITY__API_KEY="$( _esc "${PERPLEXITY_API_KEY:-}" )"
 HEALTH_CHECK_TOKEN=health-$(openssl rand -hex 8)
 API_SECRET_KEY=api-$(openssl rand -hex 12)
 CORS_ORIGINS=*
