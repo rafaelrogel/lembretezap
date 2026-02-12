@@ -307,6 +307,20 @@ class CronService:
 
         store = self._load_store()
 
+        # Log detalhado para debug (NANOBOT_LOG_LEVEL=DEBUG)
+        existing_for_user = [j for j in store.jobs if getattr(j.payload, "to", None) == to]
+        logger.debug(
+            "Cron add_job: user=%s message=%s schedule_kind=%s every_ms=%s expr=%s at_ms=%s existing_jobs_for_user=%d total_jobs=%d",
+            (to or "")[:30],
+            (message or "")[:100],
+            schedule.kind,
+            schedule.every_ms,
+            (schedule.expr or "")[:50],
+            schedule.at_ms,
+            len(existing_for_user),
+            len(store.jobs),
+        )
+
         # Verificação de duplicatas: mesmo destinatário + mesma mensagem + mesmo schedule
         msg_norm = (message or "").lower().strip()
         for existing in store.jobs:
@@ -330,6 +344,7 @@ class CronService:
             else:
                 continue
             logger.info(f"Cron: duplicate job detected, returning existing job '{existing.id}'")
+            logger.debug("Cron add_job: duplicate returned, total_jobs=%d", len(store.jobs))
             return existing
 
         now = _now_ms()
@@ -370,6 +385,7 @@ class CronService:
         self._save_store()
         self._arm_timer()
 
+        logger.debug("Cron add_job: job created, total_jobs=%d", len(store.jobs))
         sched_desc = schedule.kind
         if schedule.kind == "at" and schedule.at_ms:
             sched_desc += f" at={time.strftime('%Y-%m-%d %H:%M', time.localtime(schedule.at_ms / 1000))}"
