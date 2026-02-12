@@ -1,13 +1,15 @@
-"""Structured logging: trace_id correlation and optional JSON output.
+"""Structured logging: trace_id correlation, optional JSON output, file rotation.
 
-Set NANOBOT_LOG_JSON=1 for JSON logs (e.g. in production). trace_id is set from
-InboundMessage so all logs for a request can be correlated.
+- NANOBOT_LOG_JSON=1 — JSON logs (stderr)
+- NANOBOT_LOG_FILE=/path/to/logs — escreve em ficheiro com rotação (10 MB, 7 dias)
+- Docker: usar logging options no docker-compose para rotação dos logs do container
 """
 
 import contextvars
 import json
 import os
 import sys
+from pathlib import Path
 
 # Context var for request trace_id (set at message entry)
 _trace_id_ctx: contextvars.ContextVar[str] = contextvars.ContextVar("trace_id", default="")
@@ -50,8 +52,10 @@ def _trace_id_filter(record: dict) -> bool:
 
 def configure_logging(json_logs: bool | None = None) -> None:
     """
-    Configure loguru: add trace_id to format, optionally JSON sink.
+    Configure loguru: add trace_id to format, optionally JSON sink, optional file with rotation.
     Call once at startup (e.g. in gateway). json_logs from NANOBOT_LOG_JSON env if None.
+
+    NANOBOT_LOG_FILE: se definido, escreve também em ficheiro com rotação (10 MB, 7 dias).
     """
     from loguru import logger
 
@@ -69,4 +73,18 @@ def configure_logging(json_logs: bool | None = None) -> None:
             format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{extra[trace_id]}</cyan> | {name}:{function}:{line} - <level>{message}</level>\n",
             level=level,
             filter=_trace_id_filter,
+        )
+
+    log_file = os.environ.get("NANOBOT_LOG_FILE", "").strip()
+    if log_file:
+        path = Path(log_file)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        logger.add(
+            str(path),
+            rotation="10 MB",
+            retention="7 days",
+            compression="gz",
+            level=level,
+            filter=_trace_id_filter,
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {extra[trace_id]} | {name}:{function}:{line} - {message}\n",
         )

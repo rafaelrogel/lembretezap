@@ -165,7 +165,23 @@ Se o WhatsApp der **401** (sessão inválida), apaga a pasta de auth no volume, 
 
 ---
 
-## 7. Health check (segurança)
+## 7. Rotação de logs
+
+O `docker-compose.yml` tem rotação de logs para todos os serviços:
+- **max-size: 10m** — cada ficheiro de log até 10 MB
+- **max-file: 3** — até 3 ficheiros por container (≈30 MB por serviço)
+
+Os logs ficam em `/var/lib/docker/containers/`. Para logs em ficheiro dentro do volume (persistidos e rotacionados pelo Loguru), define no `.env`:
+
+```
+NANOBOT_LOG_FILE=/root/.nanobot/logs/app.log
+```
+
+O Loguru rota automaticamente (10 MB, 7 dias, compressão gzip).
+
+---
+
+## 8. Health check (segurança)
 
 Por boa prática, os endpoints `/health` (bridge na porta 3001 e API na 8000) não devem ser expostos publicamente sem proteção. Duas opções:
 
@@ -177,17 +193,41 @@ Por boa prática, os endpoints `/health` (bridge na porta 3001 e API na 8000) n�
 
 ---
 
-## 8. API: autenticação e CORS
+## 9. API: autenticação e CORS
 
 - **API_SECRET_KEY:** Se definido no `.env` (ou nas variáveis do serviço **api**), todos os endpoints exceto `/health` exigem o header `X-API-Key` com o mesmo valor. Sem este header (ou com valor errado), a API responde 401/403. Em desenvolvimento podes deixar vazio para aceder sem autenticação.
 - **CORS_ORIGINS:** Lista de origens permitidas para CORS, separadas por vírgula (ex.: `https://app.seudominio.com`). Valor por defeito `*` (todas). Em produção deve ser restrito ao domínio do teu frontend.
 
 ---
 
-## 9. Resumo rápido
+## 10. Backup automático (cron diário)
+
+O script `scripts/backup_nanobot.sh` faz backup de memória, sessões, BD e cron jobs.
+
+**Executar manualmente:**
+```bash
+sudo bash scripts/backup_nanobot.sh
+```
+
+**Agendar backup diário às 3h** (Linux):
+```bash
+# Copiar para /etc/cron.d/
+sudo cp scripts/cron.nanobot-backup /etc/cron.d/nanobot-backup
+sudo chmod 644 /etc/cron.d/nanobot-backup
+```
+
+Variáveis (opcional, em `/etc/default/nanobot-backup` ou no crontab):
+- `ZAPASSIST_INSTALL_DIR=/opt/zapassist` — pasta do projeto
+- `NANOBOT_BACKUP_DIR=/backups/nanobot` — pasta dos backups
+- `RETENTION_DAYS=7` — dias a manter (default: 7)
+
+---
+
+## 11. Resumo rápido
 
 1. Ter **config.json** no volume (ou montar `~/.nanobot`).
 2. `docker-compose up -d`
 3. `docker-compose logs -f bridge` → escanear QR
 4. (Opcional) Definir `API_SECRET_KEY` e `CORS_ORIGINS` para produção.
-5. Testar mensagem no WhatsApp
+5. (Opcional) Configurar backup: `sudo bash scripts/backup_nanobot.sh` ou cron.
+6. Testar mensagem no WhatsApp

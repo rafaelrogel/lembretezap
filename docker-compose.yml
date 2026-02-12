@@ -17,6 +17,11 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -40,6 +45,11 @@ services:
       - BRIDGE_HEALTH_TOKEN=${HEALTH_CHECK_TOKEN:-}
       # ALLOW_SELF_MESSAGES=1: reencaminha mensagens que envias a ti mesmo (útil para testar com um só número)
       - ALLOW_SELF_MESSAGES=${ALLOW_SELF_MESSAGES:-0}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "sh", "-c", "curl -sf -H \"X-Health-Token: $$BRIDGE_HEALTH_TOKEN\" http://localhost:3001/health"]
       interval: 30s
@@ -66,6 +76,11 @@ services:
       redis:
         condition: service_healthy
     # env_file: .env  # optional: copy .env.example to .env for API key override
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "sh", "-c", "curl -sf -H \"X-Health-Token: $$HEALTH_CHECK_TOKEN\" http://localhost:8000/health"]
       interval: 30s
@@ -87,12 +102,18 @@ services:
       - REDIS_URL=redis://redis:6379/0
       # Limite de mensagens por minuto por utilizador (default 15). Aumentar para testes (ex.: 60).
       - RATE_LIMIT_MAX_PER_MINUTE=${RATE_LIMIT_MAX_PER_MINUTE:-15}
-    # env_file: .env  # optional: copy .env.example to .env
+      - NANOBOT_LOG_FILE=${NANOBOT_LOG_FILE:-}
+    # env_file: .env  # optional: copy .env.example to .env (incl. NANOBOT_LOG_FILE)
     depends_on:
       bridge:
         condition: service_healthy
       redis:
         condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
 
 volumes:

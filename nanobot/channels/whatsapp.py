@@ -98,7 +98,15 @@ class WhatsAppChannel(BaseChannel):
             try:
                 async with websockets.connect(bridge_url) as ws:
                     self._ws = ws
+                    is_reconnect = getattr(self, "_has_ever_connected", False)
                     self._connected = True
+                    self._has_ever_connected = True
+                    if is_reconnect:
+                        try:
+                            from backend.server_metrics import record_event
+                            record_event("bridge_reconnect")
+                        except Exception:
+                            pass
                     logger.info("Connected to WhatsApp bridge")
                     
                     # Listen for messages
@@ -132,6 +140,11 @@ class WhatsAppChannel(BaseChannel):
         """Send a message through WhatsApp."""
         if not self._ws or not self._connected:
             logger.warning("WhatsApp send skipped: bridge not connected")
+            try:
+                from backend.server_metrics import record_event
+                record_event("whatsapp_skipped")
+            except Exception:
+                pass
             return
         
         try:
@@ -287,6 +300,7 @@ class WhatsAppChannel(BaseChannel):
                         raw,
                         db_session_factory=SessionLocal,
                         cron_store_path=cron_store_path,
+                        wa_channel=self,
                     )
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,

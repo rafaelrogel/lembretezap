@@ -108,6 +108,7 @@ async def handle_admin_command(
     *,
     cron_store_path: Path | None = None,
     db_session_factory: Any = None,
+    wa_channel: Any = None,
 ) -> str:
     """
     Executa o comando admin e retorna texto curto (1–2 telas).
@@ -131,7 +132,7 @@ async def handle_admin_command(
         return _cmd_cron(cron_store_path)
 
     if cmd == "server":
-        return _cmd_server()
+        return _cmd_server(cron_store_path=cron_store_path, wa_channel=wa_channel)
 
     if cmd == "system":
         return _cmd_system()
@@ -267,32 +268,90 @@ def _ms_to_short(ms: int | None) -> str:
         return "-"
 
 
-def _cmd_server() -> str:
-    """RAM, CPU, disco (sem secrets)."""
+def _cmd_server(
+    cron_store_path: Path | None = None,
+    wa_channel: Any = None,
+) -> str:
+    """Snapshot atual + histórico 7 dias (RAM, CPU, disco, uptime, bridge, cron, entrega)."""
     lines = ["#server"]
     try:
-        import psutil
-        mem = psutil.virtual_memory()
-        lines.append(f"RAM: {mem.percent}% usado | livre: {_bytes_short(mem.available)}")
-        try:
-            load = os.getloadavg()
-            lines.append(f"Load (1m): {load[0]:.2f}")
-        except (AttributeError, OSError):
-            if hasattr(psutil, "getloadavg"):
-                try:
-                    load = psutil.getloadavg()
-                    lines.append(f"Load (1m): {load[0]:.2f}")
-                except Exception:
-                    lines.append("Load: N/A")
-            else:
-                lines.append("Load: N/A (Windows)")
-        disk = psutil.disk_usage("/")
-        lines.append(f"Disco: {disk.percent}% usado | livre: {_bytes_short(disk.free)}")
+        from backend.server_metrics import record_snapshot, get_historical
+        from nanobot.config.loader import get_data_dir
     except ImportError:
-        lines.append("psutil não instalado. pip install psutil")
-    except Exception as e:
-        logger.debug(f"admin #server failed: {e}")
-        lines.append(f"Erro: {type(e).__name__}")
+        lines.append("Módulo server_metrics não disponível.")
+        return "\n".join(lines)
+
+    data_dir = get_data_dir()
+    bridge_connected = getattr(wa_channel, "_connected", None) if wa_channel else None
+    snapshot = record_snapshot(
+        cron_store_path=cron_store_path,
+        data_dir=data_dir,
+        bridge_connected=bridge_connected,
+    )
+
+    if not snapshot:
+        lines.append("Erro ao obter snapshot (psutil?).")
+        return "\n".join(lines)
+
+    def _uptime_str(secs: int) -> str:
+        if secs < 60:
+            return f"{secs}s"
+        if secs < 3600:
+            return f"{int(secs // 60)}m"
+        return f"{int(secs // 3600)}h"
+
+    # Snapshot "agora"
+    lines.append("--- Snapshot ---")
+    lines.append(
+        f"RAM: {snapshot['ram_pct']}% usado | livre: {snapshot['ram_available_mb']:.0f}M | "
+        f"swap: {snapshot['swap_used_mb']:.0f}/{snapshot['swap_total_mb']:.0f}M"
+    )
+    lines.append(f"CPU: {snapshot['cpu_pct']}% | load 1m: {snapshot['load_1m']}")
+    lines.append(
+        f"Disco: {snapshot['disk_pct']}% usado | livre: {snapshot['disk_free_mb']:.0f}M | "
+        f"dados .nanobot: {snapshot['data_dir_mb']:.0f}M"
+    )
+    lines.append(f"Gateway uptime: {_uptime_str(snapshot['gateway_uptime_s'])}")
+    bridge_st = "connected" if snapshot.get("bridge_connected") else "disconnected"
+    lines.append(f"Bridge WhatsApp: {bridge_st}")
+    lines.append(f"Cron: {snapshot['cron_jobs']} jobs | atrasados >60s: {snapshot['cron_delayed_60s']}")
+
+    # Histórico 7 dias
+    hist = get_historical(days=7)
+    if hist:
+        lines.append("")
+        lines.append("--- Últimos 7 dias ---")
+        prev_disk = None
+        for h in hist:
+            d = h.get("date", "?")
+            ram = h.get("ram_max", 0)
+            load = h.get("load_max", 0)
+            spikes = h.get("load_spikes", 0)
+            disk_mb = h.get("disk_mb", 0)
+            restarts = h.get("gateway_restarts", 0)
+            rec = h.get("bridge_reconnects", 0)
+            skip = h.get("whatsapp_skipped", 0)
+            unk = h.get("unknown_channel", 0)
+            cron_del = h.get("cron_delayed_60s_max", 0)
+            line = f"{d}: RAM max {ram}% | load max {load:.1f} | picos >1.5: {spikes}"
+            if restarts:
+                line += f" | gw restarts: {restarts}"
+            if rec:
+                line += f" | bridge reconn: {rec}"
+            if skip or unk:
+                line += f" | WA skip: {skip} | unk ch: {unk}"
+            if cron_del:
+                line += f" | cron atraso: {cron_del}"
+            if disk_mb is not None and disk_mb > 0:
+                delta = ""
+                if prev_disk is not None:
+                    ddelta = disk_mb - prev_disk
+                    delta = f" (+{ddelta:.0f}M)" if ddelta > 0 else f" ({ddelta:.0f}M)"
+                line += f" | dados {disk_mb:.0f}M{delta}"
+            if disk_mb is not None and disk_mb > 0:
+                prev_disk = disk_mb
+            lines.append(line)
+
     return "\n".join(lines)
 
 

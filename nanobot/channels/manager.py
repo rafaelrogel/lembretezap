@@ -132,6 +132,11 @@ class ChannelManager:
                         logger.error(f"Error sending to {msg.channel}: {e}")
                 else:
                     logger.warning(f"Unknown channel: {msg.channel} (message not delivered; enable WhatsApp and add reminder from WhatsApp)")
+                    try:
+                        from backend.server_metrics import record_event
+                        record_event("unknown_channel")
+                    except Exception:
+                        pass
                     
             except asyncio.TimeoutError:
                 continue

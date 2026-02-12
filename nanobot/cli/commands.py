@@ -443,6 +443,27 @@ def gateway(
         console.print(f"[green]✓[/green] Cron: {cron_status['jobs']} scheduled jobs")
     
     console.print(f"[green]✓[/green] Heartbeat: every 30m")
+
+    data_dir = get_data_dir()
+    wa_channel = channels.get_channel("whatsapp")
+
+    async def _metrics_loop():
+        """Regista snapshot de métricas a cada 15 min para #server."""
+        try:
+            from backend.server_metrics import record_snapshot
+        except ImportError:
+            return
+        while True:
+            await asyncio.sleep(15 * 60)
+            try:
+                bridge = getattr(wa_channel, "_connected", None) if wa_channel else None
+                record_snapshot(
+                    cron_store_path=cron_store_path,
+                    data_dir=data_dir,
+                    bridge_connected=bridge,
+                )
+            except Exception as e:
+                logger.debug(f"Metrics snapshot failed: {e}")
     
     async def run():
         # Fila Redis: iniciar feeder só com event loop a correr (evita RuntimeError: no running event loop)
@@ -452,9 +473,11 @@ def gateway(
         try:
             await cron.start()
             await heartbeat.start()
+            metrics_task = asyncio.create_task(_metrics_loop())
             await asyncio.gather(
                 agent.run(),
                 channels.start_all(),
+                metrics_task,
             )
         except KeyboardInterrupt:
             console.print("\nShutting down...")
