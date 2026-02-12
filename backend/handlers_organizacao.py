@@ -9,8 +9,10 @@ from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from backend.database import SessionLocal
-from backend.user_store import get_or_create_user, get_user_timezone
+from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
 from backend.models_db import Habit, HabitCheck, Goal, Note, Project, List, ListItem, ListTemplate
+from backend.streak import get_habit_streak, generate_streak_message, _default_streak_message
+from backend.bookmark import generate_tags_and_category
 from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_ITEM_TEXT_LEN
 
 if TYPE_CHECKING:
@@ -69,7 +71,21 @@ async def handle_habito(ctx: "HandlerContext", content: str) -> str | None:
                 return f"✅ {name} já marcado hoje."
             db.add(HabitCheck(habit_id=habit.id, check_date=today))
             db.commit()
-            return f"✅ {name} marcado! 💪"
+            base_msg = f"✅ {name} marcado! 💪"
+            streak = get_habit_streak(db, habit.id, today)
+            if streak >= 2 and ctx.main_provider and ctx.main_model:
+                user_lang = "pt-BR"
+                try:
+                    user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                except Exception:
+                    pass
+                msg = await generate_streak_message(
+                    ctx.main_provider, ctx.main_model, name, streak, user_lang
+                )
+                if msg:
+                    return f"{base_msg}\n\n{msg}"
+                return f"{base_msg}\n\n{_default_streak_message(name, streak, user_lang)}"
+            return base_msg
 
         if not rest or rest_lower in ("hoje", "ho") or rest_lower == "list":
             habits = db.query(Habit).filter(Habit.user_id == user.id).all()
@@ -349,3 +365,210 @@ async def handle_templates(ctx: "HandlerContext", content: str) -> str | None:
     if not content.strip().lower().startswith("/templates"):
         return None
     return await handle_template(ctx, "/template " + content.strip()[10:])
+
+
+# ---------------------------------------------------------------------------
+# Bookmarks (Mimo: tags, categoria, busca semântica)
+# ---------------------------------------------------------------------------
+
+def _get_last_user_message(session_manager, session_key: str) -> str | None:
+    """Última mensagem do user no histórico (excluindo a atual)."""
+    if not session_manager:
+        return None
+    try:
+        session = session_manager.get_or_create(session_key)
+        msgs = getattr(session, "messages", []) or []
+        for m in reversed(msgs):
+            if (m.get("role") or "").strip().lower() == "user":
+                c = (m.get("content") or "").strip()
+                if c and not c.lower().startswith(("/save", "/bookmark", "/find", "/bookmarks")):
+                    return c
+    except Exception:
+        pass
+    return None
+
+
+async def handle_save(ctx: "HandlerContext", content: str) -> str | None:
+    """/save [descrição] ou /bookmark — guarda com tags e categoria geradas por Mimo."""
+    t = content.strip()
+    if not t.lower().startswith("/save") and not t.lower().startswith("/bookmark"):
+        return None
+    if t.lower().startswith("/bookmarks"):
+        return None  # /bookmarks é outro handler
+    db = SessionLocal()
+    try:
+        user = get_or_create_user(db, ctx.chat_id)
+        user_lang = "pt-BR"
+        try:
+            from backend.user_store import get_user_language
+            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+        except Exception:
+            pass
+
+        content_to_save: str | None = None
+        context: str | None = None
+
+        if t.lower().startswith("/save"):
+            rest = t[5:].strip()
+            if rest:
+                content_to_save = rest
+            else:
+                session_key = f"{ctx.channel}:{ctx.chat_id}"
+                content_to_save = _get_last_user_message(ctx.session_manager, session_key)
+        else:
+            session_key = f"{ctx.channel}:{ctx.chat_id}"
+            content_to_save = _get_last_user_message(ctx.session_manager, session_key)
+
+        if not content_to_save or not content_to_save.strip():
+            return "Use /save descrição (ex: /save receita lasanha espinafres) ou /bookmark (guarda a tua última mensagem)."
+
+        if ctx.scope_provider and ctx.scope_model:
+            session_key = f"{ctx.channel}:{ctx.chat_id}"
+            try:
+                session = ctx.session_manager.get_or_create(session_key) if ctx.session_manager else None
+                if session and session.messages:
+                    for m in reversed(session.messages):
+                        if (m.get("role") or "").strip().lower() == "assistant":
+                            context = (m.get("content") or "")[:300]
+                            break
+            except Exception:
+                pass
+            tags, category = await generate_tags_and_category(
+                ctx.scope_provider, ctx.scope_model or "",
+                content_to_save, context, user_lang,
+            )
+        else:
+            tags, category = [], "outro"
+
+        from backend.bookmark import save_bookmark
+        b = save_bookmark(db, user.id, content_to_save, context, tags, category)
+        tags_str = ", ".join(tags[:5]) if tags else ""
+        return f"✅ Bookmark guardado.\n📌 «{content_to_save[:80]}{'…' if len(content_to_save) > 80 else ''}»\nTags: {tags_str or '-'} | Categoria: {category}"
+    except ValueError as e:
+        return str(e)
+    finally:
+        db.close()
+
+
+async def handle_bookmark(ctx: "HandlerContext", content: str) -> str | None:
+    """/bookmark — atalho para guardar última mensagem."""
+    if not content.strip().lower().startswith("/bookmark") or content.strip().lower().startswith("/bookmarks"):
+        return None
+    return await handle_save(ctx, content)
+
+
+async def handle_find(ctx: "HandlerContext", content: str) -> str | None:
+    """/find "query" — busca semântica nos bookmarks (Mimo)."""
+    t = content.strip()
+    if not t.lower().startswith("/find"):
+        return None
+    rest = t[5:].strip().strip('"\'')
+    if not rest:
+        return "Use: /find \"aquela receita\" ou /find ideia app"
+    db = SessionLocal()
+    try:
+        user = get_or_create_user(db, ctx.chat_id)
+        from backend.bookmark import list_bookmarks, find_matching_bookmarks
+
+        bookmarks = list_bookmarks(db, user.id)
+        if not bookmarks:
+            if ctx.main_provider and ctx.main_model:
+                try:
+                    from backend.locale import phone_to_default_language
+                    user_lang = phone_to_default_language(ctx.chat_id)
+                    from backend.user_store import get_user_language
+                    user_lang = get_user_language(db, ctx.chat_id) or user_lang
+                    if user_lang == "pt-BR":
+                        return "Ainda não tens bookmarks. Usa /save ou /bookmark para guardar algo."
+                    if user_lang == "en":
+                        return "You have no bookmarks yet. Use /save or /bookmark to save something."
+                    return "Ainda não tens bookmarks. Usa /save ou /bookmark para guardar algo."
+                except Exception:
+                    pass
+            return "Ainda não tens bookmarks. Usa /save ou /bookmark para guardar algo."
+
+        bk_list = []
+        for b in bookmarks:
+            try:
+                tags = json.loads(b.tags_json) if b.tags_json else []
+                bk_list.append({
+                    "id": b.id,
+                    "content": b.content,
+                    "tags": ",".join(tags),
+                    "category": b.category or "",
+                })
+            except Exception:
+                bk_list.append({"id": b.id, "content": b.content, "tags": "", "category": b.category or ""})
+
+        user_lang = "pt-BR"
+        try:
+            from backend.user_store import get_user_language
+            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+        except Exception:
+            pass
+
+        matched_ids: list[int] = []
+        if ctx.scope_provider and ctx.scope_model:
+            matched_ids = await find_matching_bookmarks(
+                ctx.scope_provider, ctx.scope_model or "",
+                rest, bk_list, user_lang,
+            )
+
+        if matched_ids:
+            id_to_bk = {b.id: b for b in bookmarks}
+            matched = [id_to_bk[i] for i in matched_ids if i in id_to_bk]
+        else:
+            query_lower = rest.lower()
+            def _tags_list(bk):
+                try:
+                    return json.loads(bk.tags_json) if bk.tags_json else []
+                except Exception:
+                    return []
+            matched = [b for b in bookmarks if query_lower in (b.content or "").lower()
+                       or any(query_lower in t.lower() for t in _tags_list(b))]
+            if not matched:
+                if user_lang in ("pt-BR", "pt-PT"):
+                    return f"Não encontrei bookmarks para «{rest[:50]}». Tenta /bookmarks para ver o que tens."
+                if user_lang == "en":
+                    return f"No bookmarks found for «{rest[:50]}». Try /bookmarks to see what you have."
+                return f"Não encontrei bookmarks para «{rest[:50]}»."
+
+        lines = ["📌 Encontrei:"]
+        for b in matched[:5]:
+            prev = (b.content[:70] + "…") if len(b.content) > 70 else b.content
+            tags = []
+            try:
+                tags = json.loads(b.tags_json) if b.tags_json else []
+            except Exception:
+                pass
+            tags_str = ", ".join(tags[:3]) if tags else ""
+            lines.append(f"• «{prev}»" + (f" ({tags_str})" if tags_str else ""))
+        return "\n".join(lines)
+    finally:
+        db.close()
+
+
+async def handle_bookmarks(ctx: "HandlerContext", content: str) -> str | None:
+    """/bookmarks — lista todos os bookmarks."""
+    if not content.strip().lower().startswith("/bookmarks"):
+        return None
+    db = SessionLocal()
+    try:
+        user = get_or_create_user(db, ctx.chat_id)
+        from backend.bookmark import list_bookmarks
+        bks = list_bookmarks(db, user.id, limit=15)
+        if not bks:
+            return "Nenhum bookmark. Usa /save ou /bookmark para guardar."
+        lines = ["📌 **Bookmarks**"]
+        for b in bks:
+            prev = (b.content[:50] + "…") if len(b.content) > 50 else b.content
+            try:
+                tags = json.loads(b.tags_json) if b.tags_json else []
+                tags_str = ", ".join(tags[:2]) if tags else ""
+            except Exception:
+                tags_str = ""
+            cat = f" | {b.category}" if b.category else ""
+            lines.append(f"• {prev} {f'({tags_str})' if tags_str else ''}{cat}")
+        return "\n".join(lines)
+    finally:
+        db.close()

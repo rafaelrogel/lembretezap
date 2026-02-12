@@ -102,6 +102,19 @@ class Note(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class Bookmark(Base):
+    """Bookmarks com contexto, tags e categoria geradas por IA (Mimo)."""
+    __tablename__ = "bookmarks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    content = Column(Text, nullable=False)
+    context = Column(Text, nullable=True)  # última mensagem do assistente (opcional)
+    tags_json = Column(Text, nullable=False)  # ["receita", "lasanha", "espinafres"]
+    category = Column(String(64), nullable=True)  # receita | ideia | link | tarefa | outro
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class ListTemplate(Base):
     """Modelos de listas frequentes."""
     __tablename__ = "list_templates"
@@ -168,6 +181,33 @@ class SentReminderMapping(Base):
     chat_id = Column(String(256), nullable=False, index=True)
     message_id = Column(String(64), nullable=False, index=True)
     job_id = Column(String(64), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class HouseChoreTask(Base):
+    """Tarefa de limpeza: frequency weekly | bi-weekly, weekday, time."""
+    __tablename__ = "house_chore_tasks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    catalog_slug = Column(String(64), nullable=False)  # slug do catálogo ou custom
+    custom_name = Column(String(128), nullable=True)   # se null, usa catalog
+    frequency = Column(String(16), nullable=False)    # weekly | bi-weekly
+    weekday = Column(Integer, nullable=False)        # 0=seg..6=dom (ISO: 1=seg, 7=dom — usamos 0–6)
+    time_hhmm = Column(String(5), nullable=False)     # HH:MM
+    rotation_enabled = Column(Boolean, default=False)
+    last_person_idx = Column(Integer, default=-1)      # -1 = ainda não rodou; 0,1,2... = índice em ChorePerson
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class HouseChorePerson(Base):
+    """Pessoa na rotação de tarefas (flatmates, família)."""
+    __tablename__ = "house_chore_persons"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(64), nullable=False)
+    order_idx = Column(Integer, default=0)  # ordem na rotação
     created_at = Column(DateTime, default=datetime.utcnow)
 
 

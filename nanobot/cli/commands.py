@@ -295,6 +295,20 @@ def gateway(
                 logger.exception(f"Weekly recap failed: {e}")
                 return f"Revisão semanal falhou: {e}"
 
+        # Limpeza da casa: tarefas weekly/bi-weekly com rotação (8–10h local)
+        if getattr(job.payload, "kind", None) == "system_event" and (job.payload.message or "").strip() == "house_chores_daily":
+            try:
+                from backend.house_chores import run_house_chores_daily
+                sent, errors = await run_house_chores_daily(
+                    bus=bus,
+                    session_manager=agent.sessions,
+                    default_channel="whatsapp",
+                )
+                return f"Limpeza da casa: enviados={sent}, erros={errors}"
+            except Exception as e:
+                logger.exception(f"House chores failed: {e}")
+                return f"Limpeza da casa falhou: {e}"
+
         # Lembrete inteligente diário: Mimo (contexto) + DeepSeek (mensagem curta) por horário local 8–10h
         if getattr(job.payload, "kind", None) == "system_event" and (job.payload.message or "").strip() == "smart_reminder_daily":
             try:
@@ -505,6 +519,16 @@ def gateway(
                 payload_kind="system_event",
             )
             console.print("[dim]Job 'Lembrete inteligente' (8–10h local) registado.[/dim]")
+        # Limpeza da casa: diário 8–10h local (corre a cada 3h como smart_reminder)
+        existing_hc = [j for j in cron.list_jobs(include_disabled=True) if (getattr(j.payload, "message", None) or "") == "house_chores_daily"]
+        if not existing_hc:
+            cron.add_job(
+                name="Limpeza da casa",
+                schedule=CronSchedule(kind="cron", expr="0 0,3,6,9,12,15,18,21 * * *"),
+                message="house_chores_daily",
+                payload_kind="system_event",
+            )
+            console.print("[dim]Job 'Limpeza da casa' (8–10h local) registado.[/dim]")
         # Revisão semanal: domingo 20h UTC
         existing_wr = [j for j in cron.list_jobs(include_disabled=True) if (getattr(j.payload, "message", None) or "") == "weekly_recap"]
         if not existing_wr:

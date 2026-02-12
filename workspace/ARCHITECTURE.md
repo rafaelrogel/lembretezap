@@ -39,14 +39,17 @@ Por agora a arquitetura assume **uma instância** por deploy.
 
 ## Escolha de modelo (DeepSeek vs Mimo)
 
+**Regra geral:** DeepSeek → criar mensagens. Mimo → histórico, verificação, análise de dados.
+
 **Escolhe Mimo quando:**
 
-1. **Há muita lógica de raciocínio** — cálculos de tempo, otimizações, resolução de conflitos (ex.: horários, sobreposição de lembretes).
-2. **Utilizadores pedem frequentemente análises de histórico** — rever conversa, quantos lembretes, resumos, horas mais comuns, estatísticas.
+1. **Histórico, verificação, check de dados** — rever conversa, quantos lembretes, resumos, horas mais comuns, estatísticas, análises.
+2. **Há muita lógica de raciocínio** — cálculos de tempo, otimizações, resolução de conflitos (ex.: horários, sobreposição de lembretes).
 3. **Velocidade de resposta é crítica** — alto volume; Mimo é mais leve e rápido para respostas analíticas.
 
 **Escolhe DeepSeek quando:**
 
+- **Criar mensagens** — motivadoras (streak), empáticas (atendimento), conversacionais.
 - O pedido é **conversacional** (diálogo, agendar em linguagem natural, listas, eventos).
 - É preciso **raciocínio com ferramentas** (cron, list_tool, event_tool) e múltiplos passos.
 

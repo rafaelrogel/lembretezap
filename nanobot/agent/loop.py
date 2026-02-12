@@ -20,7 +20,7 @@ from nanobot.agent.tools.message import MessageTool
 from nanobot.agent.tools.cron import CronTool
 from nanobot.agent.tools.list_tool import ListTool
 from nanobot.agent.tools.event_tool import EventTool
-from nanobot.session.manager import SessionManager
+from nanobot.session.manager import Session, SessionManager
 from nanobot.utils.circuit_breaker import CircuitBreaker
 
 # Evitar enviar "Muitas mensagens" várias vezes ao mesmo chat (1x por minuto)
@@ -147,6 +147,84 @@ class AgentLoop:
         """Stop the agent loop."""
         self._running = False
         logger.info("Agent loop stopping")
+
+    async def _maybe_compress_session(
+        self,
+        session: Session,
+        session_key: str,
+    ) -> None:
+        """
+        Se a sessão tiver >= 45 mensagens, condensa as primeiras 25 via Mimo:
+        - Cria mensagem de resumo no histórico
+        - Guarda bullets condensados em MEMORY.md (2-4 pontos essenciais)
+        """
+        from datetime import datetime
+
+        if len(session.messages) < 45:
+            return
+        if not self.scope_provider or not self.scope_model:
+            return
+
+        to_compress = session.messages[:25]
+        lines = []
+        for m in to_compress:
+            role = m.get("role", "")
+            cont = (m.get("content") or "").strip()
+            if m.get("_type") == "summary":
+                lines.append(f"[Resumo anterior] {cont[:200]}")
+            else:
+                label = "Utilizador" if role == "user" else "Assistente"
+                lines.append(f"[{label}] {cont}")
+        data_text = "\n".join(lines) if lines else ""
+
+        try:
+            prompt = (
+                "Resume esta conversa em 4-5 frases curtas. Foco em: lembretes criados, listas tocadas, decisões, pedidos. "
+                "Depois, na linha seguinte, começa por BULLETS: e lista 2-4 pontos essenciais para memória longa (um por linha, com -)."
+            )
+            r = await self.scope_provider.chat(
+                messages=[{"role": "user", "content": f"{prompt}\n\nConversa:\n{data_text}"}],
+                model=self.scope_model,
+                max_tokens=420,
+                temperature=0.2,
+            )
+            out = (r.content or "").strip()
+            if not out:
+                return
+
+            # Extrair bullets (após BULLETS:)
+            bullets = ""
+            if "BULLETS:" in out:
+                summary_part, _, bullets_raw = out.partition("BULLETS:")
+                summary = summary_part.strip()
+                bullets = bullets_raw.strip()
+                # Normalizar bullets: garantir que cada linha começa com -
+                bullet_lines = [line.strip() for line in bullets.split("\n") if line.strip()]
+                bullets = "\n".join(f"- {b.lstrip('- ')}" for b in bullet_lines)[:600]
+            else:
+                summary = out[:500]
+
+            summary_msg = {
+                "role": "user",
+                "content": f"[Resumo da conversa anterior]\n{summary}",
+                "_type": "summary",
+                "timestamp": datetime.now().isoformat(),
+            }
+            session.messages = [summary_msg] + session.messages[25:]
+            self.sessions.save(session)
+
+            # Guardar em MEMORY.md (versão condensada: 2-4 bullets)
+            if bullets and session_key:
+                try:
+                    self.context.memory.upsert_section(
+                        session_key,
+                        "## Resumo de conversas",
+                        bullets[:500].strip(),
+                    )
+                except Exception as e:
+                    logger.debug(f"Memory upsert failed: {e}")
+        except Exception as e:
+            logger.debug(f"Session compression failed: {e}")
 
     async def _maybe_sentiment_check(
         self, session, channel: str, chat_id: str
@@ -983,6 +1061,9 @@ class AgentLoop:
         # Conversacional: agente principal (DeepSeek)
         # Get or create session
         session = self.sessions.get_or_create(msg.session_key)
+
+        # Resumo automático: se convo longa (>=45 msgs), condensa via Mimo e guarda em MEMORY.md
+        await self._maybe_compress_session(session, msg.session_key)
 
         # Build initial messages (use get_history for LLM-formatted messages)
         # user_lang já definido acima: 1.º número, 2.º config, 3.º mensagem (se pt-PT/pt-BR/es/en)

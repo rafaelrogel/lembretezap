@@ -28,7 +28,12 @@ from backend.handlers_organizacao import (
     handle_projetos,
     handle_template,
     handle_templates,
+    handle_save,
+    handle_bookmark,
+    handle_bookmarks,
+    handle_find,
 )
+from backend.handlers_limpeza import handle_limpeza
 
 
 @dataclass
@@ -313,6 +318,9 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
         "• /nota texto — notas rápidas; /notas para ver\n"
         "• /projeto add Nome — projetos; /projeto Nome add item — agrupar tarefas\n"
         "• /template add Nome item1, item2 — modelos; /template Nome usar\n"
+        "• /save [desc] ou /bookmark — guardar com tags e categoria (IA)\n"
+        "• /find \"aquela receita\" — busca semântica nos bookmarks\n"
+        "• /limpeza — tarefas de limpeza (weekly/bi-weekly) com rotação para flatmates\n"
         "• /tz Cidade — definir fuso (ex.: /tz Lisboa)\n"
         "• /lang pt-pt ou pt-br — idioma\n"
         "• /reset — refazer cadastro (nome, cidade)\n"
@@ -1310,6 +1318,95 @@ async def handle_rever(ctx: HandlerContext, content: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# "Sobre o que estávamos falando?" — resumo da conversa com Mimo
+# ---------------------------------------------------------------------------
+
+def _is_resumo_conversa_intent(content: str) -> bool:
+    """Detecta pedidos explícitos de resumo da conversa (não lembretes)."""
+    import re
+    t = (content or "").strip().lower()
+    if not t or len(t) < 8:
+        return False
+    patterns = [
+        r"sobre\s+o\s+que\s+(est[aá]vamos|estamos)\s+falando",
+        r"o\s+que\s+fal[aá]mos",
+        r"o\s+que\s+(estava|estava[va]mos)\s+(a\s+)?falando",
+        r"resumo\s+da\s+conversa",
+        r"resumir\s+o\s+que\s+falamos",
+        r"do\s+que\s+falamos",
+        r"o\s+que\s+discutimos",
+        r"o\s+que\s+conversamos",
+        r"lembra\s+(do\s+que|o\s+que)\s+falamos",
+        r"em\s+que\s+ponto\s+paramos",
+        r"onde\s+paramos",
+        r"retomar\s+(de\s+onde|a\s+conversa)",
+    ]
+    return any(re.search(p, t) for p in patterns)
+
+
+async def handle_resumo_conversa(ctx: HandlerContext, content: str) -> str | None:
+    """«Sobre o que estávamos falando?», «resumo da conversa» — usa sessão + Mimo."""
+    if not _is_resumo_conversa_intent(content):
+        return None
+    if not ctx.session_manager or not ctx.scope_provider or not ctx.scope_model:
+        return None
+
+    session_key = f"{ctx.channel}:{ctx.chat_id}"
+    session = ctx.session_manager.get_or_create(session_key)
+    total = len(session.messages) if hasattr(session, "messages") else 0
+    if total == 0:
+        user_lang = "pt-BR"
+        try:
+            from backend.database import SessionLocal
+            from backend.user_store import get_user_language
+            db = SessionLocal()
+            try:
+                user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            finally:
+                db.close()
+            lang_msg = {
+                "pt-PT": "Ainda não há mensagens nesta conversa.",
+                "pt-BR": "Ainda não há mensagens nesta conversa.",
+                "es": "Aún no hay mensajes en esta conversación.",
+                "en": "No messages in this conversation yet.",
+            }
+            return lang_msg.get(user_lang, lang_msg["pt-BR"])
+        except Exception:
+            return "Ainda não há mensagens nesta conversa."
+
+    recent = session.messages[-30:] if len(session.messages) > 30 else list(session.messages)
+    lines = []
+    for m in recent:
+        role = m.get("role", "")
+        cont = (m.get("content") or "").strip()
+        label = "Utilizador" if role == "user" else "Assistente"
+        lines.append(f"[{label}] {cont}")
+    data_text = "\n".join(lines) if lines else ""
+
+    user_lang = "pt-BR"
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import get_user_language
+        db = SessionLocal()
+        try:
+            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    instruction = (
+        "O utilizador quer um resumo do que estava a ser falado na conversa. "
+        "Resume as mensagens seguintes em 2-4 frases curtas. Foco no essencial: lembretes, listas, decisões, pedidos. Sem inventar."
+    )
+    out = await _call_mimo(ctx, user_lang, instruction, data_text, max_tokens=280)
+    if out:
+        return out
+    # Fallback: primeiras linhas
+    return "Últimos temas:\n" + "\n".join(lines[:8]) if lines else "Nada a resumir."
+
+
+# ---------------------------------------------------------------------------
 # Perguntas analíticas (quantos lembretes, horas mais comuns, resumos) — Mimo
 # ---------------------------------------------------------------------------
 
@@ -1594,9 +1691,15 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         handle_projeto,
         handle_templates,
         handle_template,
+        handle_bookmarks,
+        handle_bookmark,
+        handle_save,
+        handle_find,
+        handle_limpeza,
         handle_tz,
         handle_lang,
-        handle_analytics,  # antes de rever: "quantos lembretes esta semana?" etc.
+        handle_resumo_conversa,  # "sobre o que estávamos falando?" → sessão + Mimo
+        handle_analytics,  # "quantos lembretes esta semana?" etc.
         handle_rever,
         handle_quiet,
         handle_stop,
