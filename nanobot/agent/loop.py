@@ -612,6 +612,21 @@ class AgentLoop:
             logger.debug(f"User language check failed: {e}")
             user_lang = phone_to_default_language(msg.chat_id)
 
+        # Filtragem de comandos perigosos (shell, SQL, path): blocklist com logging
+        try:
+            from backend.command_filter import is_blocked, record_blocked
+            blocked, reason = is_blocked(content)
+            if blocked:
+                logger.warning(f"Command blocked: reason={reason} from {msg.chat_id[:16]}...")
+                record_blocked(msg.channel, msg.chat_id, (content or "")[:80], reason)
+                return OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content="Não posso processar esta mensagem.",
+                )
+        except Exception as e:
+            logger.debug(f"Command filter failed: {e}")
+
         # Proteção contra prompt injection: rejeitar antes de chegar ao agente
         try:
             from backend.injection_guard import is_injection_attempt, get_injection_response, record_injection_blocked

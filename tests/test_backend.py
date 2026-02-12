@@ -215,6 +215,15 @@ def test_rate_limit_token_bucket_refill():
     assert is_rate_limited("test_refill", "u1", max_per_minute=2, window_seconds=6) is False
 
 
+def test_command_filter():
+    """Blocklist: shell, SQL, path patterns bloqueados; mensagens normais permitidas."""
+    from backend.command_filter import is_blocked
+    assert is_blocked("rm -rf /") == (True, "rm_rf_root")
+    assert is_blocked("DROP TABLE users") == (True, "sql_drop")
+    assert is_blocked("lembrete beber agua") == (False, "")
+    assert is_blocked("lista mercado add leite") == (False, "")
+
+
 def test_fastapi_health():
     from fastapi.testclient import TestClient
     from backend.app import app

@@ -60,7 +60,7 @@ def is_god_mode_password(content_after_hash: str) -> bool:
 _ADMIN_CMD_RE = re.compile(r"^\s*#(\w+)(?:\s+(.*))?\s*$", re.I)
 _VALID_COMMANDS = frozenset({
     "status", "users", "paid", "cron", "server", "system", "ai", "painpoints",
-    "injection", "add", "remove", "mute", "quit", "msgs", "lembretes", "tz",
+    "injection", "blocked", "add", "remove", "mute", "quit", "msgs", "lembretes", "tz",
 })
 
 
@@ -117,7 +117,7 @@ async def handle_admin_command(
     raw = (command or "").strip()
     cmd = raw.lstrip("#").strip().lower() if raw.startswith("#") else raw.lower()
     if not cmd or cmd not in _VALID_COMMANDS:
-        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints #add <nr> #remove <nr> #mute <nr> #quit"
+        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints #injection #blocked #add <nr> #remove <nr> #mute <nr> #quit"
 
     if cmd == "status":
         return _cmd_status()
@@ -156,6 +156,9 @@ async def handle_admin_command(
 
     if cmd == "injection":
         return _cmd_injection()
+
+    if cmd == "blocked":
+        return _cmd_blocked()
 
     if cmd == "add":
         _, arg = parse_admin_command_arg(raw)
@@ -664,6 +667,29 @@ def _cmd_injection() -> str:
     except Exception as e:
         logger.debug(f"admin #injection failed: {e}")
         return "#injection\nErro ao obter estatísticas."
+
+
+def _cmd_blocked() -> str:
+    """Tentativas de comandos bloqueados (shell, SQL, path) por cliente."""
+    try:
+        from backend.command_filter import get_blocked_stats
+        stats = get_blocked_stats()
+        if not stats:
+            return "#blocked\nNenhum comando bloqueado registado."
+        lines = ["#blocked", "Canal:Chat | Total | Razões (ex.: shell, sql_drop)"]
+        for s in stats[:20]:
+            cid = s.get("chat_id", "?")
+            ch = s.get("channel", "?")
+            total = s.get("total", 0)
+            reasons = s.get("reasons", {})
+            reason_str = ", ".join(f"{k}:{v}" for k, v in sorted(reasons.items()))[:60]
+            lines.append(f"  {ch}:{cid} | {total} | {reason_str}")
+        if len(stats) > 20:
+            lines.append(f"  ... e mais {len(stats) - 20} clientes")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.debug(f"admin #blocked failed: {e}")
+        return "#blocked\nErro ao obter estatísticas."
 
 
 def _cmd_painpoints(cron_store_path: Path | None) -> str:
