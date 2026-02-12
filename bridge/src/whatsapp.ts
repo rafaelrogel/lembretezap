@@ -29,9 +29,18 @@ export interface InboundMessage {
   attachmentIcs?: string;
 }
 
+export interface ReactionEvent {
+  chatId: string;
+  messageId: string;
+  emoji: string;
+  fromMe: boolean;
+  sender?: string;
+}
+
 export interface WhatsAppClientOptions {
   authDir: string;
   onMessage: (msg: InboundMessage) => void;
+  onReaction?: (ev: ReactionEvent) => void;
   onQR: (qr: string) => void;
   onStatus: (status: string) => void;
 }
@@ -108,6 +117,30 @@ export class WhatsAppClient {
 
     // Save credentials on update
     this.sock.ev.on('creds.update', saveCreds);
+
+    // Reações: emoji na mensagem (feito 👍 / não feito 👎)
+    if (this.options.onReaction) {
+      this.sock.ev.on('messages.reaction', (reactions: any) => {
+        const arr = Array.isArray(reactions) ? reactions : (reactions ? [reactions] : []);
+        for (const r of arr) {
+          const key = r?.key;
+          const text = (r?.text || '').trim();
+          if (!key?.id || !key?.remoteJid) continue;
+          const chatId = key.remoteJid;
+          const messageId = key.id;
+          const fromMe = !!key.fromMe;
+          const participant = key.participant;
+          const sender = participant || chatId;
+          this.options.onReaction!({
+            chatId,
+            messageId,
+            emoji: text || '',
+            fromMe,
+            sender,
+          });
+        }
+      });
+    }
 
     // Allow self-messages (message to yourself / saved messages) for testing with a single number
     const allowSelfMessages = process.env.ALLOW_SELF_MESSAGES === '1' || process.env.ALLOW_SELF_MESSAGES === 'true';
@@ -212,12 +245,14 @@ export class WhatsAppClient {
   }
 
   // TODO: Após WhatsApp Business API, use buttons: sendButtons(['Confirmar','Cancelar']) em vez de texto "1=sim 2=não".
-  async sendMessage(to: string, text: string): Promise<void> {
+  async sendMessage(to: string, text: string): Promise<{ id: string } | null> {
     if (!this.sock) {
       throw new Error('Not connected');
     }
 
-    await this.sock.sendMessage(to, { text });
+    const result = await this.sock.sendMessage(to, { text });
+    const id = result?.key?.id || null;
+    return id ? { id } : null;
   }
 
   async disconnect(): Promise<void> {

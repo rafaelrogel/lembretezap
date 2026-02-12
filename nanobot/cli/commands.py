@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import time
 from pathlib import Path
 
 import typer
@@ -280,6 +281,86 @@ def gateway(
                 logger.exception(f"Yearly recap failed: {e}")
                 return f"Recap Ano Novo falhou: {e}"
 
+        # Revisão semanal: domingo 20h UTC
+        if getattr(job.payload, "kind", None) == "system_event" and (job.payload.message or "").strip() == "weekly_recap":
+            try:
+                from backend.weekly_recap import run_weekly_recap
+                sent, errors = await run_weekly_recap(
+                    bus=bus,
+                    session_manager=agent.sessions,
+                    default_channel="whatsapp",
+                )
+                return f"Revisão semanal: enviados={sent}, erros={errors}"
+            except Exception as e:
+                logger.exception(f"Weekly recap failed: {e}")
+                return f"Revisão semanal falhou: {e}"
+
+        # Lembrete inteligente diário: Mimo (contexto) + DeepSeek (mensagem curta) por horário local 8–10h
+        if getattr(job.payload, "kind", None) == "system_event" and (job.payload.message or "").strip() == "smart_reminder_daily":
+            try:
+                from backend.smart_reminder import run_smart_reminder_daily
+                sent, errors = await run_smart_reminder_daily(
+                    bus=bus,
+                    session_manager=agent.sessions,
+                    cron_service=cron,
+                    deepseek_provider=provider,
+                    deepseek_model=config.agents.defaults.model or "",
+                    mimo_provider=scope_provider,
+                    mimo_model=scope_model or "",
+                    default_channel="whatsapp",
+                )
+                return f"Lembrete inteligente: enviados={sent}, erros={errors}"
+            except Exception as e:
+                logger.exception(f"Smart reminder failed: {e}")
+                return f"Lembrete inteligente falhou: {e}"
+
+        # Lembrete com prazo: deadline_check verifica se main existe; se sim, alerta + 3 post-deadline
+        if getattr(job.payload, "kind", None) == "deadline_check":
+            main_id = getattr(job.payload, "deadline_check_for_job_id", None)
+            main_job = cron.get_job(main_id) if main_id else None
+            if main_job and bus:
+                from nanobot.bus.events import OutboundMessage
+                from nanobot.cron.types import CronSchedule
+                msg = main_job.payload.message or "Lembrete"
+                ch = main_job.payload.channel or "whatsapp"
+                to = main_job.payload.to or ""
+                if to:
+                    alert = f"⚠️ Ainda não concluíste: {msg}"
+                    await bus.publish_outbound(OutboundMessage(channel=ch, chat_id=to, content=alert))
+                    now_ms = int(time.time() * 1000)
+                    for i in range(1, 4):
+                        at_ms = now_ms + (i * 30 * 60 * 1000)  # +30min, +1h, +1h30
+                        cron.add_job(
+                            name=f"{msg[:20]} (prazo {i}/3)",
+                            schedule=CronSchedule(kind="at", at_ms=at_ms),
+                            message=msg,
+                            deliver=True,
+                            channel=ch,
+                            to=to,
+                            delete_after_run=True,
+                            payload_kind="agent_turn",
+                            deadline_main_job_id=main_id,
+                            deadline_post_index=i,
+                        )
+                return "deadline_check: alert sent, 3 post-deadline scheduled"
+
+        # Lembrete pós-prazo (1/3, 2/3, 3/3): mensagem custom; ao 3º remover main
+        post_idx = getattr(job.payload, "deadline_post_index", None)
+        main_id = getattr(job.payload, "deadline_main_job_id", None)
+        if post_idx is not None and main_id and job.payload.deliver and job.payload.to and bus:
+            from nanobot.bus.events import OutboundMessage
+            msg = job.payload.message or "Lembrete"
+            suffix = f" ({post_idx}/3)"
+            content = f"⚠️ Ainda não concluíste{suffix}: {msg}"
+            await bus.publish_outbound(OutboundMessage(
+                channel=job.payload.channel or "whatsapp",
+                chat_id=job.payload.to,
+                content=content,
+            ))
+            if post_idx >= 3:
+                cron.remove_job_and_deadline_followups(main_id)
+            return f"deadline_post_{post_idx}"
+
         if job.payload.deliver and job.payload.to and provider and (config.agents.defaults.model or "").strip():
             try:
                 from backend.user_store import is_user_in_quiet_window
@@ -354,10 +435,30 @@ def gateway(
                     db.close()
             except Exception:
                 pass
+            metadata_job_id = job.id
+            remind_sec = getattr(job.payload, "remind_again_if_unconfirmed_seconds", None) or 0
+            remind_max = getattr(job.payload, "remind_again_max_count", 10) or 0
+            if remind_sec and remind_max > 0 and ch == "whatsapp":
+                from nanobot.cron.types import CronSchedule
+                at_ms = int(time.time() * 1000) + remind_sec * 1000
+                follow_up = cron.add_job(
+                    name=(job.name[:26] + " (de novo)"),
+                    schedule=CronSchedule(kind="at", at_ms=at_ms),
+                    message=job.payload.message or "",
+                    deliver=True,
+                    channel=ch,
+                    to=to,
+                    delete_after_run=True,
+                    remind_again_if_unconfirmed_seconds=remind_sec,
+                    remind_again_max_count=remind_max - 1,
+                    parent_job_id=job.id,
+                )
+                metadata_job_id = follow_up.id
             await bus.publish_outbound(OutboundMessage(
                 channel=ch,
                 chat_id=to,
-                content=response or ""
+                content=response or "",
+                metadata={"job_id": metadata_job_id},
             ))
             return response
         # Sem scope_provider ou job sem deliver: usa o agente completo (fallback)
@@ -373,7 +474,8 @@ def gateway(
             await bus.publish_outbound(OutboundMessage(
                 channel=ch,
                 chat_id=to,
-                content=response or ""
+                content=response or "",
+                metadata={"job_id": job.id},
             ))
         else:
             if not job.payload.deliver or not job.payload.to:
@@ -393,8 +495,28 @@ def gateway(
                 payload_kind="system_event",
             )
             console.print("[dim]Job 'Recap Ano Novo' (1º jan) registado.[/dim]")
+        # Lembrete inteligente: corre a cada 3h, envia só às 8–10h local de cada utilizador
+        existing_sr = [j for j in cron.list_jobs(include_disabled=True) if (getattr(j.payload, "message", None) or "") == "smart_reminder_daily"]
+        if not existing_sr:
+            cron.add_job(
+                name="Lembrete inteligente diário",
+                schedule=CronSchedule(kind="cron", expr="0 0,3,6,9,12,15,18,21 * * *"),  # cada 3h
+                message="smart_reminder_daily",
+                payload_kind="system_event",
+            )
+            console.print("[dim]Job 'Lembrete inteligente' (8–10h local) registado.[/dim]")
+        # Revisão semanal: domingo 20h UTC
+        existing_wr = [j for j in cron.list_jobs(include_disabled=True) if (getattr(j.payload, "message", None) or "") == "weekly_recap"]
+        if not existing_wr:
+            cron.add_job(
+                name="Revisão semanal",
+                schedule=CronSchedule(kind="cron", expr="0 20 * * 0"),  # domingo 20h UTC
+                message="weekly_recap",
+                payload_kind="system_event",
+            )
+            console.print("[dim]Job 'Revisão semanal' (domingo 20h UTC) registado.[/dim]")
     except Exception as e:
-        logger.debug(f"Yearly recap job setup: {e}")
+        logger.debug(f"System cron jobs setup: {e}")
 
     # Create heartbeat service (scope provider = Xiaomi barato; senão usa o agente completo)
     async def on_heartbeat(prompt: str) -> str:
@@ -422,12 +544,14 @@ def gateway(
     # Create channel manager
     channels = ChannelManager(config, bus)
 
-    # Injetar cron_tool no canal WhatsApp para lembretes 15 min antes de eventos .ics
+    # Injetar cron_tool e cron_service no canal WhatsApp
     wa_channel = channels.get_channel("whatsapp")
-    if wa_channel is not None and hasattr(wa_channel, "set_ics_cron_tool"):
+    if wa_channel is not None:
         cron_tool = agent.tools.get("cron") if getattr(agent, "tools", None) else None
-        if cron_tool:
+        if cron_tool and hasattr(wa_channel, "set_ics_cron_tool"):
             wa_channel.set_ics_cron_tool(cron_tool)
+        if hasattr(wa_channel, "set_cron_service"):
+            wa_channel.set_cron_service(cron)
     # Injetar executor do /restart (sessão + cron + listas + eventos)
     if wa_channel is not None and hasattr(wa_channel, "set_restart_executor"):
         from nanobot.utils.restart_flow import run_restart

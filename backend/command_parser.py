@@ -44,6 +44,29 @@ DIAS_SEMANA = {
 }
 
 
+RE_DEPOIS_DE = re.compile(
+    r"(?:depois\s+de\s+|depois\s+do\s+|ap[só]s\s+(?:o\s+)?)([A-Za-z]{2,4})\b",
+    re.I,
+)
+
+
+def _extract_depends_on(text: str) -> tuple[str | None, str]:
+    """Extrai 'depois de X' / 'após X'. Retorna (job_id, texto sem a expressão)."""
+    if not text or not text.strip():
+        return None, text
+    t = text.strip()
+    m = RE_DEPOIS_DE.search(t)
+    if not m:
+        return None, t
+    job_id = (m.group(1) or "").strip().upper()
+    if not job_id:
+        return None, t
+    clean = (t[: m.start()] + t[m.end() :]).strip()
+    clean = re.sub(r"^[,;]\s*", "", clean)
+    clean = re.sub(r"[,;]\s*$", "", clean).strip()
+    return job_id, clean
+
+
 def _clean_message(t: str) -> str:
     """Remove conectores e barras do início (ex.: «30 min/ lembre-me» → «lembre-me»)."""
     t = t.strip()
@@ -53,6 +76,8 @@ def _clean_message(t: str) -> str:
     for prefix in ("de ", "para ", "a ", "sobre "):
         if t.lower().startswith(prefix) and len(t) > len(prefix):
             t = t[len(prefix):].strip()
+    # "até amanhã 18h" → "até" fica no meio; remover "até " do fim da mensagem
+    t = re.sub(r"\s+at[eé]\s*$", "", t, flags=re.I)
     return t or "Lembrete"
 
 
@@ -318,8 +343,14 @@ def parse(raw: str) -> dict[str, Any] | None:
     if m:
         rest = m.group(1).strip()
         if rest:
+            depends_on, rest = _extract_depends_on(rest)
             intent = _parse_lembrete_time(rest)
             intent["type"] = "lembrete"
+            if depends_on:
+                intent["depends_on_job_id"] = depends_on
+            # "até X" = prazo: se não fizer até X, alerta e lembra 3x; sem resposta exclui
+            if re.search(r"\bat[eé]\b", rest.lower()):
+                intent["has_deadline"] = True
             # "a partir de 1º de julho" → start_date para cron/every
             if intent.get("cron_expr") or intent.get("every_seconds"):
                 sd = _extract_start_date(rest)

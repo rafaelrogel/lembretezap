@@ -37,16 +37,80 @@ class User(Base):
     events = relationship("Event", back_populates="user", cascade="all, delete-orphan")
 
 
+class Project(Base):
+    """Projetos que agrupam listas/tarefas."""
+    __tablename__ = "projects"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(128), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class List(Base):
     __tablename__ = "lists"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(128), nullable=False)  # e.g. "mercado", "pendentes"
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)  # agrupa listas em projetos
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="lists")
     items = relationship("ListItem", back_populates="list_ref", cascade="all, delete-orphan", order_by="ListItem.id")
+
+
+class Habit(Base):
+    """Hábitos diários (beber água, academia)."""
+    __tablename__ = "habits"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(128), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class HabitCheck(Base):
+    """Marcação diária de hábito."""
+    __tablename__ = "habit_checks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    habit_id = Column(Integer, ForeignKey("habits.id"), nullable=False, index=True)
+    check_date = Column(String(10), nullable=False)  # YYYY-MM-DD em timezone do user
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class Goal(Base):
+    """Metas com prazo."""
+    __tablename__ = "goals"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(256), nullable=False)
+    deadline = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    done = Column(Boolean, default=False)
+
+
+class Note(Base):
+    """Notas rápidas não estruturadas."""
+    __tablename__ = "notes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class ListTemplate(Base):
+    """Modelos de listas frequentes."""
+    __tablename__ = "list_templates"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    name = Column(String(128), nullable=False)
+    items_json = Column(Text, nullable=False)  # JSON array ["item1", "item2"]
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class ListItem(Base):
@@ -94,6 +158,17 @@ class ReminderHistory(Base):
     status = Column(String(16), nullable=True)               # scheduled | sent | failed | canceled | expired
     delivered_at = Column(DateTime, nullable=True)          # quando foi entregue (se status=sent)
     provider_error = Column(String(256), nullable=True)     # erro do gateway se status=failed
+
+
+class SentReminderMapping(Base):
+    """Mapeia mensagem WhatsApp (chat_id, message_id) → job_id para reações (emoji = feito)."""
+    __tablename__ = "sent_reminder_mapping"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    chat_id = Column(String(256), nullable=False, index=True)
+    message_id = Column(String(64), nullable=False, index=True)
+    job_id = Column(String(64), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class AuditLog(Base):

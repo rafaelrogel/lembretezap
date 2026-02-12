@@ -11,10 +11,14 @@ interface SendCommand {
   type: 'send';
   to: string;
   text: string;
+  /** job_id do cron para correlacionar reações (emoji = feito) */
+  job_id?: string;
+  /** request_id para correlacionar resposta (Python async) */
+  request_id?: string;
 }
 
 interface BridgeMessage {
-  type: 'message' | 'status' | 'qr' | 'error';
+  type: 'message' | 'status' | 'qr' | 'error' | 'reaction' | 'sent';
   [key: string]: unknown;
 }
 
@@ -55,6 +59,7 @@ export class BridgeServer {
     this.wa = new WhatsAppClient({
       authDir: this.authDir,
       onMessage: (msg) => this.broadcast({ type: 'message', ...msg }),
+      onReaction: (ev) => this.broadcast({ type: 'reaction', ...ev }),
       onQR: (qr) => this.broadcast({ type: 'qr', qr }),
       onStatus: (status) => this.broadcast({ type: 'status', status }),
     });
@@ -67,8 +72,14 @@ export class BridgeServer {
       ws.on('message', async (data) => {
         try {
           const cmd = JSON.parse(data.toString()) as SendCommand;
-          await this.handleCommand(cmd);
-          ws.send(JSON.stringify({ type: 'sent', to: cmd.to }));
+          const result = await this.handleCommand(cmd);
+          ws.send(JSON.stringify({
+            type: 'sent',
+            to: cmd.to,
+            id: result?.id ?? null,
+            job_id: cmd.job_id ?? null,
+            request_id: cmd.request_id ?? null,
+          }));
         } catch (error) {
           console.error('Error handling command:', error);
           ws.send(JSON.stringify({ type: 'error', error: String(error) }));
@@ -90,10 +101,11 @@ export class BridgeServer {
     await this.wa.connect();
   }
 
-  private async handleCommand(cmd: SendCommand): Promise<void> {
+  private async handleCommand(cmd: SendCommand): Promise<{ id: string } | null> {
     if (cmd.type === 'send' && this.wa) {
-      await this.wa.sendMessage(cmd.to, cmd.text);
+      return await this.wa.sendMessage(cmd.to, cmd.text);
     }
+    return null;
   }
 
   private broadcast(msg: BridgeMessage): void {

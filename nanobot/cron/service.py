@@ -103,12 +103,21 @@ class CronService:
                             deliver=j["payload"].get("deliver", False),
                             channel=j["payload"].get("channel"),
                             to=j["payload"].get("to"),
+                            remind_again_if_unconfirmed_seconds=j["payload"].get("remindAgainIfUnconfirmedSeconds"),
+                            remind_again_max_count=j["payload"].get("remindAgainMaxCount", 10),
+                            depends_on_job_id=j["payload"].get("dependsOnJobId"),
+                            parent_job_id=j["payload"].get("parentJobId"),
+                            has_deadline=j["payload"].get("hasDeadline", False),
+                            deadline_check_for_job_id=j["payload"].get("deadlineCheckForJobId"),
+                            deadline_main_job_id=j["payload"].get("deadlineMainJobId"),
+                            deadline_post_index=j["payload"].get("deadlinePostIndex"),
                         ),
                         state=CronJobState(
                             next_run_at_ms=j.get("state", {}).get("nextRunAtMs"),
                             last_run_at_ms=j.get("state", {}).get("lastRunAtMs"),
                             last_status=j.get("state", {}).get("lastStatus"),
                             last_error=j.get("state", {}).get("lastError"),
+                            snooze_count=j.get("state", {}).get("snoozeCount", 0),
                         ),
                         created_at_ms=j.get("createdAtMs", 0),
                         updated_at_ms=j.get("updatedAtMs", 0),
@@ -151,12 +160,21 @@ class CronService:
                         "deliver": j.payload.deliver,
                         "channel": j.payload.channel,
                         "to": j.payload.to,
+                        "remindAgainIfUnconfirmedSeconds": getattr(j.payload, "remind_again_if_unconfirmed_seconds", None),
+                        "remindAgainMaxCount": getattr(j.payload, "remind_again_max_count", 10),
+                        "dependsOnJobId": getattr(j.payload, "depends_on_job_id", None),
+                        "parentJobId": getattr(j.payload, "parent_job_id", None),
+                        "hasDeadline": getattr(j.payload, "has_deadline", False),
+                        "deadlineCheckForJobId": getattr(j.payload, "deadline_check_for_job_id", None),
+                        "deadlineMainJobId": getattr(j.payload, "deadline_main_job_id", None),
+                        "deadlinePostIndex": getattr(j.payload, "deadline_post_index", None),
                     },
                     "state": {
                         "nextRunAtMs": j.state.next_run_at_ms,
                         "lastRunAtMs": j.state.last_run_at_ms,
                         "lastStatus": j.state.last_status,
                         "lastError": j.state.last_error,
+                        "snoozeCount": getattr(j.state, "snooze_count", 0),
                     },
                     "createdAtMs": j.created_at_ms,
                     "updatedAtMs": j.updated_at_ms,
@@ -261,8 +279,10 @@ class CronService:
         
         # Política: eventos únicos (não recorrentes) = remover do cron após entrega bem-sucedida
         # kind="at" = lembrete pontual (uma vez) → remover após executar com sucesso (lista limpa)
+        # has_deadline: main job mantém-se até utilizador confirmar ou 3 lembretes pós-prazo
         if job.schedule.kind == "at" and job.state.last_status == "ok":
-            self._store.jobs = [j for j in self._store.jobs if j.id != job.id]
+            if not getattr(job.payload, "has_deadline", False):
+                self._store.jobs = [j for j in self._store.jobs if j.id != job.id]
         elif job.schedule.kind == "at":
             # Falhou: desativar para não repetir indefinidamente; fica no store para debug
             job.enabled = False
@@ -290,6 +310,14 @@ class CronService:
         delete_after_run: bool = False,
         payload_kind: str = "agent_turn",
         suggested_prefix: str | None = None,
+        remind_again_if_unconfirmed_seconds: int | None = None,
+        remind_again_max_count: int = 10,
+        depends_on_job_id: str | None = None,
+        parent_job_id: str | None = None,
+        has_deadline: bool = False,
+        deadline_check_for_job_id: str | None = None,
+        deadline_main_job_id: str | None = None,
+        deadline_post_index: int | None = None,
     ) -> CronJob:
         """Add a new job. suggested_prefix: quando dado (ex. pelo MIMO), usa para o ID em vez de derivar da mensagem."""
         logger.debug(
@@ -348,13 +376,19 @@ class CronService:
             return existing
 
         now = _now_ms()
-        kind = payload_kind if payload_kind in ("agent_turn", "system_event") else "agent_turn"
+        kind = payload_kind if payload_kind in ("agent_turn", "system_event", "deadline_check") else "agent_turn"
         existing_ids = [j.id for j in store.jobs]
         if suggested_prefix:
             job_id = generate_friendly_job_id_with_prefix(suggested_prefix, existing_ids)
         else:
             job_id = generate_friendly_job_id(message or name, existing_ids)
-        next_run_ms = _compute_next_run(schedule, now)
+        # Jobs with depends_on: ficam desativados até o job dependente estar feito
+        if depends_on_job_id:
+            next_run_ms = None
+            enabled = False
+        else:
+            next_run_ms = _compute_next_run(schedule, now)
+            enabled = True
 
         logger.debug(
             "Cron add_job: generated job_id=%s next_run_at_ms=%s schedule_at=%s",
@@ -366,16 +400,24 @@ class CronService:
         job = CronJob(
             id=job_id,
             name=name,
-            enabled=True,
+            enabled=enabled,
             schedule=schedule,
+            state=CronJobState(next_run_at_ms=next_run_ms),
             payload=CronPayload(
                 kind=kind,
                 message=message,
                 deliver=deliver,
                 channel=channel,
                 to=to,
+                remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
+                remind_again_max_count=remind_again_max_count,
+                depends_on_job_id=depends_on_job_id,
+                parent_job_id=parent_job_id,
+                has_deadline=has_deadline,
+                deadline_check_for_job_id=deadline_check_for_job_id,
+                deadline_main_job_id=deadline_main_job_id,
+                deadline_post_index=deadline_post_index,
             ),
-            state=CronJobState(next_run_at_ms=next_run_ms),
             created_at_ms=now,
             updated_at_ms=now,
             delete_after_run=delete_after_run,
@@ -408,6 +450,30 @@ class CronService:
             logger.info("Cron: job will not be delivered to WhatsApp (channel=cli); create reminder from WhatsApp to receive there.")
         return job
     
+    def get_job(self, job_id: str) -> CronJob | None:
+        """Retorna o job por id ou None."""
+        store = self._load_store()
+        for j in store.jobs:
+            if j.id == job_id:
+                return j
+        return None
+
+    def trigger_dependents(self, completed_job_id: str) -> int:
+        """Ativa jobs que dependem de completed_job_id. Retorna quantidade ativada."""
+        store = self._load_store()
+        now = _now_ms()
+        count = 0
+        for j in store.jobs:
+            if getattr(j.payload, "depends_on_job_id", None) == completed_job_id and not j.enabled:
+                j.enabled = True
+                j.state.next_run_at_ms = now
+                count += 1
+                logger.info(f"Cron: ativado dependente {j.id} (depois de {completed_job_id})")
+        if count > 0:
+            self._save_store()
+            self._arm_timer()
+        return count
+
     def remove_job(self, job_id: str) -> bool:
         """Remove a job by ID."""
         store = self._load_store()
@@ -421,7 +487,50 @@ class CronService:
             logger.info(f"Cron: removed job {job_id}")
         
         return removed
-    
+
+    def remove_job_and_deadline_followups(self, job_id: str) -> int:
+        """Remove job + deadline_check + post-deadline 1/2/3. Retorna total removidos."""
+        store = self._load_store()
+        to_remove = {job_id}
+        for j in store.jobs:
+            if getattr(j.payload, "deadline_check_for_job_id", None) == job_id:
+                to_remove.add(j.id)
+            if getattr(j.payload, "deadline_main_job_id", None) == job_id:
+                to_remove.add(j.id)
+        before = len(store.jobs)
+        store.jobs = [j for j in store.jobs if j.id not in to_remove]
+        removed = before - len(store.jobs)
+        if removed:
+            self._save_store()
+            self._arm_timer()
+            logger.info(f"Cron: removed job {job_id} and {removed - 1} deadline followups")
+        return removed
+
+    SNOOZE_MAX_COUNT = 3
+    SNOOZE_DELAY_SECONDS = 300  # 5 min
+
+    def snooze_job(self, job_id: str, delay_seconds: int | None = None) -> tuple[bool, int]:
+        """
+        Adia o job em delay_seconds (default 5 min). Máx 3 sonecas.
+        Retorna (sucesso, snooze_count atual). Se já tiver 3 sonecas, retorna (False, 3).
+        """
+        store = self._load_store()
+        now = _now_ms()
+        delay_ms = (delay_seconds or self.SNOOZE_DELAY_SECONDS) * 1000
+        for job in store.jobs:
+            if job.id == job_id:
+                count = getattr(job.state, "snooze_count", 0)
+                if count >= self.SNOOZE_MAX_COUNT:
+                    return False, count
+                job.state.snooze_count = count + 1
+                job.state.next_run_at_ms = now + delay_ms
+                job.updated_at_ms = now
+                self._save_store()
+                self._arm_timer()
+                logger.info(f"Cron: snoozed job {job_id} (+{delay_ms//1000}s, snooze {count+1}/{self.SNOOZE_MAX_COUNT})")
+                return True, count + 1
+        return False, 0
+
     def enable_job(self, job_id: str, enabled: bool = True) -> CronJob | None:
         """Enable or disable a job."""
         store = self._load_store()

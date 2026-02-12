@@ -194,6 +194,14 @@ ONBOARDING_RESET_HINT: dict[LangCode, str] = {
     "en": " /reset to redo registration anytime.",
 }
 
+# Dica sobre emojis em lembretes (feito / soneca / não feito)
+ONBOARDING_EMOJI_TIP: dict[LangCode, str] = {
+    "pt-PT": "\n\n💡 Nos lembretes: 👍 (feito, confirma com sim); ⏰ (adiar 5 min, máx 3x); 👎 (reagendar).",
+    "pt-BR": "\n\n💡 Nos lembretes: 👍 (feito, confirme com sim); ⏰ (adiar 5 min, máx 3x); 👎 (reagendar).",
+    "es": "\n\n💡 En recordatorios: 👍 (hecho, confirma con sí); ⏰ (pospóner 5 min, máx 3x); 👎 (reprogramar).",
+    "en": "\n\n💡 On reminders: 👍 (done, confirm with yes); ⏰ (snooze 5 min, max 3x); 👎 (reschedule).",
+}
+
 
 # Fallbacks para mensagem "fora do escopo" — curtos (~30% menores)
 OUT_OF_SCOPE_FALLBACKS: dict[LangCode, list[str]] = {

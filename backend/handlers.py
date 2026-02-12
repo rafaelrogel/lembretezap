@@ -17,6 +17,19 @@ if TYPE_CHECKING:
     from nanobot.agent.tools.event_tool import EventTool
     from nanobot.cron.service import CronService
 
+from backend.handlers_organizacao import (
+    handle_habito,
+    handle_habitos,
+    handle_meta,
+    handle_metas,
+    handle_nota,
+    handle_notas,
+    handle_projeto,
+    handle_projetos,
+    handle_template,
+    handle_templates,
+)
+
 
 @dataclass
 class HandlerContext:
@@ -151,23 +164,28 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     every_sec = intent.get("every_seconds")
     cron_expr = intent.get("cron_expr")
     start_date = intent.get("start_date")
+    depends_on = intent.get("depends_on_job_id")
     if not (in_sec or every_sec or cron_expr):
-        # Sem tempo: se parecer recorrente, solicitar recorrência
-        user_lang: LangCode = "pt-BR"
-        try:
-            db = SessionLocal()
+        # Encadeado sem tempo: dispara imediatamente quando o anterior estiver feito
+        if depends_on:
+            in_sec = 1
+        else:
+            # Sem tempo: se parecer recorrente, solicitar recorrência
+            user_lang: LangCode = "pt-BR"
             try:
-                user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-            finally:
-                db.close()
-        except Exception:
-            pass
-        ask_msg = await maybe_ask_recurrence(
-            content, user_lang, ctx.scope_provider, ctx.scope_model or "",
-        )
-        if ask_msg:
-            return ask_msg
-        return None
+                db = SessionLocal()
+                try:
+                    user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                finally:
+                    db.close()
+            except Exception:
+                pass
+            ask_msg = await maybe_ask_recurrence(
+                content, user_lang, ctx.scope_provider, ctx.scope_model or "",
+            )
+            if ask_msg:
+                return ask_msg
+            return None
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
     return await ctx.cron_tool.execute(
         action="add",
@@ -177,6 +195,8 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
         cron_expr=cron_expr,
         start_date=start_date,
         allow_relaxed_interval=allow_relaxed,
+        depends_on_job_id=depends_on,
+        has_deadline=bool(intent.get("has_deadline")),
     )
 
 
@@ -280,10 +300,19 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
         return None
     return (
         "📋 **Comandos disponíveis:**\n"
-        "• /lembrete — agendar lembrete (ex.: lembra-me amanhã às 9h)\n"
+        "• /lembrete — agendar (ex.: amanhã 9h; em 30 min; depois de PIX = encadear)\n"
         "• /list — listas: /list mercado add leite  ou  /list filme Matrix  /list livro 1984  /list musica Nome  /list receita Bolo\n"
         "• /feito — marcar item como feito: /feito mercado 1  ou  /feito 1\n"
-        "• /hoje, /semana — ver o que tens hoje ou esta semana\n"
+        "• /hoje, /semana, /mes — ver o que tens hoje, esta semana ou calendário do mês\n"
+        "• /timeline — histórico cronológico (lembretes, tarefas, eventos)\n"
+        "• /stats — estatísticas (tarefas feitas, lembretes); /stats dia ou /stats semana\n"
+        "• /produtividade — relatório semanal/mensal; /produtividade mes para ver por mês\n"
+        "• /revisao — resumo da semana (tarefas, lembretes, eventos)\n"
+        "• /habito add Nome, /habito check Nome, /habito hoje — hábitos diários\n"
+        "• /meta add Nome até DD/MM — metas com prazo; /metas para listar\n"
+        "• /nota texto — notas rápidas; /notas para ver\n"
+        "• /projeto add Nome — projetos; /projeto Nome add item — agrupar tarefas\n"
+        "• /template add Nome item1, item2 — modelos; /template Nome usar\n"
         "• /tz Cidade — definir fuso (ex.: /tz Lisboa)\n"
         "• /lang pt-pt ou pt-br — idioma\n"
         "• /reset — refazer cadastro (nome, cidade)\n"
@@ -311,6 +340,7 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
     start_date = intent.get("start_date")
     if not (every_sec or cron_expr):
         return "📅 Usa algo como: /recorrente academia segunda 7h  ou  /recorrente beber água a cada 1 hora"
+    depends_on = intent.get("depends_on_job_id")
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
     return await ctx.cron_tool.execute(
         action="add",
@@ -318,6 +348,7 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
         every_seconds=every_sec,
         cron_expr=cron_expr,
         start_date=start_date,
+        depends_on_job_id=depends_on,
     )
 
 
@@ -471,6 +502,458 @@ async def handle_semana(ctx: HandlerContext, content: str) -> str | None:
     if not content.strip().lower().startswith("/semana"):
         return None
     return _visao_hoje_semana(ctx, 7)
+
+
+def _visao_mes(ctx: HandlerContext, year: int, month: int) -> str:
+    """Calendário ASCII do mês com marcadores (*) nos dias com eventos/lembretes."""
+    import calendar
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    from backend.database import SessionLocal
+    from backend.user_store import get_or_create_user, get_user_timezone
+    from backend.models_db import Event
+
+    try:
+        db = SessionLocal()
+        try:
+            user = get_or_create_user(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id)
+            try:
+                tz = ZoneInfo(tz_iana)
+            except Exception:
+                tz = ZoneInfo("UTC")
+            now = datetime.now(tz)
+
+            first_day = datetime(year, month, 1, tzinfo=tz)
+            _, last_dom = calendar.monthrange(year, month)
+            last_day = datetime(year, month, last_dom, 23, 59, 59, tzinfo=tz)
+            start_ms = int(first_day.timestamp() * 1000)
+            end_ms = int(last_day.timestamp() * 1000)
+
+            days_with_activity: set[int] = set()
+
+            if ctx.cron_service:
+                for job in ctx.cron_service.list_jobs():
+                    if getattr(job.payload, "to", None) != ctx.chat_id:
+                        continue
+                    nr = getattr(job.state, "next_run_at_ms", None)
+                    if nr and start_ms <= nr <= end_ms:
+                        dt = datetime.fromtimestamp(nr / 1000, tz=ZoneInfo("UTC")).astimezone(tz)
+                        days_with_activity.add(dt.day)
+
+            events = db.query(Event).filter(
+                Event.user_id == user.id,
+                Event.deleted == False,
+                Event.data_at.isnot(None),
+            ).all()
+            for ev in events:
+                if not ev.data_at:
+                    continue
+                ev_date = ev.data_at if ev.data_at.tzinfo else ev.data_at.replace(tzinfo=ZoneInfo("UTC"))
+                try:
+                    ev_local = ev_date.astimezone(tz)
+                except Exception:
+                    ev_local = ev_date
+                if ev_local.year == year and ev_local.month == month:
+                    days_with_activity.add(ev_local.day)
+
+            cal = calendar.Calendar(firstweekday=6)
+            month_name = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][month - 1]
+            lines = [f"       {month_name} {year}", "  D  S  T  Q  Q  S  S"]
+
+            week_lines = []
+            for week in cal.monthdayscalendar(year, month):
+                row = []
+                for d in week:
+                    if d == 0:
+                        row.append("  ")
+                    else:
+                        mark = "*" if d in days_with_activity else " "
+                        row.append(f"{d:2}{mark}")
+                week_lines.append(" ".join(row))
+            lines.extend(week_lines)
+
+            return "\n".join(lines)
+        finally:
+            db.close()
+    except Exception as e:
+        return f"Erro ao carregar calendário: {e}"
+
+
+def _visao_timeline(ctx: HandlerContext, dias: int = 7) -> str:
+    """Histórico cronológico: lembretes entregues, tarefas feitas, eventos criados."""
+    from datetime import datetime, timedelta, timezone
+    from zoneinfo import ZoneInfo
+    from backend.database import SessionLocal
+    from backend.user_store import get_or_create_user, get_user_timezone
+    from backend.models_db import Event, ReminderHistory, AuditLog
+
+    try:
+        db = SessionLocal()
+        try:
+            user = get_or_create_user(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id)
+            try:
+                tz = ZoneInfo(tz_iana)
+            except Exception:
+                tz = ZoneInfo("UTC")
+            now = datetime.now(tz)
+            since = now - timedelta(days=dias)
+            since_naive = since.astimezone(timezone.utc).replace(tzinfo=None) if since.tzinfo else since
+
+            items: list[tuple[datetime, str]] = []
+
+            for r in (
+                db.query(ReminderHistory)
+                .filter(
+                    ReminderHistory.user_id == user.id,
+                    ReminderHistory.status == "sent",
+                    ReminderHistory.delivered_at.isnot(None),
+                    ReminderHistory.delivered_at >= since_naive,
+                )
+                .all()
+            ):
+                ts = r.delivered_at or r.created_at
+                if ts:
+                    if ts.tzinfo:
+                        ts = ts.astimezone(tz)
+                    else:
+                        ts = ts.replace(tzinfo=timezone.utc).astimezone(tz)
+                    msg = (r.message or "")[:45] + ("…" if len(r.message or "") > 45 else "")
+                    items.append((ts, f"Lembrete: {msg} ✓"))
+
+            for a in (
+                db.query(AuditLog)
+                .filter(
+                    AuditLog.user_id == user.id,
+                    AuditLog.action.in_(("list_feito", "list_add", "list_remove")),
+                    AuditLog.created_at >= since_naive,
+                )
+                .all()
+            ):
+                ts = a.created_at
+                if ts and ts.tzinfo:
+                    ts = ts.astimezone(tz)
+                elif ts:
+                    ts = ts.replace(tzinfo=timezone.utc).astimezone(tz)
+                if ts:
+                    if a.action == "list_feito":
+                        items.append((ts, f"Feito: {a.resource or '?'}"))
+                    elif a.action == "list_add":
+                        items.append((ts, f"Add: {a.resource or '?'}"))
+                    elif a.action == "list_remove":
+                        items.append((ts, f"Removido: {a.resource or '?'}"))
+
+            for ev in (
+                db.query(Event)
+                .filter(Event.user_id == user.id, Event.deleted == False, Event.created_at >= since_naive)
+                .all()
+            ):
+                ts = ev.created_at
+                if ts and ts.tzinfo:
+                    ts = ts.astimezone(tz)
+                elif ts:
+                    ts = ts.replace(tzinfo=timezone.utc).astimezone(tz)
+                if ts:
+                    nome = (ev.payload or {}).get("nome", "") if isinstance(ev.payload, dict) else str(ev.payload)[:40]
+                    items.append((ts, f"Evento: {nome or ev.tipo}"))
+
+            items.sort(key=lambda x: x[0], reverse=True)
+            lines = [f"📜 **Timeline** (últimos {dias} dias)"]
+            for ts, label in items[:25]:
+                lines.append(f"• {ts.strftime('%d/%m %H:%M')} — {label}")
+            if not items:
+                lines.append("• Nada nos últimos dias.")
+            return "\n".join(lines)
+        finally:
+            db.close()
+    except Exception as e:
+        return f"Erro ao carregar timeline: {e}"
+
+
+def _visao_stats(ctx: HandlerContext, mode: str = "resumo") -> str:
+    """Estatísticas: tarefas feitas (list_feito) e lembretes recebidos (ReminderHistory sent)."""
+    from datetime import datetime, timedelta, timezone
+    from zoneinfo import ZoneInfo
+    from backend.database import SessionLocal
+    from backend.user_store import get_or_create_user, get_user_timezone
+    from backend.models_db import ReminderHistory, AuditLog
+
+    try:
+        db = SessionLocal()
+        try:
+            user = get_or_create_user(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id)
+            try:
+                tz = ZoneInfo(tz_iana)
+            except Exception:
+                tz = ZoneInfo("UTC")
+            now = datetime.now(tz)
+            today = now.date()
+            since_naive = (now - timedelta(days=30)).astimezone(timezone.utc).replace(tzinfo=None)
+
+            def _to_local_date(dt):
+                if not dt:
+                    return None
+                if dt.tzinfo:
+                    return dt.astimezone(tz).date()
+                return dt.replace(tzinfo=timezone.utc).astimezone(tz).date()
+
+            feito_today = feito_week = rem_today = rem_week = 0
+            feito_by_day: dict[str, int] = {}
+            rem_by_day: dict[str, int] = {}
+
+            for a in db.query(AuditLog).filter(
+                AuditLog.user_id == user.id,
+                AuditLog.action == "list_feito",
+                AuditLog.created_at >= since_naive,
+            ).all():
+                d = _to_local_date(a.created_at)
+                if d:
+                    feito_by_day[d.isoformat()] = feito_by_day.get(d.isoformat(), 0) + 1
+                    if d == today:
+                        feito_today += 1
+                    if (today - d).days < 7:
+                        feito_week += 1
+
+            for r in db.query(ReminderHistory).filter(
+                ReminderHistory.user_id == user.id,
+                ReminderHistory.status == "sent",
+                ReminderHistory.delivered_at.isnot(None),
+                ReminderHistory.delivered_at >= since_naive,
+            ).all():
+                d = _to_local_date(r.delivered_at)
+                if d:
+                    rem_by_day[d.isoformat()] = rem_by_day.get(d.isoformat(), 0) + 1
+                    if d == today:
+                        rem_today += 1
+                    if (today - d).days < 7:
+                        rem_week += 1
+
+            lines = ["📊 **Estatísticas**"]
+            if mode == "resumo":
+                lines.append(f"Hoje: {feito_today} tarefas feitas | {rem_today} lembretes")
+                lines.append(f"Esta semana: {feito_week} tarefas | {rem_week} lembretes")
+            elif mode == "dia":
+                lines.append("Últimos 7 dias:")
+                for i in range(6, -1, -1):
+                    d = today - timedelta(days=i)
+                    fd = feito_by_day.get(d.isoformat(), 0)
+                    rd = rem_by_day.get(d.isoformat(), 0)
+                    lines.append(f"• {d.strftime('%d/%m')} — {fd} tarefas | {rd} lembretes")
+            elif mode == "semana":
+                lines.append("Últimas 4 semanas:")
+                for i in range(4):
+                    start = today - timedelta(days=6 + i * 7)
+                    end = today - timedelta(days=i * 7)
+                    fd = sum(feito_by_day.get((today - timedelta(days=i * 7 + j)).isoformat(), 0) for j in range(7))
+                    rd = sum(rem_by_day.get((today - timedelta(days=i * 7 + j)).isoformat(), 0) for j in range(7))
+                    lines.append(f"• S{i + 1} ({start.strftime('%d/%m')}–{end.strftime('%d/%m')}): {fd} tarefas | {rd} lembretes")
+            return "\n".join(lines)
+        finally:
+            db.close()
+    except Exception as e:
+        return f"Erro ao carregar estatísticas: {e}"
+
+
+def _visao_produtividade(ctx: HandlerContext, mode: str = "semana") -> str:
+    """Relatório de produtividade: evolução semanal ou mensal (tarefas, lembretes, eventos)."""
+    from datetime import datetime, timedelta, timezone
+    from zoneinfo import ZoneInfo
+    from backend.database import SessionLocal
+    from backend.user_store import get_or_create_user, get_user_timezone
+    from backend.models_db import ReminderHistory, AuditLog, Event
+
+    try:
+        db = SessionLocal()
+        try:
+            user = get_or_create_user(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id)
+            try:
+                tz = ZoneInfo(tz_iana)
+            except Exception:
+                tz = ZoneInfo("UTC")
+            now = datetime.now(tz)
+            today = now.date()
+            since_naive = (now - timedelta(days=93)).astimezone(timezone.utc).replace(tzinfo=None)
+
+            def _to_local_date(dt):
+                if not dt:
+                    return None
+                if dt.tzinfo:
+                    return dt.astimezone(tz).date()
+                return dt.replace(tzinfo=timezone.utc).astimezone(tz).date()
+
+            feito_by_day: dict[str, int] = {}
+            rem_by_day: dict[str, int] = {}
+            ev_by_day: dict[str, int] = {}
+
+            for a in db.query(AuditLog).filter(
+                AuditLog.user_id == user.id,
+                AuditLog.action == "list_feito",
+                AuditLog.created_at >= since_naive,
+            ).all():
+                d = _to_local_date(a.created_at)
+                if d:
+                    feito_by_day[d.isoformat()] = feito_by_day.get(d.isoformat(), 0) + 1
+
+            for r in db.query(ReminderHistory).filter(
+                ReminderHistory.user_id == user.id,
+                ReminderHistory.status == "sent",
+                ReminderHistory.delivered_at.isnot(None),
+                ReminderHistory.delivered_at >= since_naive,
+            ).all():
+                d = _to_local_date(r.delivered_at)
+                if d:
+                    rem_by_day[d.isoformat()] = rem_by_day.get(d.isoformat(), 0) + 1
+
+            for ev in db.query(Event).filter(
+                Event.user_id == user.id,
+                Event.deleted == False,
+                Event.created_at >= since_naive,
+            ).all():
+                d = _to_local_date(ev.created_at)
+                if d:
+                    ev_by_day[d.isoformat()] = ev_by_day.get(d.isoformat(), 0) + 1
+
+            month_names = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
+            lines = ["📊 **Relatório de produtividade**"]
+            if mode == "semana":
+                lines.append("Últimas 4 semanas:")
+                for i in range(4):
+                    start = today - timedelta(days=6 + i * 7)
+                    end = today - timedelta(days=i * 7)
+                    fd = sum(feito_by_day.get((start + timedelta(days=j)).isoformat(), 0) for j in range(7))
+                    rd = sum(rem_by_day.get((start + timedelta(days=j)).isoformat(), 0) for j in range(7))
+                    ed = sum(ev_by_day.get((start + timedelta(days=j)).isoformat(), 0) for j in range(7))
+                    lines.append(f"• S{i + 1} ({start.strftime('%d/%m')}–{end.strftime('%d/%m')}): {fd} tarefas | {rd} lembretes | {ed} eventos")
+            else:
+                lines.append("Últimos 3 meses:")
+                for i in range(3):
+                    m = today.month - 1 - i
+                    y = today.year
+                    while m < 1:
+                        m += 12
+                        y -= 1
+                    start = datetime(y, m, 1, tzinfo=tz).date()
+                    _, last_dom = __import__("calendar").monthrange(y, m)
+                    end = datetime(y, m, last_dom, tzinfo=tz).date()
+                    fd = rd = ed = 0
+                    d = start
+                    while d <= end and d <= today:
+                        fd += feito_by_day.get(d.isoformat(), 0)
+                        rd += rem_by_day.get(d.isoformat(), 0)
+                        ed += ev_by_day.get(d.isoformat(), 0)
+                        d += timedelta(days=1)
+                    lines.append(f"• {month_names[m - 1]} {y}: {fd} tarefas | {rd} lembretes | {ed} eventos")
+            return "\n".join(lines)
+        finally:
+            db.close()
+    except Exception as e:
+        return f"Erro ao carregar relatório: {e}"
+
+
+async def handle_stats(ctx: HandlerContext, content: str) -> str | None:
+    """/stats ou /stats dia ou /stats semana: estatísticas de tarefas feitas e lembretes."""
+    import re
+    t = content.strip().lower()
+    if not t.startswith("/stats"):
+        return None
+    rest = t[6:].strip()
+    mode = "resumo"
+    if rest == "dia":
+        mode = "dia"
+    elif rest == "semana":
+        mode = "semana"
+    return _visao_stats(ctx, mode)
+
+
+async def handle_produtividade(ctx: HandlerContext, content: str) -> str | None:
+    """/produtividade ou /produtividade mes: relatório de produtividade (tarefas, lembretes, eventos) por semana ou mês."""
+    t = content.strip().lower()
+    if not t.startswith("/produtividade"):
+        return None
+    rest = t[14:].strip()
+    mode = "semana"
+    if rest == "mes" or rest == "mês":
+        mode = "mes"
+    return _visao_produtividade(ctx, mode)
+
+
+def _visao_revisao_semanal(ctx: HandlerContext) -> str:
+    """Resumo da semana (últimos 7 dias): tarefas, lembretes, eventos."""
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    from backend.database import SessionLocal
+    from backend.user_store import get_or_create_user, get_user_timezone, get_user_language, get_user_preferred_name
+    from backend.weekly_recap import get_week_stats, build_weekly_recap_text
+
+    try:
+        db = SessionLocal()
+        try:
+            user = get_or_create_user(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id)
+            try:
+                tz = ZoneInfo(tz_iana)
+            except Exception:
+                tz = ZoneInfo("UTC")
+            today = datetime.now(tz).date()
+            stats = get_week_stats(db, ctx.chat_id, today, tz)
+            user_lang = get_user_language(db, ctx.chat_id)
+            preferred_name = get_user_preferred_name(db, ctx.chat_id)
+            return build_weekly_recap_text(
+                stats=stats,
+                user_lang=user_lang,
+                preferred_name=preferred_name,
+            )
+        finally:
+            db.close()
+    except Exception as e:
+        return f"Erro ao carregar revisão: {e}"
+
+
+async def handle_revisao(ctx: HandlerContext, content: str) -> str | None:
+    """/revisao ou /revisao-semana: resumo da semana (tarefas, lembretes, eventos)."""
+    t = content.strip().lower()
+    if not t.startswith("/revisao"):
+        return None
+    return _visao_revisao_semanal(ctx)
+
+
+async def handle_timeline(ctx: HandlerContext, content: str) -> str | None:
+    """/timeline ou /timeline 14: histórico cronológico (lembretes, tarefas, eventos)."""
+    import re
+    t = content.strip().lower()
+    if not t.startswith("/timeline"):
+        return None
+    rest = t[9:].strip()
+    dias = 7
+    if rest:
+        m = re.match(r"^(\d+)\s*$", rest)
+        if m:
+            dias = min(30, max(1, int(m.group(1))))
+    return _visao_timeline(ctx, dias)
+
+
+async def handle_mes(ctx: HandlerContext, content: str) -> str | None:
+    """/mes ou /mes 3 ou /mes 2026-03: calendário do mês com eventos e lembretes."""
+    import re
+    t = content.strip().lower()
+    if not t.startswith("/mes"):
+        return None
+    rest = t[4:].strip()
+    now = __import__("datetime").datetime.now()
+    year, month = now.year, now.month
+    if rest:
+        m = re.match(r"^(\d{1,2})\s*$", rest)
+        if m:
+            month = min(12, max(1, int(m.group(1))))
+        else:
+            m = re.match(r"^(\d{4})-(\d{1,2})\s*$", rest)
+            if m:
+                year = int(m.group(1))
+                month = min(12, max(1, int(m.group(2))))
+    return _visao_mes(ctx, year, month)
 
 
 async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
@@ -1024,6 +1507,19 @@ async def _resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                 db.close()
         except Exception as e:
             return f"Erro ao apagar: {e}"
+    if action == "completion_confirmation":
+        payload = pending.get("payload") or {}
+        job_id = payload.get("job_id")
+        completed_job_id = payload.get("completed_job_id") or job_id
+        if is_confirm_no(content):
+            return "Ok, o lembrete mantém-se. Reage com 👍 quando terminares."
+        if is_confirm_yes(content):
+            if ctx.cron_service and job_id:
+                ctx.cron_service.remove_job_and_deadline_followups(job_id)
+                ctx.cron_service.trigger_dependents(completed_job_id)
+                return "✅ Marcado como feito!"
+            return "Ocorreu um erro. Tenta reagir com 👍 novamente ao lembrete."
+        return None
     return None
 
 
@@ -1083,6 +1579,21 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         handle_pendente,
         handle_hoje,
         handle_semana,
+        handle_mes,
+        handle_timeline,
+        handle_stats,
+        handle_produtividade,
+        handle_revisao,
+        handle_habitos,
+        handle_habito,
+        handle_metas,
+        handle_meta,
+        handle_notas,
+        handle_nota,
+        handle_projetos,
+        handle_projeto,
+        handle_templates,
+        handle_template,
         handle_tz,
         handle_lang,
         handle_analytics,  # antes de rever: "quantos lembretes esta semana?" etc.

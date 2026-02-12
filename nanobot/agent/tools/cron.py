@@ -51,8 +51,10 @@ class CronTool(Tool):
         return (
             "Schedule one-time or recurring reminders. Actions: add, list, remove. "
             "For add: in_seconds = one-time (e.g. 120 = in 2 min); "
-            "every_seconds = repeat interval (min 1800 = 30 min, e.g. 3600 = every hour, 86400 = daily); "
-            "cron_expr = fixed times (e.g. '0 9 * * *' = daily at 9h, '0 10 * * 1' = every Monday at 10h)."
+            "every_seconds = repeat interval (min 1800 = 30 min, e.g. 3600 = hourly, 86400 = daily); "
+            "cron_expr = fixed times (e.g. '0 9 * * *' = daily at 9h, '0 10 * * 1' = every Monday at 10h). "
+            "remind_again_if_unconfirmed_seconds = re-send after N sec if no 👍 (e.g. 600 = 10 min). "
+            "depends_on_job_id = id do lembrete anterior (ex: PIX) para encadear."
         )
     
     @property
@@ -88,6 +90,18 @@ class CronTool(Tool):
                 "job_id": {
                     "type": "string",
                     "description": "Job ID (for remove)"
+                },
+                "remind_again_if_unconfirmed_seconds": {
+                    "type": "integer",
+                    "description": "If set (e.g. 600 = 10 min), re-sends the reminder after this many seconds if user does not react 👍. Use when user says 'lembra de novo em X min se eu não confirmar'."
+                },
+                "depends_on_job_id": {
+                    "type": "string",
+                    "description": "Job ID (2-3 letters like PIX, AL) that must be completed first. Use when user says 'depois de A, lembra B' or 'após terminar X'. The dependent reminder fires when user reacts 👍 to the previous one."
+                },
+                "has_deadline": {
+                    "type": "boolean",
+                    "description": "If true: 'até X' = if not done by X, alert + remind 3x; no response = remove. Use when user says 'lembra até amanhã 18h' or 'se não fizer até X, alerta'."
                 }
             },
             "required": ["action"]
@@ -103,6 +117,9 @@ class CronTool(Tool):
         start_date: str | None = None,
         job_id: str | None = None,
         allow_relaxed_interval: bool = False,
+        remind_again_if_unconfirmed_seconds: int | None = None,
+        depends_on_job_id: str | None = None,
+        has_deadline: bool = False,
         **kwargs: Any
     ) -> str:
         if action == "add":
@@ -129,6 +146,9 @@ class CronTool(Tool):
                 use_pre_reminders=use_pre_reminders,
                 long_event_24h=long_event_24h,
                 allow_relaxed_interval=allow_relaxed,
+                remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
+                depends_on_job_id=depends_on_job_id,
+                has_deadline=has_deadline,
             )
         elif action == "list":
             return self._list_jobs()
@@ -247,6 +267,9 @@ class CronTool(Tool):
         use_pre_reminders: bool = True,
         long_event_24h: bool = False,
         allow_relaxed_interval: bool = False,
+        remind_again_if_unconfirmed_seconds: int | None = None,
+        depends_on_job_id: str | None = None,
+        has_deadline: bool = False,
     ) -> str:
         message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
@@ -313,6 +336,15 @@ class CronTool(Tool):
         if dup_result:
             return dup_result
 
+        if remind_again_if_unconfirmed_seconds is not None:
+            if remind_again_if_unconfirmed_seconds < 60 or remind_again_if_unconfirmed_seconds > 3600:
+                return "O adiamento «lembra de novo se não confirmar» deve estar entre 1 e 60 minutos."
+        if depends_on_job_id:
+            dep = self._cron.get_job(depends_on_job_id.strip().upper()[:16])
+            if not dep or getattr(dep.payload, "to", None) != self._chat_id:
+                return f"Não encontrei o lembrete «{depends_on_job_id}» para encadear. Verifica o id em /lembrete (lista)."
+        # has_deadline: apenas para lembretes pontuais (in_seconds); main não remove até confirmar ou 3 lembretes pós-prazo
+        use_deadline = has_deadline and in_seconds is not None and in_seconds > 0
         job = self._cron.add_job(
             name=message[:30],
             schedule=schedule,
@@ -320,9 +352,25 @@ class CronTool(Tool):
             deliver=True,
             channel=self._channel,
             to=self._chat_id,
-            delete_after_run=delete_after_run,
+            delete_after_run=delete_after_run and not use_deadline,
             suggested_prefix=suggested_prefix,
+            remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
+            depends_on_job_id=depends_on_job_id.strip().upper()[:16] if depends_on_job_id else None,
+            has_deadline=use_deadline,
         )
+        if use_deadline and job.schedule.kind == "at" and job.schedule.at_ms:
+            at_ms = job.schedule.at_ms + (5 * 60 * 1000)
+            self._cron.add_job(
+                name=f"{message[:22]} (prazo)",
+                schedule=CronSchedule(kind="at", at_ms=at_ms),
+                message=message,
+                deliver=False,
+                channel=self._channel,
+                to=self._chat_id,
+                delete_after_run=True,
+                payload_kind="deadline_check",
+                deadline_check_for_job_id=job.id,
+            )
         # Avisos antes do evento: só quando o tipo de lembrete exige (reunião, voo, consulta...) ou evento muito longo (24h automático)
         pre_reminder_count = 0
         if in_seconds is not None and in_seconds > 0 and use_pre_reminders:
@@ -408,6 +456,11 @@ class CronTool(Tool):
         msg = f"Lembrete agendado (id: {job.id})."
         if pre_reminder_count > 0:
             msg += f" + {pre_reminder_count} aviso(s) antes do evento (conforme as tuas preferências)."
+        if remind_again_if_unconfirmed_seconds:
+            m = remind_again_if_unconfirmed_seconds // 60
+            msg += f" Se não confirmares com 👍, relembro em {m} min."
+        if depends_on_job_id:
+            msg += f" Dispara depois de marcar «{depends_on_job_id}» como feito."
         # Para lembretes "daqui a X min", mostrar a hora no timezone do utilizador
         if in_seconds is not None and in_seconds > 0 and job.state.next_run_at_ms:
             at_sec = job.state.next_run_at_ms // 1000

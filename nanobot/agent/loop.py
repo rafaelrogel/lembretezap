@@ -794,21 +794,26 @@ class AgentLoop:
                             from backend.onboarding_skip import is_likely_not_city
                             from backend.timezone import phone_to_default_timezone
                             from backend.user_store import set_user_timezone
-                            from backend.locale import ONBOARDING_COMPLETE_TZ_FROM_PHONE, ONBOARDING_RESET_HINT
+                            from backend.locale import ONBOARDING_COMPLETE_TZ_FROM_PHONE, ONBOARDING_RESET_HINT, ONBOARDING_EMOJI_TIP
                             if city_raw and not is_likely_not_city(city_raw):
                                 city_name, tz_iana = await self._extract_city_and_timezone_with_mimo(city_raw)
                                 if city_name and not is_likely_not_city(city_name):
                                     set_user_city(db, msg.chat_id, city_name, tz_iana=tz_iana)
                                     complete_msg = ONBOARDING_COMPLETE.get(user_lang, ONBOARDING_COMPLETE["en"])
+                                    complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                     complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
                                 else:
                                     tz = phone_to_default_timezone(msg.chat_id)
                                     set_user_timezone(db, msg.chat_id, tz)
                                     complete_msg = ONBOARDING_COMPLETE_TZ_FROM_PHONE.get(user_lang, ONBOARDING_COMPLETE_TZ_FROM_PHONE["en"])
+                                    complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
+                                    complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
                             else:
                                 tz = phone_to_default_timezone(msg.chat_id)
                                 set_user_timezone(db, msg.chat_id, tz)
                                 complete_msg = ONBOARDING_COMPLETE_TZ_FROM_PHONE.get(user_lang, ONBOARDING_COMPLETE_TZ_FROM_PHONE["en"])
+                                complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
+                                complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
                             session.metadata.pop("pending_city", None)
                             self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
                             self.sessions.save(session)

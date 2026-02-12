@@ -5,7 +5,7 @@ from typing import Any
 from nanobot.agent.tools.base import Tool
 from backend.database import SessionLocal
 from backend.user_store import get_or_create_user
-from backend.models_db import List, ListItem, AuditLog
+from backend.models_db import List, ListItem, AuditLog, Project
 from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_ITEM_TEXT_LEN
 from backend.list_item_correction import suggest_correction
 
@@ -94,7 +94,8 @@ class ListTool(Tool):
             return "Error: list_name and item_text required for add"
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
-            lst = List(user_id=user_id, name=list_name)
+            proj = db.query(Project).filter(Project.user_id == user_id, Project.name == list_name).first()
+            lst = List(user_id=user_id, name=list_name, project_id=proj.id if proj else None)
             db.add(lst)
             db.flush()
         item = ListItem(list_id=lst.id, text=item_text)

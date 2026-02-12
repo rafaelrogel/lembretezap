@@ -145,6 +145,13 @@ def test_command_parser():
     assert i is not None and i["type"] == "lembrete"
     assert i.get("cron_expr") == "0 9 1 * *" and "pagar contas" in i.get("message", "")
 
+    # /lembrete encadeado: depois de X
+    i = parse("/lembrete enviar relatório depois de PIX")
+    assert i is not None and i["type"] == "lembrete"
+    assert i.get("depends_on_job_id") == "PIX" and "enviar relatório" in i.get("message", "")
+    i = parse("/lembrete B em 10 min depois de AL")
+    assert i is not None and i.get("depends_on_job_id") == "AL" and i.get("in_seconds") == 600
+
     # /list
     i = parse("/list mercado add leite")
     assert i == {"type": "list_add", "list_name": "mercado", "item": "leite"}

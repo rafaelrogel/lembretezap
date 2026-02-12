@@ -74,7 +74,9 @@ class WhatsAppChannel(BaseChannel):
         self._ws = None
         self._connected = False
         self._cron_tool = None  # opcional: para lembretes 15 min antes de eventos .ics
+        self._cron_service = None  # para remover job ao reagir com emoji positivo
         self._restart_executor = None  # (channel, chat_id) -> awaitable; injetado pelo gateway
+        self._pending_sends: dict[str, asyncio.Future] = {}
 
     def set_restart_executor(self, executor) -> None:
         """Injetar função async execute_restart(channel, chat_id) para o comando /restart."""
@@ -83,6 +85,10 @@ class WhatsAppChannel(BaseChannel):
     def set_ics_cron_tool(self, cron_tool) -> None:
         """Injetar CronTool para criar lembretes 15 min antes de cada evento ao importar .ics."""
         self._cron_tool = cron_tool
+
+    def set_cron_service(self, cron_service: Any) -> None:
+        """Injetar CronService para remover job ao reagir com emoji positivo."""
+        self._cron_service = cron_service
 
     async def start(self) -> None:
         """Start the WhatsApp channel by connecting to the bridge."""
@@ -146,16 +152,49 @@ class WhatsAppChannel(BaseChannel):
             except Exception:
                 pass
             return
-        
+
+        job_id = (msg.metadata or {}).get("job_id") if msg.metadata else None
+        request_id = str(uuid.uuid4()) if job_id else None
         try:
-            payload = {
+            payload: dict[str, Any] = {
                 "type": "send",
                 "to": msg.chat_id,
-                "text": msg.content
+                "text": msg.content,
             }
+            if job_id:
+                payload["job_id"] = job_id
+            if request_id:
+                payload["request_id"] = request_id
+
+            future = None
+            if request_id:
+                future = asyncio.get_running_loop().create_future()
+                self._pending_sends[request_id] = future
+
             logger.info(f"WhatsApp send: to={str(msg.chat_id)[:30]}... len={len(msg.content)}")
             await self._ws.send(json.dumps(payload))
+
+            if future and job_id:
+                try:
+                    result = await asyncio.wait_for(future, timeout=10.0)
+                    msg_id = result.get("id") if isinstance(result, dict) else None
+                    if msg_id:
+                        try:
+                            from backend.database import SessionLocal
+                            from backend.reminder_reaction import store_sent_mapping
+                            db = SessionLocal()
+                            try:
+                                store_sent_mapping(db, msg.chat_id, msg_id, job_id)
+                            finally:
+                                db.close()
+                        except Exception as e:
+                            logger.debug(f"Store sent mapping failed: {e}")
+                except asyncio.TimeoutError:
+                    logger.debug("WhatsApp send: no sent confirmation within 10s")
+                finally:
+                    self._pending_sends.pop(request_id, None)
         except Exception as e:
+            self._pending_sends.pop(request_id, None) if request_id else None
             logger.error(f"Error sending WhatsApp message: {e}")
     
     async def _handle_bridge_message(self, raw: str) -> None:
@@ -167,7 +206,19 @@ class WhatsAppChannel(BaseChannel):
             return
         
         msg_type = data.get("type")
-        
+
+        if msg_type == "sent":
+            req_id = data.get("request_id")
+            if req_id and req_id in self._pending_sends:
+                fut = self._pending_sends.pop(req_id, None)
+                if fut and not fut.done():
+                    fut.set_result({"id": data.get("id"), "job_id": data.get("job_id")})
+            return
+
+        if msg_type == "reaction":
+            await self._handle_reaction(data)
+            return
+
         if msg_type == "message":
             # Evitar processar o mesmo evento várias vezes (reduz chamadas LLM duplicadas)
             msg_id = (data.get("id") or "").strip()
@@ -410,3 +461,76 @@ class WhatsAppChannel(BaseChannel):
         
         elif msg_type == "error":
             logger.error(f"WhatsApp bridge error: {data.get('error')}")
+
+    async def _handle_reaction(self, data: dict) -> None:
+        """Trata reação em mensagem: emoji positivo = feito (remove job); negativo = perguntar reagendar."""
+        if data.get("fromMe"):
+            return
+        chat_id = (data.get("chatId") or "").strip()
+        message_id = (data.get("messageId") or "").strip()
+        emoji = (data.get("emoji") or "").strip()
+        if not chat_id or not message_id:
+            return
+        if chat_id.endswith(WHATSAPP_GROUP_SUFFIX):
+            return
+        try:
+            from backend.database import SessionLocal
+            from backend.reminder_reaction import (
+                lookup_job_by_message,
+                is_positive_emoji,
+                is_negative_emoji,
+                is_snooze_emoji,
+            )
+            db = SessionLocal()
+            try:
+                job_id = lookup_job_by_message(db, chat_id, message_id)
+            finally:
+                db.close()
+            if not job_id:
+                return
+            if is_positive_emoji(emoji):
+                completed_job_id = job_id
+                if self._cron_service:
+                    j = self._cron_service.get_job(job_id)
+                    if j:
+                        parent_id = getattr(j.payload, "parent_job_id", None) or None
+                        if parent_id:
+                            completed_job_id = parent_id
+                    # Confirmar conclusão: pedir sim/não antes de marcar como feito
+                    from backend.confirmations import set_pending
+                    set_pending(self.name, chat_id, "completion_confirmation", {
+                        "job_id": job_id,
+                        "completed_job_id": completed_job_id,
+                    })
+                    logger.info(f"Reação positiva: pedindo confirmação para job {job_id}")
+                await self.bus.publish_outbound(OutboundMessage(
+                    channel=self.name,
+                    chat_id=chat_id,
+                    content="Confirmas que concluíste? Responde *sim* ou *não*.",
+                ))
+            elif is_snooze_emoji(emoji):
+                if self._cron_service:
+                    ok, count = self._cron_service.snooze_job(job_id)
+                    if ok:
+                        await self.bus.publish_outbound(OutboundMessage(
+                            channel=self.name,
+                            chat_id=chat_id,
+                            content=f"⏰ Adiado 5 min! (soneca {count}/3)",
+                        ))
+                    elif count >= self._cron_service.SNOOZE_MAX_COUNT:
+                        await self.bus.publish_outbound(OutboundMessage(
+                            channel=self.name,
+                            chat_id=chat_id,
+                            content="Máximo 3 sonecas. Queres alterar o horário? Diz o novo horário ou *não* para cancelar.",
+                        ))
+                    # count==0 e ok==False: job já não existe (ex.: follow-up já executou), ignora
+            elif is_negative_emoji(emoji):
+                if self._cron_service:
+                    self._cron_service.remove_job(job_id)
+                await self.bus.publish_outbound(OutboundMessage(
+                    channel=self.name,
+                    chat_id=chat_id,
+                    content="Queres alterar o horário? Diz o novo horário (ex: em 1 hora, amanhã às 10h) ou *não* para cancelar.",
+                ))
+        except Exception as e:
+            logger.debug(f"Reaction handler failed: {e}")
