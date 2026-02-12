@@ -60,7 +60,7 @@ def is_god_mode_password(content_after_hash: str) -> bool:
 _ADMIN_CMD_RE = re.compile(r"^\s*#(\w+)(?:\s+(.*))?\s*$", re.I)
 _VALID_COMMANDS = frozenset({
     "status", "users", "paid", "cron", "server", "system", "ai", "painpoints",
-    "injection", "add", "remove", "mute", "quit", "msgs",
+    "injection", "add", "remove", "mute", "quit", "msgs", "lembretes", "tz",
 })
 
 
@@ -117,7 +117,7 @@ async def handle_admin_command(
     raw = (command or "").strip()
     cmd = raw.lstrip("#").strip().lower() if raw.startswith("#") else raw.lower()
     if not cmd or cmd not in _VALID_COMMANDS:
-        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #paid #cron #server #msgs #system #ai #painpoints #injection #add <nr> #remove <nr> #mute <nr> #quit"
+        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints #add <nr> #remove <nr> #mute <nr> #quit"
 
     if cmd == "status":
         return _cmd_status()
@@ -130,6 +130,14 @@ async def handle_admin_command(
 
     if cmd == "cron":
         return _cmd_cron(cron_store_path)
+
+    if cmd == "lembretes":
+        _, arg = parse_admin_command_arg(raw)
+        return _cmd_lembretes(cron_store_path, arg)
+
+    if cmd == "tz":
+        _, arg = parse_admin_command_arg(raw)
+        return await _cmd_tz(db_session_factory, arg)
 
     if cmd == "server":
         return _cmd_server(cron_store_path=cron_store_path, wa_channel=wa_channel)
@@ -186,7 +194,7 @@ def _cmd_status() -> str:
     """Resumo rápido do sistema."""
     lines = [
         "#status",
-        "God Mode ativo. Comandos: #users #paid #cron #server #msgs #system #ai #painpoints #injection",
+        "God Mode ativo. Comandos: #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints",
         "#add <nr> #remove <nr> #mute <nr> #quit",
     ]
     return "\n".join(lines)
@@ -229,26 +237,78 @@ async def _cmd_paid(db_session_factory: Any) -> str:
 
 
 def _cmd_cron(cron_store_path: Path | None) -> str:
-    """Quantidade de cron jobs e status (último run / next run)."""
+    """Quantidade de cron jobs, por utilizador, duplicatas e atrasados (>60s)."""
     path = cron_store_path or (Path.home() / ".nanobot" / "cron" / "jobs.json")
     if not path.exists():
         return "#cron\n0 jobs (ficheiro não encontrado)."
     try:
         data = json.loads(path.read_text())
         jobs = data.get("jobs", [])
+        enabled_jobs = [j for j in jobs if j.get("enabled", True)]
         total = len(jobs)
-        enabled = sum(1 for j in jobs if j.get("enabled", True))
+        enabled = len(enabled_jobs)
+        now_ms = int(time.time() * 1000)
         lines = [f"#cron\nJobs: {total} (ativos: {enabled})"]
-        for j in jobs[:10]:
+
+        # Jobs por utilizador (payload.to)
+        by_user: dict[str, list] = {}
+        for j in enabled_jobs:
+            to = (j.get("payload") or {}).get("to") or "?"
+            to_digits = _digits(to)
+            key = to_digits if len(to_digits) >= 8 else to
+            by_user.setdefault(key, []).append(j)
+
+        # Alertas: utilizadores com muitos jobs
+        for uid, ujobs in sorted(by_user.items(), key=lambda x: -len(x[1])):
+            n = len(ujobs)
+            suf = ""
+            if n >= 10:
+                suf = " (EXCESSIVO!)"
+            elif n >= 5:
+                suf = " (muitos)"
+            lines.append(f"  ***{uid[-6:]}: {n}{suf}")
+
+        # Duplicatas: mesma msg + schedule para o mesmo user
+        dup_groups = 0
+        for uid, ujobs in by_user.items():
+            seen: dict[str, int] = {}
+            for j in ujobs:
+                p = j.get("payload") or {}
+                s = j.get("schedule") or {}
+                k = f"{str(p.get('message','')).lower()}|{s.get('kind')}|{s.get('everyMs')}|{s.get('expr')}|{s.get('atMs')}"
+                seen[k] = seen.get(k, 0) + 1
+            dup_groups += sum(1 for c in seen.values() if c > 1)
+        if dup_groups:
+            lines.append(f"⚠ Duplicatas: {dup_groups} grupo(s)")
+
+        # Atrasados (>60s)
+        atrasados = [
+            j for j in enabled_jobs
+            if (j.get("state") or {}).get("nextRunAtMs") and (j.get("state") or {}).get("nextRunAtMs", 0) < now_ms - 60_000
+        ]
+        if atrasados:
+            lines.append(f"⚠ Atrasados >60s: {len(atrasados)}")
+            for j in atrasados[:5]:
+                name = (j.get("payload") or {}).get("message", j.get("id", "?"))[:25]
+                to = (j.get("payload") or {}).get("to", "?")
+                lines.append(f"    - {name} (***{_digits(to)[-6:]})")
+            if len(atrasados) > 5:
+                lines.append(f"    ... e mais {len(atrasados) - 5}")
+
+        # Primeiros 8 jobs (next/last)
+        lines.append("")
+        for j in enabled_jobs[:8]:
             state = j.get("state", {})
             next_ms = state.get("nextRunAtMs")
             last_ms = state.get("lastRunAtMs")
-            name = j.get("name", j.get("id", "?"))[:20]
+            name = (j.get("payload") or {}).get("message", j.get("id", j.get("name", "?")))[:20]
+            to = (j.get("payload") or {}).get("to", "")
             next_str = f"next: {_ms_to_short(next_ms)}" if next_ms else "next: -"
             last_str = f"last: {_ms_to_short(last_ms)}" if last_ms else "last: -"
-            lines.append(f"  {name} | {next_str} | {last_str}")
-        if total > 10:
-            lines.append(f"  ... e mais {total - 10}")
+            atraso = " (atrasado)" if next_ms and next_ms < now_ms - 60_000 else ""
+            lines.append(f"  {name} | ***{_digits(to)[-6:]}{atraso} | {next_str} | {last_str}")
+        if enabled > 8:
+            lines.append(f"  ... e mais {enabled - 8}")
         return "\n".join(lines)
     except Exception as e:
         logger.debug(f"admin #cron failed: {e}")
@@ -269,6 +329,131 @@ def _ms_to_short(ms: int | None) -> str:
         return f"{int(t // 86400)}d"
     except Exception:
         return "-"
+
+
+def _digits(s: str) -> str:
+    """Extrai só os dígitos."""
+    return "".join(c for c in str(s or "") if c.isdigit())
+
+
+def _to_matches_user(to: str | None, user_arg: str) -> bool:
+    """True se payload.to corresponde ao utilizador (arg = número, ex. 5511999999999)."""
+    if not user_arg or not to:
+        return False
+    arg_digits = _digits(user_arg)
+    to_digits = _digits(to)
+    if not arg_digits or len(arg_digits) < 8:
+        return False
+    return to_digits == arg_digits or to_digits.endswith(arg_digits) or arg_digits.endswith(to_digits)
+
+
+def _cmd_lembretes(cron_store_path: Path | None, user_arg: str) -> str:
+    """Lista lembretes de um utilizador por número. Detecta duplicatas (mesma msg + schedule)."""
+    if not user_arg or len(_digits(user_arg)) < 8:
+        return "#lembretes\nUso: #lembretes <número> (ex: #lembretes 5511999999999)"
+    path = cron_store_path or (Path.home() / ".nanobot" / "cron" / "jobs.json")
+    if not path.exists():
+        return "#lembretes\n0 jobs (ficheiro não encontrado)."
+    try:
+        data = json.loads(path.read_text())
+        jobs = data.get("jobs", [])
+        user_jobs = [
+            j for j in jobs
+            if j.get("enabled", True)
+            and _to_matches_user((j.get("payload") or {}).get("to"), user_arg)
+        ]
+        if not user_jobs:
+            return f"#lembretes\nUtilizador {_digits(user_arg)[-8:]}***: 0 lembretes ativos."
+        lines = [f"#lembretes\nUtilizador ***{_digits(user_arg)[-6:]}: {len(user_jobs)} lembretes"]
+        now_ms = int(time.time() * 1000)
+        seen_key: dict[str, int] = {}
+        for i, j in enumerate(user_jobs, 1):
+            payload = j.get("payload") or {}
+            msg = (payload.get("message") or "?")[:40]
+            sched = j.get("schedule") or {}
+            kind = sched.get("kind", "?")
+            next_ms = (j.get("state") or {}).get("nextRunAtMs")
+            created_ms = j.get("createdAtMs") or 0
+            dup_tag = ""
+            key = f"{msg.lower()}|{kind}|{sched.get('everyMs')}|{sched.get('expr')}|{sched.get('atMs')}"
+            seen_key[key] = seen_key.get(key, 0) + 1
+            if seen_key[key] > 1:
+                dup_tag = " [DUPLICADO]"
+            sched_str = ""
+            if kind == "every" and sched.get("everyMs"):
+                s = sched["everyMs"] // 1000
+                sched_str = f"a cada {s}s" if s < 3600 else f"a cada {s // 3600}h"
+            elif kind == "cron" and sched.get("expr"):
+                sched_str = sched["expr"]
+            elif kind == "at" and sched.get("atMs"):
+                try:
+                    from datetime import datetime
+                    dt = datetime.fromtimestamp(sched["atMs"] / 1000)
+                    sched_str = dt.strftime("%d/%m %H:%M")
+                except Exception:
+                    sched_str = "pontual"
+            next_str = _ms_to_short(next_ms) + " (atrasado)" if next_ms and next_ms < now_ms - 60_000 else _ms_to_short(next_ms)
+            created_str = ""
+            if created_ms:
+                try:
+                    from datetime import datetime
+                    created_str = datetime.fromtimestamp(created_ms / 1000).strftime("%d/%m %H:%M")
+                except Exception:
+                    pass
+            lines.append(f"{i}. {msg}{dup_tag}")
+            lines.append(f"   Schedule: {sched_str} | próximo: {next_str} | criado: {created_str}")
+        dup_count = sum(1 for c in seen_key.values() if c > 1)
+        if dup_count:
+            lines.append(f"\n⚠ {dup_count} grupo(s) com duplicatas")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.debug(f"admin #lembretes failed: {e}")
+        return "#lembretes\nErro ao ler jobs."
+
+
+async def _cmd_tz(db_session_factory: Any, user_arg: str) -> str:
+    """Timezone e dados do utilizador."""
+    if not user_arg or len(_digits(user_arg)) < 8:
+        return "#tz\nUso: #tz <número> (ex: #tz 5511999999999)"
+    digits = _digits(user_arg)
+    try:
+        from datetime import datetime
+        now_sec = int(time.time())
+        lines = [f"#tz\nUtilizador ***{digits[-6:]}"]
+
+        if db_session_factory:
+            db = db_session_factory()
+            try:
+                chat_id = f"{digits}@s.whatsapp.net"
+                from backend.user_store import get_user_timezone
+                from backend.timezone import format_utc_timestamp_for_user
+                tz_iana = get_user_timezone(db, chat_id)
+                lines.append(f"Timezone: {tz_iana}")
+                hora_local = format_utc_timestamp_for_user(now_sec, tz_iana)
+                from zoneinfo import ZoneInfo
+                try:
+                    z = ZoneInfo(tz_iana)
+                    from datetime import datetime
+                    dt = datetime.fromtimestamp(now_sec, tz=z)
+                    lines.append(f"Hora local: {dt.strftime('%H:%M')} ({dt.strftime('%d/%m')})")
+                except Exception:
+                    lines.append(f"Hora local: {hora_local}")
+            finally:
+                db.close()
+
+        if not db_session_factory:
+            from backend.timezone import phone_to_default_timezone
+            tz_iana = phone_to_default_timezone(f"{digits}@s.whatsapp.net")
+            lines.append(f"Timezone (inferido): {tz_iana}")
+            from backend.timezone import format_utc_timestamp_for_user
+            hora_local = format_utc_timestamp_for_user(now_sec, tz_iana)
+            lines.append(f"Hora local: {hora_local}")
+
+        lines.append(f"Hora servidor (UTC): {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.debug(f"admin #tz failed: {e}")
+        return "#tz\nErro ao obter timezone."
 
 
 def _cmd_server(
