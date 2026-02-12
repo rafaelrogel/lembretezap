@@ -182,6 +182,12 @@ _REMINDER_REQUEST_PREFIXES = (
     "não esqueça", "nao esqueca", "não esqueças", "lembre-me",
 )
 
+# Prefixos soltos que, combinados com termo recorrente no resto, indicam pedido de lembrete
+_SOFT_REMINDER_PREFIXES = (
+    "quero ", "preciso ", "gostaria de ", "lembra ", "me lembra ",
+    "quiero ", "necesito ", "i want ", "i need ", "remind me ",
+)
+
 
 def _normalize(t: str) -> str:
     """Lowercase, remove acentos."""
@@ -233,5 +239,13 @@ def looks_like_reminder_without_time(content: str) -> tuple[bool, str | None]:
             rest = t[idx + len(prefix):].strip()
             rest = re.sub(r"^(que|of|to|de)\s+", "", rest, flags=re.I).strip()
             if rest and len(rest) >= 3:
+                return True, rest
+
+    # "Quero beber agua", "Preciso tomar remédio" — prefixo solto + termo recorrente
+    for prefix in _SOFT_REMINDER_PREFIXES:
+        if tl.startswith(prefix) and len(t) > len(prefix) + 2:
+            rest = t[len(prefix):].strip()
+            rest = re.sub(r"^(que|of|to|de)\s+", "", rest, flags=re.I).strip()
+            if rest and len(rest) >= 3 and is_in_recurring_list(rest):
                 return True, rest
     return False, None

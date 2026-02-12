@@ -63,6 +63,7 @@ class AgentLoop:
         scope_provider: "LLMProvider | None" = None,
         max_iterations: int = 20,
         cron_service: "CronService | None" = None,
+        perplexity_api_key: str | None = None,
     ):
         from nanobot.cron.service import CronService
         self.bus = bus
@@ -73,7 +74,8 @@ class AgentLoop:
         self.scope_provider = scope_provider  # quando setado, scope filter e heartbeat usam este (ex.: Xiaomi)
         self.max_iterations = max_iterations
         self.cron_service = cron_service
-        
+        self._perplexity_api_key = (perplexity_api_key or "").strip()
+
         self.context = ContextBuilder(workspace)
         self.sessions = SessionManager(workspace)
         self.tools = ToolRegistry()
@@ -101,8 +103,15 @@ class AgentLoop:
                 scope_model=self.scope_model or "",
             ))
         # List and event tools (per-user DB)
-        self.tools.register(ListTool())
+        self.tools.register(ListTool(
+            scope_provider=self.scope_provider,
+            scope_model=self.scope_model or "",
+        ))
         self.tools.register(EventTool())
+        # Search tool (Perplexity) — só quando API key disponível
+        if self._perplexity_api_key:
+            from nanobot.agent.tools.search_tool import SearchTool
+            self.tools.register(SearchTool(api_key=self._perplexity_api_key))
     
     async def run(self) -> None:
         """Run the agent loop, processing messages from the bus."""
@@ -1020,8 +1029,11 @@ class AgentLoop:
                 final_content = response.content
                 break
         
-        if final_content is None:
-            final_content = "I've completed processing but have no response to give."
+        if not (final_content or "").strip():
+            from backend.locale import AGENT_NO_RESPONSE_FALLBACK
+            final_content = AGENT_NO_RESPONSE_FALLBACK.get(
+                user_lang or "pt-BR", AGENT_NO_RESPONSE_FALLBACK["pt-BR"]
+            )
         
         # Log response preview
         preview = final_content[:120] + "..." if len(final_content) > 120 else final_content

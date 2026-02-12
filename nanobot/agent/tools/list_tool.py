@@ -7,13 +7,16 @@ from backend.database import SessionLocal
 from backend.user_store import get_or_create_user
 from backend.models_db import List, ListItem, AuditLog
 from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_ITEM_TEXT_LEN
+from backend.list_item_correction import suggest_correction
 
 
 class ListTool(Tool):
     """Manage lists per user: add item, list items, remove, mark done (feito)."""
 
-    def __init__(self):
-        self._chat_id = ""  # phone for WhatsApp
+    def __init__(self, scope_provider=None, scope_model: str = ""):
+        self._chat_id = ""
+        self._scope_provider = scope_provider
+        self._scope_model = (scope_model or "").strip()
 
     def set_context(self, channel: str, chat_id: str) -> None:
         self._chat_id = chat_id
@@ -60,7 +63,16 @@ class ListTool(Tool):
         try:
             user = get_or_create_user(db, self._chat_id)
             if action == "add":
-                return self._add(db, user.id, list_name, item_text)
+                list_clean = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
+                item_clean = sanitize_string(item_text or "", MAX_ITEM_TEXT_LEN)
+                corrected = await suggest_correction(
+                    list_clean, item_clean,
+                    self._scope_provider, self._scope_model,
+                    max_len=MAX_ITEM_TEXT_LEN,
+                )
+                if corrected:
+                    item_clean = sanitize_string(corrected, MAX_ITEM_TEXT_LEN)
+                return self._add(db, user.id, list_clean, item_clean)
             if action == "list":
                 return self._list(db, user.id, list_name)
             if action == "remove":

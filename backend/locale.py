@@ -228,6 +228,15 @@ OUT_OF_SCOPE_FALLBACKS: dict[LangCode, list[str]] = {
 }
 
 
+# Fallback quando o agente não produz resposta (ex.: mensagem muito longa, stress test)
+AGENT_NO_RESPONSE_FALLBACK: dict[LangCode, str] = {
+    "pt-PT": "Desculpa, não consegui processar completamente. Podes reformular ou dividir em partes mais pequenas? /help mostra os comandos. 😊",
+    "pt-BR": "Desculpa, não consegui processar completamente. Pode reformular ou dividir em partes menores? /help mostra os comandos. 😊",
+    "es": "Lo siento, no pude procesar completamente. ¿Puedes reformular o dividir en partes más pequeñas? /help muestra los comandos. 😊",
+    "en": "Sorry, I couldn't process that fully. Can you rephrase or break it into smaller parts? /help shows the commands. 😊",
+}
+
+
 # Durante o onboarding: "Quer comunicar noutro idioma? Temos pt-PT, pt-BR, es, en."
 ONBOARDING_LANGUAGE_QUESTION: dict[LangCode, str] = {
     "pt-PT": "Queres comunicar noutro idioma? Temos português de Portugal (pt-PT), português do Brasil (pt-BR), espanhol (es) e inglês (en). Diz o código ou o nome do idioma, ou «não» para continuar. 😊",

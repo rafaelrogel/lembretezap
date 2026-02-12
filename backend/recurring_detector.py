@@ -9,18 +9,20 @@ from backend.recurring_patterns import (
 )
 from backend.locale import LangCode
 
-# Mensagens para solicitar recorrência nos 4 idiomas
-ASK_RECURRENCE_MSG: dict[LangCode, str] = {
-    "pt-PT": "Parece recorrente. Qual a frequência? Ex: todo dia às 8h ou a cada 12h.",
-    "pt-BR": "Parece recorrente. Qual a frequência? Ex: todo dia às 8h ou a cada 12h.",
-    "es": "Parece recurrente. ¿Con qué frecuencia? Ej: cada día a las 8h o cada 12h.",
-    "en": "Looks recurring. How often? E.g. every day at 8am or every 12h.",
+# Mensagens para solicitar quando/frequência (lembrete sem tempo)
+ASK_WHEN_MSG: dict[LangCode, str] = {
+    "pt-PT": "Quando queres o lembrete? Ex: em 10 min, amanhã às 8h, todo dia às 10h ou a cada 2h.",
+    "pt-BR": "Quando você quer o lembrete? Ex: em 10 min, amanhã às 8h, todo dia às 10h ou a cada 2h.",
+    "es": "¿Cuándo quieres el recordatorio? Ej: en 10 min, mañana a las 8h, cada día a las 10h o cada 2h.",
+    "en": "When do you want the reminder? E.g. in 10 min, tomorrow at 8am, every day at 10am or every 2h.",
 }
+# Alias para compatibilidade
+ASK_RECURRENCE_MSG = ASK_WHEN_MSG
 
 
 def get_ask_recurrence_message(lang: LangCode = "pt-BR") -> str:
-    """Mensagem para solicitar a recorrência ao utilizador."""
-    return ASK_RECURRENCE_MSG.get(lang, ASK_RECURRENCE_MSG["pt-BR"])
+    """Mensagem para solicitar quando/frequência ao utilizador."""
+    return ASK_WHEN_MSG.get(lang, ASK_WHEN_MSG["pt-BR"])
 
 
 async def is_likely_recurring(
@@ -65,14 +67,50 @@ async def maybe_ask_recurrence(
     scope_model: str = "",
 ) -> str | None:
     """
-    Se o conteúdo for pedido de lembrete sem tempo E parecer recorrente,
-    retorna a mensagem para solicitar recorrência. Caso contrário, None.
-    Também trata /lembrete X quando X não tem tempo (via command_parser).
+    Se o conteúdo for pedido de lembrete sem tempo explícito, retorna mensagem
+    pedindo quando/frequência. Nunca deixa o agent inventar (ex: 2 min).
+    - Padrões conhecidos: looks_like_reminder_without_time
+    - Ambíguos: usa Mimo para classificar se é pedido de lembrete sem tempo
     """
     is_reminder, msg_extract = looks_like_reminder_without_time(content)
-    if not is_reminder or not msg_extract:
-        return None
-    is_rec = await is_likely_recurring(msg_extract, scope_provider, scope_model)
-    if not is_rec:
-        return None
-    return get_ask_recurrence_message(lang)
+    if is_reminder and msg_extract:
+        return get_ask_recurrence_message(lang)
+    # Fallback Mimo: mensagens curtas que podem ser lembrete sem tempo
+    if (
+        content
+        and 10 < len((content or "").strip()) < 120
+        and scope_provider
+        and scope_model
+    ):
+        is_reminder_mimo = await _mimo_is_reminder_without_time(
+            content.strip(), scope_provider, scope_model
+        )
+        if is_reminder_mimo:
+            return get_ask_recurrence_message(lang)
+    return None
+
+
+async def _mimo_is_reminder_without_time(
+    content: str, scope_provider, scope_model: str
+) -> bool:
+    """
+    Usa Mimo para classificar: é pedido de lembrete sem data/hora? SIM/NAO.
+    Fallback para casos que os padrões não pegam (ex: frases coloquiais).
+    """
+    try:
+        prompt = (
+            f"The user wrote: «{content[:200]}». "
+            "Is this a request for a REMINDER or scheduled event WITHOUT explicit time? "
+            "(e.g. 'I want to drink water', 'remind me to call João' — no 'in 5 min', 'tomorrow 8am', etc.) "
+            "Reply ONLY: SIM or NAO (or YES/NO)."
+        )
+        r = await scope_provider.chat(
+            messages=[{"role": "user", "content": prompt}],
+            model=scope_model,
+            max_tokens=10,
+            temperature=0,
+        )
+        raw = (r.content or "").strip().upper()
+        return "SIM" in raw or "YES" in raw or raw.startswith("S") or raw.startswith("Y")
+    except Exception:
+        return False

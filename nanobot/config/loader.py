@@ -79,6 +79,7 @@ def _apply_provider_env_overrides(data: dict) -> None:
         ("deepseek", "NANOBOT_PROVIDERS__DEEPSEEK__API_KEY"),
         ("xiaomi", "NANOBOT_PROVIDERS__XIAOMI__API_KEY"),
         ("openrouter", "NANOBOT_PROVIDERS__OPENROUTER__API_KEY"),
+        ("perplexity", "NANOBOT_PROVIDERS__PERPLEXITY__API_KEY"),
     )
     for key, env_var in env_keys:
         val = os.environ.get(env_var)

@@ -53,6 +53,7 @@ class ProvidersConfig(BaseModel):
     moonshot: ProviderConfig = Field(default_factory=ProviderConfig)
     aihubmix: ProviderConfig = Field(default_factory=ProviderConfig)  # AiHubMix API gateway
     xiaomi: ProviderConfig = Field(default_factory=ProviderConfig)  # Xiaomi MiMo (scope + heartbeat)
+    perplexity: ProviderConfig = Field(default_factory=ProviderConfig)  # Perplexity Search API
 
 
 class GatewayConfig(BaseModel):

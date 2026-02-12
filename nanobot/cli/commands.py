@@ -247,6 +247,7 @@ def gateway(
     cron = CronService(cron_store_path)
     
     # Create agent with cron service
+    perplexity_key = (config.providers.perplexity.api_key or "").strip() if config.providers.perplexity else ""
     agent = AgentLoop(
         bus=bus,
         provider=provider,
@@ -256,6 +257,7 @@ def gateway(
         scope_provider=scope_provider,
         max_iterations=config.agents.defaults.max_tool_iterations,
         cron_service=cron,
+        perplexity_api_key=perplexity_key or None,
     )
     
     # Recap de Ano Novo (1º jan): system_event yearly_recap → DeepSeek + Mimo para cada utilizador
