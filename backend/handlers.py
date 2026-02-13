@@ -19,37 +19,6 @@ if TYPE_CHECKING:
 from backend.handler_context import HandlerContext, _reply_confirm_prompt
 
 # ---------------------------------------------------------------------------
-# Pedido de contacto com atendimento ao cliente — DeepSeek mensagem empática
-# ---------------------------------------------------------------------------
-
-async def handle_atendimento_request(ctx: HandlerContext, content: str) -> str | None:
-    """Quando o cliente pede falar com atendimento: registar em painpoints e responder com contacto + mensagem empática (DeepSeek)."""
-    from backend.atendimento_contact import is_atendimento_request, build_atendimento_response
-    from backend.painpoints_store import add_painpoint
-
-    if not is_atendimento_request(content):
-        return None
-    add_painpoint(ctx.chat_id, "pedido explícito de contacto")
-    user_lang = "pt-BR"
-    try:
-        from backend.database import SessionLocal
-        from backend.user_store import get_user_language
-        db = SessionLocal()
-        try:
-            user_lang = get_user_language(db, ctx.chat_id)
-        finally:
-            db.close()
-    except Exception:
-        pass
-    provider = ctx.main_provider or ctx.scope_provider
-    model = (ctx.main_model or ctx.scope_model or "").strip()
-    if not provider or not model:
-        from backend.atendimento_contact import ATENDIMENTO_PHONE, ATENDIMENTO_EMAIL
-        return f"Entendemos. Nossa equipe de atendimento está disponível:\n\n📞 {ATENDIMENTO_PHONE}\n📧 {ATENDIMENTO_EMAIL}"
-    return await build_atendimento_response(user_lang, provider, model)
-
-
-# ---------------------------------------------------------------------------
 # Confirmação de oferta pendente: «Quero sim» após oferta de lembrete — Mimo
 # ---------------------------------------------------------------------------
 
@@ -245,7 +214,7 @@ async def handle_done(ctx: HandlerContext, content: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# /start, /recorrente, /pendente, /hoje, /semana, /tz, /lang, /quiet, /stop
+# /start, /recorrente, /pendente, /stop (tz/lang/quiet/reset em settings_handlers)
 # ---------------------------------------------------------------------------
 
 async def handle_start(ctx: HandlerContext, content: str) -> str | None:
@@ -323,56 +292,6 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
     )
 
 
-def _is_eventos_unificado_intent(content: str) -> bool:
-    """Detecta pedidos de visão unificada: eventos + lembretes."""
-    import re
-    t = (content or "").strip().lower()
-    patterns = [
-        r"meus?\s+eventos?",
-        r"meus?\s+lembretes?",
-        r"meus?\s+lembran[cç]as?",
-        r"o\s+que\s+tenho\s+agendado",
-        r"lista\s+(de\s+)?(lembretes?|eventos?)",
-        r"meus?\s+agendamentos?",
-        r"o\s+que\s+(tenho|est[aá]\s+agendado)",
-        r"quais?\s+(s[aã]o\s+)?(os\s+)?(meus\s+)?(lembretes?|eventos?)",
-    ]
-    return any(re.search(p, t) for p in patterns)
-
-
-async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | None:
-    """Visão unificada: lembretes (cron) + eventos (filme, livro, etc.)."""
-    if not _is_eventos_unificado_intent(content):
-        return None
-
-    parts = []
-
-    # Lembretes (cron)
-    if ctx.cron_tool:
-        ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
-        cron_out = await ctx.cron_tool.execute(action="list")
-        if "Nenhum lembrete" not in cron_out:
-            parts.append(cron_out)
-        else:
-            parts.append("📅 **Lembretes:** Nenhum agendado.")
-
-    # Eventos (Event model)
-    if ctx.event_tool:
-        ctx.event_tool.set_context(ctx.channel, ctx.chat_id)
-        try:
-            event_out = await ctx.event_tool.execute(action="list", tipo="")
-        except Exception:
-            event_out = "Nenhum evento."
-        if isinstance(event_out, str) and "Nenhum" not in event_out:
-            parts.append("📋 **Eventos (filmes, livros, etc.):**\n" + event_out)
-        else:
-            parts.append("📋 **Eventos:** Nenhum registado.")
-
-    if not parts:
-        return "Não tens lembretes nem eventos agendados. Queres adicionar algum?"
-    return "\n\n".join(parts)
-
-
 async def handle_pendente(ctx: HandlerContext, content: str) -> str | None:
     """/pendente: tudo aberto (listas com itens não feitos)."""
     if not content.strip().lower().startswith("/pendente"):
@@ -383,104 +302,6 @@ async def handle_pendente(ctx: HandlerContext, content: str) -> str | None:
     return await ctx.list_tool.execute(action="list", list_name="")
 
 
-async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
-    """/tz Cidade ou /tz IANA (ex: /tz Lisboa, /tz Europe/Lisbon). Regista timezone para as horas dos lembretes."""
-    import re
-    m = re.match(r"^/tz\s+(.+)$", content.strip(), re.I)
-    if not m:
-        return None
-    raw = m.group(1).strip()
-    if not raw:
-        return "🌍 Use: /tz Cidade (ex: /tz Lisboa) ou /tz Europe/Lisbon"
-    from backend.timezone import city_to_iana, is_valid_iana
-    tz_iana = None
-    if "/" in raw:
-        tz_iana = raw if is_valid_iana(raw) else None
-    else:
-        tz_iana = city_to_iana(raw)
-        if not tz_iana:
-            tz_iana = city_to_iana(raw.replace(" ", ""))
-    if not tz_iana:
-        return f"🌍 Cidade «{raw}» não reconhecida. Tenta: /tz Lisboa, /tz São Paulo ou /tz Europe/Lisbon (IANA)."
-    try:
-        from backend.database import SessionLocal
-        from backend.user_store import set_user_timezone
-        db = SessionLocal()
-        try:
-            if set_user_timezone(db, ctx.chat_id, tz_iana):
-                return f"✅ Timezone definido: {tz_iana}. As horas dos lembretes passam a ser mostradas no teu fuso."
-            return "❌ Timezone inválido."
-        finally:
-            db.close()
-    except Exception as e:
-        return f"Erro ao gravar timezone: {e}"
-    return None
-
-
-async def handle_lang(ctx: HandlerContext, content: str) -> str | None:
-    """/lang pt-pt | pt-br | es | en."""
-    import re
-    m = re.match(r"^/lang\s+(\S+)\s*$", content.strip(), re.I)
-    if not m:
-        return None
-    lang = m.group(1).strip().lower()
-    mapping = {"pt-pt": "pt-PT", "ptpt": "pt-PT", "ptbr": "pt-BR", "pt-br": "pt-BR", "es": "es", "en": "en"}
-    code = mapping.get(lang) or (lang if lang in ("pt-PT", "pt-BR", "es", "en") else None)
-    if not code:
-        return "🌐 Idiomas disponíveis: /lang pt-pt | pt-br | es | en"
-    try:
-        from backend.database import SessionLocal
-        from backend.user_store import set_user_language
-        db = SessionLocal()
-        try:
-            set_user_language(db, ctx.chat_id, code)
-            return f"✅ Idioma definido: {code}."
-        finally:
-            db.close()
-    except Exception:
-        return "❌ Erro ao gravar idioma."
-    return None
-
-
-async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
-    """/quiet 22:00-08:00 ou /quiet 22:00 08:00: horário silencioso (não recebes notificações). /quiet off para desativar."""
-    import re
-    if not content.strip().lower().startswith("/quiet"):
-        return None
-    rest = content.strip()[6:].strip()
-    if not rest or rest.lower() in ("off", "desligar", "não", "nao"):
-        try:
-            from backend.database import SessionLocal
-            from backend.user_store import set_user_quiet
-            db = SessionLocal()
-            try:
-                if set_user_quiet(db, ctx.chat_id, None, None):
-                    return "🔔 Horário silencioso desativado. Voltaste a receber notificações a qualquer hora."
-            finally:
-                db.close()
-        except Exception:
-            pass
-        return "❌ Erro ao desativar."
-    parts = re.split(r"[\s\-–—]+", rest, maxsplit=1)
-    if len(parts) < 2:
-        return "🔇 Usa: /quiet 22:00-08:00 (não notificar entre 22h e 8h) ou /quiet off para desativar."
-    start_hhmm, end_hhmm = parts[0].strip(), parts[1].strip()
-    try:
-        from backend.database import SessionLocal
-        from backend.user_store import set_user_quiet, _parse_time_hhmm
-        if _parse_time_hhmm(start_hhmm) is None or _parse_time_hhmm(end_hhmm) is None:
-            return "🕐 Horas em HH:MM (ex.: 22:00, 08:00)."
-        db = SessionLocal()
-        try:
-            if set_user_quiet(db, ctx.chat_id, start_hhmm, end_hhmm):
-                return f"🔇 Horário silencioso ativo: {start_hhmm}–{end_hhmm}. Não receberás lembretes nessa janela."
-        finally:
-            db.close()
-    except Exception:
-        pass
-    return "❌ Erro ao guardar. Usa /quiet 22:00-08:00."
-
-
 async def handle_stop(ctx: HandlerContext, content: str) -> str | None:
     """/stop: opt-out."""
     if not content.strip().lower().startswith("/stop"):
@@ -488,137 +309,6 @@ async def handle_stop(ctx: HandlerContext, content: str) -> str | None:
     return _reply_confirm_prompt(
         "🔕 Quer pausar as mensagens? Vais deixar de receber lembretes e notificações."
     )
-
-
-async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
-    """/reset: limpa dados do onboarding (nome, cidade) para refazer o cadastro."""
-    if not content.strip().lower().startswith("/reset"):
-        return None
-    try:
-        from backend.database import SessionLocal
-        from backend.user_store import clear_onboarding_data, get_user_language
-        from backend.locale import LangCode
-        db = SessionLocal()
-        try:
-            clear_onboarding_data(db, ctx.chat_id)
-            lang: LangCode = get_user_language(db, ctx.chat_id) or "pt-BR"
-        finally:
-            db.close()
-    except Exception:
-        lang = "pt-BR"
-    msgs = {
-        "pt-PT": "Cadastro apagado. Na próxima mensagem, recomeço o onboarding (nome, cidade). Respeitamos LGPD: só o essencial. 😊",
-        "pt-BR": "Cadastro apagado. Na próxima mensagem, recomeço o cadastro (nome, cidade). Respeitamos LGPD: só o essencial. 😊",
-        "es": "Registro borrado. En el próximo mensaje, reinicio (nombre, ciudad). Respetamos RGPD. 😊",
-        "en": "Registration cleared. Next message, I'll restart (name, city). We respect GDPR. 😊",
-    }
-    if ctx.session_manager:
-        try:
-            key = f"{ctx.channel}:{ctx.chat_id}"
-            session = ctx.session_manager.get_or_create(key)
-            for k in ("pending_preferred_name", "pending_language_choice", "pending_city",
-                      "onboarding_intro_sent", "onboarding_language_asked"):
-                session.metadata.pop(k, None)
-            ctx.session_manager.save(session)
-        except Exception:
-            pass
-    return msgs.get(lang, msgs["pt-BR"])
-
-
-# ---------------------------------------------------------------------------
-# /exportar, /deletar_tudo: com confirmação 1=sim 2=não
-# ---------------------------------------------------------------------------
-
-async def handle_exportar(ctx: HandlerContext, content: str) -> str | None:
-    """/exportar: confirma? 1=sim 2=não."""
-    if not content.strip().lower().startswith("/exportar"):
-        return None
-    from backend.confirmations import set_pending
-    set_pending(ctx.channel, ctx.chat_id, "exportar", {})
-    return _reply_confirm_prompt("📤 Queres exportar todas as tuas listas e lembretes?")
-
-
-async def handle_deletar_tudo(ctx: HandlerContext, content: str) -> str | None:
-    """/deletar_tudo: confirma? 1=sim 2=não."""
-    import re
-    if not re.match(r"^/deletar[_\s]?tudo\s*$", content.strip(), re.I):
-        return None
-    from backend.confirmations import set_pending
-    set_pending(ctx.channel, ctx.chat_id, "deletar_tudo", {})
-    return _reply_confirm_prompt(
-        "⚠️ Apagar TODOS os dados? (listas, lembretes, eventos) — Esta ação não tem volta."
-    )
-
-
-# ---------------------------------------------------------------------------
-# Resolver confirmação pendente (1=sim 2=não)
-# ---------------------------------------------------------------------------
-
-async def _resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
-    from backend.confirmations import get_pending, clear_pending, is_confirm_reply, is_confirm_yes, is_confirm_no
-    if not is_confirm_reply(content):
-        return None
-    pending = get_pending(ctx.channel, ctx.chat_id)
-    if not pending:
-        return None
-    clear_pending(ctx.channel, ctx.chat_id)
-    action = pending.get("action")
-    if action == "exportar":
-        if is_confirm_no(content):
-            return "❌ Exportação cancelada."
-        try:
-            from backend.database import SessionLocal
-            from backend.user_store import get_or_create_user
-            from backend.models_db import List, ListItem
-            db = SessionLocal()
-            try:
-                user = get_or_create_user(db, ctx.chat_id)
-                lists = db.query(List).filter(List.user_id == user.id).all()
-                lines = []
-                for lst in lists:
-                    items = db.query(ListItem).filter(ListItem.list_id == lst.id).all()
-                    lines.append(f"[{lst.name}]")
-                    for i in items:
-                        lines.append(f"  - {i.text}" + (" (feito)" if i.done else ""))
-                return "📤 Exportação:\n" + "\n".join(lines) if lines else "📭 Nada para exportar."
-            finally:
-                db.close()
-        except Exception as e:
-            return f"Erro ao exportar: {e}"
-    if action == "deletar_tudo":
-        if is_confirm_no(content):
-            return "✅ Cancelado. Nenhum dado foi apagado."
-        try:
-            from backend.database import SessionLocal
-            from backend.user_store import get_or_create_user
-            from backend.models_db import List, ListItem, Event
-            db = SessionLocal()
-            try:
-                user = get_or_create_user(db, ctx.chat_id)
-                for lst in db.query(List).filter(List.user_id == user.id).all():
-                    db.query(ListItem).filter(ListItem.list_id == lst.id).delete()
-                    db.delete(lst)
-                db.query(Event).filter(Event.user_id == user.id).delete()
-                db.commit()
-                return "🗑️ Todos os teus dados foram apagados."
-            finally:
-                db.close()
-        except Exception as e:
-            return f"Erro ao apagar: {e}"
-    if action == "completion_confirmation":
-        payload = pending.get("payload") or {}
-        job_id = payload.get("job_id")
-        completed_job_id = payload.get("completed_job_id") or job_id
-        if is_confirm_no(content):
-            return "Ok, o lembrete mantém-se. Reage com 👍 quando terminares."
-        if is_confirm_yes(content):
-            if ctx.cron_service and job_id:
-                ctx.cron_service.remove_job_and_deadline_followups(job_id)
-                ctx.cron_service.trigger_dependents(completed_job_id)
-                return "✅ Marcado como feito!"
-            return "Ocorreu um erro. Tenta reagir com 👍 novamente ao lembrete."
-        return None
-    return None
 
 
 # ---------------------------------------------------------------------------

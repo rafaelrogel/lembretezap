@@ -5,9 +5,7 @@ from loguru import logger
 
 from backend.handler_context import HandlerContext
 from backend.handlers import (
-    handle_atendimento_request,
     handle_pending_confirmation,
-    handle_eventos_unificado,
     handle_recurring_prompt,
     handle_lembrete,
     handle_list,
@@ -18,16 +16,11 @@ from backend.handlers import (
     handle_help,
     handle_recorrente,
     handle_pendente,
-    handle_tz,
-    handle_lang,
-    handle_quiet,
     handle_stop,
-    handle_reset,
-    handle_exportar,
-    handle_deletar_tudo,
-    _resolve_confirm,
 )
-from backend.integrations import handle_crypto, handle_sacred_text
+from backend.integrations import handle_atendimento_request, handle_crypto, handle_sacred_text
+from backend.confirm_actions import handle_exportar, handle_deletar_tudo, resolve_confirm
+from backend.settings_handlers import handle_tz, handle_lang, handle_quiet, handle_reset
 from backend.llm_handlers import handle_resumo_conversa, handle_analytics, handle_rever
 from backend.handlers_organizacao import (
     handle_habitos,
@@ -47,6 +40,7 @@ from backend.handlers_organizacao import (
 )
 from backend.handlers_limpeza import handle_limpeza
 from backend.views import (
+    handle_eventos_unificado,
     handle_hoje,
     handle_semana,
     handle_mes,
@@ -113,7 +107,7 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         return None
     text = content.strip()
 
-    reply = await _resolve_confirm(ctx, text)
+    reply = await resolve_confirm(ctx, text)
     if reply is not None:
         return reply
 
