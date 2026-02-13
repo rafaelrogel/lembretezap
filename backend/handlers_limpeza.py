@@ -18,7 +18,7 @@ from backend.house_chores_catalog import (
 )
 
 if TYPE_CHECKING:
-    from backend.handlers import HandlerContext
+    from backend.handler_context import HandlerContext
 
 WEEKDAY_MAP = {
     "seg": 0, "segunda": 0, "segunda-feira": 0,

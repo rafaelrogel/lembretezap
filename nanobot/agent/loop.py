@@ -921,7 +921,8 @@ class AgentLoop:
         # Handlers de comandos (README: /lembrete, /list, /feito, /add, /done, /start, etc.)
         # Confirmações sem botões: 1=sim 2=não. TODO: Após WhatsApp Business API, use buttons.
         try:
-            from backend.handlers import HandlerContext, route as handlers_route
+            from backend.handler_context import HandlerContext
+            from backend.router import route as handlers_route
             ctx = HandlerContext(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
@@ -1008,7 +1009,8 @@ class AgentLoop:
         # Escolha de modelo: Mimo se (1) muita lógica/raciocínio (cálculos, otimizações, conflitos),
         # (2) pedidos de análise de histórico, (3) velocidade crítica (alto volume). Caso contrário → DeepSeek.
         try:
-            from backend.handlers import is_analytical_message, HandlerContext, handle_analytics
+            from backend.handler_context import HandlerContext
+            from backend.llm_handlers import is_analytical_message, handle_analytics
             if is_analytical_message(msg.content):
                 ctx = HandlerContext(
                     channel=msg.channel,

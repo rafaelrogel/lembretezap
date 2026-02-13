@@ -16,7 +16,7 @@ from backend.bookmark import generate_tags_and_category
 from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_ITEM_TEXT_LEN
 
 if TYPE_CHECKING:
-    from backend.handlers import HandlerContext
+    from backend.handler_context import HandlerContext
 
 
 def _get_today_local(chat_id: str) -> str:

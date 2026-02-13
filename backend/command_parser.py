@@ -1,16 +1,16 @@
 """Parser de comandos: /lembrete, /list, /feito, /filme. Retorna intent estruturado ou None.
 
 Suporta lembretes pontuais e recorrentes (diário, semanal, a cada N, mensal).
+Parse de tempo/recorrência em backend.time_parse.
 """
 
 import re
 from typing import Any
 
+from backend.time_parse import extract_start_date, parse_lembrete_time
+
 # Padrões
 RE_LEMBRETE = re.compile(r"^/lembrete\s+(.+)$", re.I)
-RE_LEMBRETE_DAQUI = re.compile(r"daqui\s+a\s+(\d+)\s*(min|minuto|hora|dia)s?", re.I)
-RE_LEMBRETE_EM = re.compile(r"em\s+(\d+)\s*(min|minuto|hora|dia)s?", re.I)
-
 RE_LIST_ADD = re.compile(r"^/list\s+(\S+)\s+add\s+(.+)$", re.I)
 # /list filme|livro|musica|receita <item> (categorias especiais; sem "add")
 RE_LIST_CATEGORY_ADD = re.compile(
@@ -36,14 +36,6 @@ _CATEGORY_TO_LIST = {
     "receita": "receita", "receitas": "receita",
 }
 
-# Recorrência: dia da semana em cron (0=domingo, 1=segunda, ..., 6=sábado)
-DIAS_SEMANA = {
-    "domingo": 0, "segunda": 1, "terça": 2, "terca": 2, "quarta": 3, "quinta": 4,
-    "sexta": 5, "sábado": 6, "sabado": 6,
-    "segunda-feira": 1, "terça-feira": 2, "quarta-feira": 3, "quinta-feira": 4, "sexta-feira": 5,
-}
-
-
 RE_DEPOIS_DE = re.compile(
     r"(?:depois\s+de\s+|depois\s+do\s+|ap[só]s\s+(?:o\s+)?)([A-Za-z]{2,4})\b",
     re.I,
@@ -67,270 +59,6 @@ def _extract_depends_on(text: str) -> tuple[str | None, str]:
     return job_id, clean
 
 
-def _clean_message(t: str) -> str:
-    """Remove conectores e barras do início (ex.: «30 min/ lembre-me» → «lembre-me»)."""
-    t = t.strip()
-    # Suporte a "/lembrete daqui a 30 min/ texto" — remover "/ " ou "/" no início do texto
-    while t.startswith("/"):
-        t = t.lstrip("/").strip()
-    for prefix in ("de ", "para ", "a ", "sobre "):
-        if t.lower().startswith(prefix) and len(t) > len(prefix):
-            t = t[len(prefix):].strip()
-    # "até amanhã 18h" → "até" fica no meio; remover "até " do fim da mensagem
-    t = re.sub(r"\s+at[eé]\s*$", "", t, flags=re.I)
-    return t or "Lembrete"
-
-
-def _extract_start_date(text: str) -> str | None:
-    """Extrai «a partir de 1º de julho» → '2026-07-01'. Retorna None se não encontrar."""
-    from datetime import datetime
-    text_lower = (text or "").strip().lower()
-    meses = {
-        "janeiro": 1, "fevereiro": 2, "março": 3, "marco": 3, "abril": 4, "maio": 5,
-        "junho": 6, "julho": 7, "agosto": 8, "setembro": 9, "outubro": 10,
-        "novembro": 11, "dezembro": 12,
-    }
-    m = re.search(
-        r"a\s+partir\s+de\s+(\d{1,2})[ºª]?\s*(?:de\s+)?"
-        r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
-        r"(?:\s+de\s+(\d{4}))?\b",
-        text_lower,
-        re.I,
-    )
-    if m:
-        dia = int(m.group(1))
-        mes_str = m.group(2).lower()
-        mes = int(mes_str) if mes_str.isdigit() else meses.get(mes_str)
-        ano = int(m.group(3)) if m.group(3) else datetime.now().year
-        if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
-            try:
-                dt = datetime(ano, mes, min(dia, 28))
-                return dt.strftime("%Y-%m-%d")
-            except (ValueError, TypeError):
-                pass
-    m = re.search(r"a\s+partir\s+de\s+(\d{1,2})/(\d{1,2})(?:/(\d{4}))?\b", text_lower, re.I)
-    if m:
-        dia, mes = int(m.group(1)), int(m.group(2))
-        ano = int(m.group(3)) if m.group(3) else datetime.now().year
-        if 1 <= dia <= 31 and 1 <= mes <= 12:
-            try:
-                dt = datetime(ano, mes, min(dia, 28))
-                return dt.strftime("%Y-%m-%d")
-            except (ValueError, TypeError):
-                pass
-    return None
-
-
-def _parse_lembrete_time(text: str) -> dict[str, Any]:
-    """Extrai in_seconds, every_seconds ou cron_expr e message. Suporta recorrência."""
-    text = text.strip()
-    text_lower = text.lower()
-
-    # --- Um único disparo: "daqui a X min" / "em X minutos"
-    for pattern in (RE_LEMBRETE_DAQUI, RE_LEMBRETE_EM):
-        m = pattern.search(text)
-        if m:
-            n = int(m.group(1))
-            unit = (m.group(2) or "").lower()
-            if "hora" in unit:
-                n *= 3600
-            elif "dia" in unit:
-                n *= 86400
-            else:
-                n *= 60
-            if n > 0 and n <= 86400 * 30:
-                message = (text[: m.start()] + text[m.end() :]).strip()
-                return {"in_seconds": n, "message": _clean_message(message)}
-
-    # --- Recorrência: "a cada N minutos/horas/dias"
-    m = re.search(r"a\s+cada\s+(\d+)\s*(minuto?s?|hora?s?|dia?s?)\b", text_lower, re.I)
-    if m:
-        num = int(m.group(1))
-        u = (m.group(2) or "").lower()
-        if "hora" in u:
-            every = num * 3600
-        elif "dia" in u:
-            every = num * 86400
-        else:
-            every = num * 60
-        if 1800 <= every <= 86400 * 30:  # mínimo 30 min, máximo 30 dias
-            message = re.sub(r"a\s+cada\s+\d+\s*(minuto?s?|hora?s?|dia?s?)\s*", "", text, flags=re.I).strip()
-            return {"every_seconds": every, "message": _clean_message(message)}
-
-    # --- Pontual: "amanhã às 12h" / "amanhã 12h" / "amanhã 9h"
-    from datetime import datetime, timedelta
-    m = re.search(
-        r"amanh[ãa]\s+(?:às?\s*)?(\d{1,2})\s*h?\b",
-        text_lower,
-        re.I,
-    )
-    if m:
-        hora = min(23, max(0, int(m.group(1))))
-        message = re.sub(
-            r"amanh[ãa]\s+(?:às?\s*)?\d{1,2}\s*h?\s*",
-            "",
-            text,
-            flags=re.I,
-        ).strip()
-        tomorrow = (datetime.now() + timedelta(days=1)).replace(
-            hour=hora, minute=0, second=0, microsecond=0
-        )
-        delta = (tomorrow - datetime.now()).total_seconds()
-        if delta > 0 and delta <= 86400 * 30:
-            return {"in_seconds": int(delta), "message": _clean_message(message)}
-
-    # --- Recorrentes ANTES de data pontual quando há "a partir de" (ex.: diariamente às 20h a partir de 1º julho)
-    if "a partir de" in text_lower:
-        # Diário (às/as sem acento)
-        m = re.search(
-            r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+(?:às?|as)\s*(\d{1,2})\s*h?\b",
-            text_lower,
-            re.I,
-        )
-        if m:
-            hora = min(23, max(0, int(m.group(1))))
-            message = re.sub(
-                r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+(?:às?|as)\s*\d{1,2}\s*h?\s*",
-                "",
-                text,
-                flags=re.I,
-            ).strip()
-            out = {"cron_expr": f"0 {hora} * * *", "message": _clean_message(message)}
-            sd = _extract_start_date(text)
-            if sd:
-                out["start_date"] = sd
-            return out
-        # Semanal
-        for dia_name, cron_dow in DIAS_SEMANA.items():
-            pat = rf"toda\s+(?:semana\s+)?{re.escape(dia_name)}\s+(?:às?|as)\s*(\d{{1,2}})\s*h?\b"
-            m = re.search(pat, text_lower, re.I)
-            if m:
-                hora = min(23, max(0, int(m.group(1))))
-                message = re.sub(pat, "", text, flags=re.I).strip()
-                out = {"cron_expr": f"0 {hora} * * {cron_dow}", "message": _clean_message(message)}
-                sd = _extract_start_date(text)
-                if sd:
-                    out["start_date"] = sd
-                return out
-
-    # --- Pontual: "1º de julho às 20h" / "dia 15 de março às 10h" (data+hora)
-    _pat_data_hora = (
-        r"(?:dia\s+)?(\d{1,2})[ºª]?\s*(?:de|/)\s*"
-        r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
-        r"\s*(?:de\s+\d{4})?\s*(?:às?|as)\s*(\d{1,2})\s*h?\b"
-    )
-    m = re.search(_pat_data_hora, text_lower, re.I)
-    if m:
-        dia = int(m.group(1))
-        mes_str = m.group(2).lower()
-        meses = {
-            "janeiro": 1, "fevereiro": 2, "março": 3, "marco": 3, "abril": 4, "maio": 5,
-            "junho": 6, "julho": 7, "agosto": 8, "setembro": 9, "outubro": 10,
-            "novembro": 11, "dezembro": 12,
-        }
-        mes = int(mes_str) if mes_str.isdigit() else meses.get(mes_str)
-        if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
-            hora = min(23, max(0, int(m.group(3))))
-            ano = datetime.now().year
-            try:
-                target = datetime(ano, mes, min(dia, 28), hora, 0, 0)
-                if target < datetime.now():
-                    target = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0)
-                delta = (target - datetime.now()).total_seconds()
-                if delta > 0 and delta <= 86400 * 365:
-                    message = re.sub(_pat_data_hora, "", text, flags=re.I).strip()
-                    return {"in_seconds": int(delta), "message": _clean_message(message)}
-            except (ValueError, TypeError):
-                pass
-
-    # --- Pontual: "1º de julho" / "dia 15 de março" (data sem hora → 9h)
-    m = re.search(
-        r"(?:dia\s+)?(\d{1,2})[ºª]?\s*(?:de|/)\s*"
-        r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
-        r"\s*(?:de\s+\d{4})?\b",
-        text_lower,
-        re.I,
-    )
-    if m:
-        dia = int(m.group(1))
-        mes_str = m.group(2).lower()
-        meses = {
-            "janeiro": 1, "fevereiro": 2, "março": 3, "marco": 3, "abril": 4, "maio": 5,
-            "junho": 6, "julho": 7, "agosto": 8, "setembro": 9, "outubro": 10,
-            "novembro": 11, "dezembro": 12,
-        }
-        mes = int(mes_str) if mes_str.isdigit() else meses.get(mes_str)
-        if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
-            hora = 9
-            ano = datetime.now().year
-            try:
-                target = datetime(ano, mes, min(dia, 28), hora, 0, 0)
-                if target < datetime.now():
-                    target = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0)
-                delta = (target - datetime.now()).total_seconds()
-                if delta > 0 and delta <= 86400 * 365:
-                    _pat_data = r"(?:dia\s+)?\d{1,2}[ºª]?\s*(?:de|/)\s*(?:\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de\s+\d{4})?\s*"
-                    message = re.sub(_pat_data, "", text, flags=re.I).strip()
-                    return {"in_seconds": int(delta), "message": _clean_message(message)}
-            except (ValueError, TypeError):
-                pass
-
-    # --- Diário: "todo dia às 9h" / "todos os dias às 14h" / "diariamente às 8h"
-    m = re.search(
-        r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+às?\s*(\d{1,2})\s*h?\b",
-        text_lower,
-        re.I,
-    )
-    if m:
-        hora = min(23, max(0, int(m.group(1))))
-        message = re.sub(
-            r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+às?\s*\d{1,2}\s*h?\s*",
-            "",
-            text,
-            flags=re.I,
-        ).strip()
-        return {"cron_expr": f"0 {hora} * * *", "message": _clean_message(message)}
-
-    # "todo dia" / "todos os dias" sem hora -> 9h; mensagem = resto do texto
-    m = re.search(r"(?:todo\s+dia|todos\s+os\s+dias)\s+(.+)$", text_lower, re.I)
-    if m:
-        message = m.group(1).strip()
-        return {"cron_expr": "0 9 * * *", "message": _clean_message(message)}
-    if re.search(r"^(?:todo\s+dia|todos\s+os\s+dias)\s*$", text_lower):
-        return {"cron_expr": "0 9 * * *", "message": "Lembrete"}
-
-    # --- Semanal: "toda segunda às 10h" / "toda semana segunda-feira às 9h"
-    for dia_name, cron_dow in DIAS_SEMANA.items():
-        # "toda segunda às 10h" ou "toda semana segunda às 10h"
-        pat = rf"toda\s+(?:semana\s+)?{re.escape(dia_name)}\s+às?\s*(\d{{1,2}})\s*h?\b"
-        m = re.search(pat, text_lower, re.I)
-        if m:
-            hora = min(23, max(0, int(m.group(1))))
-            message = re.sub(pat, "", text, flags=re.I).strip()
-            return {"cron_expr": f"0 {hora} * * {cron_dow}", "message": _clean_message(message)}
-
-    # --- Mensal: "mensalmente dia 15 às 10h" / "todo dia 5 do mês às 9h"
-    m = re.search(
-        r"mensalmente\s+(?:dia\s+)?(\d{1,2})\s*às?\s*(\d{1,2})\s*h?\b",
-        text_lower,
-        re.I,
-    )
-    if m:
-        dia_mes = int(m.group(1))
-        hora = min(23, max(0, int(m.group(2))))
-        if 1 <= dia_mes <= 28:
-            message = re.sub(
-                r"mensalmente\s+(?:dia\s+)?\d{1,2}\s*às?\s*\d{1,2}\s*h?\s*",
-                "",
-                text,
-                flags=re.I,
-            ).strip()
-            return {"cron_expr": f"0 {hora} {dia_mes} * *", "message": _clean_message(message)}
-
-    # Sem tempo claro
-    return {"message": text}
-
-
 def parse(raw: str) -> dict[str, Any] | None:
     """Parseia a mensagem. Retorna um intent dict ou None."""
     if not raw or not isinstance(raw, str):
@@ -344,7 +72,7 @@ def parse(raw: str) -> dict[str, Any] | None:
         rest = m.group(1).strip()
         if rest:
             depends_on, rest = _extract_depends_on(rest)
-            intent = _parse_lembrete_time(rest)
+            intent = parse_lembrete_time(rest)
             intent["type"] = "lembrete"
             if depends_on:
                 intent["depends_on_job_id"] = depends_on
@@ -353,7 +81,7 @@ def parse(raw: str) -> dict[str, Any] | None:
                 intent["has_deadline"] = True
             # "a partir de 1º de julho" → start_date para cron/every
             if intent.get("cron_expr") or intent.get("every_seconds"):
-                sd = _extract_start_date(rest)
+                sd = extract_start_date(rest)
                 if sd:
                     intent["start_date"] = sd
             return intent
