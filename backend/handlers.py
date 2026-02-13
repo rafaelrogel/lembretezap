@@ -1381,6 +1381,7 @@ async def handle_sacred_text(ctx: HandlerContext, content: str) -> str | None:
         fetch_quran_verse, fetch_quran_random,
         parse_bible_reference, parse_quran_reference,
         build_sacred_response,
+        get_bible_translation, get_quran_edition, wants_quran_arabic,
     )
     try:
         prompt = (
@@ -1401,23 +1402,43 @@ async def handle_sacred_text(ctx: HandlerContext, content: str) -> str | None:
         pass
 
     t = (content or "").strip().lower()
-    reminder = "Também posso ajudar com lembretes e organização quando precisares."
     data = None
     book = ""
+
+    # Idioma registado: pt-PT, pt-BR, es, en
+    user_lang = "en"
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import get_user_language
+        db = SessionLocal()
+        try:
+            user_lang = get_user_language(db, ctx.chat_id) or "en"
+        finally:
+            db.close()
+    except Exception:
+        pass
+    reminder = {
+        "pt-PT": "Também posso ajudar com lembretes e organização quando precisares.",
+        "pt-BR": "Também posso ajudar com lembretes e organização quando precisar.",
+        "es": "También puedo ayudarte con recordatorios y organización cuando lo necesites.",
+        "en": "I can also help with reminders and organization when you need it.",
+    }.get(user_lang or "en", "I can also help with reminders and organization when you need it.")
+    bible_translation = get_bible_translation(user_lang)
+    quran_edition = get_quran_edition(user_lang, want_arabic=wants_quran_arabic(content))
 
     if "alcor" in t or "alcorão" in t or "quran" in t:
         q_ref = parse_quran_reference(content)
         if q_ref:
-            data = fetch_quran_verse(q_ref[0], q_ref[1])
+            data = fetch_quran_verse(q_ref[0], q_ref[1], quran_edition)
         else:
-            data = fetch_quran_random()
+            data = fetch_quran_random(quran_edition)
         book = "quran"
     elif "bíblia" in t or "biblia" in t or "bible" in t:
         b_ref = parse_bible_reference(content)
         if b_ref:
-            data = fetch_bible_verse(b_ref)
+            data = fetch_bible_verse(b_ref, bible_translation)
         else:
-            data = fetch_bible_random()
+            data = fetch_bible_random(bible_translation)
         book = "bible"
     else:
         return None

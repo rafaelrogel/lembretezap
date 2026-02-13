@@ -13,11 +13,14 @@ import json
 from typing import Any
 
 # Bible: bible-api.com (gratuita, sem API key)
+# Traduções: almeida (PT), web (EN). Não há espanhol; es → web.
 BIBLE_API = "https://bible-api.com"
+BIBLE_BY_LANG = {"pt-PT": "almeida", "pt-BR": "almeida", "es": "web", "en": "web"}
 
-# Quran: api.alquran.cloud (gratuita). Edições: en.sahih (EN), pt.elhayek (PT)
+# Quran: api.alquran.cloud (gratuita). pt.elhayek, es.cortes, en.sahih. Árabe só se pedir.
 QURAN_API = "https://api.alquran.cloud/v1"
-QURAN_EDITION = "en.sahih"  # Saheeh International (inglês). pt.elhayek para PT.
+QURAN_BY_LANG = {"pt-PT": "pt.elhayek", "pt-BR": "pt.elhayek", "es": "es.cortes", "en": "en.sahih"}
+QURAN_ARABIC = "quran-simple"  # só quando cliente pedir em árabe
 
 # Referências para «versículo aleatório» da Bíblia
 BIBLE_RANDOM_REFS = [
@@ -43,12 +46,13 @@ def _fetch_json(url: str, timeout: int = 10) -> dict | None:
         return None
 
 
-def fetch_bible_verse(reference: str) -> dict | None:
+def fetch_bible_verse(reference: str, translation: str = "web") -> dict | None:
     """
     Obtém versículo da Bíblia. reference: "john 3:16" ou "genesis 1:1".
+    translation: web (EN), almeida (PT), kjv, etc.
     Retorna {reference, text} ou None.
     """
-    url = f"{BIBLE_API}/{reference.replace(' ', '%20')}"
+    url = f"{BIBLE_API}/{reference.replace(' ', '%20')}?translation={translation}"
     data = _fetch_json(url)
     if not data or "text" not in data:
         return None
@@ -58,15 +62,16 @@ def fetch_bible_verse(reference: str) -> dict | None:
     }
 
 
-def fetch_bible_random() -> dict | None:
-    """Versículo aleatório da Bíblia."""
+def fetch_bible_random(translation: str = "web") -> dict | None:
+    """Versículo aleatório da Bíblia. translation: web (EN), almeida (PT)."""
     ref = random.choice(BIBLE_RANDOM_REFS)
-    return fetch_bible_verse(ref)
+    return fetch_bible_verse(ref, translation)
 
 
-def fetch_quran_verse(surah: int, ayah: int, edition: str = QURAN_EDITION) -> dict | None:
+def fetch_quran_verse(surah: int, ayah: int, edition: str = "en.sahih") -> dict | None:
     """
     Obtém versículo do Alcorão. surah 1-114, ayah 1-N.
+    edition: en.sahih, pt.elhayek, es.cortes, quran-simple (árabe).
     Retorna {surah, ayah, text, surah_name} ou None.
     """
     url = f"{QURAN_API}/ayah/{surah}/{ayah}/{edition}"
@@ -85,11 +90,11 @@ def fetch_quran_verse(surah: int, ayah: int, edition: str = QURAN_EDITION) -> di
     }
 
 
-def fetch_quran_random() -> dict | None:
-    """Versículo aleatório do Alcorão."""
+def fetch_quran_random(edition: str = "en.sahih") -> dict | None:
+    """Versículo aleatório do Alcorão. edition: en.sahih, pt.elhayek, es.cortes, quran-simple."""
     surah_num, num_ayahs = random.choice(QURAN_SURAHS)
     ayah = random.randint(1, min(num_ayahs, 50))  # evita ayahs muito longas em suras grandes
-    return fetch_quran_verse(surah_num, ayah)
+    return fetch_quran_verse(surah_num, ayah, edition)
 
 
 def parse_bible_reference(text: str) -> str | None:
@@ -133,6 +138,30 @@ def parse_bible_reference(text: str) -> str | None:
         book_en = book_map.get(book_lower, book_lower)
         return f"{book_en} {ch}:{verse}"
     return None
+
+
+def get_bible_translation(user_lang: str | None) -> str:
+    """Retorna identifier da tradução conforme idioma registado."""
+    if not user_lang:
+        return "web"
+    return BIBLE_BY_LANG.get(user_lang, "web")
+
+
+def get_quran_edition(user_lang: str | None, want_arabic: bool = False) -> str:
+    """Retorna identifier da edição conforme idioma. want_arabic=True se cliente pediu em árabe."""
+    if want_arabic:
+        return QURAN_ARABIC
+    if not user_lang:
+        return "en.sahih"
+    return QURAN_BY_LANG.get(user_lang, "en.sahih")
+
+
+def wants_quran_arabic(text: str) -> bool:
+    """True se o cliente pediu explicitamente em árabe."""
+    if not text:
+        return False
+    t = text.strip().lower()
+    return bool(re.search(r"(?:em\s+)?[áa]rabe|(?:in\s+)?arabic|(?:en\s+)?[áa]rabe", t))
 
 
 def parse_quran_reference(text: str) -> tuple[int, int] | None:
