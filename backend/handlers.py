@@ -17,43 +17,6 @@ if TYPE_CHECKING:
     from nanobot.cron.service import CronService
 
 from backend.handler_context import HandlerContext, _reply_confirm_prompt
-from backend.handlers_organizacao import (
-    handle_habito,
-    handle_habitos,
-    handle_meta,
-    handle_metas,
-    handle_nota,
-    handle_notas,
-    handle_projeto,
-    handle_projetos,
-    handle_template,
-    handle_templates,
-    handle_save,
-    handle_bookmark,
-    handle_bookmarks,
-    handle_find,
-)
-from backend.handlers_limpeza import handle_limpeza
-from backend.views import (
-    handle_hoje,
-    handle_semana,
-    handle_mes,
-    handle_timeline,
-    handle_stats,
-    handle_produtividade,
-    handle_revisao,
-)
-from backend.llm_handlers import (
-    handle_resumo_conversa,
-    handle_analytics,
-    handle_rever,
-    is_analytical_message,
-)
-from backend.integrations import handle_crypto, handle_sacred_text, is_crypto_intent
-
-# Re-export para testes que usavam _is_crypto_intent de handlers
-_is_crypto_intent = is_crypto_intent
-
 
 # ---------------------------------------------------------------------------
 # Pedido de contacto com atendimento ao cliente — DeepSeek mensagem empática

@@ -47,13 +47,13 @@ async def test_scope_filter_llm_sim_nao():
 
 def test_crypto_intent():
     """Detecta menções a criptomoedas."""
-    from backend.handlers import _is_crypto_intent
-    assert _is_crypto_intent("quanto está o bitcoin?") is True
-    assert _is_crypto_intent("cotação das criptos") is True
-    assert _is_crypto_intent("preço do ethereum") is True
-    assert _is_crypto_intent("valor do BTC") is True
-    assert _is_crypto_intent("lista de compras") is False
-    assert _is_crypto_intent("") is False
+    from backend.integrations import is_crypto_intent
+    assert is_crypto_intent("quanto está o bitcoin?") is True
+    assert is_crypto_intent("cotação das criptos") is True
+    assert is_crypto_intent("preço do ethereum") is True
+    assert is_crypto_intent("valor do BTC") is True
+    assert is_crypto_intent("lista de compras") is False
+    assert is_crypto_intent("") is False
 
 
 def test_crypto_prices_build():

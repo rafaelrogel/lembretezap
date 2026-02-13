@@ -18,13 +18,8 @@ from backend.handlers import (
     handle_help,
     handle_recorrente,
     handle_pendente,
-    handle_sacred_text,
-    handle_crypto,
     handle_tz,
     handle_lang,
-    handle_resumo_conversa,
-    handle_analytics,
-    handle_rever,
     handle_quiet,
     handle_stop,
     handle_reset,
@@ -32,6 +27,8 @@ from backend.handlers import (
     handle_deletar_tudo,
     _resolve_confirm,
 )
+from backend.integrations import handle_crypto, handle_sacred_text
+from backend.llm_handlers import handle_resumo_conversa, handle_analytics, handle_rever
 from backend.handlers_organizacao import (
     handle_habitos,
     handle_habito,
