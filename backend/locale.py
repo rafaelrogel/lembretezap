@@ -253,6 +253,44 @@ ONBOARDING_LANGUAGE_QUESTION: dict[LangCode, str] = {
     "en": "Want to use another language? We have Portuguese from Portugal (pt-PT), Brazilian Portuguese (pt-BR), Spanish (es) and English (en). Say the code or language name, or «no» to continue. 😊",
 }
 
+# Mensagens de áudio (voice messages)
+AUDIO_TOO_LONG: dict[LangCode, str] = {
+    "pt-PT": "O áudio é um pouco longo. Consegues enviar uma mensagem mais curta?",
+    "pt-BR": "O áudio está um pouco longo. Consegue enviar uma mensagem mais curta?",
+    "es": "El audio es un poco largo. ¿Puedes enviar un mensaje más corto?",
+    "en": "The audio is a bit long. Can you send a shorter message?",
+}
+AUDIO_TOO_LARGE: dict[LangCode, str] = {
+    "pt-PT": "O áudio é um pouco longo. Consegues enviar uma mensagem mais curta?",
+    "pt-BR": "O áudio está um pouco longo. Consegue enviar uma mensagem mais curta?",
+    "es": "El audio es un poco largo. ¿Puedes enviar un mensaje más corto?",
+    "en": "The audio is a bit long. Can you send a shorter message?",
+}
+AUDIO_FORWARDED: dict[LangCode, str] = {
+    "pt-PT": "Só aceito áudios gravados por ti. Não reencaminhes mensagens de voz.",
+    "pt-BR": "Só aceito áudios gravados por você. Não encaminhe mensagens de voz.",
+    "es": "Solo acepto audios grabados por ti. No reenvíes mensajes de voz.",
+    "en": "I only accept audio you've recorded yourself. Don't forward voice messages.",
+}
+AUDIO_NOT_ALLOWED: dict[LangCode, str] = {
+    "pt-PT": "Transcrição de áudio não está disponível para o teu número. Contacta o administrador se quiseres ativar.",
+    "pt-BR": "Transcrição de áudio não está disponível para o seu número. Contate o administrador se quiser ativar.",
+    "es": "La transcripción de audio no está disponible para tu número. Contacta al administrador si quieres activarla.",
+    "en": "Audio transcription isn't available for your number. Contact the admin if you'd like it enabled.",
+}
+AUDIO_TRANSCRIBE_FAILED: dict[LangCode, str] = {
+    "pt-PT": "Não consegui transcrever o áudio. Tenta novamente ou escreve a mensagem.",
+    "pt-BR": "Não consegui transcrever o áudio. Tente novamente ou escreva a mensagem.",
+    "es": "No pude transcribir el audio. Intenta de nuevo o escribe el mensaje.",
+    "en": "I couldn't transcribe the audio. Try again or type your message.",
+}
+AUDIO_NOT_RECEIVED: dict[LangCode, str] = {
+    "pt-PT": "Áudio não recebido. Envia novamente.",
+    "pt-BR": "Áudio não recebido. Envie novamente.",
+    "es": "Audio no recibido. Envíalo de nuevo.",
+    "en": "Audio not received. Please send again.",
+}
+
 # Quando o utilizador fala noutra língua (não suportada): só pt-PT, pt-BR, es, en
 ONLY_SUPPORTED_LANGS_MESSAGE: dict[LangCode, str] = {
     "pt-PT": "Só consigo falar em português de Portugal (pt-PT), português do Brasil (pt-BR), espanhol (es) e inglês (en). Escolhe um deles ou usa /lang pt-pt, /lang pt-br, etc. 😊",

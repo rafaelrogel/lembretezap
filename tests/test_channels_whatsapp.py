@@ -62,3 +62,18 @@ async def test_chat_message_forwarded(channel):
     assert call.chat_id == "5511999999999@s.whatsapp.net"
     assert "lembrete" in call.content
     assert call.metadata.get("is_group") is False
+
+
+def test_is_allowed_audio():
+    """allow_from_audio: vazio = todos podem; não vazio = só os da lista."""
+    config_empty = WhatsAppConfig(enabled=True, bridge_url="ws://localhost:3001", allow_from=["351912345678"], allow_from_audio=[])
+    config_with = WhatsAppConfig(enabled=True, bridge_url="ws://localhost:3001", allow_from=["351912345678"], allow_from_audio=["351912345678"])
+    config_restrict = WhatsAppConfig(enabled=True, bridge_url="ws://localhost:3001", allow_from=["351912345678"], allow_from_audio=["351999999999"])
+    bus = MagicMock()
+    ch_empty = WhatsAppChannel(config_empty, bus)
+    ch_with = WhatsAppChannel(config_with, bus)
+    ch_restrict = WhatsAppChannel(config_restrict, bus)
+    assert ch_empty.is_allowed("351912345678") is True
+    assert ch_empty.is_allowed_audio("351912345678") is True  # vazio = todos
+    assert ch_with.is_allowed_audio("351912345678") is True   # na lista
+    assert ch_restrict.is_allowed_audio("351912345678") is False  # não na lista

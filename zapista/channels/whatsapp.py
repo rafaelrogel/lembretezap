@@ -260,10 +260,87 @@ class WhatsAppChannel(BaseChannel):
             # Se um tester não receber resposta, ver nos logs este valor e adiciona-o a allow_from no config
             logger.info(f"WhatsApp from sender={sender!r} → sender_id={sender_id!r} (use na allow_from se bloqueado)")
 
-            # Handle voice transcription if it's a voice message
+            # Handle voice transcription if it's a voice message (option A: base64 no payload)
+            from backend.database import SessionLocal
+            from zapista.bus.events import OutboundMessage
+            from backend.locale import (
+                AUDIO_FORWARDED,
+                AUDIO_NOT_ALLOWED,
+                AUDIO_NOT_RECEIVED,
+                AUDIO_TOO_LARGE,
+                AUDIO_TOO_LONG,
+                AUDIO_TRANSCRIBE_FAILED,
+                LangCode,
+                phone_to_default_language,
+            )
+            from backend.user_store import get_user_language
+
+            media_base64 = data.get("mediaBase64") or data.get("media_base64")
+            audio_too_large = data.get("audioTooLarge") or data.get("audio_too_large")
             if content == "[Voice Message]":
-                logger.info(f"Voice message received from {sender_id}, but direct download from bridge is not yet supported.")
-                content = "[Voice Message: Transcription not available for WhatsApp yet]"
+                # Resolve idioma do utilizador (pt-PT, pt-BR, es, en)
+                db = SessionLocal()
+                try:
+                    user_lang: LangCode = (
+                        get_user_language(db, sender) or phone_to_default_language(sender)
+                    )
+                finally:
+                    db.close()
+
+                if audio_too_large:
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content=AUDIO_TOO_LARGE.get(user_lang, AUDIO_TOO_LARGE["en"]),
+                    ))
+                    return
+                audio_forwarded = data.get("audioForwarded") or data.get("audio_forwarded")
+                if audio_forwarded:
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content=AUDIO_FORWARDED.get(user_lang, AUDIO_FORWARDED["en"]),
+                    ))
+                    return
+                if not self.is_allowed_audio(sender_id):
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content=AUDIO_NOT_ALLOWED.get(user_lang, AUDIO_NOT_ALLOWED["en"]),
+                    ))
+                    return
+                if media_base64 and isinstance(media_base64, str):
+                    from zapista.stt import transcribe
+                    from zapista.stt.audio_utils import check_audio_duration
+
+                    duration_error_key = check_audio_duration(media_base64.strip())
+                    if duration_error_key == "AUDIO_TOO_LONG":
+                        await self.bus.publish_outbound(OutboundMessage(
+                            channel=self.name,
+                            chat_id=sender,
+                            content=AUDIO_TOO_LONG.get(user_lang, AUDIO_TOO_LONG["en"]),
+                        ))
+                        return
+
+                    transcribed = await transcribe(media_base64.strip())
+                    if transcribed and transcribed.strip():
+                        content = transcribed.strip()
+                    else:
+                        await self.bus.publish_outbound(OutboundMessage(
+                            channel=self.name,
+                            chat_id=sender,
+                            content=AUDIO_TRANSCRIBE_FAILED.get(
+                                user_lang, AUDIO_TRANSCRIBE_FAILED["en"]
+                            ),
+                        ))
+                        return
+                else:
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content=AUDIO_NOT_RECEIVED.get(user_lang, AUDIO_NOT_RECEIVED["en"]),
+                    ))
+                    return
 
             # Anexo .ics: parse e registar eventos (sem passar ao agente)
             attachment_ics = data.get("attachmentIcs") or data.get("attachment_ics")

@@ -87,7 +87,24 @@ class BaseChannel(ABC):
                 if part and (part in allow_list or (self._normalize_digits(part) and self._normalize_digits(part) == sender_digits)):
                     return True
         return False
-    
+
+    def is_allowed_audio(self, sender_id: str) -> bool:
+        """
+        Check if a sender can send áudio para transcrição.
+        Lista distinta: allow_from_audio (config). Vazio = todos podem usar áudio.
+        Se não vazio, só números em allow_from_audio podem usar.
+        """
+        allow_list = list(getattr(self.config, "allow_from_audio", []))
+        if not allow_list:
+            return True
+        sender_str = str(sender_id).strip()
+        sender_digits = self._normalize_digits(sender_str)
+        if sender_str in allow_list:
+            return True
+        if sender_digits and any(sender_digits == self._normalize_digits(a) for a in allow_list if self._normalize_digits(a)):
+            return True
+        return False
+
     async def _handle_message(
         self,
         sender_id: str,

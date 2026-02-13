@@ -10,6 +10,10 @@ class WhatsAppConfig(BaseModel):
     enabled: bool = False
     bridge_url: str = "ws://localhost:3001"
     allow_from: list[str] = Field(default_factory=list)  # Allowed phone numbers (chats only)
+    allow_from_audio: list[str] = Field(
+        default_factory=list,
+        description="Números que podem enviar áudio para transcrição. Vazio = todos; não vazio = só estes.",
+    )
 
 
 class ChannelsConfig(BaseModel):

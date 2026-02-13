@@ -24,7 +24,7 @@ echo ""
 echo "Este script vai:"
 echo "  1. Parar contentores e APAGAR toda a instalação anterior em $INSTALL_DIR"
 echo "  2. Atualizar o sistema (apt update + upgrade)"
-echo "  3. Pedir as chaves de API (DeepSeek, Xiaomi MiMo e Perplexity)"
+echo "  3. Pedir as chaves de API (DeepSeek, Xiaomi MiMo, OpenAI e Perplexity)"
 echo "  4. Pedir a senha de god-mode (comandos admin no chat)"
 echo "  5. Instalar Docker (se precisar), clonar o código e arrancar tudo"
 echo ""
@@ -126,6 +126,14 @@ if [ -z "$XIAOMI_API_KEY" ]; then
   fi
 fi
 
+echo "  OpenAI — para transcrição de mensagens de voz (fallback quando whisper local falha). Opcional."
+echo "  Obtém em: https://platform.openai.com/api-keys"
+read -r -p "  Cola aqui a chave OpenAI (ou Enter para omitir): " OPENAI_API_KEY
+echo ""
+if [ -n "$OPENAI_API_KEY" ]; then
+  echo "    Chave OpenAI guardada (só no .env)."
+fi
+
 echo "  Perplexity — para busca na web (pesquisas, informações em tempo real). Opcional."
 echo "  Obtém em: https://www.perplexity.ai/settings/api"
 read -r -p "  Cola aqui a chave Perplexity (ou Enter para omitir): " PERPLEXITY_API_KEY
@@ -225,6 +233,7 @@ cat > "$INSTALL_DIR/.env" << ENV_EOF
 # Gerado por install_vps.sh — não commitar
 ZAPISTA_PROVIDERS__DEEPSEEK__API_KEY="$( _esc "$DEEPSEEK_API_KEY" )"
 ZAPISTA_PROVIDERS__XIAOMI__API_KEY="$( _esc "$XIAOMI_API_KEY" )"
+OPENAI_API_KEY="$( _esc "${OPENAI_API_KEY:-}" )"
 ZAPISTA_PROVIDERS__PERPLEXITY__API_KEY="$( _esc "${PERPLEXITY_API_KEY:-}" )"
 HEALTH_CHECK_TOKEN=health-$(openssl rand -hex 8)
 API_SECRET_KEY=api-$(openssl rand -hex 12)

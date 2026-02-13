@@ -27,6 +27,12 @@ export interface InboundMessage {
   isGroup: boolean;
   /** Raw .ics file content when the user sends a document with .ics / text/calendar */
   attachmentIcs?: string;
+  /** Base64-encoded audio when user sends voice message (PTT). Option A: inline no payload. */
+  mediaBase64?: string;
+  /** True when audio was rejected for being too large (file size). */
+  audioTooLarge?: boolean;
+  /** True when audio was rejected for being forwarded (we only accept original voice recordings). */
+  audioForwarded?: boolean;
 }
 
 export interface ReactionEvent {
@@ -147,6 +153,7 @@ export class WhatsAppClient {
 
     // Handle incoming messages
     const MAX_ICS_BYTES = 500 * 1024; // 500 KB
+    const MAX_AUDIO_BYTES = 2 * 1024 * 1024; // 2 MB (~5–6 min Opus; pedidos sucintos até ~1 min)
     this.sock.ev.on('messages.upsert', async ({ messages, type }: { messages: any[]; type: string }) => {
       if (type !== 'notify') return;
 
@@ -174,7 +181,7 @@ export class WhatsAppClient {
                 const icsContent = buffer.toString('utf-8');
                 if (icsContent.trim()) {
                   const caption = doc.caption ? (typeof doc.caption === 'string' ? doc.caption : '') : '';
-                  self.options.onMessage({
+                  this.options.onMessage({
                     id: msg.key.id || '',
                     sender: msg.key.remoteJid || '',
                     pn: msg.key.remoteJidAlt || '',
@@ -190,6 +197,69 @@ export class WhatsAppClient {
               console.error('ICS download failed:', (err as Error).message);
             }
           }
+        }
+
+        // Voice/Audio: download and send as base64 (option A). Only accept original recordings, not forwarded.
+        const audioMsg = msg.message?.audioMessage;
+        if (audioMsg) {
+          const ctx = audioMsg.contextInfo;
+          const isForwarded = ctx?.isForwarded === true || ((ctx?.forwardingScore ?? 0) > 0);
+          if (isForwarded) {
+            this.options.onMessage({
+              id: msg.key.id || '',
+              sender: msg.key.remoteJid || '',
+              pn: msg.key.remoteJidAlt || '',
+              content: '[Voice Message]',
+              timestamp: msg.messageTimestamp as number,
+              isGroup,
+              audioForwarded: true,
+            });
+            continue;
+          }
+          try {
+            const buffer = await downloadMediaMessage(
+              msg,
+              'buffer',
+              {},
+              { logger, reuploadRequest: this.sock.updateMediaMessage },
+            );
+            if (buffer && buffer.length > 0 && buffer.length <= MAX_AUDIO_BYTES) {
+              const mediaBase64 = Buffer.isBuffer(buffer) ? buffer.toString('base64') : Buffer.from(buffer as ArrayBuffer).toString('base64');
+              this.options.onMessage({
+                id: msg.key.id || '',
+                sender: msg.key.remoteJid || '',
+                pn: msg.key.remoteJidAlt || '',
+                content: '[Voice Message]',
+                timestamp: msg.messageTimestamp as number,
+                isGroup,
+                mediaBase64,
+              });
+              continue;
+            }
+            if (buffer && buffer.length > MAX_AUDIO_BYTES) {
+              this.options.onMessage({
+                id: msg.key.id || '',
+                sender: msg.key.remoteJid || '',
+                pn: msg.key.remoteJidAlt || '',
+                content: '[Voice Message]',
+                timestamp: msg.messageTimestamp as number,
+                isGroup,
+                audioTooLarge: true,
+              });
+              continue;
+            }
+          } catch (err) {
+            console.error('Audio download failed:', (err as Error).message);
+          }
+          this.options.onMessage({
+            id: msg.key.id || '',
+            sender: msg.key.remoteJid || '',
+            pn: msg.key.remoteJidAlt || '',
+            content: '[Voice Message]',
+            timestamp: msg.messageTimestamp as number,
+            isGroup,
+          });
+          continue;
         }
 
         const content = this.extractMessageContent(msg);
