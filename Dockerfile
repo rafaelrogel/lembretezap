@@ -16,12 +16,12 @@ WORKDIR /app
 
 # Install Python dependencies first (cached layer)
 COPY pyproject.toml README.md LICENSE ./
-RUN mkdir -p nanobot bridge && touch nanobot/__init__.py && \
+RUN mkdir -p zapista bridge && touch zapista/__init__.py && \
     uv pip install --system --no-cache . && \
-    rm -rf nanobot bridge
+    rm -rf zapista bridge
 
-# Copy the full source and install (nanobot + backend API)
-COPY nanobot/ nanobot/
+# Copy the full source and install (zapista + backend API)
+COPY zapista/ zapista/
 COPY backend/ backend/
 COPY bridge/ bridge/
 COPY prompts/ prompts/
@@ -35,10 +35,10 @@ RUN npm install && npm run build
 WORKDIR /app
 
 # Create config directory
-RUN mkdir -p /root/.nanobot
+RUN mkdir -p /root/.zapista
 
 # Gateway default port
 EXPOSE 18790
 
-ENTRYPOINT ["nanobot"]
+ENTRYPOINT ["zapista"]
 CMD ["status"]

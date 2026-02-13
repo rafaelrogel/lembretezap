@@ -11,10 +11,10 @@ from __future__ import annotations
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from nanobot.agent.tools.cron import CronTool
-    from nanobot.agent.tools.list_tool import ListTool
-    from nanobot.agent.tools.event_tool import EventTool
-    from nanobot.cron.service import CronService
+    from zapista.agent.tools.cron import CronTool
+    from zapista.agent.tools.list_tool import ListTool
+    from zapista.agent.tools.event_tool import EventTool
+    from zapista.cron.service import CronService
 
 from backend.handler_context import HandlerContext, _reply_confirm_prompt
 
@@ -222,7 +222,7 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
     if not content.strip().lower().startswith("/start"):
         return None
     return (
-        "👋 Olá! Sou o ZapAssist: lembretes, listas e eventos.\n\n"
+        "👋 Olá! Sou o Zapista: lembretes, listas e eventos.\n\n"
         "📌 Comandos: /lembrete, /list (filme, livro, musica, receita, compras…), /feito.\n"
         "🌍 Timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.\n\n"
         "Digite /help para ver tudo. 😊"

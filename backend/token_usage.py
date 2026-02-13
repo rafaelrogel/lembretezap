@@ -24,7 +24,7 @@ def _store_path() -> Path:
     p = os.environ.get("TOKEN_USAGE_FILE", "").strip()
     if p:
         return Path(p)
-    return Path.home() / ".nanobot" / "token_usage.json"
+    return Path.home() / ".zapista" / "token_usage.json"
 
 _LOCK = threading.Lock()
 _MAX_DAYS_KEPT = 8

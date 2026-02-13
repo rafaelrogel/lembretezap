@@ -2,7 +2,7 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in nanobot, please report it by:
+If you discover a security vulnerability in zapista, please report it by:
 
 1. **DO NOT** open a public GitHub issue
 2. Create a private security advisory on GitHub or contact the repository maintainers
@@ -22,13 +22,13 @@ We aim to respond to security reports within 48 hours.
 
 ```bash
 # ✅ Good: Store in config file with restricted permissions
-chmod 600 ~/.nanobot/config.json
+chmod 600 ~/.zapista/config.json
 
 # ❌ Bad: Hardcoding keys in code or committing them
 ```
 
 **Recommendations:**
-- Store API keys in `~/.nanobot/config.json` with file permissions set to `0600`
+- Store API keys in `~/.zapista/config.json` with file permissions set to `0600`
 - Consider using environment variables for sensitive keys
 - Use OS keyring/credential manager for production deployments
 - Rotate API keys regularly
@@ -74,7 +74,7 @@ To prevent data leakage between users, every user-visible resource is scoped by 
 
 | Resource | Isolation |
 |----------|-----------|
-| **Sessions** | `session_key = channel:chat_id`; one JSONL file per key under `~/.nanobot/sessions/` (safe filename, no path traversal). |
+| **Sessions** | `session_key = channel:chat_id`; one JSONL file per key under `~/.zapista/sessions/` (safe filename, no path traversal). |
 | **Cron (lembretes)** | Jobs store `payload.to = chat_id`. List and remove only show/allow jobs where `payload.to == current chat_id`. |
 | **Lists / List items** | DB: `List.user_id` from `get_or_create_user(chat_id)`. All queries filter by `user_id`. |
 | **Events** | DB: `Event.user_id` from `get_or_create_user(chat_id)`. Same for ICS import. |
@@ -93,7 +93,7 @@ Comandos admin (`#status`, `#users`, etc.) são protegidos por senha (`GOD_MODE_
 - **Ativação:** `#<senha>` no chat ativa god-mode para esse chat (TTL 24 h).
 - **Senha errada:** Silêncio total (não vaza superfície de admin).
 - **Rate-limit / lockout:** Após 5 tentativas de senha errada por chat, o chat fica bloqueado 15 min. Configurável via `GOD_MODE_MAX_ATTEMPTS` e `GOD_MODE_LOCKOUT_MINUTES`.
-- **Estado:** God-mode ativo em memória (perde-se em restart); lockout persiste em `~/.nanobot/security/god_mode_lockout.json`. Comando `#lockout` lista bloqueios.
+- **Estado:** God-mode ativo em memória (perde-se em restart); lockout persiste em `~/.zapista/security/god_mode_lockout.json`. Comando `#lockout` lista bloqueios.
 
 ### 4. Shell Command Execution
 
@@ -102,7 +102,7 @@ The `exec` tool can execute shell commands. While dangerous command patterns are
 - ✅ Review all tool usage in agent logs
 - ✅ Understand what commands the agent is running
 - ✅ Use a dedicated user account with limited privileges
-- ✅ Never run nanobot as root
+- ✅ Never run zapista as root
 - ❌ Don't disable security checks
 - ❌ Don't run on systems with sensitive data without careful review
 
@@ -117,7 +117,7 @@ The `exec` tool can execute shell commands. While dangerous command patterns are
 
 File operations have path traversal protection, but:
 
-- ✅ Run nanobot with a dedicated user account
+- ✅ Run zapista with a dedicated user account
 - ✅ Use filesystem permissions to protect sensitive directories
 - ✅ Regularly audit file operations in logs
 - ❌ Don't give unrestricted access to sensitive files
@@ -132,7 +132,7 @@ File operations have path traversal protection, but:
 **WhatsApp Bridge:**
 - The bridge runs on `localhost:3001` by default
 - If exposing to network, use proper authentication and TLS
-- Keep authentication data in `~/.nanobot/whatsapp-auth` secure (mode 0700)
+- Keep authentication data in `~/.zapista/whatsapp-auth` secure (mode 0700)
 
 ### 6. Dependency Security
 
@@ -144,7 +144,7 @@ pip install pip-audit
 pip-audit
 
 # Update to latest secure versions
-pip install --upgrade nanobot-ai
+pip install --upgrade zapista-ai
 ```
 
 For Node.js dependencies (WhatsApp bridge):
@@ -158,7 +158,7 @@ npm audit fix
 - Keep `litellm` updated to the latest version for security fixes
 - We've updated `ws` to `>=8.17.1` to fix DoS vulnerability
 - Run `pip-audit` or `npm audit` regularly
-- Subscribe to security advisories for nanobot and its dependencies
+- Subscribe to security advisories for zapista and its dependencies
 
 ### 7. Production Deployment
 
@@ -168,26 +168,26 @@ For production use:
    ```bash
    # Run in a container or VM
    docker run --rm -it python:3.11
-   pip install nanobot-ai
+   pip install zapista-ai
    ```
 
 2. **Use a Dedicated User**
    ```bash
-   sudo useradd -m -s /bin/bash nanobot
-   sudo -u nanobot nanobot gateway
+   sudo useradd -m -s /bin/bash zapista
+   sudo -u zapista zapista gateway
    ```
 
 3. **Set Proper Permissions**
    ```bash
-   chmod 700 ~/.nanobot
-   chmod 600 ~/.nanobot/config.json
-   chmod 700 ~/.nanobot/whatsapp-auth
+   chmod 700 ~/.zapista
+   chmod 600 ~/.zapista/config.json
+   chmod 700 ~/.zapista/whatsapp-auth
    ```
 
 4. **Enable Logging**
    ```bash
    # Configure log monitoring
-   tail -f ~/.nanobot/logs/nanobot.log
+   tail -f ~/.zapista/logs/zapista.log
    ```
 
 5. **Use Rate Limiting**
@@ -198,7 +198,7 @@ For production use:
 6. **Regular Updates**
    ```bash
    # Check for updates weekly
-   pip install --upgrade nanobot-ai
+   pip install --upgrade zapista-ai
    ```
 
 ### 8. Development vs Production
@@ -220,7 +220,7 @@ For production use:
 
 - **Logs may contain sensitive information** - secure log files appropriately
 - **LLM providers see your prompts** - review their privacy policies
-- **Chat history is stored locally** - protect the `~/.nanobot` directory
+- **Chat history is stored locally** - protect the `~/.zapista` directory
 - **API keys are in plain text** - use OS keyring for production
 
 ### 10. Incident Response
@@ -230,7 +230,7 @@ If you suspect a security breach:
 1. **Immediately revoke compromised API keys**
 2. **Review logs for unauthorized access**
    ```bash
-   grep "Access denied" ~/.nanobot/logs/nanobot.log
+   grep "Access denied" ~/.zapista/logs/zapista.log
    ```
 3. **Check for unexpected file modifications**
 4. **Rotate all credentials**
@@ -273,7 +273,7 @@ If you suspect a security breach:
 
 ## Security Checklist
 
-Before deploying nanobot:
+Before deploying zapista:
 
 - [ ] API keys stored securely (not in code)
 - [ ] Config file permissions set to 0600
@@ -291,8 +291,8 @@ Before deploying nanobot:
 **Last Updated**: 2026-02-03
 
 For the latest security updates and announcements, check:
-- GitHub Security Advisories: https://github.com/HKUDS/nanobot/security/advisories
-- Release Notes: https://github.com/HKUDS/nanobot/releases
+- GitHub Security Advisories: https://github.com/HKUDS/zapista/security/advisories
+- Release Notes: https://github.com/HKUDS/zapista/releases
 
 ## License
 

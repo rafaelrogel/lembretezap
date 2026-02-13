@@ -12,7 +12,7 @@ import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from nanobot.providers.base import LLMProvider
+    from zapista.providers.base import LLMProvider
 
 # Segundos em 24h (para aviso automático em eventos longos)
 AUTO_LEAD_LONG_EVENT_SECONDS = 86400  # 24h

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 # Ficheiro para registar tentativas bloqueadas (God mode #injection)
-_INJECTION_STORE_PATH = Path.home() / ".nanobot" / "security" / "injection_attempts.json"
+_INJECTION_STORE_PATH = Path.home() / ".zapista" / "security" / "injection_attempts.json"
 _MAX_ENTRIES = 500
 
 # Padrões de prompt injection (pt, en, es) — não devem ser passados ao agente

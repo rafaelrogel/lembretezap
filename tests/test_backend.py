@@ -25,7 +25,7 @@ def test_scope_filter_out_of_scope():
 @pytest.mark.asyncio
 async def test_scope_filter_llm_sim_nao():
     from backend.scope_filter import is_in_scope_llm
-    from nanobot.providers.base import LLMResponse
+    from zapista.providers.base import LLMResponse
 
     class MockProvider:
         async def chat(self, messages, tools=None, model=None, max_tokens=10, temperature=0.7, profile=None, **kwargs):
@@ -279,7 +279,7 @@ def test_fastapi_api_key_auth():
 
 def test_config_get_provider_fallback_when_matched_provider_has_no_key():
     """When model matches a provider (e.g. anthropic) but that provider has no api_key, fallback to first with key."""
-    from nanobot.config.schema import Config, ProviderConfig, ProvidersConfig, AgentsConfig, AgentDefaults
+    from zapista.config.schema import Config, ProviderConfig, ProvidersConfig, AgentsConfig, AgentDefaults
 
     # Only openrouter has key; model is anthropic
     providers = ProvidersConfig(

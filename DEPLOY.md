@@ -1,4 +1,4 @@
-# Deploy do nanobot (Docker)
+# Deploy do zapista (Docker)
 
 Guia para subir o organizador WhatsApp em servidor com Docker: **bridge** (WhatsApp), **gateway** (agente + cron) e **API** (opcional).
 
@@ -13,44 +13,44 @@ Guia para subir o organizador WhatsApp em servidor com Docker: **bridge** (Whats
 
 ## 1. Config antes do primeiro deploy
 
-O gateway e a API usam o diretório de dados montado em `/root/.nanobot` no container. Aí devem estar:
+O gateway e a API usam o diretório de dados montado em `/root/.zapista` no container. Aí devem estar:
 
 - **config.json** — obrigatório para o gateway (LLM, WhatsApp habilitado, etc.)
 - **whatsapp-auth/** — criado pelo bridge ao escanear o QR (persistido no volume)
 
 **Opção A – Usar o teu config local no volume**
 
-Antes de subir, copia o config para o volume (substitui `nanobot_nanobot_data` pelo nome do teu volume se for diferente):
+Antes de subir, copia o config para o volume (substitui `ZAPISTA_ZAPISTA_data` pelo nome do teu volume se for diferente):
 
 ```powershell
 # Windows (PowerShell)
-docker volume create nanobot_nanobot_data
-$cfg = "$env:USERPROFILE\.nanobot\config.json"
+docker volume create ZAPISTA_ZAPISTA_data
+$cfg = "$env:USERPROFILE\.zapista\config.json"
 if (Test-Path $cfg) {
-  docker run --rm -v nanobot_nanobot_data:/data -v "${cfg}:/src/config.json:ro" alpine cp /src/config.json /data/config.json
+  docker run --rm -v ZAPISTA_ZAPISTA_data:/data -v "${cfg}:/src/config.json:ro" alpine cp /src/config.json /data/config.json
 }
 ```
 
 ```bash
 # Linux / Mac
-docker volume create nanobot_nanobot_data
-[ -f ~/.nanobot/config.json ] && docker run --rm -v nanobot_nanobot_data:/data -v ~/.nanobot/config.json:/src/config.json:ro alpine cp /src/config.json /data/config.json
+docker volume create ZAPISTA_ZAPISTA_data
+[ -f ~/.zapista/config.json ] && docker run --rm -v ZAPISTA_ZAPISTA_data:/data -v ~/.zapista/config.json:/src/config.json:ro alpine cp /src/config.json /data/config.json
 ```
 
-**Opção B – Montar o teu diretório .nanobot (desenvolvimento)**
+**Opção B – Montar o teu diretório .zapista (desenvolvimento)**
 
 No `docker-compose.yml`, no serviço **gateway** e **api**, podes usar bind mount (ajusta o caminho):
 
 ```yaml
 volumes:
-  - /caminho/para/tua/pasta/.nanobot:/root/.nanobot
+  - /caminho/para/tua/pasta/.zapista:/root/.zapista
 ```
 
 Assim o `config.json` e o resto dos dados ficam no teu disco.
 
 **Opção C – API key via .env (opcional)**
 
-Por defeito usamos **APIs diretas** (DeepSeek + Xiaomi MiMo), não OpenRouter. As chaves ficam no `.env`: copia `.env.example` para `.env`, define `NANOBOT_PROVIDERS__DEEPSEEK__API_KEY` e `NANOBOT_PROVIDERS__XIAOMI__API_KEY`. No VPS o script de instalação gera o `.env`; com docker-compose local, descomenta `env_file: .env` nos serviços **gateway** e **api**. O `.env` não deve ser commitado (já está no `.gitignore`).
+Por defeito usamos **APIs diretas** (DeepSeek + Xiaomi MiMo), não OpenRouter. As chaves ficam no `.env`: copia `.env.example` para `.env`, define `ZAPISTA_PROVIDERS__DEEPSEEK__API_KEY` e `ZAPISTA_PROVIDERS__XIAOMI__API_KEY`. No VPS o script de instalação gera o `.env`; com docker-compose local, descomenta `env_file: .env` nos serviços **gateway** e **api**. O `.env` não deve ser commitado (já está no `.gitignore`).
 
 ---
 
@@ -78,8 +78,8 @@ No `config.json`:
 - **Agente (lembretes, listas, ferramentas):** usa `model` e a chave em `providers.deepseek.apiKey` (API direta DeepSeek).
 - **Scope filter (SIM/NAO) e heartbeat:** usam `scopeModel` e a chave em `providers.xiaomi.apiKey` (API direta Xiaomi MiMo; o LiteLLM usa o prefixo `xiaomi_mimo/`).
 - **Opção B (recomendada):** Colocar as chaves **só no `.env`** (nunca no repo). O loader aplica os overrides:
-  - `NANOBOT_PROVIDERS__DEEPSEEK__API_KEY=sk-...`
-  - `NANOBOT_PROVIDERS__XIAOMI__API_KEY=sk-...`
+  - `ZAPISTA_PROVIDERS__DEEPSEEK__API_KEY=sk-...`
+  - `ZAPISTA_PROVIDERS__XIAOMI__API_KEY=sk-...`
   No `config.json` podes deixar `providers.deepseek.api_key` e `providers.xiaomi.api_key` vazios (ou omitir); o `.env` prevalece.
 
 Se omitires `scopeModel`, o scope e o heartbeat usam o mesmo `model` (e o mesmo provider) que o agente.
@@ -146,7 +146,7 @@ O gateway usa por defeito `ws://localhost:3001`. Em Docker, o bridge está noutr
 
 ```yaml
 environment:
-  - NANOBOT_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001
+  - ZAPISTA_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001
 ```
 
 Não precisas de alterar o `config.json` para a URL do bridge em deploy com este compose.
@@ -174,7 +174,7 @@ O `docker-compose.yml` tem rotação de logs para todos os serviços:
 Os logs ficam em `/var/lib/docker/containers/`. Para logs em ficheiro dentro do volume (persistidos e rotacionados pelo Loguru), define no `.env`:
 
 ```
-NANOBOT_LOG_FILE=/root/.nanobot/logs/app.log
+ZAPISTA_LOG_FILE=/root/.zapista/logs/app.log
 ```
 
 O Loguru rota automaticamente (10 MB, 7 dias, compressão gzip).
@@ -202,32 +202,32 @@ Por boa prática, os endpoints `/health` (bridge na porta 3001 e API na 8000) n�
 
 ## 10. Backup automático (cron diário)
 
-O script `scripts/backup_nanobot.sh` faz backup de memória, sessões, BD e cron jobs.
+O script `scripts/backup_zapista.sh` faz backup de memória, sessões, BD e cron jobs.
 
 **Executar manualmente:**
 ```bash
-sudo bash scripts/backup_nanobot.sh
+sudo bash scripts/backup_zapista.sh
 ```
 
 **Agendar backup diário às 3h** (Linux):
 ```bash
 # Copiar para /etc/cron.d/
-sudo cp scripts/cron.nanobot-backup /etc/cron.d/nanobot-backup
-sudo chmod 644 /etc/cron.d/nanobot-backup
+sudo cp scripts/cron.zapista-backup /etc/cron.d/zapista-backup
+sudo chmod 644 /etc/cron.d/zapista-backup
 ```
 
-Variáveis (opcional, em `/etc/default/nanobot-backup` ou no crontab):
-- `ZAPASSIST_INSTALL_DIR=/opt/zapassist` — pasta do projeto
-- `NANOBOT_BACKUP_DIR=/backups/nanobot` — pasta dos backups
+Variáveis (opcional, em `/etc/default/zapista-backup` ou no crontab):
+- `Zapista_INSTALL_DIR=/opt/Zapista` — pasta do projeto
+- `ZAPISTA_BACKUP_DIR=/backups/zapista` — pasta dos backups
 - `RETENTION_DAYS=7` — dias a manter (default: 7)
 
 ---
 
 ## 11. Resumo rápido
 
-1. Ter **config.json** no volume (ou montar `~/.nanobot`).
+1. Ter **config.json** no volume (ou montar `~/.zapista`).
 2. `docker-compose up -d`
 3. `docker-compose logs -f bridge` → escanear QR
 4. (Opcional) Definir `API_SECRET_KEY` e `CORS_ORIGINS` para produção.
-5. (Opcional) Configurar backup: `sudo bash scripts/backup_nanobot.sh` ou cron.
+5. (Opcional) Configurar backup: `sudo bash scripts/backup_zapista.sh` ou cron.
 6. Testar mensagem no WhatsApp

@@ -39,7 +39,7 @@ QURAN_SURAHS = [
 
 def _fetch_json(url: str, timeout: int = 10) -> dict | None:
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "nanobot/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": "zapista/1.0"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode())
     except Exception:

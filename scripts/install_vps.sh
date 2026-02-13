@@ -1,19 +1,19 @@
 #!/bin/bash
 #
-# ZapAssist — Instalador no VPS Linux (instalação do zero)
+# Zapista — Instalador no VPS Linux (instalação do zero)
 # Uso: sudo bash install_vps.sh
 #
 # Faz: remove TUDO do VPS (pasta de instalação) → atualiza o sistema → pede chaves e senha god-mode → instala e arranca.
 #
 set -e
 
-INSTALL_DIR="${ZAPASSIST_INSTALL_DIR:-/opt/zapassist}"
+INSTALL_DIR="${Zapista_INSTALL_DIR:-/opt/Zapista}"
 DATA_DIR="${INSTALL_DIR}/data"
-REPO_URL="${ZAPASSIST_REPO_URL:-https://github.com/rafaelrogel/lembretezap.git}"
+REPO_URL="${Zapista_REPO_URL:-https://github.com/rafaelrogel/lembretezap.git}"
 
 echo ""
 echo "=============================================="
-echo "  ZapAssist — Instalador no VPS (do zero)"
+echo "  Zapista — Instalador no VPS (do zero)"
 echo "=============================================="
 echo ""
 echo "Este script vai:"
@@ -130,7 +130,7 @@ fi
 echo ""
 
 # --- 7. Clonar repositório (sempre do zero) ---
-echo "[Passo 6/7] A clonar o código do ZapAssist em ${INSTALL_DIR}..."
+echo "[Passo 6/7] A clonar o código do Zapista em ${INSTALL_DIR}..."
 mkdir -p "$(dirname "$INSTALL_DIR")"
 git clone "$REPO_URL" "$INSTALL_DIR"
 echo "    Repositório clonado (main)."
@@ -146,7 +146,7 @@ cat > "$DATA_DIR/config.json" << 'CONFIG_EOF'
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.nanobot/workspace",
+      "workspace": "~/.zapista/workspace",
       "model": "deepseek/deepseek-chat",
       "scopeModel": "xiaomi_mimo/mimo-v2-flash",
       "max_tokens": 2048,
@@ -172,9 +172,9 @@ chmod 600 "$DATA_DIR/config.json"
 _esc() { echo "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'; }
 cat > "$INSTALL_DIR/.env" << ENV_EOF
 # Gerado por install_vps.sh — não commitar
-NANOBOT_PROVIDERS__DEEPSEEK__API_KEY="$( _esc "$DEEPSEEK_API_KEY" )"
-NANOBOT_PROVIDERS__XIAOMI__API_KEY="$( _esc "$XIAOMI_API_KEY" )"
-NANOBOT_PROVIDERS__PERPLEXITY__API_KEY="$( _esc "${PERPLEXITY_API_KEY:-}" )"
+ZAPISTA_PROVIDERS__DEEPSEEK__API_KEY="$( _esc "$DEEPSEEK_API_KEY" )"
+ZAPISTA_PROVIDERS__XIAOMI__API_KEY="$( _esc "$XIAOMI_API_KEY" )"
+ZAPISTA_PROVIDERS__PERPLEXITY__API_KEY="$( _esc "${PERPLEXITY_API_KEY:-}" )"
 HEALTH_CHECK_TOKEN=health-$(openssl rand -hex 8)
 API_SECRET_KEY=api-$(openssl rand -hex 12)
 CORS_ORIGINS=*
@@ -185,7 +185,7 @@ chmod 600 "$INSTALL_DIR/.env"
 cat > "$INSTALL_DIR/docker-compose.vps.yml" << EOF
 # Override para VPS: dados em pasta local e .env (chaves)
 volumes:
-  nanobot_data:
+  ZAPISTA_data:
     driver: local
     driver_opts:
       type: none

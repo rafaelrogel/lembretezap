@@ -8,7 +8,7 @@ Checklist do que foi pedido vs estado atual do código.
 
 | Pedido | Estado no código |
 |--------|-------------------|
-| **Fork HKUDS/nanobot** (leve, WhatsApp/Baileys, cron, canais) | Base nanobot com canal WhatsApp (Baileys), cron nativo, agent loop. |
+| **Fork HKUDS/zapista** (leve, WhatsApp/Baileys, cron, canais) | Base zapista com canal WhatsApp (Baileys), cron nativo, agent loop. |
 | **Bot "secretária organizada" para 100 users** | Escopo organizador; rate-limit por user; 1 número WhatsApp. |
 | **Escopo estrito: lembretes, listas, compras, eventos, filmes** | Scope filter (LLM SIM/NÃO + regex) + parser de comandos. |
 | **Filtro LLM "Analise se input é agenda/lembrete/lista; ignore resto"** | `backend/scope_filter.py`: `is_in_scope_llm()` + `prompts/scope_filter.txt`. |
@@ -22,7 +22,7 @@ Checklist do que foi pedido vs estado atual do código.
 | **Segurança: min data, logs audit** | AuditLog (user_id, action, resource); API `/audit`. |
 | **Rate-limit anomalia** | `backend/rate_limit.py`: por channel:chat_id, N msg/min. |
 | **Backend FastAPI para frontend irmão** | `backend/app.py`: /health, /users, /users/{id}/lists, /users/{id}/events, /audit. |
-| **Cron nativo nanobot** | CronService no gateway; CronTool no agente; entrega no WhatsApp. |
+| **Cron nativo zapista** | CronService no gateway; CronTool no agente; entrega no WhatsApp. |
 | **Estrutura: customize whatsapp + agent loop (scope filter)** | channels/whatsapp.py; agent/loop.py com scope filter antes do LLM. |
 | **DB: User(id,phone), List(user_id,nome,itens[]), Event(user_id,tipo,data,recorrente)** | models_db.py: User, List, ListItem, Event (payload JSON; data_at; recorrente). |
 | **Tools: add/remove/list/delete/notify** | list: add/list/remove/feito; event: add/list; cron (notify/lembrete). |
@@ -61,7 +61,7 @@ Checklist do que foi pedido vs estado atual do código.
 
 ## Resumo
 
-- **Conforme:** Base nanobot + WhatsApp, escopo organizador, filtro de scope (LLM + regex), comandos /lembrete, /list, /feito, /filme, memória per-user, PII truncada, delete pós-confirma sem histórico, audit log, rate-limit, FastAPI, Docker, cron nativo, estrutura DB e tools, prompts, testes, MVP local.
+- **Conforme:** Base zapista + WhatsApp, escopo organizador, filtro de scope (LLM + regex), comandos /lembrete, /list, /feito, /filme, memória per-user, PII truncada, delete pós-confirma sem histórico, audit log, rate-limit, FastAPI, Docker, cron nativo, estrutura DB e tools, prompts, testes, MVP local.
 - **Parcial:** SQLite sem cripto (MVP), NER não implementado, Groq/Ollama não obrigatórios, /feito exige nome da lista, Redis não está no compose.
 - **Em falta:** Redis no compose; NER opcional; cripto em repouso para prod.
 

@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from nanobot.agent.tools.cron import CronTool
-    from nanobot.agent.tools.list_tool import ListTool
-    from nanobot.agent.tools.event_tool import EventTool
-    from nanobot.cron.service import CronService
+    from zapista.agent.tools.cron import CronTool
+    from zapista.agent.tools.list_tool import ListTool
+    from zapista.agent.tools.event_tool import EventTool
+    from zapista.cron.service import CronService
 
 
 @dataclass

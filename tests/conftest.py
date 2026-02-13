@@ -1,4 +1,4 @@
-"""Pytest config: adiciona raiz do projeto ao path para imports backend/nanobot."""
+"""Pytest config: adiciona raiz do projeto ao path para imports backend/zapista."""
 import sys
 from pathlib import Path
 

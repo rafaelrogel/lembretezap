@@ -24,7 +24,7 @@ from backend.user_store import (
 from backend.timezone import phone_to_default_timezone
 
 
-_SENT_FILE = Path.home() / ".nanobot" / "smart_reminder_sent.json"
+_SENT_FILE = Path.home() / ".zapista" / "smart_reminder_sent.json"
 
 
 def _load_sent_tracking() -> dict[str, str]:
@@ -280,7 +280,7 @@ async def run_smart_reminder_daily(
     Retorna (enviados, erros).
     """
     from backend.database import SessionLocal
-    from nanobot.bus.events import OutboundMessage
+    from zapista.bus.events import OutboundMessage
 
     sent = 0
     errors = 0

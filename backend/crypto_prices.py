@@ -27,7 +27,7 @@ def fetch_crypto_prices() -> dict[str, dict[str, float]] | None:
     try:
         req = urllib.request.Request(
             COINGECKO_URL,
-            headers={"Accept": "application/json", "User-Agent": "nanobot/1.0"},
+            headers={"Accept": "application/json", "User-Agent": "zapista/1.0"},
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             return json.loads(resp.read().decode())

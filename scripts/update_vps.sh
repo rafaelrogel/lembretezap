@@ -1,24 +1,24 @@
 #!/bin/bash
 #
-# ZapAssist — Atualizar instalação no VPS (código + reiniciar serviços)
+# Zapista — Atualizar instalação no VPS (código + reiniciar serviços)
 # Uso: sudo bash update_vps.sh
 #
-# Faz: git pull em /opt/zapassist → rebuild imagens → docker compose up -d
+# Faz: git pull em /opt/zapista → rebuild imagens → docker compose up -d
 # Não altera .env nem config.json (mantém chaves e senha de god-mode).
 #
 set -e
 
-INSTALL_DIR="${ZAPASSIST_INSTALL_DIR:-/opt/zapassist}"
+INSTALL_DIR="${ZAPISTA_INSTALL_DIR:-/opt/zapista}"
 
 echo ""
 echo "=============================================="
-echo "  ZapAssist — Atualizar no VPS"
+echo "  Zapista — Atualizar no VPS"
 echo "=============================================="
 echo ""
 
 if [ ! -d "$INSTALL_DIR" ]; then
   echo "Erro: pasta de instalação não encontrada: $INSTALL_DIR"
-  echo "Se instalaste noutro sítio, usa: ZAPASSIST_INSTALL_DIR=/caminho sudo bash update_vps.sh"
+  echo "Se instalaste noutro sítio, usa: ZAPISTA_INSTALL_DIR=/caminho sudo bash update_vps.sh"
   exit 1
 fi
 

@@ -103,7 +103,7 @@ async def run_house_chores_daily(
     Verifica tarefas de limpeza devidas hoje para cada utilizador e envia lembrete.
     Janela: 8h–10h local. Retorna (enviados, erros).
     """
-    from nanobot.bus.events import OutboundMessage
+    from zapista.bus.events import OutboundMessage
 
     sent = 0
     errors = 0

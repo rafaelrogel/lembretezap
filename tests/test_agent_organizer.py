@@ -7,10 +7,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from nanobot.bus.queue import MessageBus
-from nanobot.agent.loop import AgentLoop
-from nanobot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
-from nanobot.cron.service import CronService
+from zapista.bus.queue import MessageBus
+from zapista.agent.loop import AgentLoop
+from zapista.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+from zapista.cron.service import CronService
 
 
 class MockProvider(LLMProvider):

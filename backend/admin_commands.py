@@ -167,7 +167,7 @@ async def handle_admin_command(
         _, arg = parse_admin_command_arg(raw)
         if not arg:
             return "#add\nUso: #add <número de telefone>"
-        from nanobot.utils.extra_allowed import add_extra_allowed
+        from zapista.utils.extra_allowed import add_extra_allowed
         digits = "".join(c for c in str(arg or "") if c.isdigit())
         if not digits:
             return "#add\nNúmero inválido."
@@ -179,7 +179,7 @@ async def handle_admin_command(
         _, arg = parse_admin_command_arg(raw)
         if not arg:
             return "#remove\nUso: #remove <número de telefone>"
-        from nanobot.utils.extra_allowed import remove_extra_allowed
+        from zapista.utils.extra_allowed import remove_extra_allowed
         digits = "".join(c for c in str(arg or "") if c.isdigit())
         if not digits:
             return "#remove\nNúmero inválido."
@@ -244,7 +244,7 @@ async def _cmd_paid(db_session_factory: Any) -> str:
 
 def _cmd_cron(cron_store_path: Path | None) -> str:
     """Quantidade de cron jobs, por utilizador, duplicatas e atrasados (>60s)."""
-    path = cron_store_path or (Path.home() / ".nanobot" / "cron" / "jobs.json")
+    path = cron_store_path or (Path.home() / ".zapista" / "cron" / "jobs.json")
     if not path.exists():
         return "#cron\n0 jobs (ficheiro não encontrado)."
     try:
@@ -357,7 +357,7 @@ def _cmd_lembretes(cron_store_path: Path | None, user_arg: str) -> str:
     """Lista lembretes de um utilizador por número. Detecta duplicatas (mesma msg + schedule)."""
     if not user_arg or len(_digits(user_arg)) < 8:
         return "#lembretes\nUso: #lembretes <número> (ex: #lembretes 5511999999999)"
-    path = cron_store_path or (Path.home() / ".nanobot" / "cron" / "jobs.json")
+    path = cron_store_path or (Path.home() / ".zapista" / "cron" / "jobs.json")
     if not path.exists():
         return "#lembretes\n0 jobs (ficheiro não encontrado)."
     try:
@@ -470,7 +470,7 @@ def _cmd_server(
     lines = ["#server"]
     try:
         from backend.server_metrics import record_snapshot, get_historical
-        from nanobot.config.loader import get_data_dir
+        from zapista.config.loader import get_data_dir
     except ImportError:
         lines.append("Módulo server_metrics não disponível.")
         return "\n".join(lines)
@@ -503,7 +503,7 @@ def _cmd_server(
     lines.append(f"CPU: {snapshot['cpu_pct']}% | load 1m: {snapshot['load_1m']}")
     lines.append(
         f"Disco: {snapshot['disk_pct']}% usado | livre: {snapshot['disk_free_mb']:.0f}M | "
-        f"dados .nanobot: {snapshot['data_dir_mb']:.0f}M"
+        f"dados .zapista: {snapshot['data_dir_mb']:.0f}M"
     )
     lines.append(f"Gateway uptime: {_uptime_str(snapshot['gateway_uptime_s'])}")
     bridge_st = "connected" if snapshot.get("bridge_connected") else "disconnected"
@@ -554,10 +554,10 @@ def _cmd_msgs() -> str:
     from datetime import date, datetime, timedelta
 
     try:
-        from nanobot.utils.helpers import get_sessions_path
+        from zapista.utils.helpers import get_sessions_path
         sessions_dir = get_sessions_path()
     except ImportError:
-        sessions_dir = Path.home() / ".nanobot" / "sessions"
+        sessions_dir = Path.home() / ".zapista" / "sessions"
 
     if not sessions_dir.exists():
         return "#msgs\n0 mensagens (pasta de sessões não existe)."
@@ -721,7 +721,7 @@ def _cmd_blocked() -> str:
 def _cmd_painpoints(cron_store_path: Path | None) -> str:
     """Heurísticas: jobs atrasados + clientes para atendimento contactar."""
     lines = ["#painpoints"]
-    path = cron_store_path or (Path.home() / ".nanobot" / "cron" / "jobs.json")
+    path = cron_store_path or (Path.home() / ".zapista" / "cron" / "jobs.json")
     now_ms = int(time.time() * 1000)
     atrasados = 0
     if path.exists():

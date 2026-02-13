@@ -14,8 +14,8 @@ from sqlalchemy.pool import StaticPool
 
 from backend.models_db import Base
 
-# Caminho da BD: env DB_PATH ou default ~/.nanobot/organizer.db
-_DATA_DIR = Path(os.environ.get("NANOBOT_DATA", "").strip() or str(Path.home() / ".nanobot"))
+# Caminho da BD: env DB_PATH ou default ~/.zapista/organizer.db
+_DATA_DIR = Path(os.environ.get("ZAPISTA_DATA", "").strip() or str(Path.home() / ".zapista"))
 DB_PATH = Path(os.environ.get("DB_PATH", "").strip()) if os.environ.get("DB_PATH") else (_DATA_DIR / "organizer.db")
 DATA_DIR = DB_PATH.parent
 DATA_DIR.mkdir(parents=True, exist_ok=True)

@@ -173,9 +173,9 @@ END:VCALENDAR
 @pytest.mark.asyncio
 async def test_whatsapp_channel_attachment_ics_calls_handler_and_sends_response():
     """Quando o canal recebe attachmentIcs, chama handle_ics_payload e envia a resposta no bus."""
-    from nanobot.channels.whatsapp import WhatsAppChannel
-    from nanobot.bus.queue import MessageBus
-    from nanobot.config.schema import WhatsAppConfig
+    from zapista.channels.whatsapp import WhatsAppChannel
+    from zapista.bus.queue import MessageBus
+    from zapista.config.schema import WhatsAppConfig
 
     bus = MessageBus()
     bus.publish_outbound = AsyncMock()

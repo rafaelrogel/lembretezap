@@ -216,7 +216,7 @@ async def run_year_recap(
     Retorna (enviados, erros).
     """
     from backend.database import SessionLocal
-    from nanobot.bus.events import OutboundMessage
+    from zapista.bus.events import OutboundMessage
 
     year = datetime.utcnow().year - 1  # ano passado
     sent = 0

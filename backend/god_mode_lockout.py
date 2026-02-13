@@ -17,7 +17,7 @@ _lockout_state: dict[str, dict] = {}
 _LOCK = threading.Lock()
 _LOADED = False
 
-_STORE_PATH = Path(os.environ.get("NANOBOT_DATA", "").strip() or str(Path.home() / ".nanobot")) / "security" / "god_mode_lockout.json"
+_STORE_PATH = Path(os.environ.get("ZAPISTA_DATA", "").strip() or str(Path.home() / ".zapista")) / "security" / "god_mode_lockout.json"
 _MAX_ATTEMPTS = int(os.environ.get("GOD_MODE_MAX_ATTEMPTS", "5"))
 _LOCKOUT_SECONDS = int(os.environ.get("GOD_MODE_LOCKOUT_MINUTES", "15")) * 60
 _WINDOW_SECONDS = 60 * 15  # janela para contar tentativas (15 min); após isso, count reseta

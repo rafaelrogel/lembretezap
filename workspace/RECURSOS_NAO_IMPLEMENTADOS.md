@@ -83,7 +83,7 @@ Lista de funcionalidades com documento de viabilidade, “em breve” no código
 
 ## 7. Redis queue no deploy ✅ (implementado)
 
-**Onde:** `docker-compose.yml`, `nanobot/bus/redis_queue.py`, `nanobot/bus/queue.py`  
+**Onde:** `docker-compose.yml`, `zapista/bus/redis_queue.py`, `zapista/bus/queue.py`  
 **Estado:** Serviço redis no Compose; fila outbound com Redis quando REDIS_URL está definido. MessageBus usa push Redis + feeder task que drena para a queue local. Documentos referem “Redis queue” como opcional/em falta.
 
 **Ideia:**  
@@ -107,7 +107,7 @@ Lista de funcionalidades com documento de viabilidade, “em breve” no código
 
 ## 9. Botões na confirmação (WhatsApp Business API)
 
-**Onde:** `backend/handlers.py`, `backend/confirmations.py`, `nanobot/agent/loop.py`, bridge  
+**Onde:** `backend/handlers.py`, `backend/confirmations.py`, `zapista/agent/loop.py`, bridge  
 **Estado:** Vários TODOs: *"Após WhatsApp Business API, use buttons: sendButtons(['Confirmar','Cancelar'])"*. Hoje as confirmações são por texto (1=sim, 2=não).
 
 **Ideia:**  
@@ -138,7 +138,7 @@ Para implementar algo no estilo do .ics (documento de viabilidade + fluxo concre
 
 ## 10. Otimização de tokens — summarization e filtragem de histórico (fase posterior)
 
-**Onde:** `nanobot/session/manager.py` (histórico), `nanobot/agent/context.py` (contexto), `nanobot/agent/loop.py` (build_messages).  
+**Onde:** `zapista/session/manager.py` (histórico), `zapista/agent/context.py` (contexto), `zapista/agent/loop.py` (build_messages).  
 **Estado:** Não implementado. Registado para **fase posterior** (após medir uso real: tamanho das sessões, tokens, custo).
 
 **Ideia:**  

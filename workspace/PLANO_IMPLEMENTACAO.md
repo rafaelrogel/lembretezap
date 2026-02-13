@@ -51,7 +51,7 @@ Este documento descreve as fases de implementação para melhorias de segurança
 
 - **Implementado:** Estrutura documentada em `workspace/ARCHITECTURE.md` (secção “Estrutura de ficheiros”).
   - `backend/` — `app.py` (app + health + CORS), `auth.py`, `routes.py`, parser, DB, sanitize, rate limit, scope filter.
-  - `nanobot/` — agente, canais, cron, providers, bus, CLI (core do bot).
+  - `zapista/` — agente, canais, cron, providers, bus, CLI (core do bot).
 - Movimentações futuras (ex.: mais subpacotes) devem ser incrementais; ver ARCHITECTURE.
 
 ### 2.2 Movimentação incremental
@@ -65,7 +65,7 @@ Este documento descreve as fases de implementação para melhorias de segurança
 
 ### 2.3 Compatibilidade
 
-- Manter pontos de entrada atuais (ex.: `uvicorn backend.app:app`, `nanobot` CLI) funcionando.
+- Manter pontos de entrada atuais (ex.: `uvicorn backend.app:app`, `zapista` CLI) funcionando.
 - Se for necessário, adicionar re-exports em `__init__.py` durante a transição (ex.: `from backend.new.location import X`) e remover depois.
 
 ### Critérios de conclusão da Fase 2

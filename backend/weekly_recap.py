@@ -139,7 +139,7 @@ async def run_weekly_recap(
     Retorna (enviados, erros).
     """
     from backend.database import SessionLocal
-    from nanobot.bus.events import OutboundMessage
+    from zapista.bus.events import OutboundMessage
 
     sent = 0
     errors = 0

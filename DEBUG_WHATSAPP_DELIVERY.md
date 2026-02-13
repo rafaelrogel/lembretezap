@@ -14,19 +14,19 @@ O fluxo foi revisado e está consistente:
 ## Checklist rápido
 
 1. **Lembrete criado pelo WhatsApp**  
-   Se você criou o lembrete pelo CLI (`nanobot agent -m "me lembre em 2 min"`), o job fica com `channel=cli` e `to=direct`. O gateway **só envia** para o canal `whatsapp`; não existe canal `cli` para entrega.  
+   Se você criou o lembrete pelo CLI (`zapista agent -m "me lembre em 2 min"`), o job fica com `channel=cli` e `to=direct`. O gateway **só envia** para o canal `whatsapp`; não existe canal `cli` para entrega.  
    → Crie o lembrete **enviando a mensagem pelo WhatsApp** (ex.: “me lembre em 2 minutos”).
 
 2. **Gateway rodando na hora do disparo**  
    O cron roda **dentro** do processo do gateway. Se o gateway estiver fechado na hora do lembrete, o job não executa e nada é enviado.  
-   → Deixe `nanobot gateway` rodando até depois do horário do lembrete.
+   → Deixe `zapista gateway` rodando até depois do horário do lembrete.
 
 3. **WhatsApp conectado**  
    O bridge (Node) precisa estar conectado (QR já escaneado) e o gateway (Python) conectado ao bridge via WebSocket.  
    → No terminal do gateway deve aparecer algo como “WhatsApp channel enabled” e, no bridge, “Connected to WhatsApp”.
 
 4. **WhatsApp habilitado no config**  
-   Em `~/.nanobot/config.json` deve ter `channels.whatsapp.enabled: true` e a URL do bridge correta.
+   Em `~/.zapista/config.json` deve ter `channels.whatsapp.enabled: true` e a URL do bridge correta.
 
 5. **Falar contigo mesmo (mensagens guardadas)**  
    Por defeito o bridge **ignora** mensagens em que `fromMe === true` (quando envias para ti mesmo / mensagens guardadas). Para o bot responder quando falas contigo mesmo, define no ambiente do **bridge** `ALLOW_SELF_MESSAGES=1` e reinicia o bridge. No Docker: no `.env` adiciona `ALLOW_SELF_MESSAGES=1` e faz `docker compose restart bridge`. O teu número deve estar em `allow_from` no config.
@@ -55,7 +55,7 @@ Cron dispara → on_cron_job → agent.process_direct → bus.publish_outbound(O
 ## Como debugar
 
 1. Rode o gateway com logs visíveis (não em background):  
-   `nanobot gateway`
+   `zapista gateway`
 2. Crie um lembrete **pelo WhatsApp**, ex.: “me lembre em 2 minutos”.
 3. Quando der a hora, observe a sequência no terminal:
    - Aparece `Cron deliver: channel=whatsapp to=...`?  
@@ -68,7 +68,7 @@ Cron dispara → on_cron_job → agent.process_direct → bus.publish_outbound(O
      - **Sim** → bridge/Node não está rodando ou WebSocket desconectado; suba o bridge e escaneie o QR se precisar.
 
 4. **Verificar jobs agendados**  
-   Os jobs ficam em `~/.nanobot/cron/jobs.json`. Confira se o job tem `channel: "whatsapp"` e `to: "<jid_do_usuario>"` (ex.: `5511999999999@s.whatsapp.net`).
+   Os jobs ficam em `~/.zapista/cron/jobs.json`. Confira se o job tem `channel: "whatsapp"` e `to: "<jid_do_usuario>"` (ex.: `5511999999999@s.whatsapp.net`).
 
 ## Resumo das causas mais comuns
 

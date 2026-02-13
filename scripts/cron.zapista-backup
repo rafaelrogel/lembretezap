@@ -1,0 +1,7 @@
+# Zapista — Backup diário às 3h
+# Copiar para /etc/cron.d/: sudo cp scripts/cron.zapista-backup /etc/cron.d/zapista-backup
+# Ajustar ZAPISTA_INSTALL_DIR se instalado noutro sítio (ex.: /opt/zapista)
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+0 3 * * * root ZAPISTA_INSTALL_DIR=/opt/zapista /bin/bash /opt/zapista/scripts/backup_zapista.sh >> /var/log/zapista-backup.log 2>&1

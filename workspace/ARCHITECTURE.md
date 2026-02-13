@@ -7,7 +7,7 @@
 - **backend/routes.py** — Rotas protegidas: `/users`, `/users/{id}/lists`, `/users/{id}/events`, `/audit` (todas com `Depends(require_api_key)`).
 - **backend/database.py**, **backend/models_db.py** — SQLite, sessões e modelos (User, List, ListItem, Event, AuditLog).
 - **backend/command_parser.py**, **backend/scope_filter.py**, **backend/rate_limit.py**, **backend/sanitize.py** — Parser de comandos, scope, rate limit e sanitização de entrada.
-- **nanobot/** — Agente (loop, context, tools), canais (WhatsApp), cron, providers, bus, CLI. O gateway e o agente vivem aqui; a API é apenas o frontend “irmão” em `backend/`.
+- **zapista/** — Agente (loop, context, tools), canais (WhatsApp), cron, providers, bus, CLI. O gateway e o agente vivem aqui; a API é apenas o frontend “irmão” em `backend/`.
 
 Movimentações futuras (ex.: mais subpacotes em `backend/`) devem ser incrementais, com testes após cada alteração (ver `workspace/PLANO_IMPLEMENTACAO.md`).
 
@@ -22,7 +22,7 @@ Assim reduz-se latência e custo para comandos simples; o LLM é usado para ling
 
 ## Volume único e escala horizontal
 
-O `docker-compose` usa um **único volume** (`nanobot_data`) partilhado por bridge, gateway e API. Isto é adequado para **uma instância** (um gateway + um bridge + uma API).
+O `docker-compose` usa um **único volume** (`ZAPISTA_data`) partilhado por bridge, gateway e API. Isto é adequado para **uma instância** (um gateway + um bridge + uma API).
 
 - **Várias instâncias** (escala horizontal) com o mesmo volume podem causar **conflitos** (cron store, SQLite, sessões).
 - Para escalar horizontalmente é necessário:
@@ -35,7 +35,7 @@ Por agora a arquitetura assume **uma instância** por deploy.
 
 - Cada mensagem recebida tem um **trace_id** (gerado no canal ou em `process_direct`).
 - O **trace_id** é definido no contexto da request e incluído nos logs (formato texto ou JSON), permitindo seguir uma mensagem em todos os componentes.
-- **JSON logs:** definir `NANOBOT_LOG_JSON=1` (e opcionalmente `NANOBOT_LOG_LEVEL=DEBUG`) para saída em JSON, adequada a agregadores (e.g. ELK, Datadog).
+- **JSON logs:** definir `ZAPISTA_LOG_JSON=1` (e opcionalmente `ZAPISTA_LOG_LEVEL=DEBUG`) para saída em JSON, adequada a agregadores (e.g. ELK, Datadog).
 
 ## Escolha de modelo (DeepSeek vs Mimo)
 

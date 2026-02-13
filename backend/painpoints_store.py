@@ -7,7 +7,7 @@ import json
 import time
 from pathlib import Path
 
-_STORE_PATH = Path.home() / ".nanobot" / "security" / "client_painpoints.json"
+_STORE_PATH = Path.home() / ".zapista" / "security" / "client_painpoints.json"
 
 
 def _digits_from_chat_id(chat_id: str) -> str:

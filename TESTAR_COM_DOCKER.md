@@ -1,4 +1,4 @@
-# Instruções detalhadas: testar o nanobot com Docker
+# Instruções detalhadas: testar o zapista com Docker
 
 Siga estes passos **na ordem**. Você já tem Docker instalado.
 
@@ -12,12 +12,12 @@ O bot precisa de um `config.json` com sua chave de API (OpenRouter ou outro) e a
 
 Abra o **PowerShell** (Windows).
 
-### 1.2 Criar a pasta `.nanobot`
+### 1.2 Criar a pasta `.zapista`
 
 Execute:
 
 ```powershell
-mkdir -Force $env:USERPROFILE\.nanobot
+mkdir -Force $env:USERPROFILE\.zapista
 ```
 
 ### 1.3 Criar o arquivo `config.json`
@@ -25,7 +25,7 @@ mkdir -Force $env:USERPROFILE\.nanobot
 Execute (abre o Bloco de Notas):
 
 ```powershell
-notepad $env:USERPROFILE\.nanobot\config.json
+notepad $env:USERPROFILE\.zapista\config.json
 ```
 
 Se o Notepad perguntar “Deseja criar um novo arquivo?”, clique em **Sim**.
@@ -41,7 +41,7 @@ Substitua **`SUA_CHAVE_OPENROUTER_AQUI`** pela sua chave real da OpenRouter (ou 
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.nanobot/workspace",
+      "workspace": "~/.zapista/workspace",
       "model": "openrouter/anthropic/claude-sonnet-4",
       "max_tokens": 2048,
       "temperature": 0.7,
@@ -78,7 +78,7 @@ Salve o arquivo (Ctrl+S) e feche o Notepad.
 No mesmo PowerShell:
 
 ```powershell
-cd C:\Users\rafae\nanobot
+cd C:\Users\rafae\zapista
 ```
 
 (Se o projeto estiver em outro disco ou pasta, use esse caminho.)
@@ -93,7 +93,7 @@ dir docker-compose.yml, Dockerfile
 
 ## Passo 3: Colocar o config no “volume” do Docker
 
-Os containers usam um volume chamado `nanobot_data` para guardar config e sessão do WhatsApp. É preciso copiar o seu `config.json` para dentro desse volume **antes** de subir os serviços.
+Os containers usam um volume chamado `ZAPISTA_data` para guardar config e sessão do WhatsApp. É preciso copiar o seu `config.json` para dentro desse volume **antes** de subir os serviços.
 
 ### 3.1 Subir os containers uma vez (só para criar o volume)
 
@@ -113,19 +113,19 @@ docker-compose stop
 docker volume ls
 ```
 
-Procure um volume cujo nome termina com `_nanobot_data`, por exemplo: `nanobot_nanobot_data`.
+Procure um volume cujo nome termina com `_ZAPISTA_data`, por exemplo: `ZAPISTA_ZAPISTA_data`.
 
 ### 3.3 Copiar o config para dentro do volume
 
-Use o nome que você viu no passo anterior. No exemplo abaixo está `nanobot_nanobot_data`; **troque** se no seu `docker volume ls` aparecer outro nome.
+Use o nome que você viu no passo anterior. No exemplo abaixo está `ZAPISTA_ZAPISTA_data`; **troque** se no seu `docker volume ls` aparecer outro nome.
 
 ```powershell
-$vol = "nanobot_nanobot_data"
-$cfg = "$env:USERPROFILE\.nanobot\config.json"
+$vol = "ZAPISTA_ZAPISTA_data"
+$cfg = "$env:USERPROFILE\.zapista\config.json"
 docker run --rm -v "${vol}:/data" -v "${cfg}:/src/config.json:ro" alpine cp /src/config.json /data/config.json
 ```
 
-Se der erro “volume não encontrado”, use o nome que apareceu em `docker volume ls` no lugar de `nanobot_nanobot_data`.
+Se der erro “volume não encontrado”, use o nome que apareceu em `docker volume ls` no lugar de `ZAPISTA_ZAPISTA_data`.
 
 ---
 
@@ -205,7 +205,7 @@ A resposta deve indicar que a API está ok.
 
 ## Passo 7: Testar pelo WhatsApp
 
-1. No telemóvel, envie uma mensagem para o **número/contato** que está ligado ao bridge (o “nanobot” no WhatsApp).  
+1. No telemóvel, envie uma mensagem para o **número/contato** que está ligado ao bridge (o “Zapista” no WhatsApp).  
 2. Exemplos para testar:
    - **“Olá”** → o bot deve responder.
    - **“Me lembre em 2 minutos de tomar o remédio”** → ele confirma e, 2 minutos depois, envia o lembrete (se os containers continuarem ligados).
@@ -220,8 +220,8 @@ Se você configurou `allow_from` com um número específico, só esse número re
 
 | # | O que fazer |
 |---|------------------|
-| 1 | Criar `%USERPROFILE%\.nanobot\config.json` com chave de API e `allow_from` |
-| 2 | `cd C:\Users\rafae\nanobot` |
+| 1 | Criar `%USERPROFILE%\.zapista\config.json` com chave de API e `allow_from` |
+| 2 | `cd C:\Users\rafae\zapista` |
 | 3 | `docker-compose up -d` → `docker-compose stop` (criar volume) |
 | 4 | Copiar config para o volume (comando com `alpine cp`) |
 | 5 | `docker-compose up -d` de novo |

@@ -1,0 +1,282 @@
+"""LiteLLM provider implementation for multi-provider support."""
+
+import asyncio
+import os
+from typing import Any, Callable, Literal
+
+import litellm
+from litellm import acompletion
+
+from zapista.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+
+# Semáforo global: limita chamadas LLM simultâneas (evita tempestade quando cron + inbound concorrem).
+_LLM_SEMAPHORE: asyncio.Semaphore | None = None
+
+
+def _get_llm_semaphore() -> asyncio.Semaphore:
+    """Semáforo partilhado por todos os providers. Configurável via LLM_MAX_CONCURRENT (default 5)."""
+    global _LLM_SEMAPHORE
+    if _LLM_SEMAPHORE is None:
+        n = 5
+        v = os.environ.get("LLM_MAX_CONCURRENT", "").strip()
+        if v:
+            try:
+                n = max(1, min(20, int(v)))
+            except ValueError:
+                pass
+        _LLM_SEMAPHORE = asyncio.Semaphore(n)
+    return _LLM_SEMAPHORE
+
+
+def _get_llm_timeout() -> int:
+    """Timeout em segundos por chamada. Configurável via LLM_TIMEOUT_SECONDS (default 60)."""
+    v = os.environ.get("LLM_TIMEOUT_SECONDS", "").strip()
+    if v:
+        try:
+            return max(10, min(300, int(v)))
+        except ValueError:
+            pass
+    return 60
+
+
+def _get_llm_num_retries() -> int:
+    """Número de retries com backoff (tenacity). Configurável via LLM_NUM_RETRIES (default 2)."""
+    v = os.environ.get("LLM_NUM_RETRIES", "").strip()
+    if v:
+        try:
+            return max(0, min(5, int(v)))
+        except ValueError:
+            pass
+    return 2
+
+
+def _provider_from_model(model: str) -> str:
+    """De model string devolve 'deepseek', 'mimo' ou 'other' (para métricas #ai)."""
+    if not model:
+        return "other"
+    m = model.lower()
+    if "deepseek" in m:
+        return "deepseek"
+    if "xiaomi" in m or "mimo" in m:
+        return "mimo"
+    return "other"
+
+
+class LiteLLMProvider(LLMProvider):
+    """
+    LLM provider using LiteLLM for multi-provider support.
+    
+    Supports OpenRouter, Anthropic, OpenAI, Gemini, and many other providers through
+    a unified interface.
+    """
+    
+    def __init__(
+        self, 
+        api_key: str | None = None, 
+        api_base: str | None = None,
+        default_model: str = "anthropic/claude-opus-4-5",
+        extra_headers: dict[str, str] | None = None,
+        usage_callback: Callable[..., None] | None = None,
+    ):
+        super().__init__(api_key, api_base)
+        self.default_model = default_model
+        self.extra_headers = extra_headers or {}
+        self.usage_callback = usage_callback
+        
+        # Detect OpenRouter by api_key prefix or explicit api_base
+        self.is_openrouter = (
+            (api_key and api_key.startswith("sk-or-")) or
+            (api_base and "openrouter" in api_base)
+        )
+        
+        # Detect AiHubMix by api_base
+        self.is_aihubmix = bool(api_base and "aihubmix" in api_base)
+        
+        # Track if using custom endpoint (vLLM, etc.)
+        self.is_vllm = bool(api_base) and not self.is_openrouter and not self.is_aihubmix
+        
+        # Configure LiteLLM based on provider
+        if api_key:
+            if self.is_openrouter:
+                # OpenRouter mode - set key
+                os.environ["OPENROUTER_API_KEY"] = api_key
+            elif self.is_aihubmix:
+                # AiHubMix gateway - OpenAI-compatible
+                os.environ["OPENAI_API_KEY"] = api_key
+            elif self.is_vllm:
+                # vLLM/custom endpoint - uses OpenAI-compatible API
+                os.environ["HOSTED_VLLM_API_KEY"] = api_key
+            elif "deepseek" in default_model:
+                os.environ.setdefault("DEEPSEEK_API_KEY", api_key)
+            elif "anthropic" in default_model:
+                os.environ.setdefault("ANTHROPIC_API_KEY", api_key)
+            elif "openai" in default_model or "gpt" in default_model:
+                os.environ.setdefault("OPENAI_API_KEY", api_key)
+            elif "gemini" in default_model.lower():
+                os.environ.setdefault("GEMINI_API_KEY", api_key)
+            elif "zhipu" in default_model or "glm" in default_model or "zai" in default_model:
+                os.environ.setdefault("ZAI_API_KEY", api_key)
+                os.environ.setdefault("ZHIPUAI_API_KEY", api_key)
+            elif "dashscope" in default_model or "qwen" in default_model.lower():
+                os.environ.setdefault("DASHSCOPE_API_KEY", api_key)
+            elif "groq" in default_model:
+                os.environ.setdefault("GROQ_API_KEY", api_key)
+            elif "moonshot" in default_model or "kimi" in default_model:
+                os.environ.setdefault("MOONSHOT_API_KEY", api_key)
+                os.environ.setdefault("MOONSHOT_API_BASE", api_base or "https://api.moonshot.cn/v1")
+            elif "xiaomi" in default_model or "mimo" in default_model:
+                os.environ.setdefault("XIAOMI_MIMO_API_KEY", api_key)
+        
+        if api_base:
+            litellm.api_base = api_base
+        
+        # Disable LiteLLM logging noise
+        litellm.suppress_debug_info = True
+    
+    async def chat(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        max_tokens: int = 4096,
+        temperature: float = 0.7,
+        profile: Literal["parser", "assistant"] | None = None,
+    ) -> LLMResponse:
+        """
+        Send a chat completion request via LiteLLM.
+        
+        Args:
+            messages: List of message dicts with 'role' and 'content'.
+            tools: Optional list of tool definitions in OpenAI format.
+            model: Model identifier (e.g., 'anthropic/claude-sonnet-4-5').
+            max_tokens: Maximum tokens in response (usado quando profile=None).
+            temperature: Sampling temperature (usada quando profile=None).
+            profile: "parser" (512 tok, temp 0.2) ou "assistant" (2048 tok, temp 0.7); sobrescreve quando definido.
+        
+        Returns:
+            LLMResponse with content and/or tool calls.
+        """
+        if profile == "parser":
+            max_tokens, temperature = 512, 0.2
+        elif profile == "assistant":
+            max_tokens, temperature = 2048, 0.7
+        model = model or self.default_model
+        # LiteLLM usa prefixo xiaomi_mimo/ (não xiaomi/)
+        if model.lower().startswith("xiaomi/") and not model.startswith("xiaomi_mimo/"):
+            model = "xiaomi_mimo/" + model.split("/", 1)[-1]
+        
+        # Auto-prefix model names for known providers
+        # (keywords, target_prefix, skip_if_starts_with)
+        _prefix_rules = [
+            (("glm", "zhipu"), "zai", ("zhipu/", "zai/", "openrouter/", "hosted_vllm/")),
+            (("qwen", "dashscope"), "dashscope", ("dashscope/", "openrouter/")),
+            (("moonshot", "kimi"), "moonshot", ("moonshot/", "openrouter/")),
+            (("gemini",), "gemini", ("gemini/",)),
+        ]
+        model_lower = model.lower()
+        for keywords, prefix, skip in _prefix_rules:
+            if any(kw in model_lower for kw in keywords) and not any(model.startswith(s) for s in skip):
+                model = f"{prefix}/{model}"
+                break
+
+        # Gateway/endpoint-specific prefixes (detected by api_base/api_key, not model name)
+        if self.is_openrouter and not model.startswith("openrouter/"):
+            model = f"openrouter/{model}"
+        elif self.is_aihubmix:
+            model = f"openai/{model.split('/')[-1]}"
+        elif self.is_vllm:
+            model = f"hosted_vllm/{model}"
+        
+        # kimi-k2.5 only supports temperature=1.0
+        if "kimi-k2.5" in model.lower():
+            temperature = 1.0
+
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "timeout": _get_llm_timeout(),
+            "num_retries": _get_llm_num_retries(),
+        }
+        
+        # Pass api_base directly for custom endpoints (vLLM, etc.)
+        if self.api_base:
+            kwargs["api_base"] = self.api_base
+        
+        # Pass extra headers (e.g. APP-Code for AiHubMix)
+        if self.extra_headers:
+            kwargs["extra_headers"] = self.extra_headers
+        
+        if tools:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = "auto"
+        
+        try:
+            async with _get_llm_semaphore():
+                response = await acompletion(**kwargs)
+            parsed = self._parse_response(response)
+            if getattr(self, "usage_callback", None) and parsed.usage:
+                inp = parsed.usage.get("prompt_tokens") or 0
+                out = parsed.usage.get("completion_tokens") or 0
+                if inp or out:
+                    try:
+                        self.usage_callback(
+                            provider=_provider_from_model(model),
+                            model=model,
+                            input_tokens=inp,
+                            output_tokens=out,
+                        )
+                    except Exception:
+                        pass
+            return parsed
+        except Exception as e:
+            # Return error as content for graceful handling
+            return LLMResponse(
+                content=f"Error calling LLM: {str(e)}",
+                finish_reason="error",
+            )
+    
+    def _parse_response(self, response: Any) -> LLMResponse:
+        """Parse LiteLLM response into our standard format."""
+        if not getattr(response, "choices", None) or len(response.choices) == 0:
+            return LLMResponse(content="", finish_reason="empty")
+        choice = response.choices[0]
+        message = choice.message
+        
+        tool_calls = []
+        if hasattr(message, "tool_calls") and message.tool_calls:
+            for tc in message.tool_calls:
+                # Parse arguments from JSON string if needed
+                args = tc.function.arguments
+                if isinstance(args, str):
+                    import json
+                    try:
+                        args = json.loads(args)
+                    except json.JSONDecodeError:
+                        args = {"raw": args}
+                
+                tool_calls.append(ToolCallRequest(
+                    id=tc.id,
+                    name=tc.function.name,
+                    arguments=args,
+                ))
+        
+        usage: dict[str, int] = {}
+        if hasattr(response, "usage") and response.usage:
+            usage = {
+                "prompt_tokens": getattr(response.usage, "prompt_tokens", 0) or 0,
+                "completion_tokens": getattr(response.usage, "completion_tokens", 0) or 0,
+                "total_tokens": getattr(response.usage, "total_tokens", 0) or 0,
+            }
+        
+        return LLMResponse(
+            content=message.content,
+            tool_calls=tool_calls,
+            finish_reason=choice.finish_reason or "stop",
+            usage=usage,
+        )
+    
+    def get_default_model(self) -> str:
+        """Get the default model."""
+        return self.default_model

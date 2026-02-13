@@ -1,13 +1,13 @@
 # Backend WhatsApp AI Organizer — MVP
 
-Base: fork HKUDS/nanobot (só WhatsApp, cron, organizador). Este backend adiciona listas, eventos, filtro de escopo e API FastAPI.
+Base: fork HKUDS/zapista (só WhatsApp, cron, organizador). Este backend adiciona listas, eventos, filtro de escopo e API FastAPI.
 
 ## Estrutura
 
 - **backend/** — DB (SQLite), models (User, List, Event, AuditLog), scope filter, FastAPI
 - **prompts/** — scope_filter.txt (para LLM opcional)
-- **nanobot/agent/tools/list_tool.py** — list add/list/remove/feito
-- **nanobot/agent/tools/event_tool.py** — event add/list (filme, livro, musica)
+- **zapista/agent/tools/list_tool.py** — list add/list/remove/feito
+- **zapista/agent/tools/event_tool.py** — event add/list (filme, livro, musica)
 - **app.py** — sobe a API (uvicorn)
 
 ## Comandos texto (WhatsApp)
@@ -35,9 +35,9 @@ Parser em **backend/command_parser.py**; execução em **AgentLoop._execute_pars
 2. **Gateway (WhatsApp + agente)**  
    Em outro terminal:
    ```bash
-   py -3.14 -m nanobot gateway
+   py -3.14 -m zapista gateway
    ```
-   Configure `~/.nanobot/config.json` (openrouter apiKey, channels.whatsapp.enabled + allowFrom).
+   Configure `~/.zapista/config.json` (openrouter apiKey, channels.whatsapp.enabled + allowFrom).
 
 3. **Testes**
    ```bash
@@ -52,7 +52,7 @@ docker-compose up -d
 # Gateway: porta 18790 (bridge WhatsApp)
 ```
 
-Volume `nanobot_data` persiste config e DB em `~/.nanobot` (ou equivalente no container).
+Volume `ZAPISTA_data` persiste config e DB em `~/.zapista` (ou equivalente no container).
 
 ## API (frontend irmão)
 

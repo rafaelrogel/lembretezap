@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-_STORE_PATH = Path.home() / ".nanobot" / "security" / "blocked_commands.json"
+_STORE_PATH = Path.home() / ".zapista" / "security" / "blocked_commands.json"
 _MAX_ENTRIES = 500
 
 # Padrões perigosos: shell injection, SQL, path traversal, comandos destrutivos

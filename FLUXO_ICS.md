@@ -94,7 +94,7 @@ export interface InboundMessage {
 
 ## 2. Canal WhatsApp (Python)
 
-**Ficheiro:** `nanobot/channels/whatsapp.py`
+**Ficheiro:** `zapista/channels/whatsapp.py`
 
 **Responsabilidade:** Reconhecer mensagens com `.ics`, chamar o handler e responder ao utilizador sem passar pelo agente.
 
@@ -185,10 +185,10 @@ if cal is None:
 
 ## 4. Integração no gateway (quem chama o handler)
 
-O gateway (ex.: `nanobot/cli/commands.py` ou o ponto onde o canal WhatsApp é criado) precisa de ter acesso a:
+O gateway (ex.: `zapista/cli/commands.py` ou o ponto onde o canal WhatsApp é criado) precisa de ter acesso a:
 
 - `SessionLocal` (já existe em `backend.database`)
-- `CronService` e `CronTool` (já existem quando corres `zapassist gateway`)
+- `CronService` e `CronTool` (já existem quando corres `Zapista gateway`)
 
 O canal WhatsApp **não** tem referência ao cron por defeito. Duas opções:
 
@@ -211,9 +211,9 @@ Recomendação para manter o fluxo simples: **opção A** — no arranque do gat
 |------------|---------------------------|-----------|
 | Bridge     | `bridge/src/whatsapp.ts`  | Detetar documento .ics, download, adicionar `attachmentIcs` ao payload; alargar `InboundMessage`. |
 | Bridge     | `bridge/src/types.d.ts` (se existir) | Incluir `attachmentIcs?: string` no tipo da mensagem. |
-| Canal      | `nanobot/channels/whatsapp.py` | Se `attachmentIcs` presente, chamar handler e `publish_outbound(resumo)`; não enviar ao agente. |
+| Canal      | `zapista/channels/whatsapp.py` | Se `attachmentIcs` presente, chamar handler e `publish_outbound(resumo)`; não enviar ao agente. |
 | Backend    | `backend/ics_handler.py` (novo) | `handle_ics_payload(...)`: parse icalendar, Event + opcional cron, texto resumo. |
-| Gateway    | `nanobot/cli/commands.py` (ou onde o canal é criado) | Instanciar/obter handler com DB + cron e passar ao canal (ou injetar no canal). |
+| Gateway    | `zapista/cli/commands.py` (ou onde o canal é criado) | Instanciar/obter handler com DB + cron e passar ao canal (ou injetar no canal). |
 | Deps       | `pyproject.toml`         | Adicionar `icalendar`. |
 
 ---

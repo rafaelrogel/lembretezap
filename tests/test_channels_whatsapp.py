@@ -5,8 +5,8 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from nanobot.channels.whatsapp import WhatsAppChannel
-from nanobot.config.schema import WhatsAppConfig
+from zapista.channels.whatsapp import WhatsAppChannel
+from zapista.config.schema import WhatsAppConfig
 
 
 @pytest.fixture

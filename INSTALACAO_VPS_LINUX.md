@@ -1,6 +1,6 @@
-# Instalação do ZapAssist num VPS Linux (passo a passo)
+# Instalação do Zapista num VPS Linux (passo a passo)
 
-Guia para instalar o **ZapAssist** (organizador por WhatsApp) num VPS com **Linux**, por exemplo **4 GB RAM** e **40 GB disco**, para testes reais com **4 a 5 pessoas**.
+Guia para instalar o **Zapista** (organizador por WhatsApp) num VPS com **Linux**, por exemplo **4 GB RAM** e **40 GB disco**, para testes reais com **4 a 5 pessoas**.
 
 ---
 
@@ -76,7 +76,7 @@ O script vai:
 
 - Atualizar o sistema e instalar dependências
 - Instalar Docker e Docker Compose (se não existirem)
-- Clonar o repositório do ZapAssist para `/opt/zapassist`
+- Clonar o repositório do Zapista para `/opt/Zapista`
 - Criar o `config.json` (modelos) e o `.env` (chaves DeepSeek + Xiaomi)
 - Construir as imagens Docker e arrancar os serviços
 
@@ -87,7 +87,7 @@ No final aparece uma mensagem a dizer que a instalação terminou.
 É **obrigatório** fazer isto na primeira vez:
 
 ```bash
-cd /opt/zapassist
+cd /opt/Zapista
 sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f bridge
 ```
 
@@ -143,8 +143,8 @@ Verificar: `sudo docker compose version`.
 
 ```bash
 sudo mkdir -p /opt
-sudo git clone https://github.com/rafaelrogel/lembretezap.git /opt/zapassist
-cd /opt/zapassist
+sudo git clone https://github.com/rafaelrogel/lembretezap.git /opt/Zapista
+cd /opt/Zapista
 ```
 
 (Substitui o URL pelo teu repositório se for diferente.)
@@ -152,8 +152,8 @@ cd /opt/zapassist
 ### Etapa 5 — Criar a pasta de dados e o config.json
 
 ```bash
-sudo mkdir -p /opt/zapassist/data/whatsapp-auth
-sudo nano /opt/zapassist/data/config.json
+sudo mkdir -p /opt/Zapista/data/whatsapp-auth
+sudo nano /opt/Zapista/data/config.json
 ```
 
 Conteúdo do **config.json** (chaves ficam no `.env`, não aqui):
@@ -162,7 +162,7 @@ Conteúdo do **config.json** (chaves ficam no `.env`, não aqui):
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.nanobot/workspace",
+      "workspace": "~/.zapista/workspace",
       "model": "deepseek/deepseek-chat",
       "scopeModel": "xiaomi_mimo/mimo-v2-flash",
       "max_tokens": 2048,
@@ -186,42 +186,42 @@ Conteúdo do **config.json** (chaves ficam no `.env`, não aqui):
 Guarda com **Ctrl+O**, Enter, e sai com **Ctrl+X**.
 
 ```bash
-sudo chmod 600 /opt/zapassist/data/config.json
+sudo chmod 600 /opt/Zapista/data/config.json
 ```
 
 ### Etapa 6 — Ficheiro .env (chaves DeepSeek e Xiaomi)
 
 ```bash
-sudo nano /opt/zapassist/.env
+sudo nano /opt/Zapista/.env
 ```
 
 Conteúdo (substitui pelas tuas chaves):
 
 ```
-NANOBOT_PROVIDERS__DEEPSEEK__API_KEY=sk-...
-NANOBOT_PROVIDERS__XIAOMI__API_KEY=sk-...
+ZAPISTA_PROVIDERS__DEEPSEEK__API_KEY=sk-...
+ZAPISTA_PROVIDERS__XIAOMI__API_KEY=sk-...
 HEALTH_CHECK_TOKEN=health-$(openssl rand -hex 8)
 API_SECRET_KEY=api-$(openssl rand -hex 12)
 CORS_ORIGINS=*
 ```
 
-Guarda e sai. `chmod 600 /opt/zapassist/.env` recomendado.
+Guarda e sai. `chmod 600 /opt/Zapista/.env` recomendado.
 
 ### Etapa 7 — Ficheiro override para o VPS (dados em pasta local + .env)
 
 ```bash
-sudo nano /opt/zapassist/docker-compose.vps.yml
+sudo nano /opt/Zapista/docker-compose.vps.yml
 ```
 
-Conteúdo (caminho exatamente `/opt/zapassist/data` e carregar `.env`):
+Conteúdo (caminho exatamente `/opt/Zapista/data` e carregar `.env`):
 
 ```yaml
 volumes:
-  nanobot_data:
+  ZAPISTA_data:
     driver: local
     driver_opts:
       type: none
-      device: /opt/zapassist/data
+      device: /opt/Zapista/data
       o: bind
 services:
   gateway:
@@ -235,7 +235,7 @@ Guarda e sai.
 ### Etapa 8 — Arrancar os serviços
 
 ```bash
-cd /opt/zapassist
+cd /opt/Zapista
 sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml build
 sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
 ```
@@ -254,7 +254,7 @@ Escaneia o QR no telemóvel como na Opção A, passo 5. Sair com **Ctrl+C** quan
 
 | O que queres fazer | Comando |
 |--------------------|--------|
-| Ver logs do bridge (QR / erros) | `cd /opt/zapassist && sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f bridge` |
+| Ver logs do bridge (QR / erros) | `cd /opt/Zapista && sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f bridge` |
 | Ver logs do gateway | `sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f gateway` |
 | Parar tudo | `sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml stop` |
 | Arrancar de novo | `sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d` |
@@ -284,12 +284,12 @@ Para **4–5 pessoas em testes**, podes deixar o firewall a bloquear tudo e aced
 - Vê os logs do gateway: `sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f gateway` e verifica erros de API/chave.
 
 **Sessão WhatsApp desligada (401)**  
-- No VPS: `sudo rm -rf /opt/zapassist/data/whatsapp-auth/*`  
+- No VPS: `sudo rm -rf /opt/Zapista/data/whatsapp-auth/*`  
 - Reinicia o bridge: `sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml restart bridge`  
 - Volta a correr `logs -f bridge` e escaneia um novo QR.
 
 **Limitar a números específicos**  
-- Edita `/opt/zapassist/data/config.json` e em `channels.whatsapp` define por exemplo:  
+- Edita `/opt/Zapista/data/config.json` e em `channels.whatsapp` define por exemplo:  
   `"allow_from": ["351912345678", "351987654321"]`  
   (número com código do país, sem + nem espaços).  
 - Reinicia o gateway: `sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml restart gateway`
@@ -301,8 +301,8 @@ Para **4–5 pessoas em testes**, podes deixar o firewall a bloquear tudo e aced
 1. SSH ao VPS: `ssh utilizador@IP`
 2. Descarregar script: `curl -sSL -o /tmp/install_vps.sh https://raw.githubusercontent.com/rafaelrogel/lembretezap/main/scripts/install_vps.sh`
 3. Executar: `sudo bash /tmp/install_vps.sh` e introduzir as chaves DeepSeek e Xiaomi MiMo quando pedido
-4. Ver QR: `cd /opt/zapassist && sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f bridge`
+4. Ver QR: `cd /opt/Zapista && sudo docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f bridge`
 5. Escanear QR no WhatsApp (Aparelhos ligados → Ligar um aparelho)
 6. Testar a enviar uma mensagem ao bot
 
-Se seguires estes passos, tens o ZapAssist a correr no VPS para testes com 4–5 pessoas.
+Se seguires estes passos, tens o Zapista a correr no VPS para testes com 4–5 pessoas.

@@ -1,4 +1,4 @@
-# Passo a passo para testar o nanobot (até o que temos agora)
+# Passo a passo para testar o zapista (até o que temos agora)
 
 Este guia cobre: config, bridge WhatsApp, gateway, agente (lembretes, listas, eventos) e entrega de mensagens no WhatsApp.
 
@@ -14,7 +14,7 @@ Este guia cobre: config, bridge WhatsApp, gateway, agente (lembretes, listas, ev
 
 ## 1. Configuração (`config.json`)
 
-O arquivo fica em **`%USERPROFILE%\.nanobot\config.json`** (Windows) ou **`~/.nanobot/config.json`** (Linux/Mac).
+O arquivo fica em **`%USERPROFILE%\.zapista\config.json`** (Windows) ou **`~/.zapista/config.json`** (Linux/Mac).
 
 ### Exemplo completo (com seu número permitido)
 
@@ -24,7 +24,7 @@ Para **permitir apenas** o número **+351 910 070 509**, use `allow_from` com o 
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.nanobot/workspace",
+      "workspace": "~/.zapista/workspace",
       "model": "openrouter/anthropic/claude-sonnet-4",
       "max_tokens": 2048,
       "temperature": 0.7,
@@ -67,20 +67,20 @@ Substitua `SUA_CHAVE_OPENROUTER_AQUI` pela sua chave real. Não compartilhe a ch
 No PowerShell (Windows):
 
 ```powershell
-mkdir -Force $env:USERPROFILE\.nanobot
-notepad $env:USERPROFILE\.nanobot\config.json
+mkdir -Force $env:USERPROFILE\.zapista
+notepad $env:USERPROFILE\.zapista\config.json
 ```
 
 Cole o JSON acima, ajuste a chave e o `allow_from` se quiser, e salve.
 
 ---
 
-## 3. Ambiente Python (nanobot)
+## 3. Ambiente Python (zapista)
 
 Na pasta do projeto (onde está `pyproject.toml`):
 
 ```powershell
-cd C:\Users\rafae\nanobot
+cd C:\Users\rafae\zapista
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e .
@@ -95,7 +95,7 @@ pip install -e .
 Em outro terminal:
 
 ```powershell
-cd C:\Users\rafae\nanobot\bridge
+cd C:\Users\rafae\zapista\bridge
 npm install
 npm run build
 npm start
@@ -105,7 +105,7 @@ npm start
 - Quando aparecer o **QR code**, abra o WhatsApp no telemóvel: **Menu (⋮) → Aparelhos ligados → Ligar um aparelho** e escaneie o QR.
 - Depois de ligado, deve aparecer algo como **"Connected to WhatsApp"**.
 
-A autenticação fica guardada em `%USERPROFILE%\.nanobot\whatsapp-auth` (ou em `AUTH_DIR` se tiver definido).
+A autenticação fica guardada em `%USERPROFILE%\.zapista\whatsapp-auth` (ou em `AUTH_DIR` se tiver definido).
 
 ---
 
@@ -114,9 +114,9 @@ A autenticação fica guardada em `%USERPROFILE%\.nanobot\whatsapp-auth` (ou em 
 Em **outro** terminal (com o venv ativado):
 
 ```powershell
-cd C:\Users\rafae\nanobot
+cd C:\Users\rafae\zapista
 .\.venv\Scripts\Activate.ps1
-nanobot gateway
+zapista gateway
 ```
 
 - Deve aparecer algo como: **Channels enabled: whatsapp**, **WhatsApp channel enabled**, **Connected to WhatsApp bridge**.
@@ -130,7 +130,7 @@ nanobot gateway
 
 Com o bridge e o gateway a correr e o número no `allow_from` (ou `allow_from` vazio):
 
-1. Envie uma mensagem para o número/contato que está ligado ao bridge (o “nanobot” no WhatsApp).
+1. Envie uma mensagem para o número/contato que está ligado ao bridge (o “zapista” no WhatsApp).
 2. Exemplos:
    - **"Olá"** → resposta do agente (organizador).
    - **"Me lembre em 2 minutos de tomar o remédio"** → deve confirmar e, 2 minutos depois, enviar o lembrete no mesmo chat (se o gateway continuar ligado).
@@ -147,17 +147,17 @@ Se tiver **allow_from** com só o teu número e enviares de outro número, o bot
 Noutro terminal (venv ativo):
 
 ```powershell
-cd C:\Users\rafae\nanobot
-nanobot agent -m "Que horas são?"
+cd C:\Users\rafae\zapista
+zapista agent -m "Que horas são?"
 ```
 
 Ou modo interativo:
 
 ```powershell
-nanobot agent
+zapista agent
 ```
 
-Nota: lembretes criados aqui (`nanobot agent -m "me lembre em 2 min"`) ficam com canal `cli` e **não são entregues no WhatsApp**. Para receber no telemóvel, crie o lembrete **pelo WhatsApp** (passo 6).
+Nota: lembretes criados aqui (`zapista agent -m "me lembre em 2 min"`) ficam com canal `cli` e **não são entregues no WhatsApp**. Para receber no telemóvel, crie o lembrete **pelo WhatsApp** (passo 6).
 
 ---
 
@@ -166,7 +166,7 @@ Nota: lembretes criados aqui (`nanobot agent -m "me lembre em 2 min"`) ficam com
 Opcional. Noutro terminal:
 
 ```powershell
-cd C:\Users\rafae\nanobot
+cd C:\Users\rafae\zapista
 .\.venv\Scripts\Activate.ps1
 uvicorn backend.app:app --reload --port 8000
 ```
@@ -179,9 +179,9 @@ uvicorn backend.app:app --reload --port 8000
 
 ## 9. Resumo da ordem recomendada para “testar tudo”
 
-1. Criar **config.json** em `~/.nanobot/` com `allow_from: ["351910070509"]` (ou vazio para permitir todos).
+1. Criar **config.json** em `~/.zapista/` com `allow_from: ["351910070509"]` (ou vazio para permitir todos).
 2. **Bridge:** `cd bridge` → `npm run build` → `npm start` → escanear QR.
-3. **Gateway:** `nanobot gateway` (deixar a correr).
+3. **Gateway:** `zapista gateway` (deixar a correr).
 4. Enviar mensagens e um lembrete **pelo WhatsApp** e esperar 1–2 minutos para ver a entrega.
 5. (Opcional) **API:** `uvicorn backend.app:app --port 8000` e abrir `/health` e `/users`.
 

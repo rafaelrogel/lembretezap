@@ -15,7 +15,7 @@ Para permitir que estes números enviem mensagens ao bot:
 Conecta ao VPS e edita o `config.json` dos dados:
 
 ```bash
-cd /opt/zapassist
+cd /opt/Zapista
 sudo nano data/config.json
 ```
 
@@ -76,7 +76,7 @@ Por defeito cada utilizador pode enviar **15 mensagens por minuto**. Se os testa
 
 Para **aumentar o limite** (ex.: 60 por minuto) durante os testes:
 
-1. No servidor, no `.env` da pasta do projeto (ex.: `/opt/zapassist/.env`), adiciona:
+1. No servidor, no `.env` da pasta do projeto (ex.: `/opt/Zapista/.env`), adiciona:
    ```bash
    RATE_LIMIT_MAX_PER_MINUTE=60
    ```
@@ -99,7 +99,7 @@ Copia o texto abaixo e envia no WhatsApp aos testadores.
 ```
 Olá! 👋
 
-Estamos a testar o ZapAssist, um bot de organização por WhatsApp (lembretes, listas, filmes). O teu número já está na lista de teste.
+Estamos a testar o Zapista, um bot de organização por WhatsApp (lembretes, listas, filmes). O teu número já está na lista de teste.
 
 Por favor testa em CHAT PRIVADO com este número (não em grupos). Podes fazer:
 

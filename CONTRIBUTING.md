@@ -13,7 +13,7 @@ Obrigado por contribuir. Estes pontos ajudam a manter qualidade e consistência.
 ## Estrutura do projeto
 
 - **backend/** — API FastAPI (app, auth, routes), parser, DB, sanitização, rate limit.
-- **nanobot/** — Core do bot: agente, canais, cron, providers, CLI.
+- **zapista/** — Core do bot: agente, canais, cron, providers, CLI.
 - **bridge/** — Servidor Node/TypeScript para WhatsApp (Baileys).
 - **tests/** — Testes com pytest; `conftest.py` adiciona a raiz ao path.
 - **workspace/** — Documentação de arquitetura e planos (`ARCHITECTURE.md`, `PLANO_IMPLEMENTACAO.md`).

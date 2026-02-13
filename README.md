@@ -1,4 +1,4 @@
-# ZapAssist
+# Zapista
 
 **Assistente de organização por WhatsApp** — lembretes, listas e eventos.
 
@@ -18,20 +18,20 @@
 ## Instalação
 
 ```bash
-git clone https://github.com/rafae/zapassist.git
-cd zapassist
+git clone https://github.com/rafae/zapista.git
+cd zapista
 pip install -e .
 ```
 
 ## Configuração
 
-Crie `~/.nanobot/config.json` (ou `%USERPROFILE%\.nanobot\config.json` no Windows). Exemplo:
+Crie `~/.zapista/config.json` (ou `%USERPROFILE%\.zapista\config.json` no Windows). Exemplo:
 
 ```json
 {
   "agents": {
     "defaults": {
-      "workspace": "~/.nanobot/workspace",
+      "workspace": "~/.zapista/workspace",
       "model": "deepseek/deepseek-chat",
       "scopeModel": "xiaomi_mimo/mimo-v2-flash",
       "max_tokens": 2048,
@@ -53,7 +53,7 @@ Crie `~/.nanobot/config.json` (ou `%USERPROFILE%\.nanobot\config.json` no Window
 ```
 
 - `allow_from`: lista vazia = qualquer número; ou `["5511999999999"]` (país + número, sem + nem espaços).
-- As chaves **DeepSeek** e **Xiaomi** põem-se no `.env` (`NANOBOT_PROVIDERS__DEEPSEEK__API_KEY`, `NANOBOT_PROVIDERS__XIAOMI__API_KEY`). Ver [DEPLOY.md](DEPLOY.md) § 1.1.
+- As chaves **DeepSeek** e **Xiaomi** põem-se no `.env` (`ZAPISTA_PROVIDERS__DEEPSEEK__API_KEY`, `ZAPISTA_PROVIDERS__XIAOMI__API_KEY`). Ver [DEPLOY.md](DEPLOY.md) § 1.1.
 
 ### God Mode (comandos admin)
 
@@ -100,10 +100,10 @@ Segurança: as respostas **nunca** incluem secrets (tokens, API keys, connection
 
 ## Uso
 
-1. **Inicializar:** `zapassist onboard`
+1. **Inicializar:** `zapista onboard`
 2. **Bridge WhatsApp:** na pasta `bridge/`: `npm install && npm run build && npm start` → escanear QR no telemóvel
-3. **Gateway:** `zapassist gateway` (recebe/envia WhatsApp, roda cron e agente)
-4. **CLI (sem WhatsApp):** `zapassist agent -m "Olá"` ou `zapassist agent` (interativo)
+3. **Gateway:** `zapista gateway` (recebe/envia WhatsApp, roda cron e agente)
+4. **CLI (sem WhatsApp):** `zapista agent -m "Olá"` ou `zapista agent` (interativo)
 
 ## Docker
 

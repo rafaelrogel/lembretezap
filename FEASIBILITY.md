@@ -4,7 +4,7 @@
 
 | Item | Exequibilidade | Notas |
 |------|----------------|-------|
-| Base nanobot fork (WhatsApp, cron, organizer) | ✅ Feito | Já temos |
+| Base zapista fork (WhatsApp, cron, organizer) | ✅ Feito | Já temos |
 | Comandos /lembrete, /list, /feito, /filme | ✅ Alta | Parsing + tools + DB |
 | Memória per-user (SQLite) | ✅ Alta | User, List, Event; PII truncada |
 | Cripto SQLite / at-rest | ⚠️ Média | MVP: sem cripto; prod: SQLCipher ou volume cripto |
@@ -23,7 +23,7 @@
 - **Cripto:** MVP sem cripto em repouso; phone armazenado truncado (ex.: 55119***9999).
 - **Listas:** Tabela List + ListItem; comandos /list nome add X, /list nome, /feito id.
 - **Eventos/filmes:** Tabela Event (user_id, tipo, payload, data, recorrente); /filme nome → Event(tipo=filme).
-- **Cron:** Mantém cron nativo do nanobot para lembretes.
+- **Cron:** Mantém cron nativo do zapista para lembretes.
 - **API:** FastAPI com CRUD listas/eventos/usuários (leitura mínima) para frontend.
 
 ## Riscos

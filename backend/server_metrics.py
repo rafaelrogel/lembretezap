@@ -15,7 +15,7 @@ DEFAULT_HISTORY_DAYS = 14
 
 
 def _metrics_path() -> Path:
-    data_dir = Path(os.environ.get("NANOBOT_DATA", "").strip() or str(Path.home() / ".nanobot"))
+    data_dir = Path(os.environ.get("ZAPISTA_DATA", "").strip() or str(Path.home() / ".zapista"))
     return data_dir / "server_metrics.json"
 
 

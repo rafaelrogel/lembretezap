@@ -3,7 +3,7 @@
 # Primeira vez: ver QR do WhatsApp com docker-compose logs -f bridge
 #
 # Redis: fila assíncrona para outbound (mensagens); gateway consome da fila.
-# Nota: o volume nanobot_data é partilhado por todos os serviços. Para uma única
+# Nota: o volume ZAPISTA_data é partilhado por todos os serviços. Para uma única
 # instância está correto. Escala horizontal (vários gateways) exige armazenamento
 # distribuído/BD centralizado (ver workspace/ARCHITECTURE.md).
 
@@ -31,16 +31,16 @@ services:
 
   bridge:
     build: .
-    entrypoint: []  # override Dockerfile ENTRYPOINT ["nanobot"] so we run shell, not nanobot sh
+    entrypoint: []  # override Dockerfile ENTRYPOINT ["zapista"] so we run shell, not zapista sh
     command: ["sh", "-c", "cd /app/bridge && if [ \"$${BRIDGE_DEBUG}\" = 1 ]; then npm run dev; else node dist/index.js; fi"]
     working_dir: /app
     ports:
       - "3001:3001"
     volumes:
-      - nanobot_data:/root/.nanobot
+      - ZAPISTA_data:/root/.zapista
     environment:
       - TZ=${TZ:-Europe/Lisbon}
-      - AUTH_DIR=/root/.nanobot/whatsapp-auth
+      - AUTH_DIR=/root/.zapista/whatsapp-auth
       - BRIDGE_PORT=3001
       - BRIDGE_DEBUG=0
       - BRIDGE_HEALTH_TOKEN=${HEALTH_CHECK_TOKEN:-}
@@ -61,15 +61,15 @@ services:
 
   api:
     build: .
-    entrypoint: []  # override ENTRYPOINT so we run uvicorn directly, not nanobot uvicorn
+    entrypoint: []  # override ENTRYPOINT so we run uvicorn directly, not zapista uvicorn
     command: ["uvicorn", "backend.app:app", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "8000:8000"
     volumes:
-      - nanobot_data:/root/.nanobot
+      - ZAPISTA_data:/root/.zapista
     environment:
       - TZ=${TZ:-Europe/Lisbon}
-      - NANOBOT_DATA=/root/.nanobot
+      - ZAPISTA_DATA=/root/.zapista
       - HEALTH_CHECK_TOKEN=${HEALTH_CHECK_TOKEN:-}
       - API_SECRET_KEY=${API_SECRET_KEY:-}
       - CORS_ORIGINS=${CORS_ORIGINS:-*}
@@ -96,11 +96,11 @@ services:
     ports:
       - "18790:18790"
     volumes:
-      - nanobot_data:/root/.nanobot
+      - ZAPISTA_data:/root/.zapista
     environment:
       - TZ=${TZ:-Europe/Lisbon}
-      - NANOBOT_DATA=/root/.nanobot
-      - NANOBOT_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001
+      - ZAPISTA_DATA=/root/.zapista
+      - ZAPISTA_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001
       # Fila Redis para outbound (mensagens); se definido, gateway produz e consome desta fila.
       - REDIS_URL=redis://redis:6379/0
       # Limite de mensagens por minuto por utilizador (default 15). Aumentar para testes (ex.: 60).
@@ -108,8 +108,8 @@ services:
       - LLM_MAX_CONCURRENT=${LLM_MAX_CONCURRENT:-5}
       - LLM_TIMEOUT_SECONDS=${LLM_TIMEOUT_SECONDS:-60}
       - LLM_NUM_RETRIES=${LLM_NUM_RETRIES:-2}
-      - NANOBOT_LOG_FILE=${NANOBOT_LOG_FILE:-}
-    # env_file: .env  # optional: copy .env.example to .env (incl. NANOBOT_LOG_FILE)
+      - ZAPISTA_LOG_FILE=${ZAPISTA_LOG_FILE:-}
+    # env_file: .env  # optional: copy .env.example to .env (incl. ZAPISTA_LOG_FILE)
     depends_on:
       bridge:
         condition: service_healthy
@@ -123,5 +123,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  nanobot_data:
+  ZAPISTA_data:
   redis_data:

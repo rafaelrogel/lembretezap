@@ -24,7 +24,7 @@ Mensagem: "{input}"
 
 def _load_scope_prompt() -> str:
     """Load prompt from prompts/scope_filter.txt or use fallback."""
-    for base in (Path(__file__).resolve().parent.parent, Path.home() / ".nanobot"):
+    for base in (Path(__file__).resolve().parent.parent, Path.home() / ".zapista"):
         path = base / "prompts" / "scope_filter.txt"
         if path.exists():
             return path.read_text(encoding="utf-8").strip()
