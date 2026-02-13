@@ -242,12 +242,14 @@ async def build_smart_reminder_message(
     *,
     deepseek_provider: Any,
     deepseek_model: str,
-    mimo_analysis: str,
-    user_lang: str,
-    preferred_name: str | None,
+    mimo_provider: Any | None = None,
+    mimo_model: str | None = None,
+    mimo_analysis: str = "",
+    user_lang: str = "en",
+    preferred_name: str | None = None,
 ) -> str:
     """
-    DeepSeek cria mensagem curta, amigável e personalizada com os insights do Mimo.
+    Mimo primeiro (mais barato) para criar mensagem curta; fallback DeepSeek.
     """
     name = (preferred_name or "").strip() or "utilizador"
     lang_instruction = {
@@ -267,6 +269,23 @@ async def build_smart_reminder_message(
         f"Language: {lang_instruction}. Reply only with the message.\n\n"
         f"Analysis:\n{mimo_analysis}"
     )
+
+    # Mimo primeiro (economiza tokens)
+    if mimo_provider and (mimo_model or "").strip():
+        try:
+            r = await mimo_provider.chat(
+                messages=[{"role": "user", "content": prompt}],
+                model=mimo_model or "",
+                max_tokens=200,
+                temperature=0.6,
+            )
+            out = (r.content or "").strip().strip('"\'')
+            if out and len(out) <= 300:
+                return out[:250]
+        except Exception as e:
+            logger.debug(f"Smart reminder Mimo message failed: {e}")
+
+    # Fallback DeepSeek
     try:
         r = await deepseek_provider.chat(
             messages=[{"role": "user", "content": prompt}],
@@ -357,6 +376,8 @@ async def run_smart_reminder_daily(
             content = await build_smart_reminder_message(
                 deepseek_provider=deepseek_provider,
                 deepseek_model=deepseek_model or "",
+                mimo_provider=mimo_provider,
+                mimo_model=mimo_model or "",
                 mimo_analysis=mimo_analysis,
                 user_lang=user_lang,
                 preferred_name=preferred_name,

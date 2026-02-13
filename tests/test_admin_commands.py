@@ -66,6 +66,7 @@ def test_parse_admin_command():
     # Com argumento: #cmd arg passa a ser aceite (ex.: #add 351...)
     assert parse_admin_command("#users extra") == "users"
     assert parse_admin_command("#add 351912345678") == "add"
+    assert parse_admin_command("#cleanup") == "cleanup"
     assert parse_admin_command("#quit") == "quit"
 
 
@@ -97,6 +98,14 @@ async def test_handle_admin_command_users_mock_db():
     out = await handle_admin_command("#users", db_session_factory=lambda: FakeSession())
     assert "#users" in out
     assert "42" in out
+
+
+@pytest.mark.asyncio
+async def test_handle_admin_command_cleanup_no_db():
+    from backend.admin_commands import handle_admin_command
+    out = await handle_admin_command("#cleanup", db_session_factory=None)
+    assert "#cleanup" in out
+    assert "Erro" in out or "não disponível" in out.lower() or "Nenhum" in out
 
 
 @pytest.mark.asyncio

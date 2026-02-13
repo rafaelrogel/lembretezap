@@ -73,14 +73,16 @@ async def handle_habito(ctx: "HandlerContext", content: str) -> str | None:
             db.commit()
             base_msg = f"✅ {name} marcado! 💪"
             streak = get_habit_streak(db, habit.id, today)
-            if streak >= 2 and ctx.main_provider and ctx.main_model:
+            if streak >= 2 and (ctx.scope_provider or ctx.main_provider) and (ctx.scope_model or ctx.main_model):
                 user_lang = "pt-BR"
                 try:
                     user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
                 except Exception:
                     pass
                 msg = await generate_streak_message(
-                    ctx.main_provider, ctx.main_model, name, streak, user_lang
+                    ctx.scope_provider or ctx.main_provider,
+                    ctx.scope_model or ctx.main_model or "",
+                    name, streak, user_lang
                 )
                 if msg:
                     return f"{base_msg}\n\n{msg}"

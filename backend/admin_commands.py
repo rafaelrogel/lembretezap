@@ -61,6 +61,7 @@ _ADMIN_CMD_RE = re.compile(r"^\s*#(\w+)(?:\s+(.*))?\s*$", re.I)
 _VALID_COMMANDS = frozenset({
     "status", "users", "paid", "cron", "server", "system", "ai", "painpoints",
     "injection", "blocked", "lockout", "add", "remove", "mute", "quit", "msgs", "lembretes", "tz",
+    "cleanup",
 })
 
 
@@ -117,7 +118,7 @@ async def handle_admin_command(
     raw = (command or "").strip()
     cmd = raw.lstrip("#").strip().lower() if raw.startswith("#") else raw.lower()
     if not cmd or cmd not in _VALID_COMMANDS:
-        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints #injection #blocked #lockout #add <nr> #remove <nr> #mute <nr> #quit"
+        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints #injection #blocked #lockout #cleanup #add <nr> #remove <nr> #mute <nr> #quit"
 
     if cmd == "status":
         return _cmd_status()
@@ -163,6 +164,9 @@ async def handle_admin_command(
     if cmd == "lockout":
         return _cmd_lockout()
 
+    if cmd == "cleanup":
+        return await _cmd_cleanup(db_session_factory, cron_store_path)
+
     if cmd == "add":
         _, arg = parse_admin_command_arg(raw)
         if not arg:
@@ -201,7 +205,7 @@ def _cmd_status() -> str:
     lines = [
         "#status",
         "God Mode ativo. Comandos: #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints",
-        "#injection #blocked #lockout #add <nr> #remove <nr> #mute <nr> #quit",
+        "#injection #blocked #lockout #cleanup #add <nr> #remove <nr> #mute <nr> #quit",
     ]
     return "\n".join(lines)
 
@@ -693,6 +697,87 @@ def _cmd_lockout() -> str:
     except Exception as e:
         logger.debug(f"admin #lockout failed: {e}")
         return "#lockout\nErro ao obter estatísticas."
+
+
+async def _cmd_cleanup(
+    db_session_factory: Any,
+    cron_store_path: Path | None,
+    *,
+    days: int = 90,
+) -> str:
+    """
+    Recursos pouco usados (últimos N dias). Mimo analisa e sugere o que retirar.
+    """
+    if not db_session_factory:
+        return "#cleanup\nErro: DB não disponível."
+    try:
+        from pathlib import Path
+        from backend.unused_resources import gather_unused_resources
+        db = db_session_factory()
+        try:
+            path = cron_store_path or (Path.home() / ".zapista" / "cron" / "jobs.json")
+            data = gather_unused_resources(db, path, days=days)
+        finally:
+            db.close()
+
+        if not data["lists_unused"] and not data["cron_unused"]:
+            return f"#cleanup\nNenhum recurso pouco usado nos últimos {days} dias. Tudo a ser utilizado."
+
+        # Mimo: analisa e sugere (se disponível)
+        try:
+            from zapista.config.loader import load_config
+            from zapista.providers.litellm_provider import LiteLLMProvider
+            config = load_config()
+            scope_model = (config.agents.defaults.scope_model or "").strip()
+            p = config.get_provider(scope_model) if scope_model else None
+            scope_provider = None
+            if scope_model and p and (getattr(p, "api_key", None) or "").strip():
+                try:
+                    from backend.token_usage import record_usage
+                    usage_cb = record_usage
+                except ImportError:
+                    usage_cb = None
+                scope_provider = LiteLLMProvider(
+                    api_key=p.api_key,
+                    api_base=config.get_api_base(scope_model),
+                    default_model=scope_model,
+                    extra_headers=getattr(p, "extra_headers", None),
+                    usage_callback=usage_cb,
+                )
+            if scope_provider:
+                prompt = (
+                    "Análise de recursos pouco usados num sistema de organização (listas, lembretes). "
+                    "Com base nos dados abaixo, escreve um relatório curto (4-8 linhas) que:\n"
+                    "1) Indique quantas listas e quantos lembretes estão sem uso recente\n"
+                    "2) Sugira ao administrador o que pode remover ou arquivar (seja prático)\n"
+                    "3) Use tom neutro e objetivo. Em português."
+                )
+                r = await scope_provider.chat(
+                    messages=[{"role": "user", "content": f"{prompt}\n\nDados:\n{data['summary']}"}],
+                    model=scope_model,
+                    max_tokens=300,
+                    temperature=0.3,
+                )
+                out = (r.content or "").strip()
+                if out and len(out) <= 600:
+                    return f"#cleanup\n{out}"
+        except Exception as e:
+            logger.debug(f"admin #cleanup Mimo failed: {e}")
+
+        # Fallback: resumo simples
+        lines = [f"#cleanup\nRecursos sem atividade nos últimos {days} dias:"]
+        if data["lists_unused"]:
+            lines.append(f"\nListas: {len(data['lists_unused'])}")
+            for u in data["lists_unused"][:8]:
+                lines.append(f"  - «{u['list_name']}» (user_id={u['user_id']}): {u['pending']} pendentes")
+        if data["cron_unused"]:
+            lines.append(f"\nLembretes (cron): {len(data['cron_unused'])}")
+            for u in data["cron_unused"][:8]:
+                lines.append(f"  - «{u['message']}» ***{u['to']}: {u['reason']}")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.debug(f"admin #cleanup failed: {e}")
+        return "#cleanup\nErro ao analisar recursos."
 
 
 def _cmd_blocked() -> str:

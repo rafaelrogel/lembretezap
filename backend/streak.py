@@ -38,9 +38,8 @@ async def generate_streak_message(
     user_lang: str = "pt-BR",
 ) -> str | None:
     """
-    Gera mensagem motivadora via DeepSeek (main_provider). Curta, positiva, suscinta.
+    Gera mensagem motivadora via Mimo primeiro, fallback DeepSeek. Curta, positiva, suscinta.
     Ex.: "Você foi à academia 5 dias consecutivos! Isso aí! 🔥"
-    Nota: DeepSeek = mensagens; Mimo = histórico/verificação/análise.
     """
     if not provider or not model or streak < 2:
         return None

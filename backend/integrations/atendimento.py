@@ -4,7 +4,7 @@ from backend.handler_context import HandlerContext
 
 
 async def handle_atendimento_request(ctx: HandlerContext, content: str) -> str | None:
-    """Quando o cliente pede falar com atendimento: registar em painpoints e responder com contacto + mensagem empática (DeepSeek)."""
+    """Quando o cliente pede falar com atendimento: registar em painpoints e responder com contacto + mensagem empática (Mimo primeiro)."""
     from backend.atendimento_contact import is_atendimento_request, build_atendimento_response
     from backend.painpoints_store import add_painpoint
 
@@ -22,8 +22,8 @@ async def handle_atendimento_request(ctx: HandlerContext, content: str) -> str |
             db.close()
     except Exception:
         pass
-    provider = ctx.main_provider or ctx.scope_provider
-    model = (ctx.main_model or ctx.scope_model or "").strip()
+    provider = ctx.scope_provider or ctx.main_provider
+    model = (ctx.scope_model or ctx.main_model or "").strip()
     if not provider or not model:
         from backend.atendimento_contact import ATENDIMENTO_PHONE, ATENDIMENTO_EMAIL
         return f"Entendemos. Nossa equipe de atendimento está disponível:\n\n📞 {ATENDIMENTO_PHONE}\n📧 {ATENDIMENTO_EMAIL}"
