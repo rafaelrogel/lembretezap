@@ -1,6 +1,6 @@
 # Backend WhatsApp AI Organizer — MVP
 
-Base: fork HKUDS/zapista (só WhatsApp, cron, organizador). Este backend adiciona listas, eventos, filtro de escopo e API FastAPI.
+Base: Zapista (só WhatsApp, cron, organizador). Este backend adiciona listas, eventos, filtro de escopo e API FastAPI.
 
 ## Estrutura
 

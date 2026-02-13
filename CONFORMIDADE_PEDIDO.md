@@ -8,7 +8,7 @@ Checklist do que foi pedido vs estado atual do código.
 
 | Pedido | Estado no código |
 |--------|-------------------|
-| **Fork HKUDS/zapista** (leve, WhatsApp/Baileys, cron, canais) | Base zapista com canal WhatsApp (Baileys), cron nativo, agent loop. |
+| **Zapista** (leve, WhatsApp/Baileys, cron, canais) | Base zapista com canal WhatsApp (Baileys), cron nativo, agent loop. |
 | **Bot "secretária organizada" para 100 users** | Escopo organizador; rate-limit por user; 1 número WhatsApp. |
 | **Escopo estrito: lembretes, listas, compras, eventos, filmes** | Scope filter (LLM SIM/NÃO + regex) + parser de comandos. |
 | **Filtro LLM "Analise se input é agenda/lembrete/lista; ignore resto"** | `backend/scope_filter.py`: `is_in_scope_llm()` + `prompts/scope_filter.txt`. |

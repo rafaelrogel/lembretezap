@@ -65,6 +65,11 @@ def save_config(config: Config, config_path: Path | None = None) -> None:
     # Convert to camelCase format
     data = config.model_dump()
     data = convert_to_camel(data)
+    # Só WhatsApp é suportado; remove telegram, discord, feishu se presentes
+    channels = data.get("channels")
+    if isinstance(channels, dict):
+        for key in ("telegram", "discord", "feishu"):
+            channels.pop(key, None)
     
     with open(path, "w") as f:
         json.dump(data, f, indent=2)

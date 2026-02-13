@@ -49,14 +49,10 @@ chmod 600 ~/.zapista/config.json
 ```json
 {
   "channels": {
-    "telegram": {
-      "enabled": true,
-      "token": "YOUR_BOT_TOKEN",
-      "allowFrom": ["123456789", "987654321"]
-    },
     "whatsapp": {
       "enabled": true,
-      "allowFrom": ["+1234567890"]
+      "bridge_url": "ws://localhost:3001",
+      "allowFrom": ["5511999999999"]
     }
   }
 }
@@ -64,8 +60,7 @@ chmod 600 ~/.zapista/config.json
 
 **Security Notes:**
 - Empty `allowFrom` list will **ALLOW ALL** users (open by default for personal use)
-- Get your Telegram user ID from `@userinfobot`
-- Use full phone numbers with country code for WhatsApp
+- Use full phone numbers with country code for WhatsApp (e.g. 5511999999999)
 - Review access logs regularly for unauthorized access attempts
 
 ### 3.1 Data Isolation Between Users (Multi-tenant)
@@ -94,24 +89,6 @@ Comandos admin (`#status`, `#users`, etc.) são protegidos por senha (`GOD_MODE_
 - **Senha errada:** Silêncio total (não vaza superfície de admin).
 - **Rate-limit / lockout:** Após 5 tentativas de senha errada por chat, o chat fica bloqueado 15 min. Configurável via `GOD_MODE_MAX_ATTEMPTS` e `GOD_MODE_LOCKOUT_MINUTES`.
 - **Estado:** God-mode ativo em memória (perde-se em restart); lockout persiste em `~/.zapista/security/god_mode_lockout.json`. Comando `#lockout` lista bloqueios.
-
-### 4. Shell Command Execution
-
-The `exec` tool can execute shell commands. While dangerous command patterns are blocked, you should:
-
-- ✅ Review all tool usage in agent logs
-- ✅ Understand what commands the agent is running
-- ✅ Use a dedicated user account with limited privileges
-- ✅ Never run zapista as root
-- ❌ Don't disable security checks
-- ❌ Don't run on systems with sensitive data without careful review
-
-**Blocked patterns:**
-- `rm -rf /` - Root filesystem deletion
-- Fork bombs
-- Filesystem formatting (`mkfs.*`)
-- Raw disk writes
-- Other destructive operations
 
 ### 4. File System Access
 
@@ -144,7 +121,7 @@ pip install pip-audit
 pip-audit
 
 # Update to latest secure versions
-pip install --upgrade zapista-ai
+pip install --upgrade zapista
 ```
 
 For Node.js dependencies (WhatsApp bridge):
@@ -168,7 +145,7 @@ For production use:
    ```bash
    # Run in a container or VM
    docker run --rm -it python:3.11
-   pip install zapista-ai
+   pip install zapista
    ```
 
 2. **Use a Dedicated User**
@@ -198,7 +175,7 @@ For production use:
 6. **Regular Updates**
    ```bash
    # Check for updates weekly
-   pip install --upgrade zapista-ai
+   pip install --upgrade zapista
    ```
 
 ### 8. Development vs Production
@@ -207,7 +184,7 @@ For production use:
 - Use separate API keys
 - Test with non-sensitive data
 - Enable verbose logging
-- Use a test Telegram bot
+- Use a test WhatsApp number
 
 **Production:**
 - Use dedicated API keys with spending limits
@@ -258,7 +235,6 @@ If you suspect a security breach:
 
 ✅ **Secure Communication**
 - HTTPS for all external API calls
-- TLS for Telegram API
 - WebSocket security for WhatsApp bridge
 
 ## Known Limitations
@@ -291,8 +267,8 @@ Before deploying zapista:
 **Last Updated**: 2026-02-03
 
 For the latest security updates and announcements, check:
-- GitHub Security Advisories: https://github.com/HKUDS/zapista/security/advisories
-- Release Notes: https://github.com/HKUDS/zapista/releases
+- GitHub Security Advisories: https://github.com/rafae/zapista/security/advisories
+- Release Notes: https://github.com/rafae/zapista/releases
 
 ## License
 
