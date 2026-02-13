@@ -14,7 +14,14 @@ from sqlalchemy.pool import StaticPool
 
 from backend.models_db import Base
 
-# Caminho da BD: env DB_PATH ou default ~/.zapista/organizer.db
+# Caminho da BD:
+#   DB_PATH (env) → caminho explícito
+#   ZAPISTA_DATA (env) → diretório de dados (default ~/.zapista)
+#   Default: ~/.zapista/organizer.db
+#
+# Múltiplos ambientes: Local usa ~/.zapista; Docker usa /root/.zapista (volume). São BDs diferentes
+# salvo se montares o mesmo diretório. Para ter dados partilhados, usa DB_PATH apontando ao mesmo
+# ficheiro ou NFS/volume partilhado.
 _DATA_DIR = Path(os.environ.get("ZAPISTA_DATA", "").strip() or str(Path.home() / ".zapista"))
 DB_PATH = Path(os.environ.get("DB_PATH", "").strip()) if os.environ.get("DB_PATH") else (_DATA_DIR / "organizer.db")
 DATA_DIR = DB_PATH.parent
@@ -93,6 +100,7 @@ def init_db() -> None:
         "ALTER TABLE reminder_history ADD COLUMN delivered_at DATETIME",
         "ALTER TABLE reminder_history ADD COLUMN provider_error VARCHAR(256)",
         "ALTER TABLE lists ADD COLUMN project_id INTEGER",
+        "ALTER TABLE audit_log ADD COLUMN payload_json TEXT",
     ):
         try:
             from sqlalchemy import text

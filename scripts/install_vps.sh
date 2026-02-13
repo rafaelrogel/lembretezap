@@ -4,12 +4,17 @@
 # Uso: sudo bash install_vps.sh
 #
 # Faz: remove TUDO do VPS (pasta de instalação) → atualiza o sistema → pede chaves e senha god-mode → instala e arranca.
+# Se existir instalação anterior, pergunta se faz backup antes de apagar.
 #
 set -e
 
-INSTALL_DIR="${Zapista_INSTALL_DIR:-/opt/Zapista}"
+INSTALL_DIR="${ZAPISTA_INSTALL_DIR:-/opt/zapista}"
 DATA_DIR="${INSTALL_DIR}/data"
-REPO_URL="${Zapista_REPO_URL:-https://github.com/rafaelrogel/lembretezap.git}"
+REPO_URL="${ZAPISTA_REPO_URL:-https://github.com/rafae/zapista.git}"
+
+# Guardar se o utilizador escolheu fazer backup (será usado mais tarde para restaurar)
+DO_BACKUP_RESTORE=""
+BACKUP_TEMP=""
 
 echo ""
 echo "=============================================="
@@ -31,8 +36,37 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
-# --- 2. Parar contentores e apagar toda a instalação ---
-echo "[Passo 1/7] A parar contentores e a remover toda a instalação em $INSTALL_DIR ..."
+# --- 2. Perguntar backup ou instalação do zero (se existir instalação anterior) ---
+if [ -d "$INSTALL_DIR" ] && [ -d "$DATA_DIR" ]; then
+  echo "[Passo 1/8] Existe uma instalação anterior em $INSTALL_DIR"
+  echo "    Desejas fazer backup dos dados (organizer.db, whatsapp-auth, sessões, etc.)"
+  echo "    antes de reinstalar, para restaurar tudo no final?"
+  echo ""
+  echo "  [b] Backup — guarda os dados e restaura após a instalação"
+  echo "  [z] Zero  — instalação do zero (apaga tudo, sem backup)"
+  echo ""
+  while true; do
+    read -r -p "  Escolhe (b/z): " choice
+    case "$(echo "$choice" | tr '[:upper:]' '[:lower:]')" in
+      b)
+        DO_BACKUP_RESTORE="1"
+        echo "    Backup selecionado. Os dados serão guardados e restaurados no final."
+        break
+        ;;
+      z)
+        echo "    Instalação do zero selecionada."
+        break
+        ;;
+      *)
+        echo "    Opção inválida. Escreve 'b' ou 'z'."
+        ;;
+    esac
+  done
+  echo ""
+fi
+
+# --- 3. Parar contentores, fazer backup (se escolhido) e apagar instalação ---
+echo "[Passo 2/8] A parar contentores e a remover a instalação em $INSTALL_DIR ..."
 if [ -d "$INSTALL_DIR" ]; then
   cd "$INSTALL_DIR"
   if [ -f "docker-compose.yml" ]; then
@@ -40,6 +74,15 @@ if [ -d "$INSTALL_DIR" ]; then
     docker compose down 2>/dev/null || true
   fi
   cd - > /dev/null
+
+  if [ -n "$DO_BACKUP_RESTORE" ] && [ -d "$DATA_DIR" ]; then
+    BACKUP_TEMP="/root/zapista-reinstall-backup-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$BACKUP_TEMP"
+    echo "    A fazer backup de $DATA_DIR para $BACKUP_TEMP ..."
+    cp -a "$DATA_DIR"/. "$BACKUP_TEMP"/
+    echo "    Backup guardado em $BACKUP_TEMP"
+  fi
+
   rm -rf "$INSTALL_DIR"
   echo "    Pasta removida. Instalação anterior apagada."
 else
@@ -47,8 +90,8 @@ else
 fi
 echo ""
 
-# --- 3. Atualizar o sistema ---
-echo "[Passo 2/7] A atualizar o sistema (pode demorar um pouco)..."
+# --- 4. Atualizar o sistema ---
+echo "[Passo 3/8] A atualizar o sistema (pode demorar um pouco)..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get upgrade -y -qq
@@ -56,8 +99,8 @@ apt-get install -y -qq curl git ca-certificates
 echo "    Sistema atualizado."
 echo ""
 
-# --- 4. Pedir chaves API ---
-echo "[Passo 3/7] Chaves de API"
+# --- 5. Pedir chaves API ---
+echo "[Passo 4/8] Chaves de API"
 echo "    (As chaves ficam só no servidor, no ficheiro .env — não são enviadas para lado nenhum.)"
 echo ""
 
@@ -94,8 +137,8 @@ fi
 echo "    Chaves guardadas (só no .env)."
 echo ""
 
-# --- 5. Senha de god-mode ---
-echo "[Passo 4/7] Senha de god-mode (comandos admin)"
+# --- 6. Senha de god-mode ---
+echo "[Passo 5/8] Senha de god-mode (comandos admin)"
 echo "    Qualquer pessoa pode falar com o bot. Para rodar comandos admin (#status, #users, etc.),"
 echo "    o administrador envia no chat: #<esta_senha> — isso ativa o god-mode e depois pode usar #status, #cron, etc."
 echo "    Se alguém enviar # com senha errada, o bot não responde (silêncio)."
@@ -111,8 +154,8 @@ if [ -z "$GOD_MODE_PASSWORD" ]; then
 fi
 echo ""
 
-# --- 6. Docker e Docker Compose ---
-echo "[Passo 5/7] Docker..."
+# --- 7. Docker e Docker Compose ---
+echo "[Passo 6/8] Docker..."
 if ! command -v docker &> /dev/null; then
   echo "    A instalar Docker..."
   curl -fsSL https://get.docker.com | sh
@@ -129,20 +172,27 @@ else
 fi
 echo ""
 
-# --- 7. Clonar repositório (sempre do zero) ---
-echo "[Passo 6/7] A clonar o código do Zapista em ${INSTALL_DIR}..."
+# --- 8. Clonar repositório (sempre do zero) ---
+echo "[Passo 7/8] A clonar o código do Zapista em ${INSTALL_DIR}..."
 mkdir -p "$(dirname "$INSTALL_DIR")"
 git clone "$REPO_URL" "$INSTALL_DIR"
 echo "    Repositório clonado (main)."
 echo ""
 
-# --- 8. Dados, config.json (com allow_from) e .env ---
-echo "[Passo 7/7] Configuração e arranque..."
+# --- 9. Dados, config e arranque ---
+echo "[Passo 8/8] Configuração e arranque..."
 mkdir -p "$DATA_DIR"
 mkdir -p "$DATA_DIR/whatsapp-auth"
 
-# config.json: allow_from vazio = qualquer pessoa pode falar com o bot
-cat > "$DATA_DIR/config.json" << 'CONFIG_EOF'
+if [ -n "$DO_BACKUP_RESTORE" ] && [ -d "${BACKUP_TEMP:-}" ]; then
+  echo "    A restaurar dados do backup em $BACKUP_TEMP ..."
+  cp -a "${BACKUP_TEMP}"/. "$DATA_DIR"/
+  mkdir -p "$DATA_DIR/whatsapp-auth"
+  [ -f "$DATA_DIR/config.json" ] && chmod 600 "$DATA_DIR/config.json"
+  echo "    Dados restaurados: organizer.db, whatsapp-auth, sessões, cron, etc."
+else
+  # config.json: allow_from vazio = qualquer pessoa pode falar com o bot
+  cat > "$DATA_DIR/config.json" << 'CONFIG_EOF'
 {
   "agents": {
     "defaults": {
@@ -167,7 +217,8 @@ cat > "$DATA_DIR/config.json" << 'CONFIG_EOF'
   }
 }
 CONFIG_EOF
-chmod 600 "$DATA_DIR/config.json"
+  chmod 600 "$DATA_DIR/config.json"
+fi
 
 _esc() { echo "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'; }
 cat > "$INSTALL_DIR/.env" << ENV_EOF
@@ -183,7 +234,8 @@ ENV_EOF
 chmod 600 "$INSTALL_DIR/.env"
 
 cat > "$INSTALL_DIR/docker-compose.vps.yml" << EOF
-# Override para VPS: dados em pasta local e .env (chaves)
+# Override para VPS: dados persistidos em pasta local (config, BD organizer.db, sessões, whatsapp-auth)
+# O volume ZAPISTA_data monta em /root/.zapista nos containers; organizer.db fica em DATA_DIR/organizer.db
 volumes:
   ZAPISTA_data:
     driver: local
@@ -222,4 +274,11 @@ echo ""
 echo "  3. Quando aparecer 'Connected', sai dos logs com Ctrl+C (os serviços continuam a correr)."
 echo ""
 echo "Dados e config: $DATA_DIR"
+echo "  - config.json, organizer.db (BD), sessões, whatsapp-auth"
+echo "  - O volume ZAPISTA_data persiste tudo; reinício dos containers não apaga dados."
+if [ -n "$DO_BACKUP_RESTORE" ] && [ -d "${BACKUP_TEMP:-}" ]; then
+  echo ""
+  echo "Backup restaurado com sucesso. A pasta $BACKUP_TEMP contém a cópia de segurança."
+  echo "Podes eliminá-la após verificar que tudo está a funcionar: rm -rf $BACKUP_TEMP"
+fi
 echo ""

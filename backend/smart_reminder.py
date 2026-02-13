@@ -14,6 +14,12 @@ from sqlalchemy.orm import Session
 
 from backend.models_db import List, ListItem, Event
 from backend.reminder_history import get_reminder_history
+from backend.list_history import (
+    get_list_items_last_week,
+    get_frequent_items,
+    format_last_week_for_mimo,
+    format_frequent_for_mimo,
+)
 from backend.user_store import (
     get_or_create_user,
     get_user_language,
@@ -123,6 +129,10 @@ def gather_user_context(
                 "done_count": done_count,
             })
 
+    # Histórico de listas (semana passada + itens habituais)
+    lists_last_week = get_list_items_last_week(db, chat_id, weeks_ago=1)
+    lists_frequent = get_frequent_items(db, chat_id, weeks=4, top_per_list=10)
+
     # Cron jobs do utilizador
     cron_summary = []
     if cron_jobs:
@@ -138,6 +148,8 @@ def gather_user_context(
         "events_upcoming": events_upcoming,
         "events_recent": events_recent,
         "lists_pending": lists_with_pending,
+        "lists_last_week": lists_last_week,
+        "lists_frequent": lists_frequent,
         "cron_jobs": cron_summary,
         "now_utc": now.isoformat(),
     }
@@ -164,6 +176,12 @@ def _format_context_for_mimo(ctx: dict[str, Any]) -> str:
             parts.append(f"- Lista «{l['name']}»: {l['pending_count']} pendentes, {l['done_count']} feitos")
             for p in l["pending"][:3]:
                 parts.append(f"  · {p}")
+    last_week_str = format_last_week_for_mimo(ctx.get("lists_last_week") or {})
+    if last_week_str:
+        parts.append("\n" + last_week_str)
+    frequent_str = format_frequent_for_mimo(ctx.get("lists_frequent") or {})
+    if frequent_str:
+        parts.append("\n" + frequent_str)
     if ctx.get("cron_jobs"):
         parts.append("\n## Lembretes agendados (cron)")
         for c in ctx["cron_jobs"][:10]:

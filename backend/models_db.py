@@ -216,6 +216,7 @@ class AuditLog(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, nullable=True, index=True)
-    action = Column(String(64), nullable=False)  # list_add, list_remove, event_add, etc.
+    action = Column(String(64), nullable=False)  # list_add, list_remove, list_feito, event_add, etc.
     resource = Column(String(128), nullable=True)  # list name, event id
+    payload_json = Column(Text, nullable=True)  # JSON com detalhes para recuperação (ex: {"item_text": "pão"})
     created_at = Column(DateTime, default=datetime.utcnow)
