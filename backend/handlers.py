@@ -321,6 +321,8 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
         "• /save [desc] ou /bookmark — guardar com tags e categoria (IA)\n"
         "• /find \"aquela receita\" — busca semântica nos bookmarks\n"
         "• /limpeza — tarefas de limpeza (weekly/bi-weekly) com rotação para flatmates\n"
+        "• Cripto — pergunta «bitcoin», «cotação» e recebe cotações (BTC, ETH, USDT, XRP, BNB)\n"
+        "• Bíblia/Alcorão — pede «passagem da bíblia» ou «versículo do alcorão» (aleatório ou específico)\n"
         "• /tz Cidade — definir fuso (ex.: /tz Lisboa)\n"
         "• /lang pt-pt ou pt-br — idioma\n"
         "• /reset — refazer cadastro (nome, cidade)\n"
@@ -1318,6 +1320,121 @@ async def handle_rever(ctx: HandlerContext, content: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# Criptomoedas — cotação atual via CoinGecko (API gratuita)
+# ---------------------------------------------------------------------------
+
+def _is_crypto_intent(content: str) -> bool:
+    """Detecta se o utilizador pergunta sobre criptomoedas."""
+    import re
+    t = (content or "").strip().lower()
+    if not t or len(t) < 4:
+        return False
+    patterns = [
+        r"bitcoin|btc\b",
+        r"ethereum|eth\b",
+        r"tether|usdt\b",
+        r"xrp\b",
+        r"bnb\b",
+        r"cripto(?:moeda|s)?",
+        r"cota[cç][aã]o\s+(?:de\s+)?(?:cripto|bitcoin|eth)",
+        r"pre[cç]o\s+(?:do\s+)?(?:bitcoin|eth|cripto)",
+        r"quanto\s+(?:est[aá]|vale)\s+(?:o\s+)?(?:bitcoin|eth)",
+        r"valor\s+(?:do\s+)?(?:bitcoin|eth|cripto)",
+    ]
+    return any(re.search(p, t) for p in patterns)
+
+
+# ---------------------------------------------------------------------------
+# Livros sagrados — passagens via APIs gratuitas (só quando pedido diretamente)
+# ---------------------------------------------------------------------------
+
+def _is_sacred_text_intent(content: str) -> bool:
+    """Detecta pedido explícito de passagem da Bíblia ou Alcorão."""
+    import re
+    t = (content or "").strip().lower()
+    if not t or len(t) < 8:
+        return False
+    patterns = [
+        r"passagem\s+(?:da\s+)?(?:b[ií]blia|alcor[aã]o)",
+        r"vers[ií]culo\s+(?:da\s+)?(?:b[ií]blia|alcor[aã]o)",
+        r"(?:quero|d[aá]-?me|manda|mostra)\s+(?:uma\s+)?(?:passagem|vers[ií]culo)\s+(?:da\s+)?(?:b[ií]blia|alcor[aã]o)",
+        r"(?:b[ií]blia|alcor[aã]o)\s*[:\-]?\s*(?:passagem|vers[ií]culo|random|aleat[oó]ria)",
+        r"(?:uma\s+)?passagem\s+(?:aleat[oó]ria|random)\s+(?:da\s+)?(?:b[ií]blia|alcor[aã]o)",
+        r"vers[ií]culo\s+(?:de\s+)?(?:jo[aã]o|genesis|mateus|sura)\s+\d",
+    ]
+    return any(re.search(p, t) for p in patterns)
+
+
+async def handle_sacred_text(ctx: HandlerContext, content: str) -> str | None:
+    """
+    Passagens da Bíblia ou Alcorão. Só quando o cliente pede diretamente.
+    Usa Mimo para confirmar contexto; inclui lembrete do organizador.
+    """
+    if not _is_sacred_text_intent(content):
+        return None
+    if not ctx.scope_provider or not ctx.scope_model:
+        return None
+
+    # Mimo: confirmar que é pedido explícito (evitar parecer pastoral em menções casuais)
+    from backend.sacred_texts import (
+        fetch_bible_verse, fetch_bible_random,
+        fetch_quran_verse, fetch_quran_random,
+        parse_bible_reference, parse_quran_reference,
+        build_sacred_response,
+    )
+    try:
+        prompt = (
+            f"Mensagem do utilizador: «{content[:300]}»\n"
+            "O utilizador está a pedir EXPLICITAMENTE uma passagem ou versículo da Bíblia ou do Alcorão? "
+            "(não conta: 'fui à igreja', 'li o alcorão ontem', menções casuais). Responde apenas: SIM ou NAO"
+        )
+        r = await ctx.scope_provider.chat(
+            messages=[{"role": "user", "content": prompt}],
+            model=ctx.scope_model,
+            max_tokens=10,
+            temperature=0,
+        )
+        raw = (r.content or "").strip().upper()
+        if "NAO" in raw or "NÃO" in raw.upper() or raw.startswith("N"):
+            return None
+    except Exception:
+        pass
+
+    t = (content or "").strip().lower()
+    reminder = "Também posso ajudar com lembretes e organização quando precisares."
+    data = None
+    book = ""
+
+    if "alcor" in t or "alcorão" in t or "quran" in t:
+        q_ref = parse_quran_reference(content)
+        if q_ref:
+            data = fetch_quran_verse(q_ref[0], q_ref[1])
+        else:
+            data = fetch_quran_random()
+        book = "quran"
+    elif "bíblia" in t or "biblia" in t or "bible" in t:
+        b_ref = parse_bible_reference(content)
+        if b_ref:
+            data = fetch_bible_verse(b_ref)
+        else:
+            data = fetch_bible_random()
+        book = "bible"
+    else:
+        return None
+
+    return build_sacred_response(book, data, reminder)
+
+
+async def handle_crypto(ctx: HandlerContext, content: str) -> str | None:
+    """Quando o utilizador fala de cripto, responde com cotação atual (BTC, ETH, USDT, XRP, BNB)."""
+    if not _is_crypto_intent(content):
+        return None
+    from backend.crypto_prices import fetch_crypto_prices, build_crypto_message
+    data = fetch_crypto_prices()
+    return build_crypto_message(data)
+
+
+# ---------------------------------------------------------------------------
 # "Sobre o que estávamos falando?" — resumo da conversa com Mimo
 # ---------------------------------------------------------------------------
 
@@ -1696,6 +1813,8 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         handle_save,
         handle_find,
         handle_limpeza,
+        handle_sacred_text,  # passagens Bíblia/Alcorão (só quando pedido)
+        handle_crypto,  # cotação de cripto (CoinGecko)
         handle_tz,
         handle_lang,
         handle_resumo_conversa,  # "sobre o que estávamos falando?" → sessão + Mimo

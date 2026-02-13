@@ -45,6 +45,30 @@ async def test_scope_filter_llm_sim_nao():
     assert await is_in_scope_llm("text", None) == is_in_scope_fast("text")
 
 
+def test_crypto_intent():
+    """Detecta menções a criptomoedas."""
+    from backend.handlers import _is_crypto_intent
+    assert _is_crypto_intent("quanto está o bitcoin?") is True
+    assert _is_crypto_intent("cotação das criptos") is True
+    assert _is_crypto_intent("preço do ethereum") is True
+    assert _is_crypto_intent("valor do BTC") is True
+    assert _is_crypto_intent("lista de compras") is False
+    assert _is_crypto_intent("") is False
+
+
+def test_crypto_prices_build():
+    """build_crypto_message com dados mock (USD e EUR)."""
+    from backend.crypto_prices import build_crypto_message
+    data = {"bitcoin": {"usd": 50000, "eur": 46000}, "ethereum": {"usd": 2000, "eur": 1850}}
+    msg = build_crypto_message(data)
+    assert "BTC" in msg
+    assert "ETH" in msg
+    assert "$" in msg and "€" in msg
+    assert "50,000" in msg or "50000" in msg
+    err_msg = build_crypto_message(None)
+    assert "Não foi possível" in err_msg
+
+
 def test_guardrails_should_skip_reply():
     """Não responder a mensagens triviais (ok, tá, emojis); sim/não passam para confirmações."""
     from backend.guardrails import should_skip_reply
