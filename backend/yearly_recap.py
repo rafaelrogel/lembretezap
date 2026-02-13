@@ -270,6 +270,7 @@ async def run_year_recap(
                 channel=ch,
                 chat_id=chat_id,
                 content=content,
+                metadata={"priority": "high"},
             ))
             sent += 1
         except Exception as e:

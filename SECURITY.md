@@ -86,6 +86,15 @@ To prevent data leakage between users, every user-visible resource is scoped by 
 
 Handlers and tools always call `set_context(channel, chat_id)` before executing; DB queries use `user_id` from `get_or_create_user(db, chat_id)`. Session file names are sanitized with `safe_filename()` (no `..`, `/`, `\`, or other path-unsafe characters).
 
+### 3.2 God Mode (comandos admin)
+
+Comandos admin (`#status`, `#users`, etc.) são protegidos por senha (`GOD_MODE_PASSWORD`):
+
+- **Ativação:** `#<senha>` no chat ativa god-mode para esse chat (TTL 24 h).
+- **Senha errada:** Silêncio total (não vaza superfície de admin).
+- **Rate-limit / lockout:** Após 5 tentativas de senha errada por chat, o chat fica bloqueado 15 min. Configurável via `GOD_MODE_MAX_ATTEMPTS` e `GOD_MODE_LOCKOUT_MINUTES`.
+- **Estado:** God-mode ativo em memória (perde-se em restart); lockout persiste em `~/.nanobot/security/god_mode_lockout.json`. Comando `#lockout` lista bloqueios.
+
 ### 4. Shell Command Execution
 
 The `exec` tool can execute shell commands. While dangerous command patterns are blocked, you should:

@@ -222,7 +222,18 @@ class WhatsAppChannel(BaseChannel):
         if msg_type == "message":
             # Evitar processar o mesmo evento várias vezes (reduz chamadas LLM duplicadas)
             msg_id = (data.get("id") or "").strip()
-            if _is_duplicate_message(msg_id):
+            redis_url = getattr(self.bus, "redis_url", None) if self.bus else None
+            if msg_id and redis_url:
+                try:
+                    from nanobot.bus.redis_queue import is_inbound_duplicate_or_record
+                    if await is_inbound_duplicate_or_record(redis_url, msg_id):
+                        logger.debug(f"Ignoring duplicate message id={msg_id!r}")
+                        return
+                except Exception as e:
+                    logger.debug(f"Redis dedup failed, fallback to memory: {e}")
+                    if _is_duplicate_message(msg_id):
+                        return
+            elif _is_duplicate_message(msg_id):
                 logger.debug(f"Ignoring duplicate message id={msg_id!r}")
                 return
 
@@ -293,11 +304,19 @@ class WhatsAppChannel(BaseChannel):
                     parse_admin_command_arg,
                     handle_admin_command,
                 )
+                from backend.god_mode_lockout import (
+                    is_locked_out,
+                    record_failed_attempt,
+                    clear_failed_attempts,
+                )
                 from nanobot.bus.events import OutboundMessage
                 from nanobot.utils.muted_store import apply_mute
                 raw = (content or "").strip()
                 rest = raw[1:].strip()  # texto após #
+                if is_locked_out(sender):
+                    return  # bloqueado por tentativas erradas; silêncio
                 if is_god_mode_password(rest):
+                    clear_failed_attempts(sender)
                     activate_god_mode(sender)
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
@@ -307,6 +326,8 @@ class WhatsAppChannel(BaseChannel):
                     return
                 cmd, arg = parse_admin_command_arg(raw)
                 if not cmd or not is_god_mode_activated(sender):
+                    if not cmd and rest:
+                        record_failed_attempt(sender)
                     return  # silêncio
                 # #quit: desativar god-mode
                 if cmd == "quit":

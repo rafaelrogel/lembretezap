@@ -257,6 +257,7 @@ def gateway(
         scope_model=scope_model or config.agents.defaults.model,
         scope_provider=scope_provider,
         max_iterations=config.agents.defaults.max_tool_iterations,
+        max_tokens=config.agents.defaults.max_tokens,
         cron_service=cron,
         perplexity_api_key=perplexity_key or None,
     )
@@ -340,7 +341,10 @@ def gateway(
                 to = main_job.payload.to or ""
                 if to:
                     alert = f"⚠️ Ainda não concluíste: {msg}"
-                    await bus.publish_outbound(OutboundMessage(channel=ch, chat_id=to, content=alert))
+                    await bus.publish_outbound(OutboundMessage(
+                        channel=ch, chat_id=to, content=alert,
+                        metadata={"priority": "high"},
+                    ))
                     now_ms = int(time.time() * 1000)
                     for i in range(1, 4):
                         at_ms = now_ms + (i * 30 * 60 * 1000)  # +30min, +1h, +1h30
@@ -370,6 +374,7 @@ def gateway(
                 channel=job.payload.channel or "whatsapp",
                 chat_id=job.payload.to,
                 content=content,
+                metadata={"priority": "high"},
             ))
             if post_idx >= 3:
                 cron.remove_job_and_deadline_followups(main_id)
@@ -423,8 +428,7 @@ def gateway(
                         r = await provider.chat(
                             messages=[{"role": "user", "content": prompt}],
                             model=config.agents.defaults.model or "",
-                            max_tokens=154,
-                            temperature=0.7,
+                            profile="assistant",
                         )
                         response = (r.content or job.payload.message or "").strip()
                     except Exception as e:
@@ -472,7 +476,7 @@ def gateway(
                 channel=ch,
                 chat_id=to,
                 content=response or "",
-                metadata={"job_id": metadata_job_id},
+                metadata={"job_id": metadata_job_id, "priority": "high"},
             ))
             return response
         # Sem scope_provider ou job sem deliver: usa o agente completo (fallback)
@@ -489,7 +493,7 @@ def gateway(
                 channel=ch,
                 chat_id=to,
                 content=response or "",
-                metadata={"job_id": job.id},
+                metadata={"job_id": job.id, "priority": "high"},
             ))
         else:
             if not job.payload.deliver or not job.payload.to:
@@ -549,8 +553,7 @@ def gateway(
                 r = await scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
                     model=scope_model,
-                    max_tokens=350,
-                    temperature=0,
+                    profile="parser",
                 )
                 return (r.content or "").strip()
             except Exception as e:
@@ -687,6 +690,7 @@ def agent(
         scope_model=scope_model or config.agents.defaults.model,
         scope_provider=scope_provider,
         max_iterations=config.agents.defaults.max_tool_iterations,
+        max_tokens=config.agents.defaults.max_tokens,
         cron_service=cron,
     )
     

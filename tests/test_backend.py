@@ -28,13 +28,13 @@ async def test_scope_filter_llm_sim_nao():
     from nanobot.providers.base import LLMResponse
 
     class MockProvider:
-        async def chat(self, messages, tools=None, model=None, max_tokens=10, temperature=0.7):
+        async def chat(self, messages, tools=None, model=None, max_tokens=10, temperature=0.7, profile=None, **kwargs):
             return LLMResponse(content="SIM", tool_calls=[])
         def get_default_model(self):
             return "test"
 
     class MockProviderNao:
-        async def chat(self, messages, tools=None, model=None, max_tokens=10, temperature=0.7):
+        async def chat(self, messages, tools=None, model=None, max_tokens=10, temperature=0.7, profile=None, **kwargs):
             return LLMResponse(content="NAO", tool_calls=[])
         def get_default_model(self):
             return "test"

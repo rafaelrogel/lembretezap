@@ -26,7 +26,7 @@ Para **permitir apenas** o número **+351 910 070 509**, use `allow_from` com o 
     "defaults": {
       "workspace": "~/.nanobot/workspace",
       "model": "openrouter/anthropic/claude-sonnet-4",
-      "max_tokens": 8192,
+      "max_tokens": 2048,
       "temperature": 0.7,
       "max_tool_iterations": 20
     }

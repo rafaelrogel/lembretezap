@@ -22,7 +22,7 @@ class AgentDefaults(BaseModel):
     workspace: str = "~/.nanobot/workspace"
     model: str = "deepseek/deepseek-chat"
     scope_model: str | None = "xiaomi_mimo/mimo-v2-flash"  # scope + heartbeat; APIs diretas Xiaomi
-    max_tokens: int = 8192
+    max_tokens: int = 2048
     temperature: float = 0.7
     max_tool_iterations: int = 20
 

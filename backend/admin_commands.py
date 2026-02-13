@@ -60,7 +60,7 @@ def is_god_mode_password(content_after_hash: str) -> bool:
 _ADMIN_CMD_RE = re.compile(r"^\s*#(\w+)(?:\s+(.*))?\s*$", re.I)
 _VALID_COMMANDS = frozenset({
     "status", "users", "paid", "cron", "server", "system", "ai", "painpoints",
-    "injection", "blocked", "add", "remove", "mute", "quit", "msgs", "lembretes", "tz",
+    "injection", "blocked", "lockout", "add", "remove", "mute", "quit", "msgs", "lembretes", "tz",
 })
 
 
@@ -117,7 +117,7 @@ async def handle_admin_command(
     raw = (command or "").strip()
     cmd = raw.lstrip("#").strip().lower() if raw.startswith("#") else raw.lower()
     if not cmd or cmd not in _VALID_COMMANDS:
-        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints #injection #blocked #add <nr> #remove <nr> #mute <nr> #quit"
+        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints #injection #blocked #lockout #add <nr> #remove <nr> #mute <nr> #quit"
 
     if cmd == "status":
         return _cmd_status()
@@ -160,6 +160,9 @@ async def handle_admin_command(
     if cmd == "blocked":
         return _cmd_blocked()
 
+    if cmd == "lockout":
+        return _cmd_lockout()
+
     if cmd == "add":
         _, arg = parse_admin_command_arg(raw)
         if not arg:
@@ -198,7 +201,7 @@ def _cmd_status() -> str:
     lines = [
         "#status",
         "God Mode ativo. Comandos: #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints",
-        "#add <nr> #remove <nr> #mute <nr> #quit",
+        "#injection #blocked #lockout #add <nr> #remove <nr> #mute <nr> #quit",
     ]
     return "\n".join(lines)
 
@@ -667,6 +670,29 @@ def _cmd_injection() -> str:
     except Exception as e:
         logger.debug(f"admin #injection failed: {e}")
         return "#injection\nErro ao obter estatísticas."
+
+
+def _cmd_lockout() -> str:
+    """Chats bloqueados por tentativas de senha god-mode erradas."""
+    try:
+        from backend.god_mode_lockout import get_lockout_stats
+        stats = get_lockout_stats()
+        if not stats:
+            return "#lockout\nNenhum chat bloqueado ou com tentativas recentes."
+        lines = ["#lockout", "Chat | Status | Tentativas | Tempo restante"]
+        for s in stats[:20]:
+            cid = s.get("chat_id", "?")
+            status = s.get("status", "?")
+            attempts = s.get("attempts", 0)
+            rem = s.get("remaining_sec")
+            rem_str = f"{rem}s" if rem is not None else "—"
+            lines.append(f"  {cid} | {status} | {attempts} | {rem_str}")
+        if len(stats) > 20:
+            lines.append(f"  ... e mais {len(stats) - 20}")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.debug(f"admin #lockout failed: {e}")
+        return "#lockout\nErro ao obter estatísticas."
 
 
 def _cmd_blocked() -> str:

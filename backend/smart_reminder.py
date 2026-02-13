@@ -348,6 +348,7 @@ async def run_smart_reminder_daily(
                 channel=ch,
                 chat_id=chat_id,
                 content=content,
+                metadata={"priority": "high"},
             ))
             _mark_sent_today(chat_id)
             sent += 1

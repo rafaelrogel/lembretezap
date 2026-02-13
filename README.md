@@ -34,7 +34,7 @@ Crie `~/.nanobot/config.json` (ou `%USERPROFILE%\.nanobot\config.json` no Window
       "workspace": "~/.nanobot/workspace",
       "model": "deepseek/deepseek-chat",
       "scopeModel": "xiaomi_mimo/mimo-v2-flash",
-      "max_tokens": 8192,
+      "max_tokens": 2048,
       "temperature": 0.7
     }
   },

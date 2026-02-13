@@ -1,12 +1,53 @@
 """LiteLLM provider implementation for multi-provider support."""
 
+import asyncio
 import os
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import litellm
 from litellm import acompletion
 
 from nanobot.providers.base import LLMProvider, LLMResponse, ToolCallRequest
+
+# Semáforo global: limita chamadas LLM simultâneas (evita tempestade quando cron + inbound concorrem).
+_LLM_SEMAPHORE: asyncio.Semaphore | None = None
+
+
+def _get_llm_semaphore() -> asyncio.Semaphore:
+    """Semáforo partilhado por todos os providers. Configurável via LLM_MAX_CONCURRENT (default 5)."""
+    global _LLM_SEMAPHORE
+    if _LLM_SEMAPHORE is None:
+        n = 5
+        v = os.environ.get("LLM_MAX_CONCURRENT", "").strip()
+        if v:
+            try:
+                n = max(1, min(20, int(v)))
+            except ValueError:
+                pass
+        _LLM_SEMAPHORE = asyncio.Semaphore(n)
+    return _LLM_SEMAPHORE
+
+
+def _get_llm_timeout() -> int:
+    """Timeout em segundos por chamada. Configurável via LLM_TIMEOUT_SECONDS (default 60)."""
+    v = os.environ.get("LLM_TIMEOUT_SECONDS", "").strip()
+    if v:
+        try:
+            return max(10, min(300, int(v)))
+        except ValueError:
+            pass
+    return 60
+
+
+def _get_llm_num_retries() -> int:
+    """Número de retries com backoff (tenacity). Configurável via LLM_NUM_RETRIES (default 2)."""
+    v = os.environ.get("LLM_NUM_RETRIES", "").strip()
+    if v:
+        try:
+            return max(0, min(5, int(v)))
+        except ValueError:
+            pass
+    return 2
 
 
 def _provider_from_model(model: str) -> str:
@@ -99,6 +140,7 @@ class LiteLLMProvider(LLMProvider):
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
+        profile: Literal["parser", "assistant"] | None = None,
     ) -> LLMResponse:
         """
         Send a chat completion request via LiteLLM.
@@ -107,12 +149,17 @@ class LiteLLMProvider(LLMProvider):
             messages: List of message dicts with 'role' and 'content'.
             tools: Optional list of tool definitions in OpenAI format.
             model: Model identifier (e.g., 'anthropic/claude-sonnet-4-5').
-            max_tokens: Maximum tokens in response.
-            temperature: Sampling temperature.
+            max_tokens: Maximum tokens in response (usado quando profile=None).
+            temperature: Sampling temperature (usada quando profile=None).
+            profile: "parser" (512 tok, temp 0.2) ou "assistant" (2048 tok, temp 0.7); sobrescreve quando definido.
         
         Returns:
             LLMResponse with content and/or tool calls.
         """
+        if profile == "parser":
+            max_tokens, temperature = 512, 0.2
+        elif profile == "assistant":
+            max_tokens, temperature = 2048, 0.7
         model = model or self.default_model
         # LiteLLM usa prefixo xiaomi_mimo/ (não xiaomi/)
         if model.lower().startswith("xiaomi/") and not model.startswith("xiaomi_mimo/"):
@@ -149,6 +196,8 @@ class LiteLLMProvider(LLMProvider):
             "messages": messages,
             "max_tokens": max_tokens,
             "temperature": temperature,
+            "timeout": _get_llm_timeout(),
+            "num_retries": _get_llm_num_retries(),
         }
         
         # Pass api_base directly for custom endpoints (vLLM, etc.)
@@ -164,7 +213,8 @@ class LiteLLMProvider(LLMProvider):
             kwargs["tool_choice"] = "auto"
         
         try:
-            response = await acompletion(**kwargs)
+            async with _get_llm_semaphore():
+                response = await acompletion(**kwargs)
             parsed = self._parse_response(response)
             if getattr(self, "usage_callback", None) and parsed.usage:
                 inp = parsed.usage.get("prompt_tokens") or 0

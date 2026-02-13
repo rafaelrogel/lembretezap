@@ -175,3 +175,28 @@ def test_log_unauthorized_no_raise():
     """log_unauthorized não deve lançar."""
     from backend.admin_commands import log_unauthorized
     log_unauthorized("351912345678", "#users")
+
+
+def test_god_mode_lockout():
+    """5 tentativas erradas = bloqueio; clear desbloqueia."""
+    from backend.god_mode_lockout import (
+        is_locked_out,
+        record_failed_attempt,
+        clear_failed_attempts,
+    )
+    chat = "test_lockout_5511999887766"
+    clear_failed_attempts(chat)
+    for _ in range(4):
+        record_failed_attempt(chat)
+    assert not is_locked_out(chat)
+    record_failed_attempt(chat)
+    assert is_locked_out(chat)
+    clear_failed_attempts(chat)
+    assert not is_locked_out(chat)
+
+
+@pytest.mark.asyncio
+async def test_handle_admin_command_lockout():
+    from backend.admin_commands import handle_admin_command
+    out = await handle_admin_command("#lockout")
+    assert "#lockout" in out

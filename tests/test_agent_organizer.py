@@ -30,6 +30,7 @@ class MockProvider(LLMProvider):
         model=None,
         max_tokens=4096,
         temperature=0.7,
+        profile=None,
     ):
         self.call_count += 1
         # Primeira chamada: usuário pediu lembrete → LLM devolve tool_call cron add
@@ -107,6 +108,6 @@ async def test_agent_loop_has_message_and_cron_tools():
     names = [t["function"]["name"] for t in defs]
     assert "message" in names
     assert "cron" in names
+    assert "read_file" in names
     assert "spawn" not in names
-    assert "read_file" not in names
     assert "exec" not in names

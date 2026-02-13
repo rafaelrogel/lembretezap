@@ -105,6 +105,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       # Limite de mensagens por minuto por utilizador (default 15). Aumentar para testes (ex.: 60).
       - RATE_LIMIT_MAX_PER_MINUTE=${RATE_LIMIT_MAX_PER_MINUTE:-15}
+      - LLM_MAX_CONCURRENT=${LLM_MAX_CONCURRENT:-5}
+      - LLM_TIMEOUT_SECONDS=${LLM_TIMEOUT_SECONDS:-60}
+      - LLM_NUM_RETRIES=${LLM_NUM_RETRIES:-2}
       - NANOBOT_LOG_FILE=${NANOBOT_LOG_FILE:-}
     # env_file: .env  # optional: copy .env.example to .env (incl. NANOBOT_LOG_FILE)
     depends_on:

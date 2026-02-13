@@ -1,20 +1,35 @@
 """Fila Redis para mensagens outbound (deploy com Redis).
 
-Quando REDIS_URL está definido, o MessageBus pode usar Redis como fila durável:
-- publish_outbound faz RPUSH na lista nanobot:outbound
-- Um consumer (gateway) faz BRPOP e coloca na queue in-memory para dispatch.
+Quando REDIS_URL está definido, o MessageBus usa Redis como fila durável:
+- Mensagens time-sensitive (lembretes) vão para nanobot:outbound:high (prioridade)
+- Respostas do agente vão para nanobot:outbound:normal
+- Consumer faz BLPOP high, normal (lembretes saem primeiro)
 
-Uso opcional: sem REDIS_URL o bus continua só em memória.
+Dedup inbound: message_id em nanobot:dedup:inbound:{id} com TTL 24h.
+
+Conexão Redis: cliente partilhado (connection pool) por processo, em vez de
+criar/fechar por operação — reduz latência e CPU sob carga.
 """
 
 import json
 import os
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from nanobot.bus.events import OutboundMessage
 
-QUEUE_KEY = "nanobot:outbound"
+if TYPE_CHECKING:
+    from redis.asyncio import Redis
+
+QUEUE_KEY = "nanobot:outbound"  # legado; uso QUEUE_KEY_HIGH / QUEUE_KEY_NORMAL
+QUEUE_KEY_HIGH = "nanobot:outbound:high"  # lembretes, entregas time-sensitive
+QUEUE_KEY_NORMAL = "nanobot:outbound:normal"
 BLOCK_TIMEOUT_SECONDS = 5
+DEDUP_INBOUND_TTL = 24 * 3600  # 24 horas
+DEDUP_KEY_PREFIX = "nanobot:dedup:inbound:"
+
+# Cliente Redis partilhado (connection pool) — evita criar/fechar por operação
+_redis_client: "Redis | None" = None
+_redis_client_url: str | None = None
 
 
 def _serialize_message(msg: OutboundMessage) -> str:
@@ -60,52 +75,98 @@ def get_redis_url() -> str | None:
     return url or None
 
 
-async def push_outbound(redis_url: str, msg: OutboundMessage) -> bool:
-    """
-    Coloca uma mensagem outbound na fila Redis (RPUSH).
-    Retorna True se enviado, False em erro.
-    """
-    try:
-        from redis.asyncio import Redis
-    except ImportError:
-        return False
-    client: Redis | None = None
-    try:
-        client = Redis.from_url(redis_url, decode_responses=True)
-        await client.rpush(QUEUE_KEY, _serialize_message(msg))
-        return True
-    except Exception:
-        return False
-    finally:
-        if client:
-            await client.aclose()
+def _is_high_priority(msg: OutboundMessage) -> bool:
+    """True se metadata.priority == 'high' (lembretes, entregas time-sensitive)."""
+    return (msg.metadata or {}).get("priority") == "high"
 
 
-async def pop_outbound_blocking(redis_url: str) -> OutboundMessage | None:
+async def _get_redis_client(redis_url: str) -> "Redis | None":
     """
-    Bloqueia até BLOCK_TIMEOUT_SECONDS à espera de uma mensagem (BRPOP).
-    Retorna OutboundMessage ou None (timeout/erro).
+    Retorna cliente Redis partilhado (connection pool) para o processo.
+    Lazy init na primeira utilização; reutiliza conexões em vez de criar/fechar por op.
     """
+    global _redis_client, _redis_client_url
     try:
         from redis.asyncio import Redis
     except ImportError:
         return None
-    client: Redis | None = None
+    if _redis_client is not None and _redis_client_url == redis_url:
+        return _redis_client
+    if _redis_client is not None:
+        await _redis_client.aclose()
+        _redis_client = None
+    _redis_client = Redis.from_url(redis_url, decode_responses=True)
+    _redis_client_url = redis_url
+    return _redis_client
+
+
+async def close_redis_pool() -> None:
+    """Fecha o cliente Redis partilhado. Opcional no shutdown do processo."""
+    global _redis_client, _redis_client_url
+    if _redis_client:
+        await _redis_client.aclose()
+        _redis_client = None
+        _redis_client_url = None
+
+
+async def push_outbound(redis_url: str, msg: OutboundMessage) -> bool:
+    """
+    Coloca uma mensagem outbound na fila Redis (RPUSH).
+    Prioridade high (metadata) → fila high; caso contrário → fila normal.
+    Retorna True se enviado, False em erro.
+    """
+    client = await _get_redis_client(redis_url)
+    if not client:
+        return False
     try:
-        client = Redis.from_url(redis_url, decode_responses=True)
-        result = await client.brpop(QUEUE_KEY, timeout=BLOCK_TIMEOUT_SECONDS)
+        key = QUEUE_KEY_HIGH if _is_high_priority(msg) else QUEUE_KEY_NORMAL
+        await client.rpush(key, _serialize_message(msg))
+        return True
+    except Exception:
+        return False
+
+
+async def pop_outbound_blocking(redis_url: str) -> OutboundMessage | None:
+    """
+    Bloqueia à espera de mensagem. BLPOP com high primeiro, depois normal.
+    Retorna OutboundMessage ou None (timeout/erro).
+    Usa conexão persistente do pool; BLPOP bloqueia na mesma conexão.
+    """
+    client = await _get_redis_client(redis_url)
+    if not client:
+        return None
+    try:
+        result = await client.blpop(
+            [QUEUE_KEY_HIGH, QUEUE_KEY_NORMAL],
+            timeout=BLOCK_TIMEOUT_SECONDS,
+        )
         if not result or not isinstance(result, (list, tuple)) or len(result) < 2:
             return None
-        # brpop returns (key, value)
         _, value = result
         if value is None or not isinstance(value, str):
             return None
         return _deserialize_message(value)
     except Exception:
         return None
-    finally:
-        if client:
-            await client.aclose()
+
+
+async def is_inbound_duplicate_or_record(redis_url: str, message_id: str) -> bool:
+    """
+    Verifica se message_id já foi processado; se não, regista com TTL 24h.
+    Retorna True se duplicado, False se nova (e regista).
+    Usa SET NX EX: se a chave já existir, duplicado.
+    """
+    if not message_id or not message_id.strip():
+        return False
+    client = await _get_redis_client(redis_url)
+    if not client:
+        return False
+    key = f"{DEDUP_KEY_PREFIX}{message_id.strip()[:128]}"
+    try:
+        was_set = await client.set(key, "1", nx=True, ex=DEDUP_INBOUND_TTL)
+        return not was_set  # True = duplicado, False = novo
+    except Exception:
+        return False
 
 
 def is_redis_available() -> bool:

@@ -181,6 +181,7 @@ async def run_weekly_recap(
                 channel=ch,
                 chat_id=chat_id,
                 content=content,
+                metadata={"priority": "high"},
             ))
             sent += 1
             logger.info(f"Weekly recap sent to {chat_id[:20]}...")

@@ -20,6 +20,7 @@ from nanobot.agent.tools.message import MessageTool
 from nanobot.agent.tools.cron import CronTool
 from nanobot.agent.tools.list_tool import ListTool
 from nanobot.agent.tools.event_tool import EventTool
+from nanobot.agent.tools.read_file import ReadFileTool
 from nanobot.session.manager import Session, SessionManager
 from nanobot.utils.circuit_breaker import CircuitBreaker
 
@@ -62,6 +63,7 @@ class AgentLoop:
         scope_model: str | None = None,
         scope_provider: "LLMProvider | None" = None,
         max_iterations: int = 20,
+        max_tokens: int = 2048,
         cron_service: "CronService | None" = None,
         perplexity_api_key: str | None = None,
     ):
@@ -73,6 +75,7 @@ class AgentLoop:
         self.scope_model = scope_model or self.model
         self.scope_provider = scope_provider  # quando setado, scope filter e heartbeat usam este (ex.: Xiaomi)
         self.max_iterations = max_iterations
+        self.max_tokens = max_tokens
         self.cron_service = cron_service
         self._perplexity_api_key = (perplexity_api_key or "").strip()
 
@@ -113,6 +116,8 @@ class AgentLoop:
         if self._perplexity_api_key:
             from nanobot.agent.tools.search_tool import SearchTool
             self.tools.register(SearchTool(api_key=self._perplexity_api_key))
+        # Read file: carregar bootstrap, rules e skills on demand (reduz tokens)
+        self.tools.register(ReadFileTool(workspace=self.workspace))
     
     async def run(self) -> None:
         """Run the agent loop, processing messages from the bus."""
@@ -185,8 +190,7 @@ class AgentLoop:
             r = await self.scope_provider.chat(
                 messages=[{"role": "user", "content": f"{prompt}\n\nConversa:\n{data_text}"}],
                 model=self.scope_model,
-                max_tokens=420,
-                temperature=0.2,
+                profile="parser",
             )
             out = (r.content or "").strip()
             if not out:
@@ -334,8 +338,7 @@ class AgentLoop:
                 r = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
                     model=self.scope_model,
-                    max_tokens=70,
-                    temperature=0.7,
+                    profile="parser",
                 )
                 out = (r.content or "").strip()
                 if out and len(out) <= 245:
@@ -361,8 +364,7 @@ class AgentLoop:
                 r = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
                     model=self.scope_model,
-                    max_tokens=196,
-                    temperature=0.6,
+                    profile="parser",
                 )
                 out = (r.content or "").strip().strip('"\'')
                 if out and len(out) <= 385:
@@ -373,8 +375,7 @@ class AgentLoop:
             r = await self.provider.chat(
                 messages=[{"role": "user", "content": prompt}],
                 model=self.model,
-                max_tokens=196,
-                temperature=0.6,
+                profile="assistant",
             )
             out = (r.content or "").strip().strip('"\'')
             if out and len(out) <= 385:
@@ -407,8 +408,7 @@ class AgentLoop:
                 r = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
                     model=self.scope_model,
-                    max_tokens=80,
-                    temperature=0.3,
+                    profile="parser",
                 )
                 out = (r.content or "").strip()
                 if out and len(out) <= 200:
@@ -435,8 +435,7 @@ class AgentLoop:
                 r1 = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt1}],
                     model=self.scope_model,
-                    max_tokens=60,
-                    temperature=0,
+                    profile="parser",
                 )
                 raw = (r1.content or "").strip()
                 if raw:
@@ -461,8 +460,7 @@ class AgentLoop:
                 r2 = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt2}],
                     model=self.scope_model,
-                    max_tokens=40,
-                    temperature=0,
+                    profile="parser",
                 )
                 raw_tz = (r2.content or "").strip().split("\n")[0].strip()
                 if raw_tz and is_valid_iana(raw_tz):
@@ -496,8 +494,7 @@ class AgentLoop:
             r = await self.scope_provider.chat(
                 messages=[{"role": "user", "content": prompt}],
                 model=self.scope_model,
-                max_tokens=40,
-                temperature=0.3,
+                profile="parser",
             )
             out = (r.content or "").strip().strip('"\'')
             if out and len(out) <= 120:
@@ -530,8 +527,7 @@ class AgentLoop:
                 r = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
                     model=self.scope_model,
-                    max_tokens=100,
-                    temperature=0.5,
+                    profile="parser",
                 )
                 out = (r.content or "").strip()
                 if out and len(out) <= 220:
@@ -542,8 +538,7 @@ class AgentLoop:
             r = await self.provider.chat(
                 messages=[{"role": "user", "content": prompt}],
                 model=self.model,
-                max_tokens=100,
-                temperature=0.5,
+                profile="assistant",
             )
             out = (r.content or "").strip()
             if out and len(out) <= 220:
@@ -1088,7 +1083,8 @@ class AgentLoop:
                 response = await self.provider.chat(
                     messages=messages,
                     tools=self.tools.get_definitions(),
-                    model=self.model
+                    model=self.model,
+                    profile="assistant",
                 )
                 self.circuit_breaker.record_success()
             except Exception as e:

@@ -149,6 +149,7 @@ async def run_house_chores_daily(
                 channel=ch,
                 chat_id=chat_id,
                 content=content,
+                metadata={"priority": "high"},
             ))
             sent += 1
             logger.info(f"House chores reminder sent to {chat_id[:20]}...")

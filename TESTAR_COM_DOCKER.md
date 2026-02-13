@@ -43,7 +43,7 @@ Substitua **`SUA_CHAVE_OPENROUTER_AQUI`** pela sua chave real da OpenRouter (ou 
     "defaults": {
       "workspace": "~/.nanobot/workspace",
       "model": "openrouter/anthropic/claude-sonnet-4",
-      "max_tokens": 8192,
+      "max_tokens": 2048,
       "temperature": 0.7,
       "max_tool_iterations": 20
     }

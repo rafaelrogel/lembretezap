@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 
 @dataclass
@@ -47,6 +47,7 @@ class LLMProvider(ABC):
         model: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.7,
+        profile: Literal["parser", "assistant"] | None = None,
     ) -> LLMResponse:
         """
         Send a chat completion request.
@@ -55,8 +56,9 @@ class LLMProvider(ABC):
             messages: List of message dicts with 'role' and 'content'.
             tools: Optional list of tool definitions.
             model: Model identifier (provider-specific).
-            max_tokens: Maximum tokens in response.
-            temperature: Sampling temperature.
+            max_tokens: Maximum tokens in response (usado quando profile=None).
+            temperature: Sampling temperature (usada quando profile=None).
+            profile: "parser" (512 tok, 0.2) ou "assistant" (2048 tok, 0.7); sobrescreve max_tokens/temp quando definido.
         
         Returns:
             LLMResponse with content and/or tool calls.

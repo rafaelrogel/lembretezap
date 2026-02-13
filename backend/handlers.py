@@ -1133,8 +1133,7 @@ async def _call_mimo(
         r = await ctx.scope_provider.chat(
             messages=[{"role": "user", "content": prompt}],
             model=ctx.scope_model,
-            max_tokens=max_tokens,
-            temperature=0.3,
+            profile="parser",
         )
         out = (r.content or "").strip()
         return out if out else None
