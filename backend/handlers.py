@@ -280,7 +280,7 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
         return None
     return (
         "📋 **Comandos disponíveis:**\n"
-        "• /lembrete — agendar (ex.: amanhã 9h; em 30 min; depois de PIX = encadear)\n"
+        "• /lembrete — agendar (ex.: amanhã 9h; em 30 min; depois de AL = encadear)\n"
         "• /list — listas: /list mercado add leite  ou  /list filme Matrix  /list livro 1984  /list musica Nome  /list receita Bolo\n"
         "• /feito — marcar item como feito: /feito mercado 1  ou  /feito 1\n"
         "• /hoje, /semana — ver o que tens hoje ou esta semana\n"

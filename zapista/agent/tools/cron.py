@@ -69,7 +69,7 @@ class CronTool(Tool):
             "every_seconds = repeat interval (min 1800 = 30 min, e.g. 3600 = hourly, 86400 = daily); "
             "cron_expr = fixed times (e.g. '0 9 * * *' = daily at 9h, '0 10 * * 1' = every Monday at 10h). "
             "remind_again_if_unconfirmed_seconds = re-send after N sec if no 👍 (e.g. 600 = 10 min). "
-            "depends_on_job_id = id do lembrete anterior (ex: PIX) para encadear."
+            "depends_on_job_id = id do lembrete anterior (ex: AL) para encadear."
         )
     
     @property
@@ -178,7 +178,7 @@ class CronTool(Tool):
         try:
             prompt = (
                 f"The user created a reminder: «{message[:200]}». "
-                "Reply with ONLY 2 or 3 uppercase letters to use as a short ID (e.g. AL for lunch, PIX for payment). "
+                "Reply with ONLY 2 or 3 uppercase letters to use as a short ID (e.g. AL for lunch, EN for delivery). "
                 "No explanation, no punctuation. Only the letters."
             )
             r = await self._scope_provider.chat(
