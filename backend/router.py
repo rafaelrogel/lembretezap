@@ -40,6 +40,7 @@ from backend.handlers_organizacao import (
     handle_find,
 )
 from backend.handlers_limpeza import handle_limpeza
+from backend.handlers_pomodoro import handle_pomodoro
 from backend.recipe_handler import handle_recipe
 from backend.views import (
     handle_eventos_unificado,
@@ -60,6 +61,7 @@ HANDLERS = [
     handle_sacred_text,  # ativo: responde quando cliente pede versículo bíblia/alcorão
     handle_list,  # antes de recurring: "lista mercado", "mostre lista" → list_show
     handle_limpeza,  # antes de recurring: "preciso limpar a casa" → fluxo limpeza
+    handle_pomodoro,  # /pomodoro — timer 25 min foco
     handle_recipe,  # receita/ingredientes via Perplexity (rápido, fallback agent)
     handle_recurring_prompt,
     handle_lembrete,

@@ -349,7 +349,7 @@ class CronService:
             len(store.jobs),
         )
 
-        # Verificação de duplicatas: mesmo destinatário + mesma mensagem + mesmo schedule
+        # Verificação de duplicatas: mesmo destinatário + mesma mensagem + mesmo schedule (antes do limite)
         msg_norm = (message or "").lower().strip()
         for existing in store.jobs:
             if not existing.enabled:
@@ -374,6 +374,12 @@ class CronService:
             logger.info(f"Cron: duplicate job detected, returning existing job '{existing.id}'")
             logger.debug("Cron add_job: duplicate returned, total_jobs=%d", len(store.jobs))
             return existing
+
+        # Limite de lembretes por utilizador (máx 50) — só para jobs novos
+        MAX_REMINDERS_PER_USER = 50
+        user_jobs = [j for j in store.jobs if j.enabled and getattr(j.payload, "to", None) == to]
+        if len(user_jobs) >= MAX_REMINDERS_PER_USER:
+            raise ValueError(f"MAX_REMINDERS_EXCEEDED:{MAX_REMINDERS_PER_USER}")
 
         now = _now_ms()
         kind = payload_kind if payload_kind in ("agent_turn", "system_event", "deadline_check") else "agent_turn"

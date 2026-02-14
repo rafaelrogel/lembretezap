@@ -215,42 +215,42 @@ ONBOARDING_EMOJI_TIP: dict[LangCode, str] = {
 # Fallbacks para mensagem "fora do escopo" — curtos (~30% menores)
 OUT_OF_SCOPE_FALLBACKS: dict[LangCode, list[str]] = {
     "pt-PT": [
-        "Esse assunto foge ao que consigo fazer, mas adorava ajudar noutra coisa! 😊 Organizo lembretes e listas. Usa /help ou fala comigo.",
-        "Não tenho superpoderes para isso. Posso ajudar com lembretes e listas. /help mostra os comandos.",
-        "Nesse tema não consigo ajudar. O que faço: lembretes e listas. /help ou conversa comigo. ✨",
-        "Isso fica fora da minha zona. Foco: organizar teu tempo. /help mostra tudo.",
-        "Adorava ajudar noutra coisa. /help para comandos ou fala comigo. 😊",
+        "Esse assunto foge ao que consigo fazer, mas adorava ajudar noutra coisa! 😊 Organizo lembretes e listas. Usa /help ou fala comigo por mensagem ou áudio.",
+        "Não tenho superpoderes para isso. Posso ajudar com lembretes e listas. /help mostra os comandos. Ou escreve/envia áudio.",
+        "Nesse tema não consigo ajudar. O que faço: lembretes e listas. /help ou conversa por mensagem/áudio. ✨",
+        "Isso fica fora da minha zona. Foco: organizar teu tempo. /help mostra tudo. Podes escrever ou mandar áudio.",
+        "Adorava ajudar noutra coisa. /help para comandos ou fala por mensagem/áudio. 😊",
     ],
     "pt-BR": [
-        "Esse assunto foge do que consigo fazer, mas adoraria ajudar em outra coisa! 😊 Organizo lembretes e listas. Use /help ou fale comigo.",
-        "Não tenho superpoderes para isso. Posso ajudar com lembretes e listas. /help mostra os comandos.",
-        "Nesse tema não consigo ajudar. O que faço: lembretes e listas. /help ou converse comigo. ✨",
-        "Isso fica fora da minha área. Foco: organizar seu tempo. /help mostra tudo.",
-        "Adoraria ajudar em outra coisa. /help para comandos ou fale comigo. 😊",
+        "Esse assunto foge do que consigo fazer, mas adoraria ajudar em outra coisa! 😊 Organizo lembretes e listas. Use /help ou fale comigo por mensagem ou áudio.",
+        "Não tenho superpoderes para isso. Posso ajudar com lembretes e listas. /help mostra os comandos. Ou escreva/envie áudio.",
+        "Nesse tema não consigo ajudar. O que faço: lembretes e listas. /help ou converse por mensagem/áudio. ✨",
+        "Isso fica fora da minha área. Foco: organizar seu tempo. /help mostra tudo. Pode escrever ou mandar áudio.",
+        "Adoraria ajudar em outra coisa. /help para comandos ou fale por mensagem/áudio. 😊",
     ],
     "es": [
-        "Ese tema se sale de lo que puedo hacer, ¡pero me encantaría ayudarte! 😊 Organizo recordatorios y listas. Usa /help o habla conmigo.",
-        "No tengo superpoderes para eso. Ayudo con recordatorios y listas. /help muestra comandos.",
-        "En ese tema no puedo ayudar. Lo mío: recordatorios y listas. /help o conversa conmigo. ✨",
-        "Eso se sale de mi zona. Foco: organizar tu tiempo. /help lo muestra todo.",
-        "Me encantaría ayudarte en otra cosa. /help o háblame. 😊",
+        "Ese tema se sale de lo que puedo hacer, ¡pero me encantaría ayudarte! 😊 Organizo recordatorios y listas. Usa /help o háblame por mensaje o audio.",
+        "No tengo superpoderes para eso. Ayudo con recordatorios y listas. /help muestra comandos. O escribe/envía audio.",
+        "En ese tema no puedo ayudar. Lo mío: recordatorios y listas. /help o conversa por mensaje/audio. ✨",
+        "Eso se sale de mi zona. Foco: organizar tu tiempo. /help lo muestra todo. Puedes escribir o mandar audio.",
+        "Me encantaría ayudarte en otra cosa. /help o háblame por mensaje/audio. 😊",
     ],
     "en": [
-        "That's outside what I can do, but I'd love to help with something else! 😊 I do reminders and lists. Use /help or chat with me.",
-        "I don't have superpowers for that. I help with reminders and lists. /help shows commands.",
-        "I can't help with that topic. What I do: reminders and lists. /help or chat with me. ✨",
-        "That's outside my lane. I focus on organising your time. /help shows everything.",
-        "I'd love to help with something else. /help or chat with me. 😊",
+        "That's outside what I can do, but I'd love to help with something else! 😊 I do reminders and lists. Use /help or message me / send audio.",
+        "I don't have superpowers for that. I help with reminders and lists. /help shows commands. Or type/send audio.",
+        "I can't help with that topic. What I do: reminders and lists. /help or chat by message/audio. ✨",
+        "That's outside my lane. I focus on organising your time. /help shows everything. You can type or send audio.",
+        "I'd love to help with something else. /help or message me / send audio. 😊",
     ],
 }
 
 
 # Fallback quando o agente não produz resposta (ex.: mensagem muito longa, stress test)
 AGENT_NO_RESPONSE_FALLBACK: dict[LangCode, str] = {
-    "pt-PT": "Desculpa, não consegui processar completamente. Podes reformular ou dividir em partes mais pequenas? /help mostra os comandos. 😊",
-    "pt-BR": "Desculpa, não consegui processar completamente. Pode reformular ou dividir em partes menores? /help mostra os comandos. 😊",
-    "es": "Lo siento, no pude procesar completamente. ¿Puedes reformular o dividir en partes más pequeñas? /help muestra los comandos. 😊",
-    "en": "Sorry, I couldn't process that fully. Can you rephrase or break it into smaller parts? /help shows the commands. 😊",
+    "pt-PT": "Desculpa, não consegui processar completamente. Podes reformular ou dividir em partes mais pequenas? /help mostra os comandos. Podes escrever ou enviar áudio. 😊",
+    "pt-BR": "Desculpa, não consegui processar completamente. Pode reformular ou dividir em partes menores? /help mostra os comandos. Pode escrever ou enviar áudio. 😊",
+    "es": "Lo siento, no pude procesar completamente. ¿Puedes reformular o dividir en partes más pequeñas? /help muestra los comandos. Puedes escribir o enviar audio. 😊",
+    "en": "Sorry, I couldn't process that fully. Can you rephrase or break it into smaller parts? /help shows the commands. You can type or send audio. 😊",
 }
 
 
@@ -274,6 +274,12 @@ REMINDER_MIN_INTERVAL_2H: dict[LangCode, str] = {
     "pt-BR": "O intervalo mínimo para lembretes recorrentes é 2 horas. Ex.: «a cada 2 horas» ou «a cada 3 horas».",
     "es": "El intervalo mínimo para recordatorios recurrentes es 2 horas. Ej.: «cada 2 horas» o «cada 3 horas».",
     "en": "The minimum interval for recurring reminders is 2 hours. E.g. «every 2 hours» or «every 3 hours».",
+}
+REMINDER_LIMIT_EXCEEDED: dict[LangCode, str] = {
+    "pt-PT": "Tens o limite máximo de 50 lembretes ativos. Remove alguns com 👎 ou /lembrete antes de adicionar mais.",
+    "pt-BR": "Você atingiu o limite máximo de 50 lembretes ativos. Remova alguns com 👎 ou /lembrete antes de adicionar mais.",
+    "es": "Has alcanzado el límite máximo de 50 recordatorios activos. Elimina algunos con 👎 o /lembrete antes de añadir más.",
+    "en": "You've reached the maximum limit of 50 active reminders. Remove some with 👎 or /lembrete before adding more.",
 }
 
 # Mensagens de áudio (voice messages)

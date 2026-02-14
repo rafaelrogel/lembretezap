@@ -365,7 +365,8 @@ class CronTool(Tool):
                 return f"Não encontrei o lembrete «{depends_on_job_id}» para encadear. Verifica o id em /lembrete (lista)."
         # has_deadline: apenas para lembretes pontuais (in_seconds); main não remove até confirmar ou 3 lembretes pós-prazo
         use_deadline = has_deadline and in_seconds is not None and in_seconds > 0
-        job = self._cron.add_job(
+        try:
+            job = self._cron.add_job(
             name=message[:30],
             schedule=schedule,
             message=message,
@@ -378,6 +379,12 @@ class CronTool(Tool):
             depends_on_job_id=depends_on_job_id.strip().upper()[:16] if depends_on_job_id else None,
             has_deadline=use_deadline,
         )
+        except ValueError as e:
+            if "MAX_REMINDERS_EXCEEDED" in str(e):
+                from backend.locale import REMINDER_LIMIT_EXCEEDED
+                lang = self._get_user_lang()
+                return REMINDER_LIMIT_EXCEEDED.get(lang, REMINDER_LIMIT_EXCEEDED["pt-BR"])
+            raise
         if use_deadline and job.schedule.kind == "at" and job.schedule.at_ms:
             at_ms = job.schedule.at_ms + (5 * 60 * 1000)
             self._cron.add_job(

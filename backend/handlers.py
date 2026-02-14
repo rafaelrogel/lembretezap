@@ -258,7 +258,7 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
         "👋 Olá! Sou o Zapista: lembretes, listas e eventos.\n\n"
         "📌 Comandos: /lembrete, /list (filme, livro, musica, receita, compras…), /feito.\n"
         "🌍 Timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.\n\n"
-        "Digite /help para ver tudo. 😊"
+        "Digite /help para ver tudo — ou escreve/envia áudio para conversar. 😊"
     )
 
 
@@ -292,11 +292,12 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
         "• /nota texto — notas rápidas; /notas para ver\n"
         "• /save [desc] ou /bookmark — guardar com tags e categoria (IA)\n"
         "• /find \"aquela receita\" — busca semântica nos bookmarks\n"
+        "• /pomodoro — timer 25 min foco (Pomodoro); /pomodoro stop para cancelar\n"
         "• /tz Cidade — definir fuso (ex.: /tz Lisboa)\n"
         "• /lang pt-pt ou pt-br — idioma\n"
         "• /reset — refazer cadastro (nome, cidade)\n"
         "• /quiet 22:00-08:00 — horário silencioso\n\n"
-        "Ou simplesmente conversa comigo: diz o que precisas e eu ajudo a organizar. 😊"
+        "Ou conversa comigo por mensagem ou áudio: diz o que precisas e eu ajudo a organizar. 😊"
     )
 
 
@@ -360,11 +361,26 @@ _NOT_REMINDER_PATTERNS = (
     r"sabe\s+onde", r"onde\s+fica", r"onde\s+est[aá]", r"where\s+is",
     r"qual\s+(é|e)\s+(a\s+)?capital", r"como\s+chego", r"como\s+chegar",
     r"localiza[cç][aã]o\s+de", r"endere[cç]o", r"coordinates",
-    # Pedidos de MOSTRAR/VER lista
+    # Pedidos de MOSTRAR/VER/ADD lista (nunca lembrete)
     r"mostr(e|ar)\s+(a\s+)?lista", r"ver\s+(a\s+)?lista", r"ver\s+minha\s+lista",
     r"qual\s+(é|e)\s+(a\s+)?minha\s+lista", r"qual\s+(é|e)\s+sua\s+lista",
     r"lista\s+de\s+\w+", r"minha\s+lista\s+(de\s+)?\w*", r"listar\s+\w+",
     r"^(lista|mercado|compras|pendentes)\s*$",
+    r"add\s+lista\b", r"add\s+list\b", r"adicione?\s+(à|a)\s+lista",
+    r"lista\s+(filmes?|livros?|m[uú]sicas?|receitas?)\b",
+    # Add/put/include em lista (PT, EN, ES)
+    r"(?:adiciona|adicionar|coloca|coloque|p[oô]e|põe|inclui|incluir|p[oô]r)\s+",
+    r"(?:put|add|include|append)\s+.*\s+(?:to|on|in)\s+(?:the\s+)?(?:list|shopping)",
+    r"(?:anota|anotar|regista|registar|marca|marcar)\s+",
+    r"(?:anotar|registar|marcar)\s+.*\s+(?:para\s+)?(?:ver|comprar|ler|ouvir)",
+    r"lembra[- ]?me\s+de\s+comprar", r"n[aã]o\s+esque[cç]as?\s+de\s+comprar",
+    r"(?:lembrar|lembre)[- ]?me\s+de\s+comprar", r"lembra\s+de\s+comprar",
+    r"para\s+comprar\s*:", r"coisas?\s+para\s+comprar", r"falta\s+comprar\b",
+    r"(?:filme|livro|m[uú]sica)\s+para\s+(?:ver|ler|ouvir)", r"quero\s+ver\s+(?:o\s+)?filme",
+    r"quero\s+ler\s+(?:o\s+)?livro", r"(?:filme|livro)\s+(?:para\s+)?(?:ver|ler)\s*:",
+    r"ingredientes?\s+para\s+", r"o\s+que\s+preciso\s+para\s+fazer\s+",
+    r"vou\s+precisar\s+de\s+.*\s+(?:para\s+a\s+)?receita",
+    r"(?:preciso|quero)\s+(?:de\s+)?(?:comprar|anotar|adicionar)\b",
     # Receita/ingredientes (sempre excluir — handle_recipe ou LLM)
     r"receita\s+(?:de|da)\s+", r"receitas?\s+\w+", r"^receita\s+\w+",
     # Follow-ups sobre lista/receita (não são pedido de lembrete — vão ao LLM com contexto)

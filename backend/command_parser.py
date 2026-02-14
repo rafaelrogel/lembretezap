@@ -41,6 +41,26 @@ RE_NL_ADICIONE_LISTA = re.compile(
     r"^(?:adicione|adiciona|adicionar|coloca|coloque|colocar)\s+(.+?)\s+(?:a|à|nas?)\s+listas?\s*$",
     re.I,
 )
+# NL: "add lista filmes X", "add list filmes X" → list_add filme
+RE_NL_ADD_LISTA_CATEGORIA = re.compile(
+    r"^(?:add|adicione|adiciona)\s+listas?\s+(filmes?|livros?|m[uú]sicas?|receitas?)\s+(.+)$",
+    re.I,
+)
+# NL: "coloca/põe/anota X na lista", "põe leite na lista"
+RE_NL_POR_LISTA = re.compile(
+    r"^(?:coloca|coloque|p[oô]e|põe|anota|anotar|inclui|incluir|marca)\s+(.+?)\s+(?:na|no|à|a)\s+(?:lista|listas)\s*$",
+    re.I,
+)
+# NL: "lembra de comprar X", "não esqueças de comprar X" → list_add mercado
+RE_NL_LEMBRA_COMPRAR = re.compile(
+    r"^(?:lembra[- ]?me\s+de\s+comprar|n[aã]o\s+esque[cç]as?\s+de\s+comprar|lembra\s+de\s+comprar)\s+(.+)$",
+    re.I,
+)
+# NL: "filme/livro para ver: X" ou "quero ver filme X"
+RE_NL_FILME_LIVRO_VER = re.compile(
+    r"^(?:(?:filme|livro)\s+para\s+(?:ver|ler)\s*:\s*|quero\s+(?:ver|ler)\s+(?:o\s+)?(?:filme|livro)\s+)(.+)$",
+    re.I,
+)
 
 # Normalizar categoria para singular (list_name)
 _CATEGORY_TO_LIST = {
@@ -151,6 +171,33 @@ def parse(raw: str) -> dict[str, Any] | None:
     if m:
         return {"type": "list_add", "list_name": "receita", "item": m.group(1).strip()}
 
+    # NL: "add lista filmes X" → list_add filme
+    m = RE_NL_ADD_LISTA_CATEGORIA.match(text)
+    if m:
+        cat = m.group(1).strip().lower()
+        list_name = _CATEGORY_TO_LIST.get(cat, cat)
+        item = m.group(2).strip()
+        if item:
+            return {"type": "list_add", "list_name": list_name, "item": item}
+    # NL: "coloca X na lista" → list_add mercado (assumindo compras se não especificar)
+    m = RE_NL_POR_LISTA.match(text)
+    if m:
+        item = m.group(1).strip()
+        if item:
+            return {"type": "list_add", "list_name": "mercado", "item": item}
+    # NL: "lembra de comprar X" → list_add mercado
+    m = RE_NL_LEMBRA_COMPRAR.match(text)
+    if m:
+        item = m.group(1).strip()
+        if item:
+            return {"type": "list_add", "list_name": "mercado", "item": item}
+    # NL: "filme para ver: X", "quero ver filme X" → list_add filme ou livro
+    m = RE_NL_FILME_LIVRO_VER.match(text)
+    if m:
+        item = m.group(1).strip()
+        if item:
+            list_name = "livro" if "ler" in text.lower() or "livro" in text.lower() else "filme"
+            return {"type": "list_add", "list_name": list_name, "item": item}
     # NL: "adicione ovos bacon e queijos a listas" → list_add mercado (default lista de compras)
     m = RE_NL_ADICIONE_LISTA.match(text)
     if m:

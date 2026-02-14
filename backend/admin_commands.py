@@ -61,7 +61,7 @@ _ADMIN_CMD_RE = re.compile(r"^\s*#(\w+)(?:\s+(.*))?\s*$", re.I)
 _VALID_COMMANDS = frozenset({
     "status", "users", "paid", "cron", "server", "system", "ai", "painpoints",
     "injection", "blocked", "lockout", "add", "remove", "mute", "quit", "msgs", "lembretes", "tz",
-    "cleanup",
+    "cleanup", "history",
 })
 
 
@@ -118,7 +118,7 @@ async def handle_admin_command(
     raw = (command or "").strip()
     cmd = raw.lstrip("#").strip().lower() if raw.startswith("#") else raw.lower()
     if not cmd or cmd not in _VALID_COMMANDS:
-        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints #injection #blocked #lockout #cleanup #add <nr> #remove <nr> #mute <nr> #quit"
+        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #cron [detalhado] #lembretes <nr> #tz <nr> #history <nr> #server #msgs #system #ai #painpoints #injection #blocked #lockout #cleanup #add <nr> #remove <nr> #mute <nr> #quit"
 
     if cmd == "status":
         return _cmd_status()
@@ -130,7 +130,8 @@ async def handle_admin_command(
         return await _cmd_paid(db_session_factory)
 
     if cmd == "cron":
-        return _cmd_cron(cron_store_path)
+        _, arg = parse_admin_command_arg(raw)
+        return _cmd_cron(cron_store_path, arg)
 
     if cmd == "lembretes":
         _, arg = parse_admin_command_arg(raw)
@@ -139,6 +140,10 @@ async def handle_admin_command(
     if cmd == "tz":
         _, arg = parse_admin_command_arg(raw)
         return await _cmd_tz(db_session_factory, arg)
+
+    if cmd == "history":
+        _, arg = parse_admin_command_arg(raw)
+        return await _cmd_history(db_session_factory, arg)
 
     if cmd == "server":
         return _cmd_server(cron_store_path=cron_store_path, wa_channel=wa_channel)
@@ -204,7 +209,7 @@ def _cmd_status() -> str:
     """Resumo rápido do sistema."""
     lines = [
         "#status",
-        "God Mode ativo. Comandos: #users #cron #lembretes <nr> #tz <nr> #server #msgs #system #ai #painpoints",
+        "God Mode ativo. Comandos: #users #cron [detalhado] #lembretes <nr> #tz <nr> #history <nr> #server #msgs #system #ai #painpoints",
         "#injection #blocked #lockout #cleanup #add <nr> #remove <nr> #mute <nr> #quit",
     ]
     return "\n".join(lines)
@@ -246,8 +251,8 @@ async def _cmd_paid(db_session_factory: Any) -> str:
         return "#paid\nErro ao consultar DB."
 
 
-def _cmd_cron(cron_store_path: Path | None) -> str:
-    """Quantidade de cron jobs, por utilizador, duplicatas e atrasados (>60s)."""
+def _cmd_cron(cron_store_path: Path | None, arg: str = "") -> str:
+    """Quantidade de cron jobs, por utilizador, duplicatas e atrasados (>60s). arg=detalhado → mais detalhes."""
     path = cron_store_path or (Path.home() / ".zapista" / "cron" / "jobs.json")
     if not path.exists():
         return "#cron\n0 jobs (ficheiro não encontrado)."
@@ -305,20 +310,31 @@ def _cmd_cron(cron_store_path: Path | None) -> str:
             if len(atrasados) > 5:
                 lines.append(f"    ... e mais {len(atrasados) - 5}")
 
-        # Primeiros 8 jobs (next/last)
+        # Primeiros 8 (ou todos se detalhado) jobs
+        detalhado = (arg or "").strip().lower() == "detalhado"
+        n_show = len(enabled_jobs) if detalhado else min(8, len(enabled_jobs))
         lines.append("")
-        for j in enabled_jobs[:8]:
+        for j in enabled_jobs[:n_show]:
             state = j.get("state", {})
             next_ms = state.get("nextRunAtMs")
             last_ms = state.get("lastRunAtMs")
-            name = (j.get("payload") or {}).get("message", j.get("id", j.get("name", "?")))[:20]
-            to = (j.get("payload") or {}).get("to", "")
+            payload = j.get("payload") or {}
+            sched = j.get("schedule") or {}
+            name = (payload.get("message", j.get("id", j.get("name", "?")))[:40 if detalhado else 20]
+            to = payload.get("to", "")
             next_str = f"next: {_ms_to_short(next_ms)}" if next_ms else "next: -"
             last_str = f"last: {_ms_to_short(last_ms)}" if last_ms else "last: -"
             atraso = " (atrasado)" if next_ms and next_ms < now_ms - 60_000 else ""
-            lines.append(f"  {name} | ***{_digits(to)[-6:]}{atraso} | {next_str} | {last_str}")
-        if enabled > 8:
-            lines.append(f"  ... e mais {enabled - 8}")
+            if detalhado:
+                kind = sched.get("kind", "?")
+                job_id = j.get("id", "?")
+                tz = sched.get("tz") or "-"
+                lines.append(f"  [{job_id}] {name}")
+                lines.append(f"    ***{_digits(to)[-6:]} | {kind} | tz={tz} | {next_str} | {last_str}{atraso}")
+            else:
+                lines.append(f"  {name} | ***{_digits(to)[-6:]}{atraso} | {next_str} | {last_str}")
+        if enabled > n_show and not detalhado:
+            lines.append(f"  ... e mais {enabled - n_show}")
         return "\n".join(lines)
     except Exception as e:
         logger.debug(f"admin #cron failed: {e}")
@@ -464,6 +480,52 @@ async def _cmd_tz(db_session_factory: Any, user_arg: str) -> str:
     except Exception as e:
         logger.debug(f"admin #tz failed: {e}")
         return "#tz\nErro ao obter timezone."
+
+
+async def _cmd_history(db_session_factory: Any, user_arg: str) -> str:
+    """Histórico de interações: ReminderHistory + AuditLog do utilizador."""
+    if not user_arg or len(_digits(user_arg)) < 8:
+        return "#history\nUso: #history <número> (ex: #history 5511999999999)"
+    if not db_session_factory:
+        return "#history\nErro: DB não disponível."
+    digits = _digits(user_arg)
+    try:
+        from datetime import datetime, timedelta
+        from backend.user_store import get_or_create_user
+        from backend.models_db import ReminderHistory, AuditLog
+
+        db = db_session_factory()
+        try:
+            chat_id = f"{digits}@s.whatsapp.net"
+            user = get_or_create_user(db, chat_id)
+            since = datetime.utcnow() - timedelta(days=14)
+
+            entries = []
+            for r in db.query(ReminderHistory).filter(
+                ReminderHistory.user_id == user.id,
+                ReminderHistory.created_at >= since,
+            ).order_by(ReminderHistory.created_at.desc()).limit(50).all():
+                ts = r.created_at or r.delivered_at
+                entries.append((ts, "reminder", f"{r.status or r.kind}: {(r.message or '')[:50]}"))
+            for a in db.query(AuditLog).filter(
+                AuditLog.user_id == user.id,
+                AuditLog.created_at >= since,
+            ).order_by(AuditLog.created_at.desc()).limit(50).all():
+                entries.append((a.created_at, "audit", f"{a.action}: {a.resource or ''}"))
+
+            entries.sort(key=lambda x: x[0] or datetime(1970, 1, 1), reverse=True)
+            lines = [f"#history\nUtilizador ***{digits[-6:]}: últimos 14 dias ({len(entries)} entradas)"]
+            for ts, typ, txt in entries[:25]:
+                ts_str = ts.strftime("%d/%m %H:%M") if ts else "?"
+                lines.append(f"  {ts_str} | {typ} | {txt}")
+            if len(entries) > 25:
+                lines.append(f"  ... e mais {len(entries) - 25}")
+            return "\n".join(lines)
+        finally:
+            db.close()
+    except Exception as e:
+        logger.debug(f"admin #history failed: {e}")
+        return "#history\nErro ao obter histórico."
 
 
 def _cmd_server(

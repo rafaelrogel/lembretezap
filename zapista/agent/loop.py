@@ -332,7 +332,7 @@ class AgentLoop:
                 prompt = (
                     "Out of scope: «"
                     + (user_content[:150] if user_content else "")
-                    + "». Reply in 1 SHORT sentence. Say you help with reminders and lists. /help. 1 emoji. "
+                    + "». Reply in 1 SHORT sentence. Say you help with reminders and lists. /help. Mention they can message or send audio. 1 emoji. "
                     "Reply ONLY the message, " + lang_instruction + ". No preamble."
                 )
                 r = await self.scope_provider.chat(
