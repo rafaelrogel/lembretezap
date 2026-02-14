@@ -1,10 +1,13 @@
 #!/bin/bash
 #
-# Zapista — Instalador no VPS Linux (instalação do zero)
+# Zapista — Instalador 1: VPS novinho em folha
 # Uso: sudo bash install_vps.sh
 #
-# Faz: remove TUDO do VPS (pasta de instalação) → atualiza o sistema → pede chaves e senha god-mode → instala e arranca.
-# Se existir instalação anterior, pergunta se faz backup antes de apagar.
+# Para: VPS limpo, sem instalação anterior.
+# Faz: atualiza o sistema Linux → instala Docker, Node (via Docker), ffmpeg, etc. →
+#      pede chaves API e senha god-mode → clona o código → configura → constrói e arranca
+#      bridge, gateway, API, Redis, STT → pronto para escanear QR e conectar ao WhatsApp.
+# Se existir instalação anterior em $INSTALL_DIR, remove primeiro (com opção de backup).
 #
 set -e
 
@@ -183,8 +186,33 @@ echo ""
 # --- 8. Clonar repositório (sempre do zero) ---
 echo "[Passo 7/8] A clonar o código do Zapista em ${INSTALL_DIR}..."
 mkdir -p "$(dirname "$INSTALL_DIR")"
-git clone "$REPO_URL" "$INSTALL_DIR"
+if ! git clone "$REPO_URL" "$INSTALL_DIR"; then
+  echo ""
+  echo "  ERRO: Falha ao clonar o repositório. Verifica:"
+  echo "    - Ligação à internet"
+  echo "    - URL: $REPO_URL"
+  echo "    - Repositório público e acessível"
+  exit 1
+fi
 echo "    Repositório clonado (main)."
+
+# Validar estrutura essencial (evita erros silenciosos no build)
+for f in docker-compose.yml Dockerfile pyproject.toml; do
+  if [ ! -f "$INSTALL_DIR/$f" ]; then
+    echo ""
+    echo "  ERRO: Ficheiro obrigatório em falta: $f"
+    echo "  O repositório pode ter estrutura diferente do esperado."
+    exit 1
+  fi
+done
+for d in zapista backend bridge prompts; do
+  if [ ! -d "$INSTALL_DIR/$d" ]; then
+    echo ""
+    echo "  ERRO: Pasta obrigatória em falta: $d/"
+    echo "  O repositório pode ter estrutura diferente do esperado."
+    exit 1
+  fi
+done
 echo ""
 
 # --- 9. Dados, config e arranque ---
@@ -250,16 +278,19 @@ if [ -n "$PIPER_TGZ" ]; then
   mkdir -p "$DATA_DIR/bin"
   PIPER_URL="https://github.com/rhasspy/piper/releases/download/${PIPER_RELEASE}/${PIPER_TGZ}"
   if [ ! -f "$DATA_DIR/bin/piper" ]; then
-    if curl -fsSL "$PIPER_URL" -o /tmp/piper.tar.gz; then
-      tar -xzf /tmp/piper.tar.gz -C /tmp
-      if [ -f /tmp/piper/piper ]; then
-        mv /tmp/piper/piper "$DATA_DIR/bin/piper"
-      elif [ -f /tmp/piper ] && [ -x /tmp/piper ]; then
-        mv /tmp/piper "$DATA_DIR/bin/piper"
+    _piper_tmp=$(mktemp -d)
+    if curl -fsSL "$PIPER_URL" -o "$_piper_tmp/piper.tar.gz"; then
+      tar -xzf "$_piper_tmp/piper.tar.gz" -C "$_piper_tmp"
+      # Piper tarball pode extrair para piper/, piper_linux_*/, etc. Procurar binário
+      _piper_bin=$(find "$_piper_tmp" -name "piper" -type f 2>/dev/null | head -1)
+      if [ -n "$_piper_bin" ]; then
+        cp "$_piper_bin" "$DATA_DIR/bin/piper"
+        chmod +x "$DATA_DIR/bin/piper"
       fi
-      rm -rf /tmp/piper.tar.gz /tmp/piper /tmp/piper_linux_* 2>/dev/null
-      chmod +x "$DATA_DIR/bin/piper" 2>/dev/null || true
+    else
+      echo "    Aviso: não foi possível descarregar Piper de $PIPER_URL"
     fi
+    rm -rf "$_piper_tmp"
   fi
   _piper_ok=0
   while IFS=: read -r rel_path base_name; do
@@ -329,9 +360,22 @@ services:
 EOF
 
 cd "$INSTALL_DIR"
-echo "    A construir imagens e a iniciar os serviços (alguns minutos)..."
-docker compose -f docker-compose.yml -f docker-compose.vps.yml build --no-cache 2>/dev/null || docker compose -f docker-compose.yml -f docker-compose.vps.yml build
-docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d
+echo "    A construir imagens (alguns minutos — os erros aparecem abaixo)..."
+if ! docker compose -f docker-compose.yml -f docker-compose.vps.yml build --no-cache; then
+  echo ""
+  echo "  ERRO: Falha ao construir imagens Docker. Verifica:"
+  echo "    - Logs acima para ver o erro exato"
+  echo "    - Docker em execução: systemctl status docker"
+  echo "    - Espaço em disco: df -h"
+  exit 1
+fi
+echo "    A iniciar os serviços..."
+if ! docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d; then
+  echo ""
+  echo "  ERRO: Falha ao iniciar os contentores."
+  echo "  Verifica os logs: docker compose -f docker-compose.yml -f docker-compose.vps.yml logs"
+  exit 1
+fi
 
 echo ""
 echo "=============================================="

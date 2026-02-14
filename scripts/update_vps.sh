@@ -1,9 +1,10 @@
 #!/bin/bash
 #
-# Zapista — Atualizar instalação no VPS (código + reiniciar serviços)
+# Zapista — Instalador 3: Updater (atualizar e reiniciar)
 # Uso: sudo bash update_vps.sh
 #
-# Faz: git pull em /opt/zapista → rebuild imagens → docker compose up -d
+# Faz: puxa o código mais recente do git → reconstrói imagens → reinicia
+#      todos os serviços (bridge, gateway, API) → WhatsApp reconecta automaticamente.
 # Não altera .env nem config.json (mantém chaves e senha de god-mode).
 #
 set -e
@@ -12,7 +13,7 @@ INSTALL_DIR="${ZAPISTA_INSTALL_DIR:-/opt/zapista}"
 
 echo ""
 echo "=============================================="
-echo "  Zapista — Atualizar no VPS"
+echo "  Zapista — Updater (git + reiniciar + reconectar)"
 echo "=============================================="
 echo ""
 
@@ -51,12 +52,23 @@ COMPOSE_FILES="-f docker-compose.yml"
 if [ -f "docker-compose.vps.yml" ]; then
   COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.vps.yml"
 fi
-docker compose $COMPOSE_FILES build --no-cache 2>/dev/null || docker compose $COMPOSE_FILES build
-docker compose $COMPOSE_FILES up -d
+if ! docker compose $COMPOSE_FILES build --no-cache; then
+  echo ""
+  echo "  ERRO: Falha ao construir imagens. Verifica os logs acima."
+  exit 1
+fi
+if ! docker compose $COMPOSE_FILES up -d; then
+  echo ""
+  echo "  ERRO: Falha ao iniciar os contentores."
+  exit 1
+fi
 echo "    Serviços em execução."
 echo ""
 
 echo "[3/3] Concluído."
 echo ""
+echo "Serviços reiniciados. O bridge reconecta automaticamente ao WhatsApp."
+echo ""
 echo "Ver logs: cd $INSTALL_DIR && docker compose $COMPOSE_FILES logs -f"
+echo "  (bridge = logs do WhatsApp; gateway = processamento de mensagens)"
 echo ""

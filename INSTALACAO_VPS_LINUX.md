@@ -21,9 +21,19 @@ Guia para instalar o **Zapista** (organizador por WhatsApp) num VPS com **Linux*
 
 ---
 
+## Três scripts de instalação
+
+| # | Script | Uso |
+|---|--------|-----|
+| 1 | `install_vps.sh` | **VPS novinho** — atualiza o sistema, instala Docker, clona código, configura e arranca tudo |
+| 2 | `install_vps_nuke.sh` | **Nuclear** — apaga tudo, desinstala o Docker, reinstala do zero |
+| 3 | `update_vps.sh` | **Updater** — puxa o código do git, reconstrói, reinicia e reconecta ao WhatsApp |
+
+---
+
 ## Opção A: Instalação automática (recomendada)
 
-Um único script faz a instalação: Docker, código, configuração e arranque dos contentores.
+O script 1 (`install_vps.sh`) faz a instalação: Docker, código, configuração e arranque dos contentores.
 
 ### Passo 1 — Ligar ao VPS por SSH
 
@@ -107,6 +117,26 @@ Envia uma mensagem para o número de WhatsApp que está ligado ao bridge (o mesm
 - *"/list mercado add leite"*
 
 O bot deve responder. Se não responder, vê a secção **Problemas comuns** mais abaixo.
+
+### Script 2 — Reinstalação nuclear (`install_vps_nuke.sh`)
+
+Usa quando queres desinstalar o Docker por completo e reinstalar tudo:
+
+```bash
+curl -sSL -o /tmp/install_vps_nuke.sh https://raw.githubusercontent.com/rafaelrogel/lembretezap/main/scripts/install_vps_nuke.sh
+sudo bash /tmp/install_vps_nuke.sh
+```
+
+O script para os contentores, remove a pasta de instalação, desinstala o Docker, e depois chama o instalador 1 para reinstalar tudo.
+
+### Script 3 — Atualizar (`update_vps.sh`)
+
+Para puxar o código mais recente e reiniciar os serviços (o WhatsApp reconecta automaticamente):
+
+```bash
+cd /opt/zapista  # ou o teu ZAPISTA_INSTALL_DIR
+sudo bash scripts/update_vps.sh
+```
 
 ---
 
