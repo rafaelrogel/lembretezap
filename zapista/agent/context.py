@@ -145,7 +145,7 @@ Only use the 'message' tool to send to a specific channel. Normal reply = text, 
         if channel and chat_id:
             system_prompt += f"\n\n## Current Session\nChannel: {channel}\nChat ID: {chat_id}"
         if user_lang:
-            system_prompt += f"\n\n**Reply in:** {user_lang} (pt-PT, pt-BR, es, or en only)."
+            system_prompt += f"\n\n**Reply in:** {user_lang} (pt-PT, pt-BR, es, or en only). User's phone number suggests this language — use it consistently."
         messages.append({"role": "system", "content": system_prompt})
 
         # History

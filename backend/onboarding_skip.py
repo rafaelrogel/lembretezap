@@ -33,6 +33,16 @@ _COMPLAINT_KEYWORDS = (
     "ridículo", "ridiculo", "porcaria", "merda", "tirar", "tira",
 )
 
+# Respostas ofensivas, inapropriadas ou claramente irrelevantes
+_INAPPROPRIATE_PATTERNS = (
+    r"\b(puta|foda|caralho|merda|porra|cu)\b",
+    r"\b(fuck|shit|damn)\b",
+    r"\b(odeio|hate)\b.*\b(isto|isso|you|tu)\b",
+    r"^(ah|eh|uh|hmm)\s*\.*$",  # Somente preenchimento
+    r"^[^\w\s]{5,}$",  # Apenas emojis/símbolos
+)
+_INAPPROPRIATE_RE = re.compile("|".join(_INAPPROPRIATE_PATTERNS), re.I)
+
 
 def is_onboarding_refusal_or_skip(content: str | None) -> bool:
     """
@@ -76,6 +86,25 @@ def is_likely_not_city(content: str | None) -> bool:
         return True
     if is_onboarding_refusal_or_skip(content):
         return True
+    if looks_like_url_or_off_topic(content):
+        return True
+    return False
+
+
+def is_inappropriate_or_invalid_onboarding_response(content: str | None) -> bool:
+    """
+    True se a resposta parece ofensiva, irrelevante ou inapropriada.
+    Nestes casos, não interpretar como escolha; repetir a pergunta ou oferecer pular.
+    """
+    if not content or not content.strip():
+        return True
+    t = content.strip()
+    if len(t) > 200:  # Resposta muito longa (ex.: colar texto)
+        return True
+    if _INAPPROPRIATE_RE.search(t):
+        return True
+    if is_onboarding_refusal_or_skip(content):
+        return False  # Skip/recusa é tratado separadamente
     if looks_like_url_or_off_topic(content):
         return True
     return False

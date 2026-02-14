@@ -43,15 +43,17 @@ class CronTool(Tool):
         return explicit if explicit is not None else getattr(self, "_allow_relaxed_interval", False)
 
     def _get_user_lang(self) -> str:
-        """Idioma do utilizador para mensagens (pt-PT, pt-BR, es, en)."""
+        """Idioma do utilizador para mensagens (pt-PT, pt-BR, es, en). Redundância: prefere idioma do número."""
         if not self._chat_id:
             return "pt-BR"
         try:
             from backend.database import SessionLocal
             from backend.user_store import get_user_language
+            from backend.locale import resolve_response_language
             db = SessionLocal()
             try:
-                return get_user_language(db, self._chat_id) or "pt-BR"
+                lang = get_user_language(db, self._chat_id) or "pt-BR"
+                return resolve_response_language(lang, self._chat_id, None)
             finally:
                 db.close()
         except Exception:

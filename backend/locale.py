@@ -65,6 +65,23 @@ def phone_to_default_language(chat_id: str) -> LangCode:
     return "en"
 
 
+def resolve_response_language(
+    db_lang: LangCode,
+    chat_id: str,
+    phone_for_locale: str | None = None,
+) -> LangCode:
+    """
+    Redundância: usa o número de telefone para corrigir idioma em caso de onboarding mal feito.
+
+    Quando a DB tem "en" mas o prefixo do número sugere pt-BR, pt-PT ou es,
+    prefere o idioma do número (evita respostas em inglês para utilizadores lusófonos/hispânicos).
+    """
+    phone_lang = phone_to_default_language(phone_for_locale or chat_id)
+    if db_lang == "en" and phone_lang in ("pt-BR", "pt-PT", "es"):
+        return phone_lang
+    return db_lang
+
+
 # Padrões para pedido explícito de mudança de idioma (só os 4 suportados)
 _LANG_SWITCH_PATTERNS: list[tuple[re.Pattern, LangCode]] = [
     # Português Portugal (português/portugues)
@@ -254,13 +271,71 @@ AGENT_NO_RESPONSE_FALLBACK: dict[LangCode, str] = {
 }
 
 
-# Durante o onboarding: "Quer comunicar noutro idioma? Temos pt-PT, pt-BR, es, en."
+# Durante o onboarding: "Quer comunicar noutro idioma? Temos pt-PT, pt-BR, es, en." (legado)
 ONBOARDING_LANGUAGE_QUESTION: dict[LangCode, str] = {
     "pt-PT": "Queres comunicar noutro idioma? Temos português de Portugal (pt-PT), português do Brasil (pt-BR), espanhol (es) e inglês (en). Diz o código ou o nome do idioma, ou «não» para continuar. 😊",
     "pt-BR": "Quer comunicar em outro idioma? Temos português de Portugal (pt-PT), português do Brasil (pt-BR), espanhol (es) e inglês (en). Diga o código ou o nome do idioma, ou «não» para continuar. 😊",
     "es": "¿Quieres comunicarte en otro idioma? Tenemos portugués de Portugal (pt-PT), portugués de Brasil (pt-BR), español (es) e inglés (en). Di el código o el nombre del idioma, o «no» para seguir. 😊",
     "en": "Want to use another language? We have Portuguese from Portugal (pt-PT), Brazilian Portuguese (pt-BR), Spanish (es) and English (en). Say the code or language name, or «no» to continue. 😊",
 }
+
+# Pergunta curta de idioma: default por número + sim/não/outro
+_ONBOARDING_LANG_SIMPLE: dict[LangCode, str] = {
+    "pt-PT": "Falar em português de Portugal? (sim / não / outro idioma: pt-BR, es, en)",
+    "pt-BR": "Falar em português do Brasil? (sim / não / outro idioma: pt-PT, es, en)",
+    "es": "¿Hablar en español? (sí / no / otro: pt-PT, pt-BR, en)",
+    "en": "Speak in English? (yes / no / other: pt-PT, pt-BR, es)",
+}
+
+
+def get_onboarding_language_question_simple(default_lang: LangCode) -> str:
+    """Pergunta curta de idioma com default inferido do número."""
+    return _ONBOARDING_LANG_SIMPLE.get(default_lang, _ONBOARDING_LANG_SIMPLE["en"])
+
+
+def onboarding_progress_suffix(step: int, total: int = 4) -> str:
+    """Sufixo de progresso para perguntas do onboarding, ex: ' [2/4]'."""
+    return f" [{step}/{total}]"
+
+
+# Mensagem quando resposta é inválida: repetir ou oferecer pular
+ONBOARDING_INVALID_RESPONSE: dict[LangCode, str] = {
+    "pt-PT": "Não percebi. Responde à pergunta ou diz «pular» para avançar.",
+    "pt-BR": "Não entendi. Responda à pergunta ou diga «pular» para avançar.",
+    "es": "No entendí. Responde la pregunta o di «saltar» para seguir.",
+    "en": "I didn't get that. Answer the question or say «skip» to continue.",
+}
+
+
+# Afirmativos que indicam "continuar no idioma sugerido" (sim/yes = aceitar)
+# "não" = quer outro idioma → deve especificar qual
+_AFFIRMATIVE_KEEP_PATTERNS = (
+    r"^(sim|yes|s[ií]|s[ií][ií]|ok|okay|claro|pode\s+ser|tudo\s+bem|bom|bem)\s*\.*$",
+    r"^(y|ye|yep|yeah|ya)\s*\.*$",
+)
+_AFFIRMATIVE_RE = re.compile("|".join(_AFFIRMATIVE_KEEP_PATTERNS), re.I)
+
+
+def parse_onboarding_language_response(message: str) -> Literal["keep"] | LangCode | None:
+    """
+    Interpreta resposta à pergunta de idioma no onboarding.
+    - "keep": sim/não/ok → continuar com idioma sugerido (do número)
+    - LangCode: escolha explícita (pt-PT, pt-BR, es, en)
+    - None: inválido ou ambíguo (repetir pergunta ou oferecer pular)
+    """
+    if not message or not message.strip():
+        return None
+    t = message.strip().lower()
+    if len(t) > 80:  # Resposta longa demais para escolha simples
+        return None
+    # Escolha explícita de idioma tem prioridade
+    chosen = parse_language_switch_request(message)
+    if chosen:
+        return chosen
+    # Afirmativos curtos = manter
+    if _AFFIRMATIVE_RE.search(t):
+        return "keep"
+    return None
 
 # Intervalo mínimo para lembretes recorrentes
 REMINDER_MIN_INTERVAL_30MIN: dict[LangCode, str] = {

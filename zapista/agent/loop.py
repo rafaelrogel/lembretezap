@@ -348,7 +348,7 @@ class AgentLoop:
         return random.choice(fallbacks)
 
     async def _get_onboarding_intro(self, user_lang: str) -> str:
-        """Mensagem de apresentação na primeira interação. Xiaomi primeiro (fluxo simples), fallback DeepSeek."""
+        """Mensagem de apresentação na primeira interação. Xiaomi primeiro. Fluxo: intro → idioma (1/4) → nome (2/4) → cidade (3/4)."""
         lang_instruction = {
             "pt-PT": "em português de Portugal",
             "pt-BR": "em português do Brasil",
@@ -356,7 +356,8 @@ class AgentLoop:
             "en": "in English",
         }.get(user_lang, "in the user's language")
         prompt = (
-            "AI org assistant. First contact. One SHORT paragraph (2-3 sentences): intro, what you do (lists+events), ask their name. 1 emoji. "
+            "AI org assistant. First contact. One SHORT paragraph (2-3 sentences): intro, what you do (lists, reminders, events). "
+            "End with 'Let\\'s get started!' or equivalent. 1 emoji. Do NOT ask for their name yet. "
             f"Reply ONLY the message, {lang_instruction}. No preamble."
         )
         if self.scope_provider and self.scope_model:
@@ -383,10 +384,10 @@ class AgentLoop:
         except Exception as e:
             logger.debug(f"Onboarding intro (DeepSeek) failed: {e}")
         fallbacks = {
-            "pt-PT": "Olá! Sou a tua assistente de organização. 📋 Listas (compras, receitas), lembretes e eventos. Como gostarias de ser chamado? 😊",
-            "pt-BR": "Oi! Sou sua assistente de organização. 📋 Listas (compras, receitas), lembretes e eventos. Como gostaria de ser chamado? 😊",
-            "es": "¡Hola! Soy tu asistente de organización. 📋 Listas, recordatorios y eventos. ¿Cómo te gustaría que te llamara? 😊",
-            "en": "Hi! I'm your organization assistant. 📋 Lists, reminders and events. How would you like to be called? 😊",
+            "pt-PT": "Olá! Sou a tua assistente de organização. 📋 Listas (compras, receitas), lembretes e eventos. Vamos começar! 😊",
+            "pt-BR": "Oi! Sou sua assistente de organização. 📋 Listas (compras, receitas), lembretes e eventos. Vamos começar! 😊",
+            "es": "¡Hola! Soy tu asistente de organización. 📋 Listas, recordatorios y eventos. ¡Empecemos! 😊",
+            "en": "Hi! I'm your organization assistant. 📋 Lists, reminders and events. Let's get started! 😊",
         }
         return fallbacks.get(user_lang, fallbacks["en"])
 
@@ -668,6 +669,7 @@ class AgentLoop:
                 language_switch_confirmation_message,
                 LANGUAGE_ALREADY_MSG,
                 phone_to_default_language,
+                resolve_response_language,
                 SUPPORTED_LANGS,
             )
             db = SessionLocal()
@@ -695,6 +697,11 @@ class AgentLoop:
             logger.debug(f"User language check failed: {e}")
             id_for_locale = msg.metadata.get("phone_for_locale") or msg.chat_id
             user_lang = phone_to_default_language(id_for_locale)
+
+        # Redundância: prefere idioma do número quando DB diz "en" mas número é lusófono/hispânico
+        user_lang = resolve_response_language(
+            user_lang, msg.chat_id, msg.metadata.get("phone_for_locale")
+        )
 
         # Filtragem de comandos perigosos (shell, SQL, path): blocklist com logging
         try:
@@ -733,170 +740,170 @@ class AgentLoop:
         except Exception as e:
             logger.debug(f"Injection guard failed: {e}")
 
-        # Perguntar como gostaria de ser chamado (uma vez por cliente), usando Xiaomi para a pergunta
-        # Skip no canal cli (testes e uso por terminal) para não interceptar comandos
-        # Intro e pergunta do nome: sempre no idioma do número (nunca assumir inglês por defeito).
+        # Onboarding: idioma (1/4) → nome (2/4) → cidade (3/4). Skip no canal cli.
         if msg.channel != "cli":
             try:
                 from backend.database import SessionLocal
-                from backend.user_store import get_or_create_user, set_user_preferred_name, get_user_preferred_name
+                from backend.user_store import (
+                    get_or_create_user, set_user_preferred_name, get_user_preferred_name,
+                    set_user_language, get_user_city, set_user_city, set_user_timezone,
+                    get_user_language as _get_user_lang,
+                )
                 from backend.locale import (
                     preferred_name_confirmation,
-                    PREFERRED_NAME_QUESTION,
                     phone_to_default_language as _phone_lang,
+                    get_onboarding_language_question_simple,
+                    parse_onboarding_language_response,
+                    onboarding_progress_suffix,
+                    ONBOARDING_INVALID_RESPONSE,
+                    ONBOARDING_COMPLETE,
+                    ONBOARDING_COMPLETE_TZ_FROM_PHONE,
+                    ONBOARDING_EMOJI_TIP,
+                    ONBOARDING_RESET_HINT,
+                )
+                from backend.onboarding_skip import (
+                    is_onboarding_refusal_or_skip,
+                    is_likely_valid_name,
+                    is_inappropriate_or_invalid_onboarding_response,
+                    is_likely_not_city,
                 )
                 db = SessionLocal()
                 try:
                     user = get_or_create_user(db, msg.chat_id)
                     session = self.sessions.get_or_create(msg.session_key)
                     has_name = bool((user.preferred_name or "").strip())
-                    pending = session.metadata.get("pending_preferred_name") is True
-                    # 1.º idioma = número (pn quando LID). Usado na intro e no pedido do nome.
+                    has_city = get_user_city(db, msg.chat_id) is not None
                     id_for_locale = msg.metadata.get("phone_for_locale") or msg.chat_id
                     intro_lang = _phone_lang(id_for_locale)
+                    onboarding_language_asked = session.metadata.get("onboarding_language_asked") is True
+                    pending_language_choice = session.metadata.get("pending_language_choice") is True
+                    pending_preferred_name = session.metadata.get("pending_preferred_name") is True
+                    pending_city = session.metadata.get("pending_city") is True
 
-                    if not has_name and pending:
-                        # Esta mensagem é a resposta: gravar nome e confirmar (ignorar comandos que começam com /)
+                    try:
+                        _pf = msg.metadata.get("phone_for_locale")
+                        user_lang = _get_user_lang(db, msg.chat_id, _pf)
+                    except Exception:
+                        user_lang = intro_lang
+                    name_for_prompt = get_user_preferred_name(db, msg.chat_id) or "utilizador"
+
+                    # --- 1. Primeira interação: intro + pergunta de idioma (1/4) ---
+                    intro_sent = session.metadata.get("onboarding_intro_sent") is True
+                    if not intro_sent:
+                        intro = await self._get_onboarding_intro(intro_lang)
+                        lang_q = get_onboarding_language_question_simple(intro_lang) + onboarding_progress_suffix(1, 4)
+                        full_msg = intro + "\n\n" + lang_q
+                        session.metadata["onboarding_intro_sent"] = True
+                        session.metadata["pending_language_choice"] = True
+                        self.sessions.save(session)
+                        session.add_message("user", msg.content)
+                        session.add_message("assistant", full_msg)
+                        self.sessions.save(session)
+                        return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=full_msg)
+
+                    # --- 2. Resposta à pergunta de idioma (1/4) ---
+                    if pending_language_choice and not msg.content.strip().startswith("/"):
                         content_stripped = (msg.content or "").strip()
-                        if not content_stripped.startswith("/"):
-                            from backend.onboarding_skip import is_onboarding_refusal_or_skip, is_likely_valid_name
-                            if is_onboarding_refusal_or_skip(content_stripped):
-                                name_raw = "utilizador"
-                            elif is_likely_valid_name(content_stripped):
-                                name_raw = content_stripped[:128]
-                            else:
-                                name_raw = "utilizador"
-                            if name_raw and set_user_preferred_name(db, msg.chat_id, name_raw):
-                                session.metadata.pop("pending_preferred_name", None)
-                                self.sessions.save(session)
-                                self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
-                                conf = preferred_name_confirmation(user_lang, name_raw)
-                                session.add_message("user", msg.content)
-                                session.add_message("assistant", conf)
-                                self.sessions.save(session)
-                                return OutboundMessage(
-                                    channel=msg.channel,
-                                    chat_id=msg.chat_id,
-                                    content=conf,
-                                )
-                        session.metadata.pop("pending_preferred_name", None)
+                        if is_inappropriate_or_invalid_onboarding_response(content_stripped):
+                            invalid_msg = ONBOARDING_INVALID_RESPONSE.get(user_lang, ONBOARDING_INVALID_RESPONSE["en"])
+                            lang_q = get_onboarding_language_question_simple(intro_lang) + onboarding_progress_suffix(1, 4)
+                            reply = invalid_msg + "\n\n" + lang_q
+                            session.add_message("user", msg.content)
+                            session.add_message("assistant", reply)
+                            self.sessions.save(session)
+                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=reply)
+                        result = parse_onboarding_language_response(content_stripped)
+                        if result is None and not is_onboarding_refusal_or_skip(content_stripped):
+                            invalid_msg = ONBOARDING_INVALID_RESPONSE.get(user_lang, ONBOARDING_INVALID_RESPONSE["en"])
+                            lang_q = get_onboarding_language_question_simple(intro_lang) + onboarding_progress_suffix(1, 4)
+                            reply = invalid_msg + "\n\n" + lang_q
+                            session.add_message("user", msg.content)
+                            session.add_message("assistant", reply)
+                            self.sessions.save(session)
+                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=reply)
+                        if result == "keep" or is_onboarding_refusal_or_skip(content_stripped):
+                            pass  # manter idioma do número
+                        elif isinstance(result, str):
+                            set_user_language(db, msg.chat_id, result)
+                            user_lang = result
+                            self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
+                        session.metadata.pop("pending_language_choice", None)
+                        session.metadata["onboarding_language_asked"] = True
                         self.sessions.save(session)
 
-                    if not has_name and not pending:
-                        # Primeira interação: apresentação no idioma do número, depois pedir nome
-                        intro_sent = session.metadata.get("onboarding_intro_sent") is True
-                        if not intro_sent:
-                            intro = await self._get_onboarding_intro(intro_lang)
-                            session.metadata["onboarding_intro_sent"] = True
-                            session.metadata["pending_preferred_name"] = True
-                            self.sessions.save(session)
-                            session.add_message("user", msg.content)
-                            session.add_message("assistant", intro)
-                            self.sessions.save(session)
-                            return OutboundMessage(
-                                channel=msg.channel,
-                                chat_id=msg.chat_id,
-                                content=intro,
-                            )
-                        question = await self._ask_preferred_name_question(intro_lang)
+                        question = await self._ask_preferred_name_question(user_lang)
+                        question += onboarding_progress_suffix(2, 4)
                         session.metadata["pending_preferred_name"] = True
                         self.sessions.save(session)
                         session.add_message("user", msg.content)
                         session.add_message("assistant", question)
                         self.sessions.save(session)
-                        return OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=question,
-                        )
+                        return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=question)
 
-                    # --- Idioma preferido (após o nome): "quer comunicar noutro idioma?" ---
-                    from backend.user_store import set_user_language
-                    from backend.locale import ONBOARDING_LANGUAGE_QUESTION, parse_language_switch_request as _parse_lang
-
-                    onboarding_language_asked = session.metadata.get("onboarding_language_asked") is True
-                    pending_language_choice = session.metadata.get("pending_language_choice") is True
-
-                    if has_name and pending_language_choice:
-                        # Resposta à pergunta "quer outro idioma?": aplicar se escolheu um idioma e seguir para cidade
+                    # --- 3. Resposta à pergunta do nome (2/4) ---
+                    if pending_preferred_name and not msg.content.strip().startswith("/"):
                         content_stripped = (msg.content or "").strip()
-                        if not content_stripped.startswith("/"):
-                            chosen = _parse_lang(content_stripped)
-                            if chosen:
-                                set_user_language(db, msg.chat_id, chosen)
-                                user_lang = chosen
-                                self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
-                        session.metadata.pop("pending_language_choice", None)
-                        session.metadata["onboarding_language_asked"] = True
+                        if is_inappropriate_or_invalid_onboarding_response(content_stripped) and not is_onboarding_refusal_or_skip(content_stripped):
+                            invalid_msg = ONBOARDING_INVALID_RESPONSE.get(user_lang, ONBOARDING_INVALID_RESPONSE["en"])
+                            question = await self._ask_preferred_name_question(user_lang) + onboarding_progress_suffix(2, 4)
+                            reply = invalid_msg + "\n\n" + question
+                            session.add_message("user", msg.content)
+                            session.add_message("assistant", reply)
+                            self.sessions.save(session)
+                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=reply)
+                        if is_onboarding_refusal_or_skip(content_stripped):
+                            name_raw = "utilizador"
+                        elif is_likely_valid_name(content_stripped):
+                            name_raw = content_stripped[:128]
+                        else:
+                            name_raw = "utilizador"
+                        if name_raw and set_user_preferred_name(db, msg.chat_id, name_raw):
+                            session.metadata.pop("pending_preferred_name", None)
+                            self.sessions.save(session)
+                            self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
+                            conf = preferred_name_confirmation(user_lang, name_raw)
+                            session.add_message("user", msg.content)
+                            session.add_message("assistant", conf)
+                            self.sessions.save(session)
+                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=conf)
+                        session.metadata.pop("pending_preferred_name", None)
                         self.sessions.save(session)
-                        name_for_prompt = get_user_preferred_name(db, msg.chat_id) or "utilizador"
-                        question = await self._ask_city_question(user_lang, name_for_prompt)
-                        session.metadata["pending_city"] = True
+
+                    # --- 4. Pedir nome (2/4) quando ainda não tem ---
+                    if onboarding_language_asked and not has_name and not pending_preferred_name and not pending_city:
+                        question = await self._ask_preferred_name_question(user_lang) + onboarding_progress_suffix(2, 4)
+                        session.metadata["pending_preferred_name"] = True
                         self.sessions.save(session)
                         session.add_message("user", msg.content)
                         session.add_message("assistant", question)
                         self.sessions.save(session)
-                        return OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=question,
-                        )
+                        return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=question)
 
-                    # --- Cidade (qualquer cidade do mundo; reconhecidas ajustam o fuso). Onboarding termina aqui (sem perguntar avisos antes do evento). ---
-                    from backend.user_store import (
-                        get_user_city,
-                        set_user_city,
-                        get_user_preferred_name,
-                        get_user_language as _get_user_lang,
-                    )
-                    from backend.locale import ONBOARDING_COMPLETE
-
-                    has_city = get_user_city(db, msg.chat_id) is not None
-                    pending_city = session.metadata.get("pending_city") is True
-                    name_for_prompt = get_user_preferred_name(db, msg.chat_id) or "utilizador"
-                    if has_name:
-                        try:
-                            _pf = msg.metadata.get("phone_for_locale")
-                            user_lang = _get_user_lang(db, msg.chat_id, _pf)
-                        except Exception:
-                            pass
-
-                    if has_name and pending_language_choice is False and not onboarding_language_asked and not has_city and not pending_city:
-                        # Perguntar se quer comunicar noutro idioma (pt-PT, pt-BR, es, en)
-                        lang_question = ONBOARDING_LANGUAGE_QUESTION.get(user_lang, ONBOARDING_LANGUAGE_QUESTION["en"])
-                        session.metadata["pending_language_choice"] = True
-                        self.sessions.save(session)
-                        session.add_message("user", msg.content)
-                        session.add_message("assistant", lang_question)
-                        self.sessions.save(session)
-                        return OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=lang_question,
-                        )
-
+                    # --- 5. Pedir cidade (3/4) ---
                     if has_name and not has_city and not pending_city:
-                        question = await self._ask_city_question(user_lang, name_for_prompt)
+                        question = await self._ask_city_question(user_lang, name_for_prompt) + onboarding_progress_suffix(3, 4)
                         session.metadata["pending_city"] = True
                         self.sessions.save(session)
                         session.add_message("user", msg.content)
                         session.add_message("assistant", question)
                         self.sessions.save(session)
-                        return OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=question,
-                        )
+                        return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=question)
 
-                    if has_name and pending_city:
+                    # --- 6. Resposta à pergunta da cidade (3/4) → conclusão ---
+                    if pending_city:
                         city_raw = (msg.content or "").strip()
                         if city_raw.startswith("/"):
                             pass  # Deixar handlers processar /reset, /help, etc.
+                        elif is_inappropriate_or_invalid_onboarding_response(city_raw) and not is_onboarding_refusal_or_skip(city_raw):
+                            invalid_msg = ONBOARDING_INVALID_RESPONSE.get(user_lang, ONBOARDING_INVALID_RESPONSE["en"])
+                            question = await self._ask_city_question(user_lang, name_for_prompt) + onboarding_progress_suffix(3, 4)
+                            reply = invalid_msg + "\n\n" + question
+                            session.add_message("user", msg.content)
+                            session.add_message("assistant", reply)
+                            self.sessions.save(session)
+                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=reply)
                         else:
-                            from backend.onboarding_skip import is_likely_not_city
                             from backend.timezone import phone_to_default_timezone
-                            from backend.user_store import set_user_timezone
-                            from backend.locale import ONBOARDING_COMPLETE_TZ_FROM_PHONE, ONBOARDING_RESET_HINT, ONBOARDING_EMOJI_TIP
                             if city_raw and not is_likely_not_city(city_raw):
                                 city_name, tz_iana = await self._extract_city_and_timezone_with_mimo(city_raw)
                                 if city_name and not is_likely_not_city(city_name):

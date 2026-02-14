@@ -95,7 +95,7 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     from backend.command_parser import parse
     from backend.guardrails import is_absurd_request, user_insisting_on_interval_rejection
     from backend.recurring_detector import maybe_ask_recurrence
-    from backend.locale import LangCode
+    from backend.locale import LangCode, resolve_response_language
     from backend.user_store import get_user_language
     from backend.database import SessionLocal
 
@@ -129,6 +129,7 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
                 db = SessionLocal()
                 try:
                     user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                    user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
                 finally:
                     db.close()
             except Exception:
@@ -422,7 +423,7 @@ async def handle_recurring_prompt(ctx: HandlerContext, content: str) -> str | No
     from backend.scope_filter import is_in_scope_fast
     from backend.user_store import get_user_language
     from backend.database import SessionLocal
-    from backend.locale import LangCode
+    from backend.locale import LangCode, resolve_response_language
     from backend.integrations.sacred_text import _is_sacred_text_intent
 
     if _is_sacred_text_intent(content or ""):
@@ -440,6 +441,7 @@ async def handle_recurring_prompt(ctx: HandlerContext, content: str) -> str | No
         db = SessionLocal()
         try:
             user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
         finally:
             db.close()
     except Exception:
