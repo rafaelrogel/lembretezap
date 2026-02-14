@@ -11,11 +11,19 @@ interface SendCommand {
   type: 'send';
   to: string;
   text: string;
-  /** job_id do cron para correlacionar reações (emoji = feito) */
   job_id?: string;
-  /** request_id para correlacionar resposta (Python async) */
   request_id?: string;
 }
+
+interface SendVoiceCommand {
+  type: 'send_voice';
+  to: string;
+  audio_path: string;
+  job_id?: string;
+  request_id?: string;
+}
+
+type BridgeCommand = SendCommand | SendVoiceCommand;
 
 interface BridgeMessage {
   type: 'message' | 'status' | 'qr' | 'error' | 'reaction' | 'sent';
@@ -71,7 +79,7 @@ export class BridgeServer {
 
       ws.on('message', async (data) => {
         try {
-          const cmd = JSON.parse(data.toString()) as SendCommand;
+          const cmd = JSON.parse(data.toString()) as BridgeCommand;
           const result = await this.handleCommand(cmd);
           ws.send(JSON.stringify({
             type: 'sent',
@@ -101,10 +109,17 @@ export class BridgeServer {
     await this.wa.connect();
   }
 
-  private async handleCommand(cmd: SendCommand): Promise<{ id: string } | null> {
-    if (cmd.type === 'send' && this.wa) {
+  private async handleCommand(cmd: BridgeCommand): Promise<{ id: string } | null> {
+    if (!this.wa) return null;
+
+    if (cmd.type === 'send') {
       return await this.wa.sendMessage(cmd.to, cmd.text);
     }
+
+    if (cmd.type === 'send_voice') {
+      return await this.wa.sendVoiceNote(cmd.to, cmd.audio_path);
+    }
+
     return null;
   }
 

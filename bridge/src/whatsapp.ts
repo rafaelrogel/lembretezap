@@ -4,6 +4,8 @@
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import * as fs from 'fs';
+import * as path from 'path';
 import makeWASocket, {
   DisconnectReason,
   useMultiFileAuthState,
@@ -321,6 +323,30 @@ export class WhatsAppClient {
     }
 
     const result = await this.sock.sendMessage(to, { text });
+    const id = result?.key?.id || null;
+    return id ? { id } : null;
+  }
+
+  /**
+   * Envia voice note (PTT) a partir de ficheiro OGG/Opus.
+   * O path deve ser acessível ao container do bridge (ex.: /root/.zapista/tmp/tts/xxx.ogg).
+   */
+  async sendVoiceNote(to: string, audioPath: string): Promise<{ id: string } | null> {
+    if (!this.sock) {
+      throw new Error('Not connected');
+    }
+
+    const resolved = path.resolve(audioPath);
+    if (!fs.existsSync(resolved)) {
+      throw new Error(`Audio file not found: ${audioPath}`);
+    }
+
+    const buffer = fs.readFileSync(resolved);
+    const result = await this.sock.sendMessage(to, {
+      audio: buffer,
+      mimetype: 'audio/ogg; codecs=opus',
+      ptt: true,
+    });
     const id = result?.key?.id || null;
     return id ? { id } : null;
   }

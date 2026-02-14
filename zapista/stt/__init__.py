@@ -2,7 +2,7 @@
 
 Supports:
 - whisper.cpp (local, optional)
-- Groq / OpenAI as fallback
+- OpenAI (fallback quando local falha; mesma API do install)
 """
 
 from zapista.stt.transcriber import transcribe

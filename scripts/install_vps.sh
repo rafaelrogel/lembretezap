@@ -95,8 +95,8 @@ echo "[Passo 3/8] A atualizar o sistema (pode demorar um pouco)..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get upgrade -y -qq
-apt-get install -y -qq curl git ca-certificates
-echo "    Sistema atualizado."
+apt-get install -y -qq curl git ca-certificates ffmpeg jq
+echo "    Sistema atualizado (curl, git, ffmpeg, jq)."
 echo ""
 
 # --- 5. Pedir chaves API ---
@@ -228,7 +228,75 @@ CONFIG_EOF
   chmod 600 "$DATA_DIR/config.json"
 fi
 
+# Piper TTS: binário + 4 vozes (pt_BR cadu, pt_PT tugão, es_ES davefx, en_US amy)
+# Links do VOICES.md: https://github.com/rhasspy/piper/blob/master/VOICES.md
+# Base: https://huggingface.co/rhasspy/piper-voices/resolve/main/
+PIPER_RELEASE="2023.11.14-2"
+PIPER_ARCH=$(uname -m)
+case "$PIPER_ARCH" in
+  x86_64)   PIPER_TGZ="piper_linux_x86_64.tar.gz" ;;
+  aarch64)  PIPER_TGZ="piper_linux_aarch64.tar.gz" ;;
+  armv7l)   PIPER_TGZ="piper_linux_armv7l.tar.gz" ;;
+  *)        PIPER_TGZ="" ;;
+esac
+HF_BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main"
+# tugão: URL-encoded tug%C3%A3o (HuggingFace)
+PIPER_VOICES="pt/pt_BR/cadu/medium:pt_BR-cadu-medium
+pt/pt_PT/tug%C3%A3o/medium:pt_PT-tug%C3%A3o-medium
+es/es_ES/davefx/medium:es_ES-davefx-medium
+en/en_US/amy/medium:en_US-amy-medium"
+if [ -n "$PIPER_TGZ" ]; then
+  echo "    A instalar Piper TTS (binário + 4 vozes: pt_BR, pt_PT, es_ES, en_US)..."
+  mkdir -p "$DATA_DIR/bin"
+  PIPER_URL="https://github.com/rhasspy/piper/releases/download/${PIPER_RELEASE}/${PIPER_TGZ}"
+  if [ ! -f "$DATA_DIR/bin/piper" ]; then
+    if curl -fsSL "$PIPER_URL" -o /tmp/piper.tar.gz; then
+      tar -xzf /tmp/piper.tar.gz -C /tmp
+      if [ -f /tmp/piper/piper ]; then
+        mv /tmp/piper/piper "$DATA_DIR/bin/piper"
+      elif [ -f /tmp/piper ] && [ -x /tmp/piper ]; then
+        mv /tmp/piper "$DATA_DIR/bin/piper"
+      fi
+      rm -rf /tmp/piper.tar.gz /tmp/piper /tmp/piper_linux_* 2>/dev/null
+      chmod +x "$DATA_DIR/bin/piper" 2>/dev/null || true
+    fi
+  fi
+  _piper_ok=0
+  while IFS=: read -r rel_path base_name; do
+    [ -z "$rel_path" ] && continue
+    dir="$DATA_DIR/models/piper/$rel_path"
+    mkdir -p "$dir"
+    for ext in onnx onnx.json; do
+      f="${base_name}.${ext}"
+      if [ ! -f "$dir/$f" ]; then
+        curl -fsSL "$HF_BASE/$rel_path/$f" -o "$dir/$f" 2>/dev/null || true
+      fi
+      [ -f "$dir/$f" ] && _piper_ok=1
+    done
+  done << EOF
+$PIPER_VOICES
+EOF
+  if [ -f "$DATA_DIR/bin/piper" ] && [ "$_piper_ok" = "1" ]; then
+    echo "    Piper TTS instalado (TTS_ENABLED=1 no .env)."
+  else
+    echo "    Aviso: Piper incompleto; /audio usará texto até configurar manualmente."
+  fi
+else
+  echo "    Piper: arquitetura $PIPER_ARCH não suportada; /audio usará texto."
+fi
+
 _esc() { echo "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'; }
+
+# TTS: ativar se Piper instalado (múltiplas vozes em models/piper/)
+TTS_ENV=""
+if [ -f "$DATA_DIR/bin/piper" ] && [ -d "$DATA_DIR/models/piper" ]; then
+  TTS_ENV="
+TTS_ENABLED=1
+PIPER_BIN=/root/.zapista/bin/piper
+TTS_MODELS_BASE=/root/.zapista/models/piper
+"
+fi
+
 cat > "$INSTALL_DIR/.env" << ENV_EOF
 # Gerado por install_vps.sh — não commitar
 ZAPISTA_PROVIDERS__DEEPSEEK__API_KEY="$( _esc "$DEEPSEEK_API_KEY" )"
@@ -239,6 +307,7 @@ HEALTH_CHECK_TOKEN=health-$(openssl rand -hex 8)
 API_SECRET_KEY=api-$(openssl rand -hex 12)
 CORS_ORIGINS=*
 GOD_MODE_PASSWORD="$( _esc "$GOD_MODE_PASSWORD" )"
+$TTS_ENV
 ENV_EOF
 chmod 600 "$INSTALL_DIR/.env"
 
@@ -284,6 +353,7 @@ echo "  3. Quando aparecer 'Connected', sai dos logs com Ctrl+C (os serviços co
 echo ""
 echo "Dados e config: $DATA_DIR"
 echo "  - config.json, organizer.db (BD), sessões, whatsapp-auth"
+echo "  - Piper TTS: models/piper/, bin/piper (comando /audio em PTT)"
 echo "  - O volume ZAPISTA_data persiste tudo; reinício dos containers não apaga dados."
 if [ -n "$DO_BACKUP_RESTORE" ] && [ -d "${BACKUP_TEMP:-}" ]; then
   echo ""

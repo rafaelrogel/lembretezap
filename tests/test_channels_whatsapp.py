@@ -77,3 +77,18 @@ def test_is_allowed_audio():
     assert ch_empty.is_allowed_audio("351912345678") is True  # vazio = todos
     assert ch_with.is_allowed_audio("351912345678") is True   # na lista
     assert ch_restrict.is_allowed_audio("351912345678") is False  # não na lista
+
+
+def test_is_allowed_tts():
+    """allow_from_tts: vazio = todos podem receber TTS; não vazio = só os da lista."""
+    config_empty = WhatsAppConfig(enabled=True, bridge_url="ws://localhost:3001", allow_from=["351912345678"], allow_from_tts=[])
+    config_with = WhatsAppConfig(enabled=True, bridge_url="ws://localhost:3001", allow_from=["351912345678"], allow_from_tts=["351912345678"])
+    config_restrict = WhatsAppConfig(enabled=True, bridge_url="ws://localhost:3001", allow_from=["351912345678"], allow_from_tts=["351999999999"])
+    bus = MagicMock()
+    ch_empty = WhatsAppChannel(config_empty, bus)
+    ch_with = WhatsAppChannel(config_with, bus)
+    ch_restrict = WhatsAppChannel(config_restrict, bus)
+    assert ch_empty.is_allowed_tts("351912345678") is True  # vazio = todos
+    assert ch_empty.is_allowed_tts("351912345678@s.whatsapp.net") is True
+    assert ch_with.is_allowed_tts("351912345678") is True   # na lista
+    assert ch_restrict.is_allowed_tts("351912345678") is False  # não na lista

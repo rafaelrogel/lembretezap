@@ -14,6 +14,10 @@ class WhatsAppConfig(BaseModel):
         default_factory=list,
         description="Números que podem enviar áudio para transcrição. Vazio = todos; não vazio = só estes.",
     )
+    allow_from_tts: list[str] = Field(
+        default_factory=list,
+        description="Números que podem receber resposta em áudio (TTS). Vazio = todos; não vazio = só estes. Grupos NUNCA.",
+    )
 
 
 class ChannelsConfig(BaseModel):

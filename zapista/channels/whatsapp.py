@@ -143,7 +143,7 @@ class WhatsAppChannel(BaseChannel):
             self._ws = None
     
     async def send(self, msg: OutboundMessage) -> None:
-        """Send a message through WhatsApp."""
+        """Send a message through WhatsApp (text or voice note)."""
         if not self._ws or not self._connected:
             logger.warning("WhatsApp send skipped: bridge not connected")
             try:
@@ -155,23 +155,55 @@ class WhatsAppChannel(BaseChannel):
 
         job_id = (msg.metadata or {}).get("job_id") if msg.metadata else None
         request_id = str(uuid.uuid4()) if job_id else None
+
+        # /audio: tentar TTS; se sucesso enviar PTT, senão texto
+        # Allowlist: mesma lógica do STT (allow_from_tts vazio = todos). Grupos NUNCA.
+        audio_mode = (msg.metadata or {}).get("audio_mode") is True
+        locale_override = (msg.metadata or {}).get("audio_locale_override")
+        ogg_path = None
+        chat_id_str = str(msg.chat_id)
+        tts_allowed = (
+            not chat_id_str.strip().endswith(WHATSAPP_GROUP_SUFFIX)
+            and self.is_allowed_tts(chat_id_str)
+        )
+        if audio_mode and msg.content and tts_allowed:
+            try:
+                from zapista.tts.service import synthesize_voice_note
+                ogg_path = synthesize_voice_note(
+                    msg.content, chat_id_str, locale_override=locale_override
+                )
+            except Exception as e:
+                logger.debug(f"TTS synthesize failed: {e}")
+
         try:
-            payload: dict[str, Any] = {
-                "type": "send",
-                "to": msg.chat_id,
-                "text": msg.content,
-            }
-            if job_id:
-                payload["job_id"] = job_id
-            if request_id:
-                payload["request_id"] = request_id
+            if ogg_path and ogg_path.exists():
+                payload = {
+                    "type": "send_voice",
+                    "to": msg.chat_id,
+                    "audio_path": str(ogg_path.resolve()),
+                }
+                if job_id:
+                    payload["job_id"] = job_id
+                if request_id:
+                    payload["request_id"] = request_id
+                logger.info(f"WhatsApp send_voice: to={str(msg.chat_id)[:30]}...")
+            else:
+                payload = {
+                    "type": "send",
+                    "to": msg.chat_id,
+                    "text": msg.content,
+                }
+                if job_id:
+                    payload["job_id"] = job_id
+                if request_id:
+                    payload["request_id"] = request_id
+                logger.info(f"WhatsApp send: to={str(msg.chat_id)[:30]}... len={len(msg.content)}")
 
             future = None
             if request_id:
                 future = asyncio.get_running_loop().create_future()
                 self._pending_sends[request_id] = future
 
-            logger.info(f"WhatsApp send: to={str(msg.chat_id)[:30]}... len={len(msg.content)}")
             await self._ws.send(json.dumps(payload))
 
             if future and job_id:
@@ -529,18 +561,50 @@ class WhatsAppChannel(BaseChannel):
                 # Continua à espera de sim/não; ignorar outras mensagens ou repetir o aviso
                 return
 
+            # /audio [ptpt|es|en] <pedido>: resposta em voice note (PTT)
+            # Uso: /audio lembrete... | /audio ptpt lembrete... | /audio es remind me...
+            raw_content = (content or "").strip()
+            audio_mode = False
+            audio_locale_override = None
+            if raw_content.lower().startswith("/audio "):
+                rest = raw_content[len("/audio "):].strip()
+                parts = rest.split(None, 1)  # max 2 parts: [override?, pedido]
+                override_tokens = {
+                    "ptpt", "pt-pt", "pt_pt", "ptbr", "pt-br", "pt_br",
+                    "es", "esp", "espanol", "español",
+                    "en", "eng", "english",
+                }
+                if parts and parts[0].lower() in override_tokens:
+                    audio_locale_override = parts[0]
+                    content = (parts[1] if len(parts) > 1 else "").strip()
+                else:
+                    content = rest
+                audio_mode = True
+                if not content:
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=self.name,
+                        chat_id=sender,
+                        content="Envia: /audio <pedido> ou /audio ptpt|es|en <pedido> para resposta em áudio.",
+                    ))
+                    return
+
             # Forward to agent only for private chats (groups already filtered above)
             trace_id = uuid.uuid4().hex[:12]
+            meta = {
+                "message_id": data.get("id"),
+                "timestamp": data.get("timestamp"),
+                "is_group": False,
+                "trace_id": trace_id,
+            }
+            if audio_mode:
+                meta["audio_mode"] = True
+                if audio_locale_override:
+                    meta["audio_locale_override"] = audio_locale_override
             await self._handle_message(
                 sender_id=sender_id,
                 chat_id=sender,  # Use full JID/LID for replies
                 content=content,
-                metadata={
-                    "message_id": data.get("id"),
-                    "timestamp": data.get("timestamp"),
-                    "is_group": False,
-                    "trace_id": trace_id,
-                },
+                metadata=meta,
             )
         
         elif msg_type == "status":

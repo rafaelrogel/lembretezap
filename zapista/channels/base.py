@@ -105,6 +105,24 @@ class BaseChannel(ABC):
             return True
         return False
 
+    def is_allowed_tts(self, chat_id: str) -> bool:
+        """
+        Check if a chat can receive resposta em áudio (TTS).
+        Lista distinta: allow_from_tts (config). Vazio = todos podem receber TTS.
+        Se não vazio, só números em allow_from_tts podem receber.
+        Grupos NUNCA recebem TTS (caller must check is_group separately).
+        """
+        allow_list = list(getattr(self.config, "allow_from_tts", []))
+        if not allow_list:
+            return True
+        sender_str = str(chat_id).strip()
+        sender_digits = self._normalize_digits(sender_str)
+        if sender_str in allow_list:
+            return True
+        if sender_digits and any(sender_digits == self._normalize_digits(a) for a in allow_list if self._normalize_digits(a)):
+            return True
+        return False
+
     async def _handle_message(
         self,
         sender_id: str,

@@ -104,9 +104,13 @@ def _migrate_config(data: dict) -> dict:
     for key in ("telegram", "discord", "feishu"):
         channels.pop(key, None)
     # allow_from_audio: lista distinta para transcrição de áudio (default: [])
+    # allow_from_tts: lista distinta para resposta TTS (default: [])
     wa = channels.get("whatsapp")
-    if isinstance(wa, dict) and "allow_from_audio" not in wa and "allowFromAudio" not in wa:
-        wa["allowFromAudio"] = []
+    if isinstance(wa, dict):
+        if "allow_from_audio" not in wa and "allowFromAudio" not in wa:
+            wa["allowFromAudio"] = []
+        if "allow_from_tts" not in wa and "allowFromTts" not in wa:
+            wa["allowFromTts"] = []
     # Web tools (search/fetch) removed; drop tools.web
     tools.pop("web", None)
     # File/shell tools removed; drop tools.exec and tools.restrictToWorkspace

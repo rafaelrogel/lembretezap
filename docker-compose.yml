@@ -123,6 +123,10 @@ services:
       - LLM_TIMEOUT_SECONDS=${LLM_TIMEOUT_SECONDS:-60}
       - LLM_NUM_RETRIES=${LLM_NUM_RETRIES:-2}
       - ZAPISTA_LOG_FILE=${ZAPISTA_LOG_FILE:-}
+      # TTS (voice notes): /audio [ptpt|es|en] <pedido> → PTT. Múltiplas vozes em TTS_MODELS_BASE
+      - TTS_ENABLED=${TTS_ENABLED:-0}
+      - PIPER_BIN=${PIPER_BIN:-}
+      - TTS_MODELS_BASE=${TTS_MODELS_BASE:-}
     # env_file: .env  # optional: copy .env.example to .env (incl. ZAPISTA_LOG_FILE)
     depends_on:
       bridge:
