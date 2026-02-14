@@ -9,17 +9,48 @@
 #
 set -e
 
-INSTALL_DIR="${ZAPISTA_INSTALL_DIR:-/opt/zapista}"
+# Auto-detectar pasta de instalação (procurar em /opt, /root, /home)
+_detect_install_dir() {
+  if [ -n "${ZAPISTA_INSTALL_DIR}" ] && [ -d "${ZAPISTA_INSTALL_DIR}" ]; then
+    echo "${ZAPISTA_INSTALL_DIR}"
+    return
+  fi
+  _found=$(find /opt /root /home -maxdepth 5 -name "docker-compose.vps.yml" -type f 2>/dev/null | head -1)
+  if [ -n "$_found" ]; then
+    dirname "$_found"
+    return
+  fi
+  for _cand in /opt/zapista /opt/Zapista /root/zapista; do
+    if [ -d "$_cand" ] && [ -f "$_cand/docker-compose.yml" ] && [ -d "$_cand/zapista" ] && [ -d "$_cand/backend" ]; then
+      echo "$_cand"
+      return
+    fi
+  done
+  while IFS= read -r _f; do
+    [ -z "$_f" ] && continue
+    _p=$(dirname "$_f")
+    if [ -d "$_p/zapista" ] && [ -d "$_p/backend" ] 2>/dev/null; then
+      echo "$_p"
+      return
+    fi
+  done < <(find /opt /root /home -maxdepth 4 -name "docker-compose.yml" -type f 2>/dev/null)
+  echo "/opt/zapista"
+}
+
+INSTALL_DIR="${ZAPISTA_INSTALL_DIR:-$(_detect_install_dir)}"
 
 echo ""
 echo "=============================================="
 echo "  Zapista — Updater (git + reiniciar + reconectar)"
 echo "=============================================="
 echo ""
+echo "Pasta detectada: $INSTALL_DIR"
+echo ""
 
 if [ ! -d "$INSTALL_DIR" ]; then
-  echo "Erro: pasta de instalação não encontrada: $INSTALL_DIR"
-  echo "Se instalaste noutro sítio, usa: ZAPISTA_INSTALL_DIR=/caminho sudo bash update_vps.sh"
+  echo "Erro: pasta de instalação não encontrada."
+  echo "  Procurou em: /opt, /root, /home"
+  echo "  Esperava: $INSTALL_DIR (ou ZAPISTA_INSTALL_DIR=/caminho)"
   exit 1
 fi
 

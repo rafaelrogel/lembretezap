@@ -6,9 +6,9 @@ Guia para instalar o **Zapista** (organizador por WhatsApp) num VPS com **Linux*
 
 ## Aviso sobre as chaves da API
 
-- **Nunca partilhes** as chaves DeepSeek e Xiaomi MiMo em sítios públicos (chat, email, repositório).
+- **Nunca partilhes** as chaves de API em sítios públicos (chat, email, repositório).
 - O script guarda-as só no ficheiro `.env` no servidor (não são commitadas).
-- Obtém chave DeepSeek em [platform.deepseek.com](https://platform.deepseek.com) e Xiaomi MiMo em [platform.xiaomimimo.com](https://platform.xiaomimimo.com).
+- São obrigatórias: **DeepSeek** [platform.deepseek.com](https://platform.deepseek.com), **Xiaomi MiMo** [platform.xiaomimimo.com](https://platform.xiaomimimo.com), **OpenAI** [platform.openai.com](https://platform.openai.com), **Perplexity** [perplexity.ai](https://www.perplexity.ai/settings/api).
 
 ---
 
@@ -16,7 +16,7 @@ Guia para instalar o **Zapista** (organizador por WhatsApp) num VPS com **Linux*
 
 1. **VPS** com Linux (Ubuntu 22.04 ou 24.04, ou Debian 11/12).
 2. **Acesso SSH** ao VPS (utilizador com permissão para usar `sudo`).
-3. **Chave DeepSeek** (agente: lembretes, listas) e **chave Xiaomi MiMo** (scope + heartbeat).
+3. **Chaves de API** (todas obrigatórias): DeepSeek, Xiaomi MiMo, OpenAI, Perplexity.
 4. **Telemóvel** com WhatsApp para escanear o QR na primeira vez.
 
 ---
@@ -67,17 +67,16 @@ O script faz tudo de forma guiada:
 
 1. **Remove o sistema antigo** — para os contentores anteriores (se existirem) e prepara para atualizar.
 2. **Atualiza o sistema** — `apt update` e `apt upgrade`.
-3. **Pede a Chave DeepSeek** — (agente: lembretes, listas). A escrita fica oculta. Obtém em [platform.deepseek.com](https://platform.deepseek.com).
-4. **Pede a Chave Xiaomi MiMo** — (respostas rápidas e análises). Obtém em [platform.xiaomimimo.com](https://platform.xiaomimimo.com).
-5. **Pede a senha de god-mode** — qualquer pessoa pode falar com o bot. Para rodar comandos admin (`#status`, `#users`, etc.), o administrador envia no chat `#<senha>`; isso ativa o god-mode (válido 24 h). Quem enviar `#` com senha errada não recebe resposta (silêncio).
-6. Instala Docker (se precisar), atualiza o código, cria o `config.json` com `allow_from: []` (todos podem falar) e o `.env` com as chaves e `GOD_MODE_PASSWORD`, e arranca os serviços.
+3. **Pede as chaves de API** (todas obrigatórias): DeepSeek, Xiaomi MiMo, OpenAI, Perplexity.
+4. **Pede a senha de god-mode** — qualquer pessoa pode falar com o bot. Para rodar comandos admin (`#status`, `#users`, etc.), o administrador envia no chat `#<senha>`; isso ativa o god-mode (válido 24 h). Quem enviar `#` com senha errada não recebe resposta (silêncio).
+5. Instala Docker (se precisar), clona o código, cria o `config.json` com `allow_from: []` (todos podem falar) e o `.env` com as chaves e `GOD_MODE_PASSWORD`, e arranca os serviços.
 
 As chaves ficam só no `.env` no servidor; **nunca as partilhes em chats, emails ou repositórios.**
 
-**Alternativa (menos segura):** podes passar as chaves por variáveis de ambiente para não as colar no terminal, mas **ficam no histórico do bash** (ex.: `history`). Em produção é mais seguro introduzi-las quando o script pedir:
+**Alternativa (menos segura):** podes passar as chaves por variáveis de ambiente:
 
 ```bash
-sudo DEEPSEEK_API_KEY="a_tua_chave_deepseek" XIAOMI_API_KEY="a_tua_chave_xiaomi" bash /tmp/install_vps.sh
+sudo DEEPSEEK_API_KEY="..." XIAOMI_API_KEY="..." OPENAI_API_KEY="..." PERPLEXITY_API_KEY="..." bash /tmp/install_vps.sh
 ```
 
 ### Passo 4 — Esperar o fim da instalação
@@ -86,8 +85,8 @@ O script vai:
 
 - Atualizar o sistema e instalar dependências
 - Instalar Docker e Docker Compose (se não existirem)
-- Clonar o repositório do Zapista para `/opt/Zapista`
-- Criar o `config.json` (modelos) e o `.env` (chaves DeepSeek + Xiaomi)
+- Clonar o repositório do Zapista para `/opt/zapista`
+- Criar o `config.json` (modelos) e o `.env` (chaves DeepSeek, Xiaomi, OpenAI, Perplexity)
 - Construir as imagens Docker e arrancar os serviços
 
 No final aparece uma mensagem a dizer que a instalação terminou.

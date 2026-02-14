@@ -11,7 +11,35 @@
 #
 set -e
 
-INSTALL_DIR="${ZAPISTA_INSTALL_DIR:-/opt/zapista}"
+# Auto-detectar pasta de instalação (procurar em /opt, /root, /home)
+_detect_install_dir() {
+  if [ -n "${ZAPISTA_INSTALL_DIR}" ] && [ -d "${ZAPISTA_INSTALL_DIR}" ]; then
+    echo "${ZAPISTA_INSTALL_DIR}"
+    return
+  fi
+  _found=$(find /opt /root /home -maxdepth 5 -name "docker-compose.vps.yml" -type f 2>/dev/null | head -1)
+  if [ -n "$_found" ]; then
+    dirname "$_found"
+    return
+  fi
+  for _cand in /opt/zapista /opt/Zapista /root/zapista; do
+    if [ -d "$_cand" ] && [ -f "$_cand/docker-compose.yml" ] && [ -d "$_cand/zapista" ] && [ -d "$_cand/backend" ]; then
+      echo "$_cand"
+      return
+    fi
+  done
+  while IFS= read -r _f; do
+    [ -z "$_f" ] && continue
+    _p=$(dirname "$_f")
+    if [ -d "$_p/zapista" ] && [ -d "$_p/backend" ] 2>/dev/null; then
+      echo "$_p"
+      return
+    fi
+  done < <(find /opt /root /home -maxdepth 4 -name "docker-compose.yml" -type f 2>/dev/null)
+  echo "/opt/zapista"
+}
+
+INSTALL_DIR="${ZAPISTA_INSTALL_DIR:-$(_detect_install_dir)}"
 DATA_DIR="${INSTALL_DIR}/data"
 REPO_URL="${ZAPISTA_REPO_URL:-https://github.com/rafaelrogel/lembretezap.git}"
 
@@ -23,6 +51,8 @@ echo ""
 echo "=============================================="
 echo "  Zapista — Instalador no VPS (do zero)"
 echo "=============================================="
+echo ""
+echo "Pasta de instalação: $INSTALL_DIR"
 echo ""
 echo "Este script vai:"
 echo "  1. Parar contentores e APAGAR toda a instalação anterior em $INSTALL_DIR"
@@ -102,48 +132,38 @@ apt-get install -y -qq curl git ca-certificates ffmpeg jq
 echo "    Sistema atualizado (curl, git, ffmpeg, jq)."
 echo ""
 
-# --- 5. Pedir chaves API ---
-echo "[Passo 4/8] Chaves de API"
-echo "    (As chaves ficam só no servidor, no ficheiro .env — não são enviadas para lado nenhum.)"
+# --- 5. Pedir chaves API (todas obrigatórias) ---
+echo "[Passo 4/8] Chaves de API (4 obrigatórias)"
+echo "    As chaves ficam só no servidor, no .env. Nunca as partilhes."
 echo ""
 
+# 1. DeepSeek
 if [ -z "$DEEPSEEK_API_KEY" ]; then
-  echo "  DeepSeek — para o agente (lembretes, listas, conversa)."
-  echo "  Obtém em: https://platform.deepseek.com"
-  read -r -p "  Cola aqui a chave DeepSeek: " DEEPSEEK_API_KEY
+  echo "  [1/4] DeepSeek — agente (lembretes, listas). https://platform.deepseek.com"
+  read -r -p "        Chave DeepSeek: " DEEPSEEK_API_KEY
+  [ -z "$DEEPSEEK_API_KEY" ] && { echo "  Erro: obrigatória."; exit 1; }
   echo ""
-  if [ -z "$DEEPSEEK_API_KEY" ]; then
-    echo "  Erro: a chave DeepSeek é obrigatória."
-    exit 1
-  fi
 fi
 
+# 2. Xiaomi MiMo
 if [ -z "$XIAOMI_API_KEY" ]; then
-  echo "  Xiaomi MiMo — para respostas rápidas e análises."
-  echo "  Obtém em: https://platform.xiaomimimo.com"
-  read -r -p "  Cola aqui a chave Xiaomi MiMo: " XIAOMI_API_KEY
+  echo "  [2/4] Xiaomi MiMo — respostas rápidas. https://platform.xiaomimimo.com"
+  read -r -p "        Chave Xiaomi MiMo: " XIAOMI_API_KEY
+  [ -z "$XIAOMI_API_KEY" ] && { echo "  Erro: obrigatória."; exit 1; }
   echo ""
-  if [ -z "$XIAOMI_API_KEY" ]; then
-    echo "  Erro: a chave Xiaomi MiMo é obrigatória."
-    exit 1
-  fi
 fi
 
-echo "  OpenAI — para transcrição de mensagens de voz (fallback quando whisper local falha). Opcional."
-echo "  Obtém em: https://platform.openai.com/api-keys"
-read -r -p "  Cola aqui a chave OpenAI (ou Enter para omitir): " OPENAI_API_KEY
+# 3. OpenAI (sempre perguntar — evita scripts antigos)
+echo "  [3/4] OpenAI — transcrição de voz. https://platform.openai.com/api-keys"
+read -r -p "        Chave OpenAI: " OPENAI_API_KEY
+[ -z "$OPENAI_API_KEY" ] && { echo "  Erro: obrigatória."; exit 1; }
 echo ""
-if [ -n "$OPENAI_API_KEY" ]; then
-  echo "    Chave OpenAI guardada (só no .env)."
-fi
 
-echo "  Perplexity — para busca na web (pesquisas, informações em tempo real). Opcional."
-echo "  Obtém em: https://www.perplexity.ai/settings/api"
-read -r -p "  Cola aqui a chave Perplexity (ou Enter para omitir): " PERPLEXITY_API_KEY
+# 4. Perplexity (sempre perguntar)
+echo "  [4/4] Perplexity — busca na web. https://www.perplexity.ai/settings/api"
+read -r -p "        Chave Perplexity: " PERPLEXITY_API_KEY
+[ -z "$PERPLEXITY_API_KEY" ] && { echo "  Erro: obrigatória."; exit 1; }
 echo ""
-if [ -n "$PERPLEXITY_API_KEY" ]; then
-  echo "    Chave Perplexity guardada (só no .env)."
-fi
 
 echo "    Chaves guardadas (só no .env)."
 echo ""
