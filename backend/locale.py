@@ -222,10 +222,10 @@ ONBOARDING_RESET_HINT: dict[LangCode, str] = {
 
 # Dica sobre emojis em lembretes (feito / soneca / não feito)
 ONBOARDING_EMOJI_TIP: dict[LangCode, str] = {
-    "pt-PT": "\n\n💡 Nos lembretes: 👍 (feito, confirma com sim); ⏰ (adiar 5 min, máx 3x); 👎 (reagendar).",
-    "pt-BR": "\n\n💡 Nos lembretes: 👍 (feito, confirme com sim); ⏰ (adiar 5 min, máx 3x); 👎 (reagendar).",
-    "es": "\n\n💡 En recordatorios: 👍 (hecho, confirma con sí); ⏰ (pospóner 5 min, máx 3x); 👎 (reprogramar).",
-    "en": "\n\n💡 On reminders: 👍 (done, confirm with yes); ⏰ (snooze 5 min, max 3x); 👎 (reschedule).",
+    "pt-PT": "\n\n💡 Quando receberes um lembrete, reage à mensagem:\n• 👍 (feito) — depois confirma com *sim*\n• ⏰ (adiar 5 min, máx 3x)\n• 👎 (remover) — pergunto se queres alterar horário ou cancelar\n\nOu escreve/envia áudio, ex.: «feito», «remover», «adiar 1 hora».",
+    "pt-BR": "\n\n💡 Quando receber um lembrete, reaja à mensagem:\n• 👍 (feito) — depois confirme com *sim*\n• ⏰ (adiar 5 min, máx 3x)\n• 👎 (remover) — pergunto se você quer alterar horário ou cancelar\n\nOu escreva/envie áudio, ex.: «feito», «remover», «adiar 1 hora».",
+    "es": "\n\n💡 Cuando recibas un recordatorio, reacciona al mensaje:\n• 👍 (hecho) — luego confirma con *sí*\n• ⏰ (pospóner 5 min, máx 3x)\n• 👎 (eliminar) — pregunto si quieres cambiar horario o cancelar\n\nO escribe/envía audio, ej.: «hecho», «eliminar», «pospóner 1 hora».",
+    "en": "\n\n💡 When you receive a reminder, react to the message:\n• 👍 (done) — then confirm with *yes*\n• ⏰ (snooze 5 min, max 3x)\n• 👎 (remove) — I'll ask if you want to change time or cancel\n\nOr type/send audio, e.g. «done», «remove», «snooze 1 hour».",
 }
 
 
