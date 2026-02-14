@@ -57,7 +57,12 @@ class List(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="lists")
-    items = relationship("ListItem", back_populates="list_ref", cascade="all, delete-orphan", order_by="ListItem.id")
+    items = relationship(
+        "ListItem",
+        back_populates="list_ref",
+        cascade="all, delete-orphan",
+        order_by="ListItem.position, ListItem.id",
+    )
 
 
 class Habit(Base):
@@ -133,6 +138,7 @@ class ListItem(Base):
     list_id = Column(Integer, ForeignKey("lists.id"), nullable=False, index=True)
     text = Column(String(512), nullable=False)
     done = Column(Boolean, default=False)
+    position = Column(Integer, default=0, nullable=False)  # ordem na lista; shuffle altera isto
     created_at = Column(DateTime, default=datetime.utcnow)
 
     list_ref = relationship("List", back_populates="items")

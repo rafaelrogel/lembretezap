@@ -641,6 +641,40 @@ class AgentLoop:
         except Exception:
             pass
 
+        # Pedido de mudança de idioma ANTES do calling — para "fale comigo em português" não ser tratado como chamada
+        try:
+            from backend.database import SessionLocal
+            from backend.user_store import get_user_language, set_user_language
+            from backend.locale import (
+                parse_language_switch_request,
+                language_switch_confirmation_message,
+                LANGUAGE_ALREADY_MSG,
+            )
+            db = SessionLocal()
+            try:
+                phone_for_locale = msg.metadata.get("phone_for_locale")
+                user_lang = get_user_language(db, msg.chat_id, phone_for_locale)
+                requested_lang = parse_language_switch_request(
+                    msg.content, msg.metadata.get("phone_for_locale") or msg.chat_id
+                )
+                if requested_lang is not None:
+                    if requested_lang != user_lang:
+                        set_user_language(db, msg.chat_id, requested_lang)
+                        return OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content=language_switch_confirmation_message(requested_lang),
+                        )
+                    return OutboundMessage(
+                        channel=msg.channel,
+                        chat_id=msg.chat_id,
+                        content=LANGUAGE_ALREADY_MSG.get(requested_lang, LANGUAGE_ALREADY_MSG["pt-BR"]),
+                    )
+            finally:
+                db.close()
+        except Exception as e:
+            logger.debug(f"Language switch check failed: {e}")
+
         # Resposta rápida quando o utilizador "chama" o bot (ex.: "Organizador?", "Rapaz?", "Tá aí?", "Are you there?") — Mimo, barato e proativo
         try:
             from backend.calling_phrases import is_calling_message
@@ -665,9 +699,6 @@ class AgentLoop:
             from backend.database import SessionLocal
             from backend.user_store import get_user_language, set_user_language
             from backend.locale import (
-                parse_language_switch_request,
-                language_switch_confirmation_message,
-                LANGUAGE_ALREADY_MSG,
                 phone_to_default_language,
                 resolve_response_language,
                 SUPPORTED_LANGS,
@@ -676,21 +707,7 @@ class AgentLoop:
             try:
                 phone_for_locale = msg.metadata.get("phone_for_locale")
                 user_lang = get_user_language(db, msg.chat_id, phone_for_locale)
-                requested_lang = parse_language_switch_request(msg.content)
-                if requested_lang is not None:
-                    if requested_lang != user_lang:
-                        set_user_language(db, msg.chat_id, requested_lang)
-                        return OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=language_switch_confirmation_message(requested_lang),
-                        )
-                    # Mesmo idioma: confirmar e retornar — não seguir para router (evita "Quando quer o lembrete?")
-                    return OutboundMessage(
-                        channel=msg.channel,
-                        chat_id=msg.chat_id,
-                        content=LANGUAGE_ALREADY_MSG.get(requested_lang, LANGUAGE_ALREADY_MSG["pt-BR"]),
-                    )
+                # Pedido de idioma já tratado no bloco antecipado (antes do calling)
             finally:
                 db.close()
         except Exception as e:
@@ -812,7 +829,9 @@ class AgentLoop:
                             session.add_message("assistant", reply)
                             self.sessions.save(session)
                             return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=reply)
-                        result = parse_onboarding_language_response(content_stripped)
+                        result = parse_onboarding_language_response(
+                            content_stripped, msg.metadata.get("phone_for_locale") or msg.chat_id
+                        )
                         if result is None and not is_onboarding_refusal_or_skip(content_stripped):
                             invalid_msg = ONBOARDING_INVALID_RESPONSE.get(user_lang, ONBOARDING_INVALID_RESPONSE["en"])
                             lang_q = get_onboarding_language_question_simple(intro_lang) + onboarding_progress_suffix(1, 4)

@@ -1,7 +1,10 @@
-"""List tool: add, list, remove, feito (mark done) per user. Persistência imediata em SQLite, IDs estáveis, auditoria."""
+"""List tool: add, list, remove, feito (mark done), shuffle per user. Persistência imediata em SQLite, IDs estáveis, auditoria."""
 
 import json
+import random
 from typing import Any
+
+from sqlalchemy import func
 
 from zapista.agent.tools.base import Tool
 from backend.database import SessionLocal
@@ -35,7 +38,8 @@ class ListTool(Tool):
     def description(self) -> str:
         return (
             "Manage user lists. action: add (list_name, item), list (list_name), remove (list_name, item_id), "
-            "feito (list_name, item_id to mark done), habitual (list_name: add frequent items from history)."
+            "feito (list_name, item_id to mark done), habitual (list_name: add frequent items from history), "
+            "shuffle (list_name: randomize order of items in place)."
         )
 
     @property
@@ -45,8 +49,8 @@ class ListTool(Tool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["add", "list", "remove", "feito", "habitual"],
-                    "description": "add | list | remove | feito | habitual (add frequent items to list)",
+                    "enum": ["add", "list", "remove", "feito", "habitual", "shuffle"],
+                    "description": "add | list | remove | feito | habitual | shuffle (randomize list order)",
                 },
                 "list_name": {"type": "string", "description": "List name (e.g. mercado, pendentes)"},
                 "item_text": {"type": "string", "description": "Item text (for add)"},
@@ -91,6 +95,8 @@ class ListTool(Tool):
                     if not list_name:
                         return f"Item {item_id} não encontrado. Use /feito nome_da_lista {item_id} se souber a lista."
                 return self._feito(db, user.id, list_name, item_id)
+            if action == "shuffle":
+                return self._shuffle(db, user.id, list_name or "")
             return f"Unknown action: {action}"
         finally:
             db.close()
@@ -106,7 +112,13 @@ class ListTool(Tool):
             lst = List(user_id=user_id, name=list_name, project_id=proj.id if proj else None)
             db.add(lst)
             db.flush()
-        item = ListItem(list_id=lst.id, text=item_text)
+        max_pos = (
+            db.query(func.max(ListItem.position))
+            .filter(ListItem.list_id == lst.id)
+            .scalar()
+            or 0
+        )
+        item = ListItem(list_id=lst.id, text=item_text, position=max_pos + 1)
         db.add(item)
         db.flush()  # obter item.id antes do commit
         audit_payload = json.dumps({"list_name": list_name, "item_text": item_text, "item_id": item.id})
@@ -161,10 +173,14 @@ class ListTool(Tool):
                     pending_texts.add(item_clean.lower())
 
         added: list[str] = []
+        next_pos = (
+            db.query(func.max(ListItem.position)).filter(ListItem.list_id == lst.id).scalar() or 0
+        ) + 1
         for item_clean in to_add:
             if not item_clean:
                 continue
-            item = ListItem(list_id=lst.id, text=item_clean)
+            item = ListItem(list_id=lst.id, text=item_clean, position=next_pos)
+            next_pos += 1
             db.add(item)
             db.flush()
             audit_payload = json.dumps({"list_name": list_name, "item_text": item_clean, "item_id": item.id})
@@ -237,7 +253,12 @@ class ListTool(Tool):
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
             return f"Lista '{list_name}' não existe."
-        items = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.done == False).order_by(ListItem.id).all()
+        items = (
+            db.query(ListItem)
+            .filter(ListItem.list_id == lst.id, ListItem.done == False)
+            .order_by(ListItem.position, ListItem.id)
+            .all()
+        )
         if not items:
             return f"Lista '{list_name}' vazia."
         lines = [f"{i.id}. {i.text}" for i in items]
@@ -264,6 +285,33 @@ class ListTool(Tool):
         """Encontra o nome da lista que contém o item com este id (do utilizador)."""
         item = db.query(ListItem).join(List).filter(List.user_id == user_id, ListItem.id == item_id).first()
         return item.list_ref.name if item and item.list_ref else None
+
+    def _shuffle(self, db, user_id: int, list_name: str) -> str:
+        """Embaralha a ordem dos itens na lista (in-place)."""
+        list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
+        if not list_name:
+            return "Indica o nome da lista. Ex: embaralha lista summer_hits"
+        lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
+        if not lst:
+            return f"Lista '{list_name}' não existe."
+        items = (
+            db.query(ListItem)
+            .filter(ListItem.list_id == lst.id, ListItem.done == False)
+            .order_by(ListItem.position, ListItem.id)
+            .all()
+        )
+        if not items:
+            return f"Lista '{list_name}' vazia."
+        if len(items) == 1:
+            return f"Lista '{list_name}' tem só 1 item; não há o que embaralhar."
+        order = list(range(len(items)))
+        random.shuffle(order)
+        for i, item in enumerate(items):
+            item.position = order[i]
+        payload = json.dumps({"list_name": list_name, "item_count": len(items)})
+        db.add(AuditLog(user_id=user_id, action="list_shuffle", resource=list_name, payload_json=payload))
+        db.commit()
+        return f"Lista '{list_name}' embaralhada ({len(items)} itens)."
 
     def _feito(self, db, user_id: int, list_name: str, item_id: int | None) -> str:
         list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)

@@ -55,7 +55,12 @@ def list_user_lists(
     lists = db.query(List).filter(List.user_id == user_id).all()
     result: list[ListOut] = []
     for lst in lists:
-        items = db.query(ListItem).filter(ListItem.list_id == lst.id).all()
+        items = (
+            db.query(ListItem)
+            .filter(ListItem.list_id == lst.id)
+            .order_by(ListItem.position, ListItem.id)
+            .all()
+        )
         result.append(ListOut(
             id=lst.id,
             name=lst.name,

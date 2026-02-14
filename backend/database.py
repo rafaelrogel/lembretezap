@@ -101,6 +101,7 @@ def init_db() -> None:
         "ALTER TABLE reminder_history ADD COLUMN provider_error VARCHAR(256)",
         "ALTER TABLE lists ADD COLUMN project_id INTEGER",
         "ALTER TABLE audit_log ADD COLUMN payload_json TEXT",
+        "ALTER TABLE list_items ADD COLUMN position INTEGER DEFAULT 0",
     ):
         try:
             from sqlalchemy import text
@@ -109,6 +110,13 @@ def init_db() -> None:
                 conn.commit()
         except Exception:
             pass  # Coluna já existe ou tabela não existe
+
+    # Migração única: notas → bookmarks (fusão /nota + /save + /bookmark)
+    try:
+        from backend.bookmark import migrate_notes_to_bookmarks
+        migrate_notes_to_bookmarks(ENGINE)
+    except Exception:
+        pass
 
 
 def get_db():

@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 from backend.database import SessionLocal
 from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
-from backend.models_db import Habit, HabitCheck, Goal, Note, Project, List, ListItem, ListTemplate
+from backend.models_db import Habit, HabitCheck, Goal, Project, List, ListItem, ListTemplate
 from backend.streak import get_habit_streak, generate_streak_message, _default_streak_message
 from backend.bookmark import generate_tags_and_category
 from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_ITEM_TEXT_LEN
@@ -182,44 +182,25 @@ async def handle_metas(ctx: "HandlerContext", content: str) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# Notas
+# Guardados (ex-notas + bookmarks fundidos: /save, /nota, /bookmark, /guardados)
 # ---------------------------------------------------------------------------
 
 async def handle_nota(ctx: "HandlerContext", content: str) -> str | None:
-    """/nota texto | /notas [N]"""
+    """/nota texto — guarda com tags e categoria (IA). Mesma lógica que /save."""
     t = content.strip()
     if not t.lower().startswith("/nota"):
         return None
     rest = t[5:].strip()
-    db = SessionLocal()
-    try:
-        user = get_or_create_user(db, ctx.chat_id)
-
-        if not rest or rest.lower() == "s":
-            notes = db.query(Note).filter(Note.user_id == user.id).order_by(Note.created_at.desc()).limit(10).all()
-            if not notes:
-                return "Nenhuma nota. Use /nota texto para anotar."
-            lines = ["📝 **Notas recentes**"]
-            for n in notes[:5]:
-                prev = (n.text[:60] + "…") if len(n.text) > 60 else n.text
-                lines.append(f"• {prev}")
-            return "\n".join(lines)
-
-        text = sanitize_string(rest, 2000, allow_newline=True)
-        if not text:
-            return "Use: /nota texto (ex: /nota ideia para o projeto)"
-        db.add(Note(user_id=user.id, text=text))
-        db.commit()
-        return "✅ Nota guardada."
-    finally:
-        db.close()
+    if not rest or rest.lower() == "s":
+        return await handle_bookmarks(ctx, "/bookmarks")
+    return await handle_save(ctx, "/save " + rest)
 
 
 async def handle_notas(ctx: "HandlerContext", content: str) -> str | None:
-    """/notas - listar notas."""
+    """/notas — listar guardados (alias de /bookmarks)."""
     if not content.strip().lower().startswith("/notas"):
         return None
-    return await handle_nota(ctx, "/nota " + content.strip()[6:])
+    return await handle_bookmarks(ctx, "/bookmarks")
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +260,12 @@ async def handle_projeto(ctx: "HandlerContext", content: str) -> str | None:
             db.commit()
             return f"✅ Adicionado a «{proj_name}»: {item_text} (id: {item.id})"
 
-        items = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.done == False).order_by(ListItem.id).all()
+        items = (
+            db.query(ListItem)
+            .filter(ListItem.list_id == lst.id, ListItem.done == False)
+            .order_by(ListItem.position, ListItem.id)
+            .all()
+        )
         if not items:
             return f"Projeto «{proj_name}»: sem tarefas. Use /projeto {proj_name} add item"
         lines = [f"📁 **{proj_name}**"]
@@ -383,7 +369,7 @@ def _get_last_user_message(session_manager, session_key: str) -> str | None:
         for m in reversed(msgs):
             if (m.get("role") or "").strip().lower() == "user":
                 c = (m.get("content") or "").strip()
-                if c and not c.lower().startswith(("/save", "/bookmark", "/find", "/bookmarks")):
+                if c and not c.lower().startswith(("/save", "/bookmark", "/find", "/bookmarks", "/nota", "/notas", "/guardados")):
                     return c
     except Exception:
         pass
@@ -481,13 +467,13 @@ async def handle_find(ctx: "HandlerContext", content: str) -> str | None:
                     from backend.user_store import get_user_language
                     user_lang = get_user_language(db, ctx.chat_id) or user_lang
                     if user_lang == "pt-BR":
-                        return "Ainda não tens bookmarks. Usa /save ou /bookmark para guardar algo."
+                        return "Ainda não tens guardados. Usa /save, /nota ou /bookmark para guardar."
                     if user_lang == "en":
-                        return "You have no bookmarks yet. Use /save or /bookmark to save something."
-                    return "Ainda não tens bookmarks. Usa /save ou /bookmark para guardar algo."
+                        return "You have no saved items yet. Use /save, /nota or /bookmark to save."
+                    return "Ainda não tens guardados. Usa /save, /nota ou /bookmark para guardar."
                 except Exception:
                     pass
-            return "Ainda não tens bookmarks. Usa /save ou /bookmark para guardar algo."
+            return "Ainda não tens guardados. Usa /save, /nota ou /bookmark para guardar."
 
         bk_list = []
         for b in bookmarks:
@@ -530,10 +516,10 @@ async def handle_find(ctx: "HandlerContext", content: str) -> str | None:
                        or any(query_lower in t.lower() for t in _tags_list(b))]
             if not matched:
                 if user_lang in ("pt-BR", "pt-PT"):
-                    return f"Não encontrei bookmarks para «{rest[:50]}». Tenta /bookmarks para ver o que tens."
+                    return f"Não encontrei para «{rest[:50]}». Tenta /guardados para ver o que tens."
                 if user_lang == "en":
-                    return f"No bookmarks found for «{rest[:50]}». Try /bookmarks to see what you have."
-                return f"Não encontrei bookmarks para «{rest[:50]}»."
+                    return f"Nothing found for «{rest[:50]}». Try /guardados to see what you have."
+                return f"Não encontrei para «{rest[:50]}»."
 
         lines = ["📌 Encontrei:"]
         for b in matched[:5]:
@@ -551,26 +537,41 @@ async def handle_find(ctx: "HandlerContext", content: str) -> str | None:
 
 
 async def handle_bookmarks(ctx: "HandlerContext", content: str) -> str | None:
-    """/bookmarks — lista todos os bookmarks."""
-    if not content.strip().lower().startswith("/bookmarks"):
+    """/bookmarks ou /guardados — lista guardados agrupados por categoria (IA)."""
+    t = content.strip().lower()
+    if not t.startswith("/bookmarks") and not t.startswith("/guardados"):
         return None
     db = SessionLocal()
     try:
         user = get_or_create_user(db, ctx.chat_id)
         from backend.bookmark import list_bookmarks
-        bks = list_bookmarks(db, user.id, limit=15)
+        bks = list_bookmarks(db, user.id, limit=30)
         if not bks:
-            return "Nenhum bookmark. Usa /save ou /bookmark para guardar."
-        lines = ["📌 **Bookmarks**"]
+            return "Nenhum guardado. Usa /save, /nota ou /bookmark para guardar (categorias por IA)."
+        by_cat: dict[str, list] = {}
         for b in bks:
-            prev = (b.content[:50] + "…") if len(b.content) > 50 else b.content
-            try:
-                tags = json.loads(b.tags_json) if b.tags_json else []
-                tags_str = ", ".join(tags[:2]) if tags else ""
-            except Exception:
-                tags_str = ""
-            cat = f" | {b.category}" if b.category else ""
-            lines.append(f"• {prev} {f'({tags_str})' if tags_str else ''}{cat}")
+            cat = (b.category or "outro").lower()
+            if cat not in by_cat:
+                by_cat[cat] = []
+            by_cat[cat].append(b)
+        cat_order = ("receita", "ideia", "link", "tarefa", "lembrete", "outro")
+        lines = ["📌 **Guardados** _(por categoria)_"]
+        for cat in cat_order:
+            if cat not in by_cat:
+                continue
+            items = by_cat[cat]
+            label = {"receita": "🍳", "ideia": "💡", "link": "🔗", "tarefa": "📋", "lembrete": "⏰", "outro": "📝"}.get(cat, "📝")
+            lines.append(f"\n_{label} {cat}_")
+            for b in items[:8]:
+                prev = (b.content[:45] + "…") if len(b.content) > 45 else b.content
+                try:
+                    tags = json.loads(b.tags_json) if b.tags_json else []
+                    tags_str = ", ".join(tags[:2]) if tags else ""
+                except Exception:
+                    tags_str = ""
+                lines.append(f"• {prev}" + (f" ({tags_str})" if tags_str else ""))
+            if len(items) > 8:
+                lines.append(f"  _+{len(items) - 8} mais_")
         return "\n".join(lines)
     finally:
         db.close()

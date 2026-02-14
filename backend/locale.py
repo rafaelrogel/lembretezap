@@ -83,6 +83,7 @@ def resolve_response_language(
 
 
 # Padrões para pedido explícito de mudança de idioma (só os 4 suportados)
+# Ordem importa: mais específicos primeiro (Portugal/Brasil antes do genérico "português")
 _LANG_SWITCH_PATTERNS: list[tuple[re.Pattern, LangCode]] = [
     # Português Portugal (português/portugues)
     (re.compile(r"\b(?:fala?r?\s+em\s+)?portugu[eê]s\s+(?:de\s+)?portugal\b", re.I), "pt-PT"),
@@ -94,6 +95,9 @@ _LANG_SWITCH_PATTERNS: list[tuple[re.Pattern, LangCode]] = [
     (re.compile(r"\b(?:fala?r?\s+em\s+)?portugu[eê]s\s+(?:do\s+)?br\b", re.I), "pt-BR"),
     (re.compile(r"\b(?:speak\s+)?(?:in\s+)?brazilian\s+portuguese\b", re.I), "pt-BR"),
     (re.compile(r"\bpt[- ]?br\b", re.I), "pt-BR"),
+    # Português genérico (fale/fala em português) — inferir pt-PT/pt-BR pelo número (ver parse_language_switch_request)
+    # \w+ cobre ê, é, e e variantes de codificação (ex.: ê como 2 chars)
+    (re.compile(r"\b(?:fala?e?\s+(?:comigo\s+)?(?:em\s+)?|em\s+)portugu\w+s\b", re.I), "pt"),  # "pt" = inferir do número
     # Espanhol (spanish / español / espanol / espanhol)
     (re.compile(r"\b(?:speak\s+)?(?:in\s+)?spanish\b", re.I), "es"),
     (re.compile(r"\b(?:habla?r?\s+en\s+)?(?:español|espanol)\b", re.I), "es"),
@@ -429,7 +433,10 @@ _AFFIRMATIVE_KEEP_PATTERNS = (
 _AFFIRMATIVE_RE = re.compile("|".join(_AFFIRMATIVE_KEEP_PATTERNS), re.I)
 
 
-def parse_onboarding_language_response(message: str) -> Literal["keep"] | LangCode | None:
+def parse_onboarding_language_response(
+    message: str,
+    phone_for_locale: str | None = None,
+) -> Literal["keep"] | LangCode | None:
     """
     Interpreta resposta à pergunta de idioma no onboarding.
     - "keep": sim/não/ok → continuar com idioma sugerido (do número)
@@ -441,8 +448,8 @@ def parse_onboarding_language_response(message: str) -> Literal["keep"] | LangCo
     t = message.strip().lower()
     if len(t) > 80:  # Resposta longa demais para escolha simples
         return None
-    # Escolha explícita de idioma tem prioridade
-    chosen = parse_language_switch_request(message)
+    # Escolha explícita de idioma tem prioridade (português genérico infere do número)
+    chosen = parse_language_switch_request(message, phone_for_locale)
     if chosen:
         return chosen
     # Afirmativos curtos = manter
@@ -517,10 +524,16 @@ ONLY_SUPPORTED_LANGS_MESSAGE: dict[LangCode, str] = {
 }
 
 
-def parse_language_switch_request(message: str) -> LangCode | None:
+def parse_language_switch_request(
+    message: str,
+    phone_for_locale: str | None = None,
+) -> LangCode | None:
     """
     Detecta se a mensagem é um pedido explícito para falar noutro idioma (pt-PT, pt-BR, es, en).
     Retorna o código do idioma pedido ou None.
+
+    Para "fale em português" (genérico): infere pt-PT vs pt-BR pelo número (351→pt-PT, 55→pt-BR).
+    Em qualquer pedido explícito de pt-PT, pt-BR, es ou en, altera imediatamente para essa língua.
     """
     if not message or not message.strip():
         return None
@@ -531,5 +544,10 @@ def parse_language_switch_request(message: str) -> LangCode | None:
         pass
     for pattern, lang in _LANG_SWITCH_PATTERNS:
         if pattern.search(text):
+            if lang == "pt":  # Genérico: inferir do número
+                if phone_for_locale:
+                    inferred = phone_to_default_language(phone_for_locale)
+                    return "pt-PT" if inferred == "pt-PT" else "pt-BR"
+                return "pt-BR"
             return lang
     return None

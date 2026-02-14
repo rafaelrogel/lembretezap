@@ -2,7 +2,7 @@
 
 1) Perplexity Chat — busca na web, ideal para receitas atualizadas.
 2) Fallback DeepSeek — se Perplexity falhar, usa main_provider (DeepSeek).
-3) Fallback agent — se ambos falharem, retorna None.
+3) Oferece lista de compras — quando há ingredientes, pergunta se quer criar; "sim"/"faça isso" cria a lista.
 """
 
 from __future__ import annotations
@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 # Padrões que indicam pedido de receita/ingredientes
 _RECIPE_PATTERNS = (
+    r"me\s+lembre\s+(?:a\s+)?receita",
+    r"lembre\s+(?:me\s+)?(?:a\s+)?receita",
     r"fa[cç]a\s+uma\s+lista\s+de\s+ingredientes",
     r"fazer\s+uma\s+lista\s+de\s+ingredientes",
     r"lista\s+de\s+ingredientes\s+para",
@@ -28,6 +30,51 @@ _RECIPE_PATTERNS = (
 PERPLEXITY_CHAT_URL = "https://api.perplexity.ai/chat/completions"
 PERPLEXITY_MODEL = "sonar"  # sonar ou sonar-pro
 PERPLEXITY_TIMEOUT = 45
+
+
+_STOP_AT_PATTERNS = re.compile(
+    r"^(modo\s+de\s+preparo|passos?|instru[cç][oõ]es|preparo|como\s+fazer|dire[cç][oõ]es)\s*:?\s*$",
+    re.I,
+)
+
+
+def _parse_ingredients_from_recipe(text: str) -> list[str]:
+    """
+    Extrai ingredientes de texto de receita (lista numerada, bullet, etc.).
+    Para antes de secções como "Modo de preparo" ou "Passos".
+    """
+    if not text or not text.strip():
+        return []
+    ingredients: list[str] = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line or len(line) < 2:
+            continue
+        if _STOP_AT_PATTERNS.match(line):
+            break
+        m = re.match(r"^[\d]+[\.\)\-]\s*(.+)$", line)
+        if m:
+            line = m.group(1).strip()
+        elif line.startswith(("•", "◦", "-", "*")):
+            line = line.lstrip("•◦-*").strip()
+        if line and len(line) >= 2 and not _STOP_AT_PATTERNS.match(line):
+            ingredients.append(line[:256])
+    return ingredients[:30]
+
+
+def _recipe_query_to_list_name(query: str) -> str:
+    """Deriva nome da lista a partir do pedido de receita. Ex: 'receita de escondidinho' → compras_escondidinho."""
+    t = (query or "").strip().lower()
+    for p in (r"receita\s+(?:de|da)\s+(.+)", r"ingredientes\s+(?:de|da)\s+(.+)", r"como\s+fazer\s+(.+)", r"lista\s+de\s+ingredientes\s+para\s+(.+)"):
+        m = re.search(p, t)
+        if m:
+            t = m.group(1).strip()
+            break
+    if not t:
+        return "compras_receita"
+    t = re.sub(r"[^\w\s\-]", "", t)
+    t = re.sub(r"\s+", "_", t).strip("_")[:40]
+    return f"compras_{t}" if t else "compras_receita"
 
 
 def _is_recipe_intent(content: str) -> bool:
@@ -150,7 +197,7 @@ async def handle_recipe(ctx: "HandlerContext", content: str) -> str | None:
 
     result = await _call_perplexity_chat(api_key, content.strip(), user_lang)
     if result:
-        return f"📋 **Lista de ingredientes**\n\n{result}"
+        return _build_recipe_response(ctx, content.strip(), result, user_lang)
 
     # Fallback: DeepSeek (main_provider) — bom para receitas mesmo sem busca web
     if ctx.main_provider and (ctx.main_model or "").strip():
@@ -158,6 +205,40 @@ async def handle_recipe(ctx: "HandlerContext", content: str) -> str | None:
             ctx.main_provider, ctx.main_model, content.strip(), user_lang
         )
         if result:
-            return f"📋 **Lista de ingredientes**\n\n{result}"
+            return _build_recipe_response(ctx, content.strip(), result, user_lang)
 
     return None  # Agent trata (scope_provider/Mimo como último recurso)
+
+
+_RECIPE_OFFER_MSG = {
+    "pt-PT": "\n\nPosso criar uma lista de compras para esta receita se quiseres! 🛒",
+    "pt-BR": "\n\nPosso criar uma lista de compras para esta receita se quiser! 🛒",
+    "es": "\n\n¿Quieres que cree una lista de compras para esta receta? 🛒",
+    "en": "\n\nI can create a shopping list for this recipe if you'd like! 🛒",
+}
+
+
+def _build_recipe_response(
+    ctx: "HandlerContext",
+    user_query: str,
+    recipe_text: str,
+    user_lang: str,
+) -> str:
+    """Constrói resposta com receita e oferta de lista de compras."""
+    base = f"📋 **Lista de ingredientes**\n\n{recipe_text}"
+    ingredients = _parse_ingredients_from_recipe(recipe_text)
+    if len(ingredients) >= 2 and ctx.list_tool:
+        try:
+            from backend.confirmations import set_pending
+            list_name = _recipe_query_to_list_name(user_query)
+            set_pending(
+                ctx.channel,
+                ctx.chat_id,
+                "create_shopping_list_from_recipe",
+                {"ingredients": ingredients, "list_name": list_name},
+            )
+            offer = _RECIPE_OFFER_MSG.get(user_lang, _RECIPE_OFFER_MSG["pt-BR"])
+            return base + offer
+        except Exception:
+            pass
+    return base

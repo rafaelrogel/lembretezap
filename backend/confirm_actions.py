@@ -24,12 +24,68 @@ async def handle_deletar_tudo(ctx: HandlerContext, content: str) -> str | None:
     )
 
 
+def _is_recipe_list_confirm(content: str) -> bool:
+    """True se o user confirma criar lista de compras (sim, faça isso, pode, etc.)."""
+    import unicodedata
+    t = (content or "").strip().lower()
+    if not t or len(t) > 60:
+        return False
+    t = unicodedata.normalize("NFD", t)
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")  # remove acentos para match
+    affirms = (
+        "sim", "s", "yes", "y", "pode", "faca isso", "faz isso",
+        "quero", "pode ser", "bora", "claro", "ok", "beleza", "vale", "valeu",
+        "do it", "please", "quero sim", "pode criar", "cria", "criar",
+        "faz", "pode fazer", "faz a lista", "faca a lista",
+    )
+    t_norm = t.rstrip(".!?")
+    return t in affirms or t_norm in affirms
+
+
+def _is_recipe_list_cancel(content: str) -> bool:
+    """True se o user cancela (não, cancelar, etc.)."""
+    t = (content or "").strip().lower()
+    return t in ("não", "nao", "n", "no", "cancelar", "cancel", "nope")
+
+
 async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
     """Resolve confirmação pendente (1=sim 2=não). Chamado primeiro no router."""
     from backend.confirmations import get_pending, clear_pending, is_confirm_reply, is_confirm_yes, is_confirm_no
+    pending = get_pending(ctx.channel, ctx.chat_id)
+    if pending and pending.get("action") == "create_shopping_list_from_recipe":
+        if _is_recipe_list_confirm(content) or is_confirm_yes(content):
+            clear_pending(ctx.channel, ctx.chat_id)
+            payload = pending.get("payload") or {}
+            ingredients = payload.get("ingredients") or []
+            list_name = payload.get("list_name") or "compras_receita"
+            if ingredients and ctx.list_tool:
+                ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+                for item in ingredients:
+                    await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
+                lines = [f"Lista criada! 🛒 *{list_name}* com {len(ingredients)} itens baseados na receita:"]
+                for i, it in enumerate(ingredients[:15], 1):
+                    lines.append(f"{i}. {it}")
+                if len(ingredients) > 15:
+                    lines.append(f"  _+{len(ingredients) - 15} mais_")
+                return "\n".join(lines)
+            try:
+                from backend.user_store import get_user_language
+                from backend.database import SessionLocal
+                db = SessionLocal()
+                try:
+                    lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                    msg = "Não consegui extrair os ingredientes. Tenta de novo com outra receita." if lang in ("pt-BR", "pt-PT", "es") else "Could not extract ingredients. Try again with another recipe."
+                    return msg
+                finally:
+                    db.close()
+            except Exception:
+                pass
+            return "Não consegui extrair os ingredientes. Tenta de novo com outra receita."
+        if _is_recipe_list_cancel(content) or is_confirm_no(content):
+            clear_pending(ctx.channel, ctx.chat_id)
+            return "Ok, lista de compras cancelada."
     if not is_confirm_reply(content):
         return None
-    pending = get_pending(ctx.channel, ctx.chat_id)
     if not pending:
         return None
     clear_pending(ctx.channel, ctx.chat_id)

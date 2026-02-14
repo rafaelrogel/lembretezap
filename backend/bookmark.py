@@ -150,3 +150,43 @@ def list_bookmarks(db: Session, user_id: int, limit: int = 30) -> list[Bookmark]
         .limit(limit)
         .all()
     )
+
+
+def migrate_notes_to_bookmarks(engine) -> int:
+    """
+    Migra notas (notes) para bookmarks. Evita duplicados por (user_id, content).
+    Retorna o número de notas migradas.
+    """
+    migrated = 0
+    try:
+        from sqlalchemy import text, inspect
+        inspector = inspect(engine)
+        if "notes" not in inspector.get_table_names():
+            return 0
+        with engine.connect() as conn:
+            rows = conn.execute(text("SELECT user_id, text, created_at FROM notes")).fetchall()
+            for uid, text_val, created in rows:
+                content = (text_val or "").strip()[:2000]
+                if not content:
+                    continue
+                try:
+                    existing = conn.execute(
+                        text("SELECT 1 FROM bookmarks WHERE user_id = :uid AND content = :content LIMIT 1"),
+                        {"uid": uid, "content": content},
+                    ).fetchone()
+                    if existing:
+                        continue
+                    conn.execute(
+                        text("""
+                            INSERT INTO bookmarks (user_id, content, context, tags_json, category, created_at)
+                            VALUES (:uid, :content, NULL, '[]', 'outro', :created)
+                        """),
+                        {"uid": uid, "content": content, "created": created},
+                    )
+                    conn.commit()
+                    migrated += 1
+                except Exception:
+                    conn.rollback()
+    except Exception:
+        pass
+    return migrated
