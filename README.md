@@ -18,8 +18,8 @@
 ## Instalação
 
 ```bash
-git clone https://github.com/rafae/zapista.git
-cd zapista
+git clone https://github.com/rafaelrogel/lembretezap.git
+cd lembretezap
 pip install -e .
 ```
 

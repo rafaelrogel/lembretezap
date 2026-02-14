@@ -645,7 +645,8 @@ class AgentLoop:
             from backend.calling_phrases import is_calling_message
             from backend.locale import phone_to_default_language
             if is_calling_message(content):
-                reply_lang = phone_to_default_language(msg.chat_id)
+                id_for_locale = msg.metadata.get("phone_for_locale") or msg.chat_id
+                reply_lang = phone_to_default_language(id_for_locale)
                 reply = await self._reply_calling_organizer_with_mimo(reply_lang)
                 if reply:
                     return OutboundMessage(
@@ -670,7 +671,8 @@ class AgentLoop:
             )
             db = SessionLocal()
             try:
-                user_lang = get_user_language(db, msg.chat_id)
+                phone_for_locale = msg.metadata.get("phone_for_locale")
+                user_lang = get_user_language(db, msg.chat_id, phone_for_locale)
                 requested_lang = parse_language_switch_request(msg.content)
                 if requested_lang is not None and requested_lang != user_lang:
                     set_user_language(db, msg.chat_id, requested_lang)
@@ -683,7 +685,8 @@ class AgentLoop:
                 db.close()
         except Exception as e:
             logger.debug(f"User language check failed: {e}")
-            user_lang = phone_to_default_language(msg.chat_id)
+            id_for_locale = msg.metadata.get("phone_for_locale") or msg.chat_id
+            user_lang = phone_to_default_language(id_for_locale)
 
         # Filtragem de comandos perigosos (shell, SQL, path): blocklist com logging
         try:
@@ -740,7 +743,9 @@ class AgentLoop:
                     session = self.sessions.get_or_create(msg.session_key)
                     has_name = bool((user.preferred_name or "").strip())
                     pending = session.metadata.get("pending_preferred_name") is True
-                    intro_lang = _phone_lang(msg.chat_id)  # 1.º idioma = número; usado na intro e no pedido do nome
+                    # 1.º idioma = número (pn quando LID). Usado na intro e no pedido do nome.
+                    id_for_locale = msg.metadata.get("phone_for_locale") or msg.chat_id
+                    intro_lang = _phone_lang(id_for_locale)
 
                     if not has_name and pending:
                         # Esta mensagem é a resposta: gravar nome e confirmar (ignorar comandos que começam com /)
@@ -843,7 +848,8 @@ class AgentLoop:
                     name_for_prompt = get_user_preferred_name(db, msg.chat_id) or "utilizador"
                     if has_name:
                         try:
-                            user_lang = _get_user_lang(db, msg.chat_id)
+                            _pf = msg.metadata.get("phone_for_locale")
+                            user_lang = _get_user_lang(db, msg.chat_id, _pf)
                         except Exception:
                             pass
 

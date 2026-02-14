@@ -41,6 +41,21 @@ class CronTool(Tool):
 
     def _get_allow_relaxed(self, explicit: bool | None = None) -> bool:
         return explicit if explicit is not None else getattr(self, "_allow_relaxed_interval", False)
+
+    def _get_user_lang(self) -> str:
+        """Idioma do utilizador para mensagens (pt-PT, pt-BR, es, en)."""
+        if not self._chat_id:
+            return "pt-BR"
+        try:
+            from backend.database import SessionLocal
+            from backend.user_store import get_user_language
+            db = SessionLocal()
+            try:
+                return get_user_language(db, self._chat_id) or "pt-BR"
+            finally:
+                db.close()
+        except Exception:
+            return "pt-BR"
     
     @property
     def name(self) -> str:
@@ -280,13 +295,18 @@ class CronTool(Tool):
             return "Error: expressão cron inválida (use 5 campos: min hora dia mês dia-semana)"
         if cron_expr:
             from backend.guardrails import is_cron_interval_too_short
+            from backend.locale import REMINDER_MIN_INTERVAL_2H
+            _lang = self._get_user_lang()
             if is_cron_interval_too_short(cron_expr, allow_relaxed=allow_relaxed_interval):
-                return "O intervalo mínimo entre lembretes recorrentes é 2 horas. Ex.: «todo dia às 8h e às 14h» ou «a cada 2 horas»."
+                return REMINDER_MIN_INTERVAL_2H.get(_lang, REMINDER_MIN_INTERVAL_2H["pt-BR"])
         if in_seconds is not None and (in_seconds < 0 or in_seconds > 86400 * 365):
             return "Error: in_seconds deve estar entre 0 e 1 ano"
         min_every = 1800 if allow_relaxed_interval else 7200  # 30 min ou 2h
         if every_seconds is not None and (every_seconds < min_every or every_seconds > 86400 * 30):
-            return "O intervalo mínimo para lembretes recorrentes é 2 horas. Ex.: «a cada 2 horas» ou «a cada 3 horas»."
+            from backend.locale import REMINDER_MIN_INTERVAL_30MIN, REMINDER_MIN_INTERVAL_2H
+            _lang = self._get_user_lang()
+            msg_map = REMINDER_MIN_INTERVAL_30MIN if allow_relaxed_interval else REMINDER_MIN_INTERVAL_2H
+            return msg_map.get(_lang, msg_map["pt-BR"])
 
         # Parse start_date (YYYY-MM-DD) → not_before_ms para recorrentes ("a partir de 1º julho")
         not_before_ms: int | None = None

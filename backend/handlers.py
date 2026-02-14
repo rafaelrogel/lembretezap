@@ -315,13 +315,34 @@ async def handle_stop(ctx: HandlerContext, content: str) -> str | None:
 # Pedido de lembrete sem tempo (natural language) → solicitar recorrência se recorrente
 # ---------------------------------------------------------------------------
 
+# Padrões que NUNCA são pedido de lembrete (localização, conhecimento geral, etc.)
+_NOT_REMINDER_PATTERNS = (
+    r"sabe\s+onde", r"onde\s+fica", r"onde\s+est[aá]", r"where\s+is",
+    r"qual\s+(é|e)\s+(a\s+)?capital", r"como\s+chego", r"como\s+chegar",
+    r"localiza[cç][aã]o\s+de", r"endere[cç]o", r"coordinates",
+)
+
+
 async def handle_recurring_prompt(ctx: HandlerContext, content: str) -> str | None:
     """Quando o usuário pede lembrete em linguagem natural sem data (ex: 'lembrar de tomar remédio'), e parece recorrente, pergunta a frequência."""
+    import re
     from backend.recurring_detector import maybe_ask_recurrence
+    from backend.scope_filter import is_in_scope_fast
     from backend.user_store import get_user_language
     from backend.database import SessionLocal
     from backend.locale import LangCode
+    from backend.integrations.sacred_text import _is_sacred_text_intent
 
+    if _is_sacred_text_intent(content or ""):
+        return None
+    t = (content or "").strip().lower()
+    if not t:
+        return None
+    if not is_in_scope_fast(t):
+        return None
+    for pat in _NOT_REMINDER_PATTERNS:
+        if re.search(pat, t):
+            return None
     user_lang: LangCode = "pt-BR"
     try:
         db = SessionLocal()

@@ -60,6 +60,25 @@ async def is_likely_recurring(
         return False
 
 
+def _has_explicit_time(content: str) -> bool:
+    """True se o conteúdo já indica quando (a cada, em X min, daqui a, amanhã, etc)."""
+    import re
+    t = (content or "").strip().lower()
+    if not t or len(t) < 5:
+        return False
+    patterns = [
+        r"a\s+cada\s+\d+",
+        r"em\s+\d+\s*(min|hora|dia)",
+        r"daqui\s+a\s+\d+",
+        r"amanh[ãa]",
+        r"todo\s+dia",
+        r"diariamente",
+        r"\d{1,2}\s*h\b",
+        r"\d{1,2}:\d{2}",
+    ]
+    return any(re.search(p, t) for p in patterns)
+
+
 async def maybe_ask_recurrence(
     content: str,
     lang: LangCode,
@@ -70,8 +89,11 @@ async def maybe_ask_recurrence(
     Se o conteúdo for pedido de lembrete sem tempo explícito, retorna mensagem
     pedindo quando/frequência. Nunca deixa o agent inventar (ex: 2 min).
     - Padrões conhecidos: looks_like_reminder_without_time
+    - Já tem tempo explícito (a cada 1 min, em 10 min)? Não perguntar.
     - Ambíguos: usa Mimo para classificar se é pedido de lembrete sem tempo
     """
+    if _has_explicit_time(content or ""):
+        return None
     is_reminder, msg_extract = looks_like_reminder_without_time(content)
     if is_reminder and msg_extract:
         return get_ask_recurrence_message(lang)

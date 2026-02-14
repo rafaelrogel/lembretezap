@@ -310,11 +310,12 @@ class WhatsAppChannel(BaseChannel):
             media_base64 = data.get("mediaBase64") or data.get("media_base64")
             audio_too_large = data.get("audioTooLarge") or data.get("audio_too_large")
             if content == "[Voice Message]":
-                # Resolve idioma do utilizador (pt-PT, pt-BR, es, en)
+                # Resolve idioma do utilizador (pt-PT, pt-BR, es, en). Preferir pn para LID.
+                phone_for_locale = pn or sender
                 db = SessionLocal()
                 try:
                     user_lang: LangCode = (
-                        get_user_language(db, sender) or phone_to_default_language(sender)
+                        get_user_language(db, sender, phone_for_locale) or phone_to_default_language(phone_for_locale)
                     )
                 finally:
                     db.close()
@@ -589,12 +590,14 @@ class WhatsAppChannel(BaseChannel):
                     return
 
             # Forward to agent only for private chats (groups already filtered above)
+            # phone_for_locale: número para inferir idioma (pn tem o número quando sender é LID)
             trace_id = uuid.uuid4().hex[:12]
             meta = {
                 "message_id": data.get("id"),
                 "timestamp": data.get("timestamp"),
                 "is_group": False,
                 "trace_id": trace_id,
+                "phone_for_locale": pn or sender,
             }
             if audio_mode:
                 meta["audio_mode"] = True

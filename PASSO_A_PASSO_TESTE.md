@@ -80,7 +80,7 @@ Cole o JSON acima, ajuste a chave e o `allow_from` se quiser, e salve.
 Na pasta do projeto (onde está `pyproject.toml`):
 
 ```powershell
-cd C:\Users\rafae\zapista
+cd lembretezap
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e .
@@ -95,7 +95,7 @@ pip install -e .
 Em outro terminal:
 
 ```powershell
-cd C:\Users\rafae\zapista\bridge
+cd lembretezap\bridge
 npm install
 npm run build
 npm start
@@ -114,7 +114,7 @@ A autenticação fica guardada em `%USERPROFILE%\.zapista\whatsapp-auth` (ou em 
 Em **outro** terminal (com o venv ativado):
 
 ```powershell
-cd C:\Users\rafae\zapista
+cd lembretezap
 .\.venv\Scripts\Activate.ps1
 zapista gateway
 ```
@@ -147,7 +147,7 @@ Se tiver **allow_from** com só o teu número e enviares de outro número, o bot
 Noutro terminal (venv ativo):
 
 ```powershell
-cd C:\Users\rafae\zapista
+cd lembretezap
 zapista agent -m "Que horas são?"
 ```
 
@@ -166,7 +166,7 @@ Nota: lembretes criados aqui (`zapista agent -m "me lembre em 2 min"`) ficam com
 Opcional. Noutro terminal:
 
 ```powershell
-cd C:\Users\rafae\zapista
+cd lembretezap
 .\.venv\Scripts\Activate.ps1
 uvicorn backend.app:app --reload --port 8000
 ```

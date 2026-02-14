@@ -10,7 +10,7 @@ set -e
 
 INSTALL_DIR="${ZAPISTA_INSTALL_DIR:-/opt/zapista}"
 DATA_DIR="${INSTALL_DIR}/data"
-REPO_URL="${ZAPISTA_REPO_URL:-https://github.com/rafae/zapista.git}"
+REPO_URL="${ZAPISTA_REPO_URL:-https://github.com/rafaelrogel/lembretezap.git}"
 
 # Guardar se o utilizador escolheu fazer backup (será usado mais tarde para restaurar)
 DO_BACKUP_RESTORE=""

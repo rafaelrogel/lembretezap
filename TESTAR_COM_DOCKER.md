@@ -78,7 +78,7 @@ Salve o arquivo (Ctrl+S) e feche o Notepad.
 No mesmo PowerShell:
 
 ```powershell
-cd C:\Users\rafae\zapista
+cd lembretezap
 ```
 
 (Se o projeto estiver em outro disco ou pasta, use esse caminho.)
@@ -221,7 +221,7 @@ Se você configurou `allow_from` com um número específico, só esse número re
 | # | O que fazer |
 |---|------------------|
 | 1 | Criar `%USERPROFILE%\.zapista\config.json` com chave de API e `allow_from` |
-| 2 | `cd C:\Users\rafae\zapista` |
+| 2 | `cd lembretezap` |
 | 3 | `docker-compose up -d` → `docker-compose stop` (criar volume) |
 | 4 | Copiar config para o volume (comando com `alpine cp`) |
 | 5 | `docker-compose up -d` de novo |

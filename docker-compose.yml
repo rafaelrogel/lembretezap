@@ -77,7 +77,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    # env_file: .env  # optional: copy .env.example to .env for API key override
+    env_file: .env  # optional: copy .env.example to .env for API key override
     logging:
       driver: json-file
       options:
@@ -127,7 +127,7 @@ services:
       - TTS_ENABLED=${TTS_ENABLED:-0}
       - PIPER_BIN=${PIPER_BIN:-}
       - TTS_MODELS_BASE=${TTS_MODELS_BASE:-}
-    # env_file: .env  # optional: copy .env.example to .env (incl. ZAPISTA_LOG_FILE)
+    env_file: .env  # optional: copy .env.example to .env (incl. ZAPISTA_LOG_FILE)
     depends_on:
       bridge:
         condition: service_healthy

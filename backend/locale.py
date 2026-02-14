@@ -253,6 +253,20 @@ ONBOARDING_LANGUAGE_QUESTION: dict[LangCode, str] = {
     "en": "Want to use another language? We have Portuguese from Portugal (pt-PT), Brazilian Portuguese (pt-BR), Spanish (es) and English (en). Say the code or language name, or «no» to continue. 😊",
 }
 
+# Intervalo mínimo para lembretes recorrentes
+REMINDER_MIN_INTERVAL_30MIN: dict[LangCode, str] = {
+    "pt-PT": "O intervalo mínimo para lembretes recorrentes é 30 minutos. Ex.: «a cada 30 min» ou «a cada 1 hora».",
+    "pt-BR": "O intervalo mínimo para lembretes recorrentes é 30 minutos. Ex.: «a cada 30 min» ou «a cada 1 hora».",
+    "es": "El intervalo mínimo para recordatorios recurrentes es 30 minutos. Ej.: «cada 30 min» o «cada 1 hora».",
+    "en": "The minimum interval for recurring reminders is 30 minutes. E.g. «every 30 min» or «every 1 hour».",
+}
+REMINDER_MIN_INTERVAL_2H: dict[LangCode, str] = {
+    "pt-PT": "O intervalo mínimo para lembretes recorrentes é 2 horas. Ex.: «a cada 2 horas» ou «a cada 3 horas».",
+    "pt-BR": "O intervalo mínimo para lembretes recorrentes é 2 horas. Ex.: «a cada 2 horas» ou «a cada 3 horas».",
+    "es": "El intervalo mínimo para recordatorios recurrentes es 2 horas. Ej.: «cada 2 horas» o «cada 3 horas».",
+    "en": "The minimum interval for recurring reminders is 2 hours. E.g. «every 2 hours» or «every 3 hours».",
+}
+
 # Mensagens de áudio (voice messages)
 AUDIO_TOO_LONG: dict[LangCode, str] = {
     "pt-PT": "O áudio é um pouco longo. Consegues enviar uma mensagem mais curta?",
