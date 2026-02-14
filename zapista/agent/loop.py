@@ -1025,6 +1025,7 @@ class AgentLoop:
                 channel=msg.channel,
                 chat_id=msg.chat_id,
                 content=content,
+                metadata=dict(msg.metadata or {}),
             )
 
         # Escolha de modelo: Mimo se (1) muita lógica/raciocínio (cálculos, otimizações, conflitos),
@@ -1060,6 +1061,7 @@ class AgentLoop:
                         channel=msg.channel,
                         chat_id=msg.chat_id,
                         content=result,
+                        metadata=dict(msg.metadata or {}),
                     )
         except Exception as e:
             logger.debug(f"Analytics (Mimo) pre-agent check failed: {e}")
@@ -1071,6 +1073,7 @@ class AgentLoop:
                 channel=msg.channel,
                 chat_id=msg.chat_id,
                 content="Serviço temporariamente limitado. Use /help para ver os comandos.",
+                metadata=dict(msg.metadata or {}),
             )
 
         preview = msg.content[:80] + "..." if len(msg.content) > 80 else msg.content
@@ -1149,6 +1152,7 @@ class AgentLoop:
                         channel=msg.channel,
                         chat_id=msg.chat_id,
                         content="Serviço temporariamente indisponível. Tente /help para ver os comandos.",
+                        metadata=dict(msg.metadata or {}),
                     )
 
             # Handle tool calls

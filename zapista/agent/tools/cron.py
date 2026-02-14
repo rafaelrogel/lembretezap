@@ -67,11 +67,10 @@ class CronTool(Tool):
     def description(self) -> str:
         return (
             "Schedule one-time or recurring reminders. Actions: add, list, remove. "
-            "For add: in_seconds = one-time (e.g. 120 = in 2 min); "
-            "every_seconds = repeat interval (min 1800 = 30 min, e.g. 3600 = hourly, 86400 = daily); "
-            "cron_expr = fixed times (e.g. '0 9 * * *' = daily at 9h, '0 10 * * 1' = every Monday at 10h). "
-            "remind_again_if_unconfirmed_seconds = re-send after N sec if no 👍 (e.g. 600 = 10 min). "
-            "depends_on_job_id = id do lembrete anterior (ex: AL) para encadear."
+            "message = WHAT to remind (e.g. 'ir à farmácia', 'tomar remédio') — required. Never 'lembrete' or 'alerta'. "
+            "If user says 'lembrete amanhã 10h' without event, ask 'De que é o lembrete?' first. "
+            "For add: in_seconds = one-time; every_seconds = repeat; cron_expr = fixed times. "
+            "depends_on_job_id = encadear após outro lembrete."
         )
     
     @property
@@ -86,7 +85,7 @@ class CronTool(Tool):
                 },
                 "message": {
                     "type": "string",
-                    "description": "Reminder message (required for add)"
+                    "description": "What to remind (required). Must describe the EVENT/ACTION, e.g. 'ir à farmácia', 'tomar remédio', 'reunião com João'. NEVER use 'lembrete' or 'alerta' as message — that's the type. If user says 'lembrete amanhã 10h' without specifying the event, do NOT create; instead ask 'De que é o lembrete?' with examples."
                 },
                 "every_seconds": {
                     "type": "integer",
@@ -103,6 +102,10 @@ class CronTool(Tool):
                 "start_date": {
                     "type": "string",
                     "description": "Recurring only: start date ISO YYYY-MM-DD. Reminders will NOT fire before this date (e.g. '2026-07-01' for 'a partir de 1º de julho')"
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "Recurring only: end date ISO YYYY-MM-DD. Reminders will stop after this date (e.g. '2026-12-31' for 'até fim do ano')"
                 },
                 "job_id": {
                     "type": "string",
@@ -132,6 +135,7 @@ class CronTool(Tool):
         in_seconds: int | None = None,
         cron_expr: str | None = None,
         start_date: str | None = None,
+        end_date: str | None = None,
         job_id: str | None = None,
         allow_relaxed_interval: bool = False,
         remind_again_if_unconfirmed_seconds: int | None = None,
@@ -159,6 +163,7 @@ class CronTool(Tool):
             return await self._add_job(
                 message, every_seconds, in_seconds, cron_expr,
                 start_date=start_date,
+                end_date=end_date,
                 suggested_prefix=prefix,
                 use_pre_reminders=use_pre_reminders,
                 long_event_24h=long_event_24h,
@@ -280,6 +285,7 @@ class CronTool(Tool):
         in_seconds: int | None,
         cron_expr: str | None,
         start_date: str | None = None,
+        end_date: str | None = None,
         suggested_prefix: str | None = None,
         use_pre_reminders: bool = True,
         long_event_24h: bool = False,
@@ -291,6 +297,12 @@ class CronTool(Tool):
         message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
             return "Error: message is required for add"
+        # Mensagem vaga (ex.: "lembrete amanhã 10h" sem dizer o quê) → pedir clarificação
+        from backend.guardrails import is_vague_reminder_message
+        from backend.locale import REMINDER_ASK_WHAT
+        if is_vague_reminder_message(message):
+            _lang = self._get_user_lang()
+            return REMINDER_ASK_WHAT.get(_lang, REMINDER_ASK_WHAT["pt-BR"])
         if not self._channel or not self._chat_id:
             return "Error: no session context (channel/chat_id)"
         if cron_expr and not validate_cron_expr(cron_expr):
@@ -319,6 +331,20 @@ class CronTool(Tool):
                 not_before_ms = int(dt.timestamp() * 1000)
             except (ValueError, TypeError):
                 pass
+        # Parse end_date (YYYY-MM-DD) ou ms → not_after_ms para recorrentes ("até fim do ano")
+        not_after_ms: int | None = None
+        if end_date and (every_seconds or cron_expr):
+            if isinstance(end_date, (int, float)) and end_date > 0:
+                not_after_ms = int(end_date)
+            else:
+                try:
+                    from datetime import datetime, timezone
+                    dt = datetime.strptime(str(end_date).strip()[:10], "%Y-%m-%d").replace(
+                        hour=23, minute=59, second=59, microsecond=999
+                    ).replace(tzinfo=timezone.utc)
+                    not_after_ms = int(dt.timestamp() * 1000)
+                except (ValueError, TypeError):
+                    pass
         # Pontual (não recorrente): após a entrega o job é removido do cron (esquecido pelo sistema); pode existir histórico noutra camada
         if in_seconds is not None and in_seconds > 0:
             at_ms = int(time.time() * 1000) + in_seconds * 1000
@@ -326,7 +352,12 @@ class CronTool(Tool):
             delete_after_run = True
         # Recorrente: mantém-se listado até o utilizador remover ou fim da recorrência
         elif every_seconds:
-            schedule = CronSchedule(kind="every", every_ms=every_seconds * 1000, not_before_ms=not_before_ms)
+            schedule = CronSchedule(
+                kind="every",
+                every_ms=every_seconds * 1000,
+                not_before_ms=not_before_ms,
+                not_after_ms=not_after_ms,
+            )
             delete_after_run = False
         elif cron_expr:
             tz_iana = None
@@ -345,6 +376,7 @@ class CronTool(Tool):
                 expr=cron_expr,
                 tz=tz_iana,
                 not_before_ms=not_before_ms,
+                not_after_ms=not_after_ms,
             )
             delete_after_run = False
         else:

@@ -156,7 +156,7 @@ class WhatsAppChannel(BaseChannel):
         job_id = (msg.metadata or {}).get("job_id") if msg.metadata else None
         request_id = str(uuid.uuid4()) if job_id else None
 
-        # /audio: tentar TTS; se sucesso enviar PTT, senão texto
+        # audio_mode: TTS → PTT; senão texto
         # Allowlist: mesma lógica do STT (allow_from_tts vazio = todos). Grupos NUNCA.
         audio_mode = (msg.metadata or {}).get("audio_mode") is True
         locale_override = (msg.metadata or {}).get("audio_locale_override")
@@ -562,32 +562,16 @@ class WhatsAppChannel(BaseChannel):
                 # Continua à espera de sim/não; ignorar outras mensagens ou repetir o aviso
                 return
 
-            # /audio [ptpt|es|en] <pedido>: resposta em voice note (PTT)
-            # Uso: /audio lembrete... | /audio ptpt lembrete... | /audio es remind me...
+            # Resposta em áudio: pedido em texto ("responde em áudio", "manda áudio", "fala comigo") ou áudio
             raw_content = (content or "").strip()
             audio_mode = False
             audio_locale_override = None
-            if raw_content.lower().startswith("/audio "):
-                rest = raw_content[len("/audio "):].strip()
-                parts = rest.split(None, 1)  # max 2 parts: [override?, pedido]
-                override_tokens = {
-                    "ptpt", "pt-pt", "pt_pt", "ptbr", "pt-br", "pt_br",
-                    "es", "esp", "espanol", "español",
-                    "en", "eng", "english",
-                }
-                if parts and parts[0].lower() in override_tokens:
-                    audio_locale_override = parts[0]
-                    content = (parts[1] if len(parts) > 1 else "").strip()
-                else:
-                    content = rest
-                audio_mode = True
-                if not content:
-                    await self.bus.publish_outbound(OutboundMessage(
-                        channel=self.name,
-                        chat_id=sender,
-                        content="Envia: /audio <pedido> ou /audio ptpt|es|en <pedido> para resposta em áudio.",
-                    ))
-                    return
+            try:
+                from backend.audio_request import detects_audio_request
+                if detects_audio_request(raw_content):
+                    audio_mode = True
+            except Exception:
+                pass
 
             # Forward to agent only for private chats (groups already filtered above)
             # phone_for_locale: número para inferir idioma (pn tem o número quando sender é LID)

@@ -1,0 +1,8 @@
+# Override para produção: Redis não exposto na internet (só rede interna dos containers).
+# Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# O install_vps.sh gera docker-compose.vps.yml que já inclui este comportamento.
+# Para deploy manual em produção, usa este ficheiro.
+services:
+  redis:
+    ports: []  # Só rede interna; api e gateway acedem via redis:6379

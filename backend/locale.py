@@ -298,6 +298,119 @@ def onboarding_progress_suffix(step: int, total: int = 4) -> str:
     return f" [{step}/{total}]"
 
 
+# Lembrete sem conteúdo: pedir clarificação (ex.: "lembrete amanhã 10h" sem dizer o quê)
+REMINDER_ASK_WHAT: dict[LangCode, str] = {
+    "pt-PT": "De que é o lembrete? Por exemplo: ir à farmácia, tomar o remédio, reunião com o João, buscar as crianças...",
+    "pt-BR": "De que é o lembrete? Por exemplo: ir à farmácia, tomar o remédio, reunião com o João, buscar as crianças...",
+    "es": "¿De qué es el recordatorio? Por ejemplo: ir a la farmacia, tomar la medicina, reunión con Juan...",
+    "en": "What's the reminder for? E.g.: go to the pharmacy, take medicine, meeting with John, pick up the kids...",
+}
+
+# Data vaga: pedir dia (ex.: "médico às 10h" → "Que dia é a consulta?")
+REMINDER_ASK_DATE_CONSULTA: dict[LangCode, str] = {
+    "pt-PT": "Que dia é a tua consulta? Amanhã? Hoje? Segunda?",
+    "pt-BR": "Que dia é a sua consulta? Amanhã? Hoje? Segunda?",
+    "es": "¿Qué día es tu cita? ¿Mañana? ¿Hoy? ¿Lunes?",
+    "en": "What day is your appointment? Tomorrow? Today? Monday?",
+}
+REMINDER_ASK_DATE_GENERIC: dict[LangCode, str] = {
+    "pt-PT": "Que dia é? Amanhã? Hoje? Segunda?",
+    "pt-BR": "Que dia é? Amanhã? Hoje? Segunda?",
+    "es": "¿Qué día es? ¿Mañana? ¿Hoy? ¿Lunes?",
+    "en": "What day is it? Tomorrow? Today? Monday?",
+}
+
+# Horário vago: pedir hora (ex.: "tenho consulta amanhã" → "A que horas é a sua consulta?")
+REMINDER_ASK_TIME_CONSULTA: dict[LangCode, str] = {
+    "pt-PT": "A que horas é a tua consulta?",
+    "pt-BR": "A que horas é a sua consulta?",
+    "es": "¿A qué hora es tu cita?",
+    "en": "What time is your appointment?",
+}
+REMINDER_ASK_TIME_GENERIC: dict[LangCode, str] = {
+    "pt-PT": "A que horas é?",
+    "pt-BR": "A que horas é?",
+    "es": "¿A qué hora es?",
+    "en": "What time is it?",
+}
+
+# Preferência de antecedência
+REMINDER_ASK_ADVANCE_PREFERENCE: dict[LangCode, str] = {
+    "pt-PT": "Queres ser lembrado com antecedência ou apenas na hora do evento?",
+    "pt-BR": "Quer ser lembrado com antecedência ou apenas na hora do evento?",
+    "es": "¿Quieres que te avise con antelación o solo a la hora del evento?",
+    "en": "Do you want to be reminded in advance or just at the event time?",
+}
+
+# Quanto tempo antes
+REMINDER_ASK_ADVANCE_AMOUNT: dict[LangCode, str] = {
+    "pt-PT": "Quanto tempo antes? Por ex.: 30 min, 1 hora...",
+    "pt-BR": "Quanto tempo antes? Por ex.: 30 min, 1 hora...",
+    "es": "¿Cuánto tiempo antes? Ej.: 30 min, 1 hora...",
+    "en": "How long before? E.g.: 30 min, 1 hour...",
+}
+
+# Resposta inválida — insistir (X de 3 tentativas)
+REMINDER_ASK_AGAIN: dict[LangCode, str] = {
+    "pt-PT": "Não percebi. Tenta novamente — preciso de evento, data e hora para registrar.",
+    "pt-BR": "Não entendi. Tente novamente — preciso do evento, data e hora para registrar.",
+    "es": "No entendí. Intenta de nuevo — necesito evento, fecha y hora para registrar.",
+    "en": "I didn't get that. Try again — I need event, date and time to register.",
+}
+REMINDER_RETRY_SUFFIX: dict[LangCode, str] = {
+    "pt-PT": " ({n} de 3 tentativas)",
+    "pt-BR": " ({n} de 3 tentativas)",
+    "es": " ({n} de 3 intentos)",
+    "en": " ({n} of 3 attempts)",
+}
+
+# Evento recorrente: confirmação simpática
+RECURRING_EVENT_CONFIRM: dict[LangCode, str] = {
+    "pt-PT": "Parece que {event} é um evento recorrente! Queres que eu registe para {schedule}? 😊",
+    "pt-BR": "Parece que {event} é um evento recorrente! Quer que eu registe para {schedule}? 😊",
+    "es": "¡Parece que {event} es un evento recurrente! ¿Quieres que lo registre para {schedule}? 😊",
+    "en": "It looks like {event} is a recurring event! Shall I register it for {schedule}? 😊",
+}
+
+# Resposta inválida em "até quando" — insistir
+RECURRING_ASK_END_DATE_AGAIN: dict[LangCode, str] = {
+    "pt-PT": "Não percebi. Indefinido/para sempre, fim da semana, ou fim do mês?",
+    "pt-BR": "Não entendi. Indefinido/para sempre, fim da semana, ou fim do mês?",
+    "es": "No entendí. ¿Indefinido/para siempre, fin de semana o fin de mes?",
+    "en": "I didn't get that. Indefinite/forever, end of week, or end of month?",
+}
+
+# Até quando dura o evento recorrente
+RECURRING_ASK_END_DATE: dict[LangCode, str] = {
+    "pt-PT": "Até quando dura? (ex: indefinido/para sempre, fim da semana, fim do mês, ou diz a data)",
+    "pt-BR": "Até quando dura? (ex: indefinido/para sempre, fim da semana, fim do mês, ou diga a data)",
+    "es": "¿Hasta cuándo dura? (ej: indefinido/para siempre, fin de semana, fin de mes, o di la fecha)",
+    "en": "Until when does it last? (e.g. indefinite/forever, end of week, end of month, or give the date)",
+}
+
+# Confirmação após registo
+RECURRING_REGISTERED: dict[LangCode, str] = {
+    "pt-PT": "Registado! ✨ Lembrete recorrente para {event} ({schedule}). Podes remover quando quiseres com 👎, /lembrete ou pedindo ao assistente.",
+    "pt-BR": "Registrado! ✨ Lembrete recorrente para {event} ({schedule}). Pode remover quando quiser com 👎, /lembrete ou pedindo ao assistente.",
+    "es": "¡Registrado! ✨ Recordatorio recurrente para {event} ({schedule}). Puedes eliminarlo cuando quieras con 👎, /lembrete o pidiendo al asistente.",
+    "en": "Registered! ✨ Recurring reminder for {event} ({schedule}). You can remove it anytime with 👎, /lembrete or by asking the assistant.",
+}
+
+RECURRING_REGISTERED_UNTIL: dict[LangCode, str] = {
+    "pt-PT": "Registado até {end}! ✨ Lembrete recorrente para {event} ({schedule}). Podes remover com 👎, /lembrete ou pedindo ao assistente.",
+    "pt-BR": "Registrado até {end}! ✨ Lembrete recorrente para {event} ({schedule}). Pode remover com 👎, /lembrete ou pedindo ao assistente.",
+    "es": "¡Registrado hasta {end}! ✨ Recordatorio recurrente para {event} ({schedule}). Puedes eliminar con 👎, /lembrete o pidiendo al asistente.",
+    "en": "Registered until {end}! ✨ Recurring reminder for {event} ({schedule}). Remove with 👎, /lembrete or by asking the assistant.",
+}
+
+# Desistiu — não registrou por falta de informação
+REMINDER_FAILED_NO_INFO: dict[LangCode, str] = {
+    "pt-PT": "Não consegui registrar o lembrete por falta de informação. Preciso do evento, data e hora. Quando tiver os três, pode tentar de novo.",
+    "pt-BR": "Não consegui registrar o lembrete por falta de informação. Preciso do evento, data e hora. Quando tiver os três, pode tentar novamente.",
+    "es": "No pude registrar el recordatorio por falta de información. Necesito evento, fecha y hora. Cuando tengas los tres, puedes intentar de nuevo.",
+    "en": "I couldn't register the reminder due to lack of information. I need event, date and time. When you have all three, you can try again.",
+}
+
 # Mensagem quando resposta é inválida: repetir ou oferecer pular
 ONBOARDING_INVALID_RESPONSE: dict[LangCode, str] = {
     "pt-PT": "Não percebi. Responde à pergunta ou diz «pular» para avançar.",

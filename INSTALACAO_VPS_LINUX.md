@@ -158,6 +158,8 @@ sudo systemctl enable docker
 sudo systemctl start docker
 ```
 
+**Nota:** O script acima é oficial; em ambientes críticos, preferir instalação manual via repositório apt (`apt-get install docker.io` ou repositório oficial da Docker) em vez de executar código remoto.
+
 Verificar: `sudo docker run hello-world` (deve mostrar uma mensagem e sair).
 
 ### Etapa 3 — Instalar Docker Compose

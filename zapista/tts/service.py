@@ -31,7 +31,7 @@ def synthesize_voice_note(
 ) -> Path | None:
     """
     Sintetiza texto em voice note (OGG Opus).
-    locale_override: do comando /audio ptpt|es|en (None = usar default do utilizador).
+    locale_override: pedido explícito de idioma (None = usar default do utilizador).
     Retorna path do ficheiro .ogg ou None (fallback para texto).
     """
     if not tts_enabled():

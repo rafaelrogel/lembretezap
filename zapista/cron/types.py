@@ -18,6 +18,8 @@ class CronSchedule:
     tz: str | None = None
     # Recorrentes: NÃO disparar antes desta data (ms). Ex.: lembretes «a partir de 1º julho»
     not_before_ms: int | None = None
+    # Recorrentes: NÃO disparar depois desta data (ms). Ex.: «até fim da semana», simpósio
+    not_after_ms: int | None = None
 
 
 @dataclass

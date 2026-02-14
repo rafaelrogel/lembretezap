@@ -69,6 +69,56 @@ _INSISTENCE_KEYWORDS = (
     "aceita", "aceite", "accept", "faz assim", "assim mesmo", "desta vez",
 )
 
+# Mensagens vagas que NÃO descrevem o conteúdo do lembrete (tipo, não evento)
+_VAGUE_REMINDER_PATTERNS = (
+    r"^(lembrete|alerta|aviso|lembra[- ]?me|lembra[- ]?mi|reminder|alarm)\s*$",
+    r"^(lembrete|alerta|aviso|reminder)\s+(?:para\s+)?(?:amanhã|hoje|às?\s*\d|as\s*\d)",  # "lembrete amanhã" sem evento
+    r"^(?:só\s+)?(?:um\s+)?(?:lembrete|alerta)\s*$",
+)
+_VAGUE_REMINDER_RE = re.compile("|".join(_VAGUE_REMINDER_PATTERNS), re.I)
+
+
+# Palavras de tempo (remover para ver se sobra conteúdo real)
+_TIME_WORDS = {
+    "lembrete", "alerta", "aviso", "reminder", "alarm", "lembra", "lembra-me",
+    "amanhã", "amanha", "hoje", "depois", "às", "as", "à", "a", "as", "hr",
+    "hora", "horas", "min", "minutos", "segunda", "terça", "quarta", "quinta",
+    "sexta", "sábado", "sabado", "domingo", "dia", "semana", "mês", "mes",
+    "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out",
+    "nov", "dez", "em", "de", "para", "por", "favor", "pf", "obrigado",
+    "tomorrow", "today", "monday", "tuesday", "wednesday", "thursday", "friday",
+    "saturday", "sunday", "at", "for", "am", "pm",
+}
+
+
+def is_vague_reminder_message(message: str | None) -> bool:
+    """
+    True se a mensagem não descreve O QUE lembrar (ex.: "lembrete", "alerta", "lembrete amanhã 10h").
+    Nestes casos, perguntar "De que é o lembrete?" antes de criar.
+    """
+    if not message or not message.strip():
+        return True
+    t = message.strip().lower()
+    if len(t) < 3:
+        return True
+    # Palavras da mensagem (incl. números como tokens)
+    words = set(re.findall(r"\b\w+\b", t))
+    # Remover tempo + tipo → ver se sobra conteúdo concreto
+    content_words = words - _TIME_WORDS
+    # Remover tokens que são só dígitos ou hora (10h, 9h, etc.)
+    content_words = {
+        w for w in content_words
+        if not w.isdigit() and not (len(w) <= 4 and w[:-1].isdigit() and w[-1] in "hH")
+    }
+    # Se sobrou pouco ou nada concreto → vago
+    if len(content_words) == 0:
+        return True
+    # "lembrete X" onde X é só tempo → vago (ex.: lembrete segunda 10h)
+    if len(content_words) <= 1 and any(w in t for w in ("lembrete", "alerta", "aviso", "reminder")):
+        return True
+    return False
+
+
 # Padrões que indicam pedido absurdo/impossível (viagem no tempo, etc.)
 ABSURD_PATTERNS = re.compile(
     r"\b(viagem\s+no\s+tempo|viajar\s+no\s+tempo|time\s+travel|"

@@ -85,7 +85,7 @@ def get_voice_paths(locale: str, try_fallback: bool = True) -> tuple[str | None,
 def resolve_locale_for_audio(chat_id: str, override: str | None) -> str:
     """
     Determina o locale para TTS.
-    override: do comando /audio ptpt|es|en (None = usar default do utilizador).
+    override: pedido explícito de idioma (None = usar default do utilizador).
     """
     if override:
         m = override.strip().lower()

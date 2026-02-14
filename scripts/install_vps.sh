@@ -188,7 +188,8 @@ echo ""
 # --- 7. Docker e Docker Compose ---
 echo "[Passo 6/8] Docker..."
 if ! command -v docker &> /dev/null; then
-  echo "    A instalar Docker..."
+  echo "    A instalar Docker (script oficial get.docker.com)..."
+  echo "    (Em ambientes críticos, preferir: apt-get install -y docker.io ou repositório oficial)"
   curl -fsSL https://get.docker.com | sh
   systemctl enable docker
   systemctl start docker
@@ -330,10 +331,10 @@ EOF
   if [ -f "$DATA_DIR/bin/piper" ] && [ "$_piper_ok" = "1" ]; then
     echo "    Piper TTS instalado (TTS_ENABLED=1 no .env)."
   else
-    echo "    Aviso: Piper incompleto; /audio usará texto até configurar manualmente."
+    echo "    Aviso: Piper incompleto; respostas em áudio usarão texto até configurar manualmente."
   fi
 else
-  echo "    Piper: arquitetura $PIPER_ARCH não suportada; /audio usará texto."
+  echo "    Piper: arquitetura $PIPER_ARCH não suportada; respostas em áudio usarão texto."
 fi
 
 _esc() { echo "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'; }
@@ -363,7 +364,7 @@ ENV_EOF
 chmod 600 "$INSTALL_DIR/.env"
 
 cat > "$INSTALL_DIR/docker-compose.vps.yml" << EOF
-# Override para VPS: dados persistidos em pasta local (config, BD organizer.db, sessões, whatsapp-auth)
+# Override para VPS: dados persistidos em pasta local; Redis não exposto na internet
 # O volume ZAPISTA_data monta em /root/.zapista nos containers; organizer.db fica em DATA_DIR/organizer.db
 volumes:
   ZAPISTA_data:
@@ -373,6 +374,8 @@ volumes:
       device: $DATA_DIR
       o: bind
 services:
+  redis:
+    ports: []   # Só rede interna; não expor 6379 na internet
   gateway:
     env_file: .env
   api:
@@ -417,7 +420,7 @@ echo "  3. Quando aparecer 'Connected', sai dos logs com Ctrl+C (os serviços co
 echo ""
 echo "Dados e config: $DATA_DIR"
 echo "  - config.json, organizer.db (BD), sessões, whatsapp-auth"
-echo "  - Piper TTS: models/piper/, bin/piper (comando /audio em PTT)"
+echo "  - Piper TTS: models/piper/, bin/piper («responde em áudio» → PTT)"
 echo "  - O volume ZAPISTA_data persiste tudo; reinício dos containers não apaga dados."
 if [ -n "$DO_BACKUP_RESTORE" ] && [ -d "${BACKUP_TEMP:-}" ]; then
   echo ""

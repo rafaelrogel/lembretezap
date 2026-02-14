@@ -217,17 +217,32 @@ sudo chmod 644 /etc/cron.d/zapista-backup
 ```
 
 Variáveis (opcional, em `/etc/default/zapista-backup` ou no crontab):
-- `Zapista_INSTALL_DIR=/opt/Zapista` — pasta do projeto
+- `ZAPISTA_INSTALL_DIR=/opt/zapista` — pasta do projeto
 - `ZAPISTA_BACKUP_DIR=/backups/zapista` — pasta dos backups
 - `RETENTION_DAYS=7` — dias a manter (default: 7)
 
 ---
 
-## 11. Resumo rápido
+## 11. Checklist de produção
+
+Antes de expor ao público ou em VPS em produção, confirma:
+
+| Item | Ação |
+|------|------|
+| **Redis 6379** | Não expor na internet. O `install_vps.sh` e `docker-compose.prod.yml` já desativam o mapeamento de portas. Para deploy manual: `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d` |
+| **CORS_ORIGINS** | Em produção, definir domínios específicos no `.env`, ex.: `CORS_ORIGINS=https://app.seudominio.com`. `*` só para desenvolvimento. |
+| **allow_from** | `[]` = qualquer número. Em produção para uso restrito, definir lista em `config.json`: `"allow_from": ["351912345678", "5511999999999"]` (país + número, sem + nem espaços). |
+| **API_SECRET_KEY** | Sempre definir em produção. O `install_vps.sh` gera um por defeito. |
+| **HEALTH_CHECK_TOKEN** | Recomendado para evitar expor `/health` sem proteção. |
+| **Containers root** | Os serviços correm como root no container. Para hardening futuro, considerar migrar para USER não-root (exige alterar path de dados). |
+
+---
+
+## 12. Resumo rápido
 
 1. Ter **config.json** no volume (ou montar `~/.zapista`).
-2. `docker-compose up -d`
+2. `docker-compose up -d` (ou com `-f docker-compose.prod.yml` em produção).
 3. `docker-compose logs -f bridge` → escanear QR
-4. (Opcional) Definir `API_SECRET_KEY` e `CORS_ORIGINS` para produção.
+4. **Produção:** Definir `API_SECRET_KEY`, `CORS_ORIGINS`, `allow_from` e usar `docker-compose.prod.yml` para Redis.
 5. (Opcional) Configurar backup: `sudo bash scripts/backup_zapista.sh` ou cron.
 6. Testar mensagem no WhatsApp

@@ -83,6 +83,249 @@ async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str 
 
 
 # ---------------------------------------------------------------------------
+# Fluxo de clarificação: evento + tempo vago (ex: "ir ao médico amanhã")
+# ---------------------------------------------------------------------------
+
+async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str | None:
+    """
+    Quando o utilizador indica evento com data mas sem hora (ex: "tenho consulta amanhã"):
+    1. Perguntar "A que horas é a sua consulta?"
+    2. "15h" → perguntar "Quer ser lembrado com antecedência ou apenas na hora?"
+    3. Se antecedência: "30 min" → agendar 2 lembretes (aviso + na hora).
+    """
+    import re
+    from backend.reminder_flow import (
+        FLOW_KEY,
+        STAGE_NEED_TIME,
+        STAGE_NEED_DATE,
+        STAGE_NEED_ADVANCE_PREFERENCE,
+        STAGE_NEED_ADVANCE_AMOUNT,
+        is_vague_time_reminder,
+        is_vague_date_reminder,
+        parse_time_from_response,
+        parse_date_from_response,
+        parse_advance_seconds,
+        looks_like_advance_preference_yes,
+        looks_like_advance_preference_no,
+        is_consulta_context,
+        compute_in_seconds_from_date_hour,
+    )
+    from backend.reminder_flow import MAX_RETRIES
+    from backend.locale import (
+        LangCode,
+        REMINDER_ASK_TIME_CONSULTA,
+        REMINDER_ASK_TIME_GENERIC,
+        REMINDER_ASK_DATE_CONSULTA,
+        REMINDER_ASK_DATE_GENERIC,
+        REMINDER_ASK_ADVANCE_PREFERENCE,
+        REMINDER_ASK_ADVANCE_AMOUNT,
+        REMINDER_ASK_AGAIN,
+        REMINDER_RETRY_SUFFIX,
+        REMINDER_FAILED_NO_INFO,
+    )
+    from backend.user_store import get_user_language, get_user_timezone
+    from backend.database import SessionLocal
+    from backend.locale import resolve_response_language
+
+    if not ctx.session_manager or not ctx.cron_tool or not content or not content.strip():
+        return None
+
+    session_key = f"{ctx.channel}:{ctx.chat_id}"
+    session = ctx.session_manager.get_or_create(session_key)
+    flow = session.metadata.get(FLOW_KEY)
+
+    # Normalizar: /lembrete X → X
+    text = content.strip()
+    if re.match(r"^/lembrete\s+", text, re.I):
+        text = re.sub(r"^/lembrete\s+", "", text, flags=re.I).strip()
+
+    user_lang: LangCode = "pt-BR"
+    tz_iana = "UTC"
+    try:
+        db = SessionLocal()
+        try:
+            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
+            tz_iana = get_user_timezone(db, ctx.chat_id) or "UTC"
+            try:
+                from zoneinfo import ZoneInfo
+                ZoneInfo(tz_iana)
+            except Exception:
+                from backend.timezone import phone_to_default_timezone
+                tz_iana = phone_to_default_timezone(ctx.chat_id)
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    def _retry_or_fail(flow: dict, current_question: str) -> str | None:
+        """Incrementa retry_count; se >= MAX_RETRIES, desiste e retorna REMINDER_FAILED_NO_INFO."""
+        retry = flow.get("retry_count", 0) + 1
+        if retry >= MAX_RETRIES:
+            session.metadata.pop(FLOW_KEY, None)
+            ctx.session_manager.save(session)
+            return REMINDER_FAILED_NO_INFO.get(user_lang, REMINDER_FAILED_NO_INFO["en"])
+        flow["retry_count"] = retry
+        session.metadata[FLOW_KEY] = flow
+        ctx.session_manager.save(session)
+        suffix = REMINDER_RETRY_SUFFIX.get(user_lang, REMINDER_RETRY_SUFFIX["en"]).format(n=retry)
+        return f"{current_question}\n\n{REMINDER_ASK_AGAIN.get(user_lang, REMINDER_ASK_AGAIN['en'])}{suffix}"
+
+    # --- Estamos no fluxo: processar resposta ---
+    if flow and isinstance(flow, dict):
+        stage = flow.get("stage")
+        msg_content = (flow.get("content") or "").strip()
+        date_label = (flow.get("date_label") or "").strip()
+
+        if stage == STAGE_NEED_DATE:
+            parsed_date = parse_date_from_response(text)
+            if parsed_date:
+                hour = flow.get("hour", 0)
+                minute = flow.get("minute", 0)
+                in_sec = compute_in_seconds_from_date_hour(parsed_date, hour, minute, tz_iana)
+                if in_sec and in_sec > 0:
+                    session.metadata[FLOW_KEY] = {
+                        "stage": STAGE_NEED_ADVANCE_PREFERENCE,
+                        "content": msg_content,
+                        "date_label": parsed_date,
+                        "hour": hour,
+                        "minute": minute,
+                        "in_seconds": in_sec,
+                        "retry_count": 0,
+                    }
+                    ctx.session_manager.save(session)
+                    return REMINDER_ASK_ADVANCE_PREFERENCE.get(user_lang, REMINDER_ASK_ADVANCE_PREFERENCE["en"])
+            q = REMINDER_ASK_DATE_CONSULTA.get(user_lang) if is_consulta_context(msg_content) else REMINDER_ASK_DATE_GENERIC.get(user_lang)
+            return _retry_or_fail(flow, q)
+
+        if stage == STAGE_NEED_TIME:
+            parsed = parse_time_from_response(text)
+            if parsed:
+                hour, minute = parsed
+                in_sec = compute_in_seconds_from_date_hour(date_label, hour, minute, tz_iana)
+                if in_sec and in_sec > 0:
+                    session.metadata[FLOW_KEY] = {
+                        "stage": STAGE_NEED_ADVANCE_PREFERENCE,
+                        "content": msg_content,
+                        "date_label": date_label,
+                        "hour": hour,
+                        "minute": minute,
+                        "in_seconds": in_sec,
+                        "retry_count": 0,
+                    }
+                    ctx.session_manager.save(session)
+                    return REMINDER_ASK_ADVANCE_PREFERENCE.get(user_lang, REMINDER_ASK_ADVANCE_PREFERENCE["en"])
+            q = REMINDER_ASK_TIME_CONSULTA.get(user_lang) if is_consulta_context(msg_content) else REMINDER_ASK_TIME_GENERIC.get(user_lang)
+            return _retry_or_fail(flow, q)
+
+        elif stage == STAGE_NEED_ADVANCE_PREFERENCE:
+            if looks_like_advance_preference_no(text):
+                # Só na hora → criar 1 lembrete
+                in_sec = flow.get("in_seconds")
+                if in_sec and in_sec > 0:
+                    session.metadata.pop(FLOW_KEY, None)
+                    ctx.session_manager.save(session)
+                    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+                    result = await ctx.cron_tool.execute(
+                        action="add",
+                        message=msg_content,
+                        in_seconds=in_sec,
+                    )
+                    return result
+
+            if looks_like_advance_preference_yes(text):
+                session.metadata[FLOW_KEY] = {
+                    **flow,
+                    "stage": STAGE_NEED_ADVANCE_AMOUNT,
+                }
+                ctx.session_manager.save(session)
+                return REMINDER_ASK_ADVANCE_AMOUNT.get(user_lang, REMINDER_ASK_ADVANCE_AMOUNT["en"])
+
+            # Tentar parse direto (ex: "30 min" como resposta)
+            advance_sec = parse_advance_seconds(text)
+            if advance_sec:
+                in_sec = flow.get("in_seconds")
+                if in_sec and in_sec > 0:
+                    session.metadata.pop(FLOW_KEY, None)
+                    ctx.session_manager.save(session)
+                    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+                    # 2 lembretes: aviso (in_sec - advance_sec) e na hora (in_sec)
+                    advance_in_sec = max(60, in_sec - advance_sec)
+                    r1 = await ctx.cron_tool.execute(
+                        action="add",
+                        message=f"(Aviso) {msg_content}",
+                        in_seconds=advance_in_sec,
+                    )
+                    r2 = await ctx.cron_tool.execute(
+                        action="add",
+                        message=msg_content,
+                        in_seconds=in_sec,
+                    )
+                    return f"{r1}\n\n{r2}" if r1 and r2 else (r1 or r2)
+
+            q = REMINDER_ASK_ADVANCE_PREFERENCE.get(user_lang, REMINDER_ASK_ADVANCE_PREFERENCE["en"])
+            return _retry_or_fail(flow, q)
+
+        elif stage == STAGE_NEED_ADVANCE_AMOUNT:
+            advance_sec = parse_advance_seconds(text)
+            if advance_sec:
+                in_sec = flow.get("in_seconds")
+                if in_sec and in_sec > 0:
+                    session.metadata.pop(FLOW_KEY, None)
+                    ctx.session_manager.save(session)
+                    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+                    advance_in_sec = max(60, in_sec - advance_sec)
+                    r1 = await ctx.cron_tool.execute(
+                        action="add",
+                        message=f"(Aviso) {msg_content}",
+                        in_seconds=advance_in_sec,
+                    )
+                    r2 = await ctx.cron_tool.execute(
+                        action="add",
+                        message=msg_content,
+                        in_seconds=in_sec,
+                    )
+                    return f"{r1}\n\n{r2}" if r1 and r2 else (r1 or r2)
+
+            q = REMINDER_ASK_ADVANCE_AMOUNT.get(user_lang, REMINDER_ASK_ADVANCE_AMOUNT["en"])
+            return _retry_or_fail(flow, q)
+
+        # Fallback: resposta inválida em stage desconhecido
+        return None
+
+    # --- Novo pedido com tempo vago (data sem hora) ---
+    ok, msg_content, date_label = is_vague_time_reminder(text)
+    if ok:
+        session.metadata[FLOW_KEY] = {
+            "stage": STAGE_NEED_TIME,
+            "content": msg_content,
+            "date_label": date_label,
+            "retry_count": 0,
+        }
+        ctx.session_manager.save(session)
+        if is_consulta_context(msg_content):
+            return REMINDER_ASK_TIME_CONSULTA.get(user_lang, REMINDER_ASK_TIME_CONSULTA["en"])
+        return REMINDER_ASK_TIME_GENERIC.get(user_lang, REMINDER_ASK_TIME_GENERIC["en"])
+
+    # --- Novo pedido com data vaga (hora sem data) ---
+    ok2, msg_content2, hour, minute = is_vague_date_reminder(text)
+    if ok2:
+        session.metadata[FLOW_KEY] = {
+            "stage": STAGE_NEED_DATE,
+            "content": msg_content2,
+            "hour": hour,
+            "minute": minute,
+            "retry_count": 0,
+        }
+        ctx.session_manager.save(session)
+        if is_consulta_context(msg_content2):
+            return REMINDER_ASK_DATE_CONSULTA.get(user_lang, REMINDER_ASK_DATE_CONSULTA["en"])
+        return REMINDER_ASK_DATE_GENERIC.get(user_lang, REMINDER_ASK_DATE_GENERIC["en"])
+
+    return None
+
+
+# ---------------------------------------------------------------------------
 # Confirmações (1=sim 2=não). Sem botões.
 # ---------------------------------------------------------------------------
 
@@ -263,18 +506,6 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
     )
 
 
-async def handle_audio(ctx: HandlerContext, content: str) -> str | None:
-    """/audio [ptpt|es|en] <pedido> — resposta em áudio (PTT). Sem pedido: mostra uso."""
-    t = (content or "").strip()
-    if not t.lower().startswith("/audio"):
-        return None
-    # "/audio" sozinho ou "/audio " sem nada → mostrar uso
-    rest = t[6:].strip()  # após "/audio"
-    if not rest:
-        return "Envia: /audio <pedido> ou /audio ptpt|es|en <pedido> para resposta em áudio."
-    return None  # com pedido → agent processa (metadata audio_mode no canal)
-
-
 async def handle_help(ctx: HandlerContext, content: str) -> str | None:
     """/help: lista de comandos e como usar o assistente."""
     if not content.strip().lower().startswith("/help"):
@@ -297,7 +528,8 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
         "• /tz Cidade — definir fuso (ex.: /tz Lisboa)\n"
         "• /lang pt-pt ou pt-br — idioma\n"
         "• /reset — refazer cadastro (nome, cidade)\n"
-        "• /quiet 22:00-08:00 — horário silencioso\n\n"
+        "• /quiet 22:00-08:00 — horário silencioso\n"
+        "• Pedir resposta em áudio: «responde em áudio», «manda áudio», «fala comigo»\n\n"
         "Ou conversa comigo por mensagem ou áudio: diz o que precisas e eu ajudo a organizar. 😊"
     )
 
@@ -412,7 +644,6 @@ _NOT_REMINDER_PATTERNS = (
     # Outros
     r"^(sim|n[aã]o|não|nope)\s*$",  # respostas curtas
     r"^(status|ajuda|help)\s*$", r"^/",
-    r"^/audio\b",  # comando /audio (não é lembrete)
 )
 
 
@@ -449,6 +680,158 @@ async def handle_recurring_prompt(ctx: HandlerContext, content: str) -> str | No
     return await maybe_ask_recurrence(
         content, user_lang, ctx.scope_provider, ctx.scope_model or "",
     )
+
+
+# ---------------------------------------------------------------------------
+# Evento recorrente agendado (academia segunda 19h, aulas terça 10h)
+# ---------------------------------------------------------------------------
+
+async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | None:
+    """
+    Quando o utilizador indica evento recorrente com horário (academia segunda e quarta 19h):
+    1. Detecta, diz de forma simpática que é recorrente, pede confirmação
+    2. Confirma → pergunta até quando (indefinido, fim da semana, fim do mês)
+    3. Registra com cron_expr (e opcional not_after_ms)
+    """
+    import re
+    from backend.recurring_event_flow import (
+        FLOW_KEY,
+        STAGE_NEED_CONFIRM,
+        STAGE_NEED_END_DATE,
+        is_scheduled_recurring_event,
+        parse_recurring_schedule,
+        format_schedule_for_display,
+        parse_end_date_response,
+        looks_like_confirm_yes,
+        looks_like_confirm_no,
+        compute_end_date_ms,
+    )
+    from backend.recurring_event_flow import MAX_RETRIES_END_DATE
+    from backend.locale import (
+        LangCode,
+        RECURRING_EVENT_CONFIRM,
+        RECURRING_ASK_END_DATE,
+        RECURRING_ASK_END_DATE_AGAIN,
+        RECURRING_REGISTERED,
+        RECURRING_REGISTERED_UNTIL,
+    )
+    from backend.user_store import get_user_language, get_user_timezone
+    from backend.database import SessionLocal
+    from backend.locale import resolve_response_language
+
+    if not ctx.session_manager or not ctx.cron_tool or not content or not content.strip():
+        return None
+
+    text = content.strip()
+    if re.match(r"^/lembrete\s+", text, re.I):
+        text = re.sub(r"^/lembrete\s+", "", text, flags=re.I).strip()
+
+    session_key = f"{ctx.channel}:{ctx.chat_id}"
+    session = ctx.session_manager.get_or_create(session_key)
+    flow = session.metadata.get(FLOW_KEY)
+
+    user_lang: LangCode = "pt-BR"
+    tz_iana = "UTC"
+    try:
+        db = SessionLocal()
+        try:
+            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
+            tz_iana = get_user_timezone(db, ctx.chat_id) or "UTC"
+            try:
+                from zoneinfo import ZoneInfo
+                ZoneInfo(tz_iana)
+            except Exception:
+                from backend.timezone import phone_to_default_timezone
+                tz_iana = phone_to_default_timezone(ctx.chat_id)
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    # --- Estamos no fluxo ---
+    if flow and isinstance(flow, dict):
+        stage = flow.get("stage")
+        event = (flow.get("event") or "").strip()
+        cron_expr = (flow.get("cron_expr") or "").strip()
+        schedule_display = format_schedule_for_display(cron_expr, user_lang)
+
+        if stage == STAGE_NEED_CONFIRM:
+            if looks_like_confirm_no(text):
+                session.metadata.pop(FLOW_KEY, None)
+                ctx.session_manager.save(session)
+                return None
+            if looks_like_confirm_yes(text):
+                session.metadata[FLOW_KEY] = {
+                    **flow,
+                    "stage": STAGE_NEED_END_DATE,
+                }
+                ctx.session_manager.save(session)
+                return RECURRING_ASK_END_DATE.get(user_lang, RECURRING_ASK_END_DATE["en"])
+            return None
+
+        if stage == STAGE_NEED_END_DATE:
+            end_type = parse_end_date_response(text)
+            if not end_type:
+                retry = flow.get("retry_count", 0) + 1
+                if retry >= MAX_RETRIES_END_DATE:
+                    session.metadata.pop(FLOW_KEY, None)
+                    ctx.session_manager.save(session)
+                    return None
+                flow["retry_count"] = retry
+                session.metadata[FLOW_KEY] = flow
+                ctx.session_manager.save(session)
+                return RECURRING_ASK_END_DATE_AGAIN.get(user_lang, RECURRING_ASK_END_DATE_AGAIN["en"])
+
+            session.metadata.pop(FLOW_KEY, None)
+            ctx.session_manager.save(session)
+
+            not_after_ms = None
+            end_display = ""
+            if end_type != "indefinido":
+                not_after_ms = compute_end_date_ms(end_type, tz_iana)
+                from datetime import datetime
+                from zoneinfo import ZoneInfo
+                if not_after_ms:
+                    end_display = datetime.fromtimestamp(not_after_ms / 1000, tz=ZoneInfo(tz_iana)).strftime("%d/%m/%Y")
+
+            ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+            end_param = not_after_ms if not_after_ms else None
+            result = await ctx.cron_tool.execute(
+                action="add",
+                message=event,
+                cron_expr=cron_expr,
+                end_date=end_param,
+            )
+            if result and "Error" not in result:
+                if end_display:
+                    return RECURRING_REGISTERED_UNTIL.get(user_lang, RECURRING_REGISTERED_UNTIL["en"]).format(
+                        event=event, schedule=schedule_display, end=end_display
+                    )
+                return RECURRING_REGISTERED.get(user_lang, RECURRING_REGISTERED["en"]).format(
+                    event=event, schedule=schedule_display
+                )
+            return result
+
+    # --- Novo pedido: detectar evento recorrente com horário ---
+    parsed = parse_recurring_schedule(text)
+    if parsed and is_scheduled_recurring_event(text):
+        event_content, cron_expr, hour, minute = parsed
+        schedule_display = format_schedule_for_display(cron_expr, user_lang)
+
+        session.metadata[FLOW_KEY] = {
+            "stage": STAGE_NEED_CONFIRM,
+            "event": event_content,
+            "cron_expr": cron_expr,
+        }
+        ctx.session_manager.save(session)
+
+        return RECURRING_EVENT_CONFIRM.get(user_lang, RECURRING_EVENT_CONFIRM["en"]).format(
+            event=event_content,
+            schedule=schedule_display,
+        )
+
+    return None
 
 
 # Route e HANDLERS em backend.router (agent loop importa route de router)

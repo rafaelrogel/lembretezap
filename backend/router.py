@@ -6,7 +6,8 @@ from loguru import logger
 from backend.handler_context import HandlerContext
 from backend.handlers import (
     handle_pending_confirmation,
-    handle_audio,
+    handle_vague_time_reminder,
+    handle_recurring_event,
     handle_recurring_prompt,
     handle_lembrete,
     handle_list,
@@ -56,7 +57,8 @@ from backend.views import (
 HANDLERS = [
     handle_atendimento_request,
     handle_pending_confirmation,
-    handle_audio,  # /audio sem pedido → mostra uso (antes de recurring)
+    handle_vague_time_reminder,
+    handle_recurring_event,
     handle_eventos_unificado,
     handle_sacred_text,  # ativo: responde quando cliente pede versículo bíblia/alcorão
     handle_list,  # antes de recurring: "lista mercado", "mostre lista" → list_show

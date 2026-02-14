@@ -54,7 +54,11 @@ def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
                 cron = croniter(schedule.expr, start_epoch)
             next_time = cron.get_next()
             next_ms = int(next_time * 1000)
-            return next_ms if next_ms > now_ms else None
+            if next_ms <= now_ms:
+                return None
+            if schedule.not_after_ms and next_ms > schedule.not_after_ms:
+                return None  # fim da recorrência
+            return next_ms
         except Exception:
             return None
     
@@ -96,6 +100,7 @@ class CronService:
                             expr=j["schedule"].get("expr"),
                             tz=j["schedule"].get("tz"),
                             not_before_ms=j["schedule"].get("notBeforeMs"),
+                            not_after_ms=j["schedule"].get("notAfterMs"),
                         ),
                         payload=CronPayload(
                             kind=j["payload"].get("kind", "agent_turn"),
@@ -153,6 +158,7 @@ class CronService:
                         "expr": j.schedule.expr,
                         "tz": j.schedule.tz,
                         "notBeforeMs": j.schedule.not_before_ms,
+                        "notAfterMs": j.schedule.not_after_ms,
                     },
                     "payload": {
                         "kind": j.payload.kind,
