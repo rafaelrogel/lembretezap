@@ -13,6 +13,9 @@ def test_scope_filter_in_scope():
     assert is_in_scope_fast("/feito 1") is True
     assert is_in_scope_fast("lista de compras: arroz") is True
     assert is_in_scope_fast("/filme Matrix") is True
+    # Follow-ups sobre lista/receita (cadê a lista, onde está) — no escopo
+    assert is_in_scope_fast("Cadê a lista?") is True
+    assert is_in_scope_fast("onde está a receita?") is True
 
 
 def test_scope_filter_out_of_scope():

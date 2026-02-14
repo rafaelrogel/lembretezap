@@ -20,6 +20,24 @@ from backend.house_chores_catalog import (
 if TYPE_CHECKING:
     from backend.handler_context import HandlerContext
 
+# Linguagem natural: limpar casa, banheiro, quarto, etc. — ativa fluxo de limpeza
+_LIMPEZA_NL_PATTERNS = (
+    r"preciso\s+limpar", r"quero\s+limpar", r"precisamos\s+limpar",
+    r"limpar\s+(?:a\s+)?casa", r"limpar\s+(?:o\s+)?banheiro", r"limpar\s+(?:o\s+)?quarto",
+    r"limpar\s+(?:a\s+)?sala", r"limpar\s+(?:a\s+)?cozinha", r"limpar\s+quintal",
+    r"limpar\s+(?:a\s+)?varanda", r"limpar\s+janelas", r"limpar\s+espelhos",
+    r"arrumar\s+(?:a\s+)?casa", r"aspirar\s+(?:a\s+)?casa", r"varrer\s+(?:a\s+)?casa",
+    r"tarefas\s+de\s+limpeza", r"limpeza\s+(?:da\s+)?casa", r"limpeza\s+dom[eé]stica",
+    r"divis[aã]o\s+(?:das\s+)?tarefas", r"rotacionar\s+tarefas",
+)
+def _is_limpeza_nl_intent(content: str) -> bool:
+    """True se a mensagem indica intenção de limpeza da casa (sem /limpeza)."""
+    t = (content or "").strip().lower()
+    if not t or len(t) < 6 or t.startswith("/"):
+        return False
+    return any(re.search(p, t) for p in _LIMPEZA_NL_PATTERNS)
+
+
 WEEKDAY_MAP = {
     "seg": 0, "segunda": 0, "segunda-feira": 0,
     "ter": 1, "terca": 1, "terça": 1, "terça-feira": 1,
@@ -47,16 +65,53 @@ def _parse_time_hhmm(s: str) -> str | None:
     return None
 
 
+def _get_limpeza_intro(lang: str = "pt-BR") -> str:
+    """Mensagem de boas-vindas ao fluxo de limpeza (linguagem natural)."""
+    if "pt-PT" in (lang or ""):
+        return (
+            "🧹 **Limpeza da casa**\n\n"
+            "Posso ajudar a organizar as tarefas de limpeza com rotação entre pessoas. "
+            "Por exemplo: cozinha semanalmente, banheiro quinzenalmente.\n\n"
+            "**Como configurar:**\n"
+            "• /limpeza add cozinha weekly sábado 9h — adiciona tarefa semanal\n"
+            "• /limpeza add banheiro bi-weekly sábado 9h — quinzenal\n"
+            "• /limpeza pessoas add João, Maria — define quem participa da rotação\n"
+            "• /limpeza rotação on — ativa rotação entre as pessoas\n"
+            "• /limpeza catálogo — ver todas as tarefas disponíveis\n\n"
+            "Moras com alguém? Queres dividir e rotacionar as tarefas?"
+        )
+    return (
+        "🧹 **Limpeza da casa**\n\n"
+        "Posso ajudar a organizar as tarefas de limpeza com rotação entre pessoas. "
+        "Por exemplo: cozinha semanalmente, banheiro quinzenalmente.\n\n"
+        "**Como configurar:**\n"
+        "• /limpeza add cozinha weekly sábado 9h — adiciona tarefa semanal\n"
+        "• /limpeza add banheiro bi-weekly sábado 9h — quinzenal\n"
+        "• /limpeza pessoas add João, Maria — define quem participa da rotação\n"
+        "• /limpeza rotação on — ativa rotação entre as pessoas\n"
+        "• /limpeza catálogo — ver todas as tarefas disponíveis\n\n"
+        "Mora com alguém? Quer dividir e rotacionar as tarefas?"
+    )
+
+
 async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
     """
     /limpeza — tarefas de limpeza (weekly/bi-weekly) com rotação.
-    /limpeza add cozinha weekly sábado 9h
-    /limpeza add banheiro bi-weekly sábado 9h
-    /limpeza pessoas add João, Maria
-    /limpeza rotação on
-    /limpeza list
+    Também ativa por linguagem natural: «preciso limpar a casa», «limpar banheiro», etc.
     """
     t = content.strip()
+    # Linguagem natural: «preciso limpar a casa», «limpar banheiro», etc.
+    if not t.lower().startswith("/limpeza") and _is_limpeza_nl_intent(t):
+        try:
+            from backend.user_store import get_user_language
+            db = SessionLocal()
+            try:
+                user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            finally:
+                db.close()
+        except Exception:
+            user_lang = "pt-BR"
+        return _get_limpeza_intro(user_lang)
     if not t.lower().startswith("/limpeza"):
         return None
     rest = t[8:].strip().lower()

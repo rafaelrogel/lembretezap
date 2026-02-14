@@ -7,8 +7,6 @@
 # instância está correto. Escala horizontal (vários gateways) exige armazenamento
 # distribuído/BD centralizado (ver workspace/ARCHITECTURE.md).
 
-version: "3.8"
-
 services:
   redis:
     image: redis:7-alpine

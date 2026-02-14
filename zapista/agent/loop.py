@@ -666,6 +666,7 @@ class AgentLoop:
             from backend.locale import (
                 parse_language_switch_request,
                 language_switch_confirmation_message,
+                LANGUAGE_ALREADY_MSG,
                 phone_to_default_language,
                 SUPPORTED_LANGS,
             )
@@ -674,12 +675,19 @@ class AgentLoop:
                 phone_for_locale = msg.metadata.get("phone_for_locale")
                 user_lang = get_user_language(db, msg.chat_id, phone_for_locale)
                 requested_lang = parse_language_switch_request(msg.content)
-                if requested_lang is not None and requested_lang != user_lang:
-                    set_user_language(db, msg.chat_id, requested_lang)
+                if requested_lang is not None:
+                    if requested_lang != user_lang:
+                        set_user_language(db, msg.chat_id, requested_lang)
+                        return OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content=language_switch_confirmation_message(requested_lang),
+                        )
+                    # Mesmo idioma: confirmar e retornar — não seguir para router (evita "Quando quer o lembrete?")
                     return OutboundMessage(
                         channel=msg.channel,
                         chat_id=msg.chat_id,
-                        content=language_switch_confirmation_message(requested_lang),
+                        content=LANGUAGE_ALREADY_MSG.get(requested_lang, LANGUAGE_ALREADY_MSG["pt-BR"]),
                     )
             finally:
                 db.close()
@@ -1082,11 +1090,13 @@ class AgentLoop:
         # Agent loop
         iteration = 0
         final_content = None
-        
+        used_fallback = False  # Para tentar scope_provider (Mimo) como fallback
+
         while iteration < self.max_iterations:
             iteration += 1
 
-            # Call LLM (circuit breaker records success/failure)
+            # Call LLM (main provider); fallback para scope_provider (Mimo) em erro
+            response = None
             try:
                 response = await self.provider.chat(
                     messages=messages,
@@ -1094,15 +1104,45 @@ class AgentLoop:
                     model=self.model,
                     profile="assistant",
                 )
+                # LiteLLM retorna conteúdo de erro em vez de levantar
+                is_error = (
+                    response
+                    and (response.content or "").strip().lower().startswith("error calling llm")
+                )
+                if is_error:
+                    raise RuntimeError(response.content or "LLM error")
                 self.circuit_breaker.record_success()
             except Exception as e:
                 self.circuit_breaker.record_failure()
-                logger.warning(f"LLM call failed (circuit breaker): {e}")
-                return OutboundMessage(
-                    channel=msg.channel,
-                    chat_id=msg.chat_id,
-                    content="Serviço temporariamente indisponível. Tente /help para ver os comandos.",
-                )
+                logger.warning(f"LLM call failed: {e}")
+                # Fallback: tentar scope_provider (Mimo) se disponível e ainda não usado
+                if (
+                    not used_fallback
+                    and self.scope_provider
+                    and (self.scope_model or "").strip()
+                ):
+                    used_fallback = True
+                    logger.info("Retrying with fallback provider (scope_model)")
+                    try:
+                        response = await self.scope_provider.chat(
+                            messages=messages,
+                            tools=self.tools.get_definitions(),
+                            model=self.scope_model,
+                            profile="assistant",
+                        )
+                        if response and (response.content or "").strip().lower().startswith("error calling llm"):
+                            response = None
+                        else:
+                            self.circuit_breaker.record_success()
+                    except Exception as e2:
+                        logger.warning(f"Fallback provider also failed: {e2}")
+                        response = None
+                if not response:
+                    return OutboundMessage(
+                        channel=msg.channel,
+                        chat_id=msg.chat_id,
+                        content="Serviço temporariamente indisponível. Tente /help para ver os comandos.",
+                    )
 
             # Handle tool calls
             if response.has_tool_calls:

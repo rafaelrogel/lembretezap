@@ -1,4 +1,4 @@
-"""Visões: /hoje, /semana, /mes, /timeline, /stats, /produtividade, /revisao, eventos unificados."""
+"""Visões: /hoje, /semana, /mes, /timeline, /stats, /produtividade, /resumo, eventos unificados."""
 
 from backend.views.hoje_semana import handle_hoje, handle_semana
 from backend.views.mes import handle_mes

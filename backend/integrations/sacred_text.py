@@ -1,4 +1,8 @@
-"""Livros sagrados — passagens via APIs gratuitas (só quando pedido diretamente)."""
+"""Livros sagrados — passagens via APIs gratuitas (só quando pedido diretamente).
+
+Sem comando no /help. Ativa-se automaticamente quando o cliente pede
+«versículo da bíblia», «passagem do alcorão», etc.
+"""
 
 import re
 from typing import TYPE_CHECKING

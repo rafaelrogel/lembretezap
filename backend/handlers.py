@@ -24,12 +24,18 @@ from backend.handler_context import HandlerContext, _reply_confirm_prompt
 
 async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str | None:
     """
-    Se a mensagem for curta e parecer confirmação (sim, quero, ok) E a última do assistente
-    foi uma oferta de lembrete, usa Mimo para extrair os params e executa cron add.
+    Após «Quando quer o lembrete?»: trata confirmação («sim», «ok») ou resposta com tempo
+    («a cada 30 min», «todo dia às 8h»). Usa Mimo para extrair params e criar o cron.
     """
-    from backend.pending_confirmation import looks_like_confirmation, try_extract_pending_cron
+    from backend.pending_confirmation import (
+        looks_like_confirmation,
+        looks_like_time_response,
+        last_assistant_asked_when,
+        try_extract_pending_cron,
+        try_extract_time_response_cron,
+    )
 
-    if not looks_like_confirmation(content):
+    if not (looks_like_confirmation(content) or looks_like_time_response(content)):
         return None
     if not ctx.cron_tool or not ctx.session_manager or not ctx.scope_provider or not ctx.scope_model:
         return None
@@ -40,12 +46,22 @@ async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str 
     if len(history) < 2:
         return None
 
-    params = await try_extract_pending_cron(
-        ctx.scope_provider,
-        ctx.scope_model,
-        history,
-        content,
-    )
+    last_assistant = None
+    for m in reversed(history):
+        if m.get("role") == "assistant":
+            last_assistant = (m.get("content") or "").strip()
+            break
+    if not last_assistant_asked_when(last_assistant or ""):
+        return None
+
+    if looks_like_time_response(content):
+        params = await try_extract_time_response_cron(
+            ctx.scope_provider, ctx.scope_model, history, content
+        )
+    else:
+        params = await try_extract_pending_cron(
+            ctx.scope_provider, ctx.scope_model, history, content
+        )
     if not params:
         return None
 
@@ -55,11 +71,13 @@ async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str 
         return None
     every = params.get("every_seconds")
     in_sec = params.get("in_seconds")
+    cron_expr = params.get("cron_expr")
     result = await ctx.cron_tool.execute(
         action="add",
         message=msg_text,
         every_seconds=every,
         in_seconds=in_sec,
+        cron_expr=cron_expr,
     )
     return result
 
@@ -146,16 +164,31 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
         return None
     if intent.get("type") == "list_add":
         list_name = intent.get("list_name", "")
+        items = intent.get("items")
         item_text = intent.get("item", "")
-        if list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(item_text):
+        if items:
+            for it in items:
+                if list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(it):
+                    r = is_absurd_request(it)
+                    if r:
+                        return r
+        elif list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(item_text):
             return is_absurd_request(item_text)
     ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
     if intent.get("type") == "list_add":
-        return await ctx.list_tool.execute(
-            action="add",
-            list_name=intent.get("list_name", ""),
-            item_text=intent.get("item", ""),
-        )
+        items_to_add = intent.get("items") or ([intent.get("item")] if intent.get("item") else [])
+        if not items_to_add:
+            return None
+        list_name = intent.get("list_name", "")
+        results = []
+        for it in items_to_add:
+            r = await ctx.list_tool.execute(
+                action="add",
+                list_name=list_name,
+                item_text=it,
+            )
+            results.append(r)
+        return "\n".join(results) if len(results) > 1 else (results[0] if results else None)
     return await ctx.list_tool.execute(
         action="list",
         list_name=intent.get("list_name") or "",
@@ -229,6 +262,18 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
     )
 
 
+async def handle_audio(ctx: HandlerContext, content: str) -> str | None:
+    """/audio [ptpt|es|en] <pedido> — resposta em áudio (PTT). Sem pedido: mostra uso."""
+    t = (content or "").strip()
+    if not t.lower().startswith("/audio"):
+        return None
+    # "/audio" sozinho ou "/audio " sem nada → mostrar uso
+    rest = t[6:].strip()  # após "/audio"
+    if not rest:
+        return "Envia: /audio <pedido> ou /audio ptpt|es|en <pedido> para resposta em áudio."
+    return None  # com pedido → agent processa (metadata audio_mode no canal)
+
+
 async def handle_help(ctx: HandlerContext, content: str) -> str | None:
     """/help: lista de comandos e como usar o assistente."""
     if not content.strip().lower().startswith("/help"):
@@ -238,21 +283,15 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
         "• /lembrete — agendar (ex.: amanhã 9h; em 30 min; depois de PIX = encadear)\n"
         "• /list — listas: /list mercado add leite  ou  /list filme Matrix  /list livro 1984  /list musica Nome  /list receita Bolo\n"
         "• /feito — marcar item como feito: /feito mercado 1  ou  /feito 1\n"
-        "• /hoje, /semana, /mes — ver o que tens hoje, esta semana ou calendário do mês\n"
+        "• /hoje, /semana — ver o que tens hoje ou esta semana\n"
         "• /timeline — histórico cronológico (lembretes, tarefas, eventos)\n"
         "• /stats — estatísticas (tarefas feitas, lembretes); /stats dia ou /stats semana\n"
-        "• /produtividade — relatório semanal/mensal; /produtividade mes para ver por mês\n"
-        "• /revisao — resumo da semana (tarefas, lembretes, eventos)\n"
+        "• /resumo — resumo da semana (tarefas, lembretes, eventos)\n"
         "• /habito add Nome, /habito check Nome, /habito hoje — hábitos diários\n"
         "• /meta add Nome até DD/MM — metas com prazo; /metas para listar\n"
         "• /nota texto — notas rápidas; /notas para ver\n"
-        "• /projeto add Nome — projetos; /projeto Nome add item — agrupar tarefas\n"
-        "• /template add Nome item1, item2 — modelos; /template Nome usar\n"
         "• /save [desc] ou /bookmark — guardar com tags e categoria (IA)\n"
         "• /find \"aquela receita\" — busca semântica nos bookmarks\n"
-        "• /limpeza — tarefas de limpeza (weekly/bi-weekly) com rotação para flatmates\n"
-        "• Cripto — pergunta «bitcoin», «cotação» e recebe cotações (BTC, ETH, USDT, XRP, BNB)\n"
-        "• Bíblia/Alcorão — pede «passagem da bíblia» ou «versículo do alcorão» (aleatório ou específico)\n"
         "• /tz Cidade — definir fuso (ex.: /tz Lisboa)\n"
         "• /lang pt-pt ou pt-br — idioma\n"
         "• /reset — refazer cadastro (nome, cidade)\n"
@@ -315,11 +354,48 @@ async def handle_stop(ctx: HandlerContext, content: str) -> str | None:
 # Pedido de lembrete sem tempo (natural language) → solicitar recorrência se recorrente
 # ---------------------------------------------------------------------------
 
-# Padrões que NUNCA são pedido de lembrete (localização, conhecimento geral, etc.)
+# Padrões que NUNCA são pedido de lembrete — reduz falsos positivos em handle_recurring_prompt
 _NOT_REMINDER_PATTERNS = (
+    # Localização / geografia
     r"sabe\s+onde", r"onde\s+fica", r"onde\s+est[aá]", r"where\s+is",
     r"qual\s+(é|e)\s+(a\s+)?capital", r"como\s+chego", r"como\s+chegar",
     r"localiza[cç][aã]o\s+de", r"endere[cç]o", r"coordinates",
+    # Pedidos de MOSTRAR/VER lista
+    r"mostr(e|ar)\s+(a\s+)?lista", r"ver\s+(a\s+)?lista", r"ver\s+minha\s+lista",
+    r"qual\s+(é|e)\s+(a\s+)?minha\s+lista", r"qual\s+(é|e)\s+sua\s+lista",
+    r"lista\s+de\s+\w+", r"minha\s+lista\s+(de\s+)?\w*", r"listar\s+\w+",
+    r"^(lista|mercado|compras|pendentes)\s*$",
+    # Receita/ingredientes (sempre excluir — handle_recipe ou LLM)
+    r"receita\s+(?:de|da)\s+", r"receitas?\s+\w+", r"^receita\s+\w+",
+    # Follow-ups sobre lista/receita (não são pedido de lembrete — vão ao LLM com contexto)
+    r"cad[eê]\s+(a\s+)?(lista|receita|ingredientes)",
+    r"onde\s+(est[aá]|est[aã]o)\s+(a\s+)?(lista|receita|ingredientes)",
+    r"e\s+(a\s+)?(lista|receita|os?\s+ingredientes)",
+    r"^(cad[eê]|cad[eê]\s+a)\b", r"fa[cç]a\s+uma\s+lista", r"fazer\s+uma\s+lista",
+    # Compras = lista (não lembrete recorrente)
+    r"preciso\s+comprar", r"quero\s+comprar", r"comprar\s+(leite|pão|ovo|arroz)",
+    r"adicion[eia](?:r)?\s+", r"(?:a|à|nas?)\s+listas?\b",  # "adicione X a listas"
+    r"preciso\s+(mercado|compras)\b", r"quero\s+(mercado|compras)\b",
+    r"lista\s+(do\s+)?mercado", r"lista\s+mercado", r"itens?\s+(do\s+)?mercado",
+    # Perguntas gerais (não pedido de lembrete)
+    r"^(o\s+que\s+é|oq\s+é|o\s+que\s+e)\b", r"qual\s+(é|e)\s+o\s+significado",
+    r"como\s+(fazer|usar|funciona)", r"quanto\s+custa", r"quanto\s+(é|e)\s+",
+    r"^(quem|como|porque|por\s+que)\b",
+    # Versículo / texto sagrado (já tratado antes)
+    r"vers[ií]culo", r"b[ií]blia", r"passagem\s+b[ií]blica",
+    # Saudações / despedidas
+    r"^(oi|ol[aá]|ola|hey|hi)\s*$", r"^(tchau|bye|at[eé])\s*$",
+    r"^(obrigad[oa]|obg|valeu|thx)\s*$",
+    # Números / links
+    r"^\d{1,4}\s*$", r"^https?://", r"^www\.", r"\.com\b", r"\.pt\b",
+    # Pedido de idioma / instrução (não lembrete)
+    r"fala[r]?\s+em\s+portugu[eê]s", r"portugu[eê]s\s+(?:do\s+)?(?:brasil|br)",
+    r"portugu[eê]s\s+(?:de\s+)?portugal", r"continuar\s+em\s+",
+    r"quero\s+fala[r]?\s+em\s+", r"(?:speak|hablar)\s+(?:in\s+)?(?:portuguese|spanish|english)",
+    # Outros
+    r"^(sim|n[aã]o|não|nope)\s*$",  # respostas curtas
+    r"^(status|ajuda|help)\s*$", r"^/",
+    r"^/audio\b",  # comando /audio (não é lembrete)
 )
 
 

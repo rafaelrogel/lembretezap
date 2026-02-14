@@ -188,6 +188,12 @@ _SOFT_REMINDER_PREFIXES = (
     "quiero ", "necesito ", "i want ", "i need ", "remind me ",
 )
 
+# Termos que NUNCA indicam lembrete quando sozinhos após prefixo (são lista/compras)
+_SOFT_EXCLUDE_REST = frozenset({
+    "mercado", "compras", "lista", "pendentes", "supermercado",
+    "market", "shopping", "list", "pending",
+})
+
 
 def _normalize(t: str) -> str:
     """Lowercase, remove acentos."""
@@ -246,6 +252,9 @@ def looks_like_reminder_without_time(content: str) -> tuple[bool, str | None]:
         if tl.startswith(prefix) and len(t) > len(prefix) + 2:
             rest = t[len(prefix):].strip()
             rest = re.sub(r"^(que|of|to|de)\s+", "", rest, flags=re.I).strip()
+            # Excluir: "preciso mercado", "quero compras" = lista, não lembrete
+            if rest and rest.lower() in _SOFT_EXCLUDE_REST:
+                return False, None
             if rest and len(rest) >= 3 and is_in_recurring_list(rest):
                 return True, rest
     return False, None

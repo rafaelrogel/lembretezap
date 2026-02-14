@@ -1,4 +1,4 @@
-"""Visão: /revisao — resumo da semana (tarefas, lembretes, eventos)."""
+"""Visão: /resumo (ou /revisao) — resumo da semana (tarefas, lembretes, eventos)."""
 
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -39,8 +39,8 @@ def _visao_revisao_semanal(ctx: "HandlerContext") -> str:
 
 
 async def handle_revisao(ctx: "HandlerContext", content: str) -> str | None:
-    """/revisao ou /revisao-semana."""
+    """/resumo ou /revisao — resumo da semana."""
     t = content.strip().lower()
-    if not t.startswith("/revisao"):
+    if not (t.startswith("/resumo") or t.startswith("/revisao")):
         return None
     return _visao_revisao_semanal(ctx)

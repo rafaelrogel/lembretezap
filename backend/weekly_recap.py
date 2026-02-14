@@ -1,7 +1,7 @@
 """
 Revisão semanal: resumo automático da semana (tarefas feitas, lembretes, eventos).
 
-Enviado automaticamente ao domingo (20h UTC) ou via comando /revisao.
+Enviado automaticamente ao domingo (20h UTC) ou via comando /resumo.
 """
 
 from datetime import datetime, timedelta, timezone

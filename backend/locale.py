@@ -101,6 +101,15 @@ def language_switch_confirmation_message(lang: LangCode) -> str:
     return msgs.get(lang, msgs["en"])
 
 
+# Quando o utilizador pede idioma que já está ativo (ex.: "falar em português do brasil" e já está pt-BR)
+LANGUAGE_ALREADY_MSG: dict[LangCode, str] = {
+    "pt-PT": "Já estamos em português de Portugal! 😊",
+    "pt-BR": "Já estamos em português do Brasil! 😊",
+    "es": "¡Ya estamos en español! 😊",
+    "en": "We're already in English! 😊",
+}
+
+
 # Pergunta "como gostaria de ser chamado" (fallback quando não há Xiaomi)
 PREFERRED_NAME_QUESTION: dict[LangCode, str] = {
     "pt-PT": "Como gostaria que eu te chamasse?",

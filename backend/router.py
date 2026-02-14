@@ -6,6 +6,7 @@ from loguru import logger
 from backend.handler_context import HandlerContext
 from backend.handlers import (
     handle_pending_confirmation,
+    handle_audio,
     handle_recurring_prompt,
     handle_lembrete,
     handle_list,
@@ -39,6 +40,7 @@ from backend.handlers_organizacao import (
     handle_find,
 )
 from backend.handlers_limpeza import handle_limpeza
+from backend.recipe_handler import handle_recipe
 from backend.views import (
     handle_eventos_unificado,
     handle_hoje,
@@ -53,11 +55,14 @@ from backend.views import (
 HANDLERS = [
     handle_atendimento_request,
     handle_pending_confirmation,
+    handle_audio,  # /audio sem pedido → mostra uso (antes de recurring)
     handle_eventos_unificado,
-    handle_sacred_text,
+    handle_sacred_text,  # ativo: responde quando cliente pede versículo bíblia/alcorão
+    handle_list,  # antes de recurring: "lista mercado", "mostre lista" → list_show
+    handle_limpeza,  # antes de recurring: "preciso limpar a casa" → fluxo limpeza
+    handle_recipe,  # receita/ingredientes via Perplexity (rápido, fallback agent)
     handle_recurring_prompt,
     handle_lembrete,
-    handle_list,
     handle_feito,
     handle_add,
     handle_done,
@@ -86,7 +91,6 @@ HANDLERS = [
     handle_bookmark,
     handle_save,
     handle_find,
-    handle_limpeza,
     handle_crypto,
     handle_tz,
     handle_lang,

@@ -19,6 +19,15 @@ RE_LIST_CATEGORY_ADD = re.compile(
 )
 RE_LIST_SHOW = re.compile(r"^/list\s+(\S+)\s*$", re.I)
 RE_LIST_ALL = re.compile(r"^/list\s*$", re.I)
+# Linguagem natural: mostre lista X, lista de X, minha lista X, qual lista, mercado, compras
+RE_NL_MOSTRE_LISTA = re.compile(
+    r"^(?:mostr(?:e|ar)|ver|listar|mostra)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?(\w+)\s*$", re.I
+)
+RE_NL_LISTA_DE = re.compile(r"^lista\s+(?:de\s+)?(\w+)\s*\??\s*$", re.I)
+RE_NL_QUAL_LISTA = re.compile(
+    r"^qual\s+(?:é|e)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?(\w+)\s*\??\s*$", re.I
+)
+RE_NL_LISTA_SOZINHA = re.compile(r"^(lista|mercado|compras|pendentes)\s*$", re.I)
 RE_FEITO_ID = re.compile(r"^/feito\s+(\d+)\s*$", re.I)
 RE_FEITO_LIST_ID = re.compile(r"^/feito\s+(\S+)\s+(\d+)\s*$", re.I)
 # Atalhos: /filme, /livro, /musica, /receita → equivalente a /list filme|livro|musica|receita <item>
@@ -27,6 +36,11 @@ RE_LIVRO = re.compile(r"^/livro\s+(.+)$", re.I)
 RE_MUSICA = re.compile(r"^/musica\s+(.+)$", re.I)
 RE_MUSICA_ACCENT = re.compile(r"^/música\s+(.+)$", re.I)
 RE_RECEITA = re.compile(r"^/receita\s+(.+)$", re.I)
+# NL: "adicione ovos bacon e queijos a listas" → list_add mercado
+RE_NL_ADICIONE_LISTA = re.compile(
+    r"^(?:adicione|adiciona|adicionar|coloca|coloque|colocar)\s+(.+?)\s+(?:a|à|nas?)\s+listas?\s*$",
+    re.I,
+)
 
 # Normalizar categoria para singular (list_name)
 _CATEGORY_TO_LIST = {
@@ -101,6 +115,21 @@ def parse(raw: str) -> dict[str, Any] | None:
     if RE_LIST_ALL.match(text):
         return {"type": "list_show", "list_name": None}
 
+    # Linguagem natural: mostre lista mercado, lista de mercado, qual minha lista, mercado
+    m = RE_NL_MOSTRE_LISTA.match(text)
+    if m:
+        return {"type": "list_show", "list_name": m.group(1).strip()}
+    m = RE_NL_LISTA_DE.match(text)
+    if m:
+        return {"type": "list_show", "list_name": m.group(1).strip()}
+    m = RE_NL_QUAL_LISTA.match(text)
+    if m:
+        return {"type": "list_show", "list_name": m.group(1).strip()}
+    m = RE_NL_LISTA_SOZINHA.match(text)
+    if m:
+        name = m.group(1).strip()
+        return {"type": "list_show", "list_name": name if name != "lista" else None}
+
     m = RE_FEITO_LIST_ID.match(text)
     if m:
         return {"type": "feito", "list_name": m.group(1).strip(), "item_id": int(m.group(2))}
@@ -121,5 +150,18 @@ def parse(raw: str) -> dict[str, Any] | None:
     m = RE_RECEITA.match(text)
     if m:
         return {"type": "list_add", "list_name": "receita", "item": m.group(1).strip()}
+
+    # NL: "adicione ovos bacon e queijos a listas" → list_add mercado (default lista de compras)
+    m = RE_NL_ADICIONE_LISTA.match(text)
+    if m:
+        raw_items = m.group(1).strip()
+        # Split por ", " e " e " → ["ovos","bacon","galinha","queijos"]
+        parts = re.split(r"\s*,\s*|\s+e\s+", raw_items)
+        items = [p.strip() for p in parts if p.strip()]
+        if not items:
+            return None
+        if len(items) == 1:
+            return {"type": "list_add", "list_name": "mercado", "item": items[0]}
+        return {"type": "list_add", "list_name": "mercado", "items": items}
 
     return None
