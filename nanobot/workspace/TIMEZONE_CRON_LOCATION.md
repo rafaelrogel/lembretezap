@@ -4,6 +4,12 @@ Este ficheiro indica **os sítios exatos** onde verificar e, se necessário, alt
 
 ---
 
+## Estrutura do repositório (lembretezap)
+
+No [GitHub rafaelrogel/lembretezap](https://github.com/rafaelrogel/lembretezap) existem as pastas **nanobot/** e **zapista/**. O projeto atual é **Zapista**; o código em produção (cron, gateway, API) está em **backend/** e **zapista/** (e bridge). Se **nanobot/** for legado e duplicado, pode ser removido após confirmar que nada importa de lá. Referências a atualizar: variáveis de ambiente (`ZAPISTA_*`), volumes Docker (`~/.zapista`), imports (`from zapista...`). Os scripts de instalação em **scripts/** usam já o nome zapista.
+
+---
+
 ## 0. Localização real (VPS / repo)
 
 | Ficheiro | Função |
@@ -18,7 +24,7 @@ Este ficheiro indica **os sítios exatos** onde verificar e, se necessário, alt
 
 Procurar por:
 
-- **Nome de ficheiro típico:** `cron/service.py` ou `cron_service.py` (em `nanobot/`, `zapista/` ou `backend/`).
+- **Nome de ficheiro típico:** `cron/service.py` ou `cron_service.py` (em `zapista/` ou `backend/`).
 - **Função / método:** algo como `_compute_next_run`, `compute_next_run`, `get_next_run`, ou uso direto de `croniter(...).get_next(datetime)`.
 
 **O que verificar:**
@@ -105,7 +111,7 @@ Se a app corre num VPS Linux e não tens a certeza onde está o código do cron,
 
 ```bash
 # Diretório de trabalho (ajusta ao teu path)
-cd /caminho/para/o/teu/projeto   # ex: cd ~/nanobot ou cd /opt/nanobot
+cd /caminho/para/o/teu/projeto   # ex: cd ~/lembretezap ou cd /app
 
 # 1) Ficheiros que mencionam next_run, run_pending, add_job, croniter
 grep -rln "next_run\|run_pending\|add_job\|croniter" --include="*.py" .
@@ -119,13 +125,13 @@ grep -rn "time\.time()\|get_next\|_compute_next" --include="*.py" .
 # 4) Onde jobs são executados (run_pending, tick, pending)
 grep -rn "run_pending\|\.tick\|pending.*job" --include="*.py" .
 
-# 5) Listar estrutura de pastas (para ver se existe backend/, nanobot/, zapista/)
+# 5) Listar estrutura de pastas (para ver se existe backend/, zapista/)
 find . -name "*.py" -path "*cron*" 2>/dev/null
 find . -name "service.py" 2>/dev/null
 find . -name "cron.py" 2>/dev/null
 ```
 
-**Resultado esperado:** vês caminhos do tipo `./backend/cron/service.py`, `./nanobot/agent/tools/cron.py`, etc. Copia esses caminhos e partilha (ou abre esse projeto no Cursor) para podermos apontar as linhas exatas.
+**Resultado esperado:** vês caminhos do tipo `./zapista/cron/service.py`, `./zapista/agent/tools/cron.py`, `./backend/`. Copia esses caminhos e partilha (ou abre esse projeto no Cursor) para podermos apontar as linhas exatas.
 
 **Se não souberes onde está o código no VPS:**
 
@@ -133,7 +139,7 @@ find . -name "cron.py" 2>/dev/null
 # Onde está o processo da tua app (ex.: python, uvicorn, gunicorn)
 ps aux | grep -E "python|uvicorn|gunicorn" | grep -v grep
 
-# A partir do resultado, vê o working directory do processo (ex.: /opt/nanobot)
+# A partir do resultado, vê o working directory do processo (ex.: /app no container)
 # ou procura por ficheiros .py em pastas comuns
 sudo find /opt /var/www /home -name "*.py" -exec grep -l "croniter\|next_run\|CronService" {} \; 2>/dev/null | head -20
 ```
