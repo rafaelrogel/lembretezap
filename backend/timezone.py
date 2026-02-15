@@ -64,6 +64,15 @@ _DEFAULT_TZ_BY_PREFIX = {
 # Ordenar por comprimento decrescente para match correto (351 antes de 35)
 _PREFIXES_SORTED = sorted(_DEFAULT_TZ_BY_PREFIX.keys(), key=len, reverse=True)
 
+# Fuso padrão por idioma (quando chat_id não tem dígitos e devolveria UTC).
+# Garante que o cliente, onde quer que esteja, tem o horário considerado.
+DEFAULT_TZ_BY_LANG: dict[str, str] = {
+    "pt-BR": "America/Sao_Paulo",
+    "pt-PT": "Europe/Lisbon",
+    "es": "Europe/Madrid",
+    "en": "America/New_York",
+}
+
 # Cidades comuns → IANA (para /tz Cidade)
 CITY_TO_IANA = {
     "lisboa": "Europe/Lisbon",

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from backend.models_db import User, _truncate_phone
 from backend.locale import LangCode, phone_to_default_language
-from backend.timezone import phone_to_default_timezone
+from backend.timezone import phone_to_default_timezone, DEFAULT_TZ_BY_LANG
 
 
 def phone_hash(phone: str) -> str:
@@ -49,16 +49,59 @@ def set_user_language(db: Session, chat_id: str, lang: LangCode) -> None:
 
 
 def get_user_timezone(db: Session, chat_id: str) -> str:
-    """Timezone do utilizador: guardado (IANA) ou inferido pelo prefixo do número."""
+    """Timezone do utilizador. Prioridade: (1) timezone/cidade informada pelo cliente (/tz ou onboarding),
+    (2) inferido do número de telefone, (3) padrão do idioma. Assim o horário fica sempre ligado ao que
+    o cliente informou quando possível."""
+    return _get_user_timezone_impl(db, chat_id)[0]
+
+
+def get_user_timezone_and_source(db: Session, chat_id: str) -> tuple[str, str]:
+    """Mesmo que get_user_timezone, mas retorna (tz_iana, source) com source em 'db'|'phone'|'language'.
+    Útil para mostrar dica '/tz Cidade' quando source != 'db'."""
+    return _get_user_timezone_impl(db, chat_id)
+
+
+def _get_user_timezone_impl(db: Session, chat_id: str) -> tuple[str, str]:
     user = get_or_create_user(db, chat_id)
+    # 1) Timezone/cidade informada pelo cliente (/tz ou onboarding com cidade)
     if user.timezone:
         try:
             from backend.timezone import is_valid_iana
             if is_valid_iana(user.timezone):
-                return user.timezone
+                # #region agent log
+                try:
+                    import json as _j
+                    _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
+                    open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "user_store.get_user_timezone", "message": "tz from DB", "data": {"tz_iana": user.timezone, "chat_id_prefix": (chat_id or "")[:24]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H4"}) + "\n")
+                except Exception:
+                    pass
+                # #endregion
+                return (user.timezone, "db")
         except Exception:
             pass
-    return phone_to_default_timezone(chat_id)
+    # 2) Inferido do número de telefone
+    fallback = phone_to_default_timezone(chat_id)
+    # 3) Se ficou UTC, usar fuso padrão do idioma (chat_id pode ser LID sem dígitos)
+    if fallback == "UTC" and getattr(user, "language", None) in DEFAULT_TZ_BY_LANG:
+        fallback = DEFAULT_TZ_BY_LANG[user.language]
+        # #region agent log
+        try:
+            import json as _j
+            _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
+            open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "user_store.get_user_timezone", "message": "tz fallback (no DB or invalid)", "data": {"tz_iana": fallback, "chat_id_prefix": (chat_id or "")[:24], "user_tz_was": getattr(user, "timezone", None)}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n")
+        except Exception:
+            pass
+        # #endregion
+        return (fallback, "language")
+    # #region agent log
+    try:
+        import json as _j
+        _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
+        open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "user_store.get_user_timezone", "message": "tz fallback (phone)", "data": {"tz_iana": fallback, "chat_id_prefix": (chat_id or "")[:24]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n")
+    except Exception:
+        pass
+    # #endregion
+    return (fallback, "phone")
 
 
 def set_user_timezone(db: Session, chat_id: str, tz_iana: str) -> bool:
@@ -129,6 +172,8 @@ def is_user_in_quiet_window(chat_id: str) -> bool:
         if not start or not end:
             return False
         tz_iana = user.timezone or phone_to_default_timezone(chat_id)
+        if tz_iana == "UTC" and getattr(user, "language", None) in DEFAULT_TZ_BY_LANG:
+            tz_iana = DEFAULT_TZ_BY_LANG[user.language]
         try:
             now = datetime.now(ZoneInfo(tz_iana))
         except Exception:

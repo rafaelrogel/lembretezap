@@ -18,6 +18,30 @@ if TYPE_CHECKING:
 
 from backend.handler_context import HandlerContext, _reply_confirm_prompt
 
+
+def _append_tz_hint_if_needed(reply: str, chat_id: str) -> str:
+    """Se o timezone não foi informado pelo cliente, acrescenta dica para /tz Cidade."""
+    if not reply or not reply.strip():
+        return reply
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import get_user_timezone_and_source, get_user_language
+        from backend.locale import TZ_HINT_SET_CITY, resolve_response_language
+        db = SessionLocal()
+        try:
+            _, source = get_user_timezone_and_source(db, chat_id)
+            if source == "db":
+                return reply
+            lang = get_user_language(db, chat_id) or "en"
+            lang = resolve_response_language(lang, chat_id, None)
+            hint = TZ_HINT_SET_CITY.get(lang, TZ_HINT_SET_CITY["en"])
+            return f"{reply.strip()}\n\n{hint}"
+        finally:
+            db.close()
+    except Exception:
+        return reply
+
+
 # ---------------------------------------------------------------------------
 # Confirmação de oferta pendente: «Quero sim» após oferta de lembrete — Mimo
 # ---------------------------------------------------------------------------
@@ -79,7 +103,7 @@ async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str 
         in_seconds=in_sec,
         cron_expr=cron_expr,
     )
-    return result
+    return _append_tz_hint_if_needed(result, ctx.chat_id)
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +182,20 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
     except Exception:
         pass
 
+    # Fallback: se timezone ficou UTC, usar fuso padrão do idioma (chat_id pode ser LID sem dígitos)
+    from backend.timezone import DEFAULT_TZ_BY_LANG
+    if tz_iana == "UTC" and user_lang in DEFAULT_TZ_BY_LANG:
+        tz_iana = DEFAULT_TZ_BY_LANG[user_lang]
+
+    # #region agent log
+    try:
+        import json as _j
+        _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
+        open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "handlers.handle_vague_time_reminder.tz", "message": "tz_iana set", "data": {"tz_iana": tz_iana, "chat_id_prefix": (ctx.chat_id or "")[:24]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n")
+    except Exception:
+        pass
+    # #endregion
+
     def _retry_or_fail(flow: dict, current_question: str) -> str | None:
         """Incrementa retry_count; se >= MAX_RETRIES, desiste e retorna REMINDER_FAILED_NO_INFO."""
         retry = flow.get("retry_count", 0) + 1
@@ -203,6 +241,14 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
             if parsed:
                 hour, minute = parsed
                 in_sec = compute_in_seconds_from_date_hour(date_label, hour, minute, tz_iana)
+                # #region agent log
+                try:
+                    import json as _j
+                    _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
+                    open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "handlers.STAGE_NEED_TIME.after_compute", "message": "computed in_sec", "data": {"tz_iana": tz_iana, "date_label": date_label, "hour": hour, "minute": minute, "in_sec": in_sec, "chat_id_prefix": (ctx.chat_id or "")[:24]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H3"}) + "\n")
+                except Exception:
+                    pass
+                # #endregion
                 if in_sec and in_sec > 0:
                     session.metadata[FLOW_KEY] = {
                         "stage": STAGE_NEED_ADVANCE_PREFERENCE,
@@ -231,7 +277,7 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                         message=msg_content,
                         in_seconds=in_sec,
                     )
-                    return result
+                    return _append_tz_hint_if_needed(result, ctx.chat_id)
 
             if looks_like_advance_preference_yes(text):
                 session.metadata[FLOW_KEY] = {
@@ -261,7 +307,8 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                         message=msg_content,
                         in_seconds=in_sec,
                     )
-                    return f"{r1}\n\n{r2}" if r1 and r2 else (r1 or r2)
+                    out = f"{r1}\n\n{r2}" if r1 and r2 else (r1 or r2)
+                    return _append_tz_hint_if_needed(out, ctx.chat_id)
 
             q = REMINDER_ASK_ADVANCE_PREFERENCE.get(user_lang, REMINDER_ASK_ADVANCE_PREFERENCE["en"])
             return _retry_or_fail(flow, q)
@@ -285,7 +332,8 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                         message=msg_content,
                         in_seconds=in_sec,
                     )
-                    return f"{r1}\n\n{r2}" if r1 and r2 else (r1 or r2)
+                    out = f"{r1}\n\n{r2}" if r1 and r2 else (r1 or r2)
+                    return _append_tz_hint_if_needed(out, ctx.chat_id)
 
             q = REMINDER_ASK_ADVANCE_AMOUNT.get(user_lang, REMINDER_ASK_ADVANCE_AMOUNT["en"])
             return _retry_or_fail(flow, q)
@@ -397,7 +445,7 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
                 return ask_msg
             return None
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
-    return await ctx.cron_tool.execute(
+    result = await ctx.cron_tool.execute(
         action="add",
         message=msg_text,
         in_seconds=in_sec,
@@ -408,6 +456,7 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
         depends_on_job_id=depends_on,
         has_deadline=bool(intent.get("has_deadline")),
     )
+    return _append_tz_hint_if_needed(result, ctx.chat_id)
 
 
 async def handle_list_or_events_ambiguous(ctx: HandlerContext, content: str) -> str | None:
@@ -565,7 +614,7 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
         return "📅 Usa algo como: /recorrente academia segunda 7h  ou  /recorrente beber água a cada 1 hora"
     depends_on = intent.get("depends_on_job_id")
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
-    return await ctx.cron_tool.execute(
+    result = await ctx.cron_tool.execute(
         action="add",
         message=msg_text,
         every_seconds=every_sec,
@@ -573,6 +622,7 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
         start_date=start_date,
         depends_on_job_id=depends_on,
     )
+    return _append_tz_hint_if_needed(result, ctx.chat_id)
 
 
 async def handle_pendente(ctx: HandlerContext, content: str) -> str | None:
@@ -815,12 +865,14 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
             )
             if result and "Error" not in result:
                 if end_display:
-                    return RECURRING_REGISTERED_UNTIL.get(user_lang, RECURRING_REGISTERED_UNTIL["en"]).format(
+                    out = RECURRING_REGISTERED_UNTIL.get(user_lang, RECURRING_REGISTERED_UNTIL["en"]).format(
                         event=event, schedule=schedule_display, end=end_display
                     )
-                return RECURRING_REGISTERED.get(user_lang, RECURRING_REGISTERED["en"]).format(
-                    event=event, schedule=schedule_display
-                )
+                else:
+                    out = RECURRING_REGISTERED.get(user_lang, RECURRING_REGISTERED["en"]).format(
+                        event=event, schedule=schedule_display
+                    )
+                return _append_tz_hint_if_needed(out, ctx.chat_id)
             return result
 
     # --- Novo pedido: detectar evento recorrente com horário ---

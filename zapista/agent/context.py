@@ -56,9 +56,23 @@ class ContextBuilder:
                     _tz_iana = get_user_timezone(_db, _chat_id)
                     _z = ZoneInfo(_tz_iana)
                     now_for_prompt = datetime.now(_z).strftime("%Y-%m-%d %H:%M (%A)")
+                    # #region agent log
+                    try:
+                        import json as _j
+                        _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
+                        open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "context.build_system_prompt.now", "message": "Current Time for prompt", "data": {"tz_iana": _tz_iana, "now_for_prompt": now_for_prompt, "chat_id_prefix": (_chat_id or "")[:24]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H2"}) + "\n")
+                    except Exception:
+                        pass
+                    # #endregion
                 finally:
                     _db.close()
-            except Exception:
+            except Exception as _e:
+                try:
+                    import json as _j
+                    _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
+                    open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "context.build_system_prompt.fallback", "message": "Current Time fallback (exception)", "data": {"error": str(_e)[:80], "chat_id_prefix": (session_key or "").split(":", 1)[-1][:24] if session_key else ""}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H2"}) + "\n")
+                except Exception:
+                    pass
                 pass
         # Core identity (uses now_for_prompt when available so "Que horas são?" gets user's time)
         parts.append(self._get_identity(now_override=now_for_prompt))

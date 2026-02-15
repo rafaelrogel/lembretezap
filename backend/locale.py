@@ -368,6 +368,14 @@ REMINDER_RETRY_SUFFIX: dict[LangCode, str] = {
     "en": " ({n} of 3 attempts)",
 }
 
+# Dica quando o timezone não foi informado pelo cliente (para acertar sempre o horário)
+TZ_HINT_SET_CITY: dict[LangCode, str] = {
+    "pt-PT": "💡 Para garantir que os lembretes são à tua hora: /tz Cidade (ex.: /tz Lisboa).",
+    "pt-BR": "💡 Para garantir que os lembretes sejam no seu horário: /tz Cidade (ex.: /tz São Paulo).",
+    "es": "💡 Para que los recordatorios sean a tu hora: /tz Ciudad (ej.: /tz Madrid).",
+    "en": "💡 To have reminders at your local time: /tz City (e.g. /tz New York).",
+}
+
 # Evento recorrente: confirmação simpática
 RECURRING_EVENT_CONFIRM: dict[LangCode, str] = {
     "pt-PT": "Parece que {event} é um evento recorrente! Queres que eu registe para {schedule}? 😊",

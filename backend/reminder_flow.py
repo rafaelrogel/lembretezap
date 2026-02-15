@@ -299,6 +299,15 @@ def compute_in_seconds_from_date_hour(
         now = datetime.now(tz=z)
         today = now.date()
 
+        # #region agent log
+        try:
+            import json as _j
+            _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
+            open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "reminder_flow.compute_in_seconds.entry", "message": "compute_in_seconds", "data": {"tz_iana": tz_iana, "date_label": date_label, "hour": hour, "minute": minute, "now_str": now.isoformat()[:25]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H3"}) + "\n")
+        except Exception:
+            pass
+        # #endregion
+
         target_date = today
         dl = date_label.lower().strip()
 
@@ -324,6 +333,14 @@ def compute_in_seconds_from_date_hour(
         )
         delta = (target - now).total_seconds()
         if delta > 0 and delta <= 86400 * 365:
+            # #region agent log
+            try:
+                import json as _j
+                _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
+                open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "reminder_flow.compute_in_seconds.exit", "message": "computed delta", "data": {"target_str": target.isoformat()[:25], "delta_sec": int(delta), "tz_iana": tz_iana}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H3"}) + "\n")
+            except Exception:
+                pass
+            # #endregion
             return int(delta)
     except Exception:
         pass
