@@ -42,8 +42,26 @@ class ContextBuilder:
         """
         parts = []
         
-        # Core identity
-        parts.append(self._get_identity())
+        # Current time for "Current Time" in identity: user TZ when we have session_key, else server
+        now_for_prompt = None
+        if session_key and ":" in session_key:
+            try:
+                _chat_id = session_key.split(":", 1)[1]
+                from backend.database import SessionLocal
+                from backend.user_store import get_user_timezone
+                from datetime import datetime
+                from zoneinfo import ZoneInfo
+                _db = SessionLocal()
+                try:
+                    _tz_iana = get_user_timezone(_db, _chat_id)
+                    _z = ZoneInfo(_tz_iana)
+                    now_for_prompt = datetime.now(_z).strftime("%Y-%m-%d %H:%M (%A)")
+                finally:
+                    _db.close()
+            except Exception:
+                pass
+        # Core identity (uses now_for_prompt when available so "Que horas são?" gets user's time)
+        parts.append(self._get_identity(now_override=now_for_prompt))
         
         # Bootstrap files
         bootstrap = self._load_bootstrap_files()
@@ -67,10 +85,11 @@ Skills with available="false" need dependencies (apt/brew).
         
         return "\n\n---\n\n".join(parts)
     
-    def _get_identity(self) -> str:
-        """Core identity — compact. Details in RULES_*.md (load via read_file when needed)."""
+    def _get_identity(self, now_override: str | None = None) -> str:
+        """Core identity — compact. Details in RULES_*.md (load via read_file when needed).
+        now_override: when set (e.g. from user timezone in build_system_prompt), use as Current Time; else server now."""
         from datetime import datetime
-        now = datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
+        now = now_override if now_override else datetime.now().strftime("%Y-%m-%d %H:%M (%A)")
         workspace_path = str(self.workspace.expanduser().resolve())
         system = platform.system()
         runtime = f"{'macOS' if system == 'Darwin' else system} {platform.machine()}, Python {platform.python_version()}"

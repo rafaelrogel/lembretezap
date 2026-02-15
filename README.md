@@ -55,6 +55,29 @@ Crie `~/.zapista/config.json` (ou `%USERPROFILE%\.zapista\config.json` no Window
 - `allow_from`: lista vazia = qualquer número; ou `["5511999999999"]` (país + número, sem + nem espaços).
 - As chaves **DeepSeek** e **Xiaomi** põem-se no `.env` (`ZAPISTA_PROVIDERS__DEEPSEEK__API_KEY`, `ZAPISTA_PROVIDERS__XIAOMI__API_KEY`). Ver [DEPLOY.md](DEPLOY.md) § 1.1.
 
+### Rate limit (mensagens por minuto)
+
+O limite de mensagens é **por utilizador** (por chat). Evita abuso e controla custos de API.
+
+| Variável | Descrição | Default |
+|----------|-----------|---------|
+| `RATE_LIMIT_MAX_PER_MINUTE` | Máximo de mensagens por utilizador por minuto | `15` |
+
+**Como ativar e alterar:**
+
+- **Sem Docker:** no `.env` (ou export no shell):
+  ```bash
+  RATE_LIMIT_MAX_PER_MINUTE=30
+  ```
+- **Com Docker:** no `.env` do projeto ou em `docker-compose.override.yml`:
+  ```yaml
+  environment:
+    - RATE_LIMIT_MAX_PER_MINUTE=30
+  ```
+  O `docker-compose.yml` já usa `RATE_LIMIT_MAX_PER_MINUTE=${RATE_LIMIT_MAX_PER_MINUTE:-15}`; basta definir a variável no `.env`.
+
+**Comportamento:** entre 5 e 300 mensagens/minuto (valores fora deste intervalo são ajustados). Ao ultrapassar o limite, o utilizador recebe *"Muitas mensagens. Aguarde um minuto."* e a mensagem não é processada. O algoritmo é token bucket (permite picos curtos e depois refill contínuo).
+
 ### God Mode (comandos admin)
 
 O bot está **disponível para qualquer pessoa** no WhatsApp. Os comandos admin (`#status`, `#users`, etc.) são protegidos por **senha**:
