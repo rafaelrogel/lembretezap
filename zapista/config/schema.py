@@ -1,7 +1,7 @@
 """Configuration schema using Pydantic."""
 
 from pathlib import Path
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings
 
 
@@ -77,12 +77,14 @@ class ToolsConfig(BaseModel):
 
 class Config(BaseSettings):
     """Root configuration for zapista."""
+    model_config = ConfigDict(env_prefix="ZAPISTA_", env_nested_delimiter="__")
+
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
     channels: ChannelsConfig = Field(default_factory=ChannelsConfig)
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
-    
+
     @property
     def workspace_path(self) -> Path:
         """Get expanded workspace path."""
@@ -133,7 +135,3 @@ class Config(BaseSettings):
             if p == getattr(self.providers, name):
                 return url
         return None
-    
-    class Config:
-        env_prefix = "ZAPISTA_"
-        env_nested_delimiter = "__"

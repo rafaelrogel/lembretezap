@@ -1,7 +1,12 @@
 """DB models: User, List, ListItem, Event, AuditLog. Minimal PII (phone truncated)."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
+
+
+def _utc_now() -> datetime:
+    """UTC now (timezone-aware). Use for Column default/onupdate."""
+    return datetime.now(timezone.utc)
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship, declarative_base
@@ -30,8 +35,8 @@ class User(Base):
     timezone = Column(String(64), nullable=True)  # IANA e.g. Europe/Lisbon, America/Sao_Paulo (None = infer from phone)
     quiet_start = Column(String(5), nullable=True)  # HH:MM início do horário silencioso (ex.: 22:00)
     quiet_end = Column(String(5), nullable=True)    # HH:MM fim (ex.: 08:00); janela pode ser overnight
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
+    updated_at = Column(DateTime, default=_utc_now, onupdate=_utc_now)
 
     lists = relationship("List", back_populates="user", cascade="all, delete-orphan")
     events = relationship("Event", back_populates="user", cascade="all, delete-orphan")
@@ -44,7 +49,7 @@ class Project(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(128), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
 
 class List(Base):
@@ -54,7 +59,7 @@ class List(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(128), nullable=False)  # e.g. "mercado", "pendentes"
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)  # agrupa listas em projetos
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
     user = relationship("User", back_populates="lists")
     items = relationship(
@@ -72,7 +77,7 @@ class Habit(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(128), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
 
 class HabitCheck(Base):
@@ -82,7 +87,7 @@ class HabitCheck(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     habit_id = Column(Integer, ForeignKey("habits.id"), nullable=False, index=True)
     check_date = Column(String(10), nullable=False)  # YYYY-MM-DD em timezone do user
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
 
 class Goal(Base):
@@ -93,7 +98,7 @@ class Goal(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(256), nullable=False)
     deadline = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
     done = Column(Boolean, default=False)
 
 
@@ -104,7 +109,7 @@ class Note(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     text = Column(Text, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
 
 class Bookmark(Base):
@@ -117,7 +122,7 @@ class Bookmark(Base):
     context = Column(Text, nullable=True)  # última mensagem do assistente (opcional)
     tags_json = Column(Text, nullable=False)  # ["receita", "lasanha", "espinafres"]
     category = Column(String(64), nullable=True)  # receita | ideia | link | tarefa | outro
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
 
 class ListTemplate(Base):
@@ -128,7 +133,7 @@ class ListTemplate(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(128), nullable=False)
     items_json = Column(Text, nullable=False)  # JSON array ["item1", "item2"]
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
 
 class ListItem(Base):
@@ -139,7 +144,7 @@ class ListItem(Base):
     text = Column(String(512), nullable=False)
     done = Column(Boolean, default=False)
     position = Column(Integer, default=0, nullable=False)  # ordem na lista; shuffle altera isto
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
     list_ref = relationship("List", back_populates="items")
 
@@ -153,7 +158,7 @@ class Event(Base):
     payload = Column(JSON, nullable=False)  # {"nome": "...", "data": "...", ...}
     data_at = Column(DateTime, nullable=True)  # quando ocorre
     recorrente = Column(String(128), nullable=True)  # cron expr or "every N seconds"
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
     deleted = Column(Boolean, default=False)
 
     user = relationship("User", back_populates="events")
@@ -167,7 +172,7 @@ class ReminderHistory(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     kind = Column(String(16), nullable=False)  # 'scheduled' | 'delivered' (legado); preferir status
     message = Column(Text, nullable=False)     # texto do pedido ou da mensagem enviada
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
     # Campos expandidos: correlação com job e auditoria (evita "sumiu", "cadê a mensagem?")
     job_id = Column(String(64), nullable=True, index=True)   # ID do job cron; permite update_on_delivery
@@ -187,7 +192,7 @@ class SentReminderMapping(Base):
     chat_id = Column(String(256), nullable=False, index=True)
     message_id = Column(String(64), nullable=False, index=True)
     job_id = Column(String(64), nullable=False, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
 
 class HouseChoreTask(Base):
@@ -203,7 +208,7 @@ class HouseChoreTask(Base):
     time_hhmm = Column(String(5), nullable=False)     # HH:MM
     rotation_enabled = Column(Boolean, default=False)
     last_person_idx = Column(Integer, default=-1)      # -1 = ainda não rodou; 0,1,2... = índice em ChorePerson
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
 
 class HouseChorePerson(Base):
@@ -214,7 +219,7 @@ class HouseChorePerson(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(64), nullable=False)
     order_idx = Column(Integer, default=0)  # ordem na rotação
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)
 
 
 class AuditLog(Base):
@@ -225,4 +230,4 @@ class AuditLog(Base):
     action = Column(String(64), nullable=False)  # list_add, list_remove, list_feito, event_add, etc.
     resource = Column(String(128), nullable=True)  # list name, event id
     payload_json = Column(Text, nullable=True)  # JSON com detalhes para recuperação (ex: {"item_text": "pão"})
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=_utc_now)

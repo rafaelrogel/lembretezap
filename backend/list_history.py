@@ -17,7 +17,7 @@ from backend.user_store import get_or_create_user
 
 def _utc_week_range(weeks_ago: int = 1) -> tuple[datetime, datetime]:
     """Retorna (início, fim) da semana N atrás, em UTC. Semana = seg-dom."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     # Segunda = dia 0 da semana
     today = now.date()
     days_since_monday = (today.weekday()) % 7
@@ -75,7 +75,7 @@ def get_frequent_items(
     Retorna {list_name: [(item_text, count), ...]} ordenado por count desc.
     """
     user = get_or_create_user(db, chat_id)
-    since = datetime.utcnow() - timedelta(weeks=weeks)
+    since = datetime.now(timezone.utc) - timedelta(weeks=weeks)
 
     lists_data: dict[str, Counter[str]] = {}
     for lst in db.query(List).filter(List.user_id == user.id).all():

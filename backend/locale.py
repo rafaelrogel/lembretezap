@@ -266,6 +266,173 @@ OUT_OF_SCOPE_FALLBACKS: dict[LangCode, list[str]] = {
 }
 
 
+# Nome do comando a mostrar no /help por idioma (canónico -> nome localizado)
+COMMAND_DISPLAY_NAME: dict[LangCode, dict[str, str]] = {
+    "pt-PT": {
+        "/lembrete": "/lembrete",
+        "/list": "/lista",
+        "/hoje": "/hoje",
+        "/semana": "/semana",
+        "/timeline": "/linha",
+        "/stats": "/estatísticas",
+        "/resumo": "/resumo",
+        "/recorrente": "/recorrente",
+        "/meta": "/meta",
+        "/metas": "/metas",
+        "/pomodoro": "/pomodoro",
+        "/tz": "/tz",
+        "/lang": "/idioma",
+        "/reset": "/reset",
+        "/quiet": "/silêncio",
+    },
+    "pt-BR": {
+        "/lembrete": "/lembrete",
+        "/list": "/lista",
+        "/hoje": "/hoje",
+        "/semana": "/semana",
+        "/timeline": "/linha",
+        "/stats": "/estatísticas",
+        "/resumo": "/resumo",
+        "/recorrente": "/recorrente",
+        "/meta": "/meta",
+        "/metas": "/metas",
+        "/pomodoro": "/pomodoro",
+        "/tz": "/tz",
+        "/lang": "/idioma",
+        "/reset": "/reset",
+        "/quiet": "/silêncio",
+    },
+    "es": {
+        "/lembrete": "/recordatorio",
+        "/list": "/lista",
+        "/hoje": "/hoy",
+        "/semana": "/semana",
+        "/timeline": "/cronología",
+        "/stats": "/estadísticas",
+        "/resumo": "/resumen",
+        "/recorrente": "/recurrente",
+        "/meta": "/objetivo",
+        "/metas": "/objetivos",
+        "/pomodoro": "/pomodoro",
+        "/tz": "/ciudad",
+        "/lang": "/idioma",
+        "/reset": "/reiniciar",
+        "/quiet": "/silencio",
+    },
+    "en": {
+        "/lembrete": "/remind",
+        "/list": "/list",
+        "/hoje": "/today",
+        "/semana": "/week",
+        "/timeline": "/timeline",
+        "/stats": "/stats",
+        "/resumo": "/summary",
+        "/recorrente": "/recurring",
+        "/meta": "/goal",
+        "/metas": "/goals",
+        "/pomodoro": "/pomodoro",
+        "/tz": "/timezone",
+        "/lang": "/language",
+        "/reset": "/reset",
+        "/quiet": "/silent",
+    },
+}
+
+
+# /help — texto completo localizado; use {{/comando}} para o nome localizado (substituído por build_help)
+HELP_FULL: dict[LangCode, str] = {
+    "pt-PT": (
+        "*Comandos*\n"
+        "• {{/lembrete}} — agendar (ex.: amanhã 9h; em 30 min)\n"
+        "• {{/list}} — listas (compras, receitas, livros, músicas, notas, sites, coisas a fazer). Ex.: {{/list}} mercado add leite\n"
+        "• {{/hoje}}, {{/semana}} — ver o que tens hoje ou esta semana\n"
+        "• {{/timeline}} — histórico (lembretes, tarefas, eventos)\n"
+        "• {{/stats}} — estatísticas; {{/stats}} dia ou {{/stats}} semana\n"
+        "• {{/resumo}} — resumo da semana\n"
+        "• {{/recorrente}} — lembretes recorrentes (ex.: {{/recorrente}} beber água todo dia 8h)\n"
+        "• {{/meta}} add Nome até DD/MM — metas com prazo; {{/metas}} para listar\n"
+        "• {{/pomodoro}} — timer 25 min foco; {{/pomodoro}} stop para cancelar\n\n"
+        "*Configuração*\n"
+        "• {{/tz}} Cidade — definir fuso (ex.: {{/tz}} Lisboa)\n"
+        "• {{/lang}} — idioma: pt-pt, pt-br, es, en\n"
+        "• {{/reset}} — refazer cadastro (nome, cidade)\n"
+        "• {{/quiet}} 22:00-08:00 — horário silencioso\n\n"
+        "*Dicas*\n"
+        '• Marcar item como feito: podes dizer por áudio ("pronto", "já fiz"), escrever texto ou usar emoji ("✓", "👍") — não precisas de comando.\n'
+        '• Conversa por mensagem ou áudio; se quiseres resposta em áudio, pede "responde em áudio", "manda áudio" ou "fala comigo". 😊'
+    ),
+    "pt-BR": (
+        "*Comandos*\n"
+        "• {{/lembrete}} — agendar (ex.: amanhã 9h; em 30 min)\n"
+        "• {{/list}} — listas (compras, receitas, livros, músicas, notas, sites, coisas a fazer). Ex.: {{/list}} mercado add leite\n"
+        "• {{/hoje}}, {{/semana}} — ver o que você tem hoje ou esta semana\n"
+        "• {{/timeline}} — histórico (lembretes, tarefas, eventos)\n"
+        "• {{/stats}} — estatísticas; {{/stats}} dia ou {{/stats}} semana\n"
+        "• {{/resumo}} — resumo da semana\n"
+        "• {{/recorrente}} — lembretes recorrentes (ex.: {{/recorrente}} beber água todo dia 8h)\n"
+        "• {{/meta}} add Nome até DD/MM — metas com prazo; {{/metas}} para listar\n"
+        "• {{/pomodoro}} — timer 25 min foco; {{/pomodoro}} stop para cancelar\n\n"
+        "*Configuração*\n"
+        "• {{/tz}} Cidade — definir fuso (ex.: {{/tz}} São Paulo)\n"
+        "• {{/lang}} — idioma: pt-pt, pt-br, es, en\n"
+        "• {{/reset}} — refazer cadastro (nome, cidade)\n"
+        "• {{/quiet}} 22:00-08:00 — horário silencioso\n\n"
+        "*Dicas*\n"
+        '• Marcar item como feito: você pode dizer por áudio ("pronto", "já fiz"), escrever texto ou usar emoji ("✓", "👍") — não precisa de comando.\n'
+        '• Conversa por mensagem ou áudio; se quiser resposta em áudio, peça "responde em áudio", "manda áudio" ou "fala comigo". 😊'
+    ),
+    "es": (
+        "*Comandos*\n"
+        "• {{/lembrete}} — programar (ej.: mañana 9h; en 30 min)\n"
+        "• {{/list}} — listas (compras, recetas, libros, música, notas, sitios, cosas por hacer). Ej.: {{/list}} mercado add leche\n"
+        "• {{/hoje}}, {{/semana}} — ver qué tienes hoy o esta semana\n"
+        "• {{/timeline}} — historial (recordatorios, tareas, eventos)\n"
+        "• {{/stats}} — estadísticas; {{/stats}} dia o {{/stats}} semana\n"
+        "• {{/resumo}} — resumen de la semana\n"
+        "• {{/recorrente}} — recordatorios recurrentes (ej.: {{/recorrente}} beber agua cada día 8h)\n"
+        "• {{/meta}} add Nombre hasta DD/MM — metas con plazo; {{/metas}} para listar\n"
+        "• {{/pomodoro}} — temporizador 25 min foco; {{/pomodoro}} stop para cancelar\n\n"
+        "*Configuración*\n"
+        "• {{/tz}} Ciudad — definir huso (ej.: {{/tz}} Madrid)\n"
+        "• {{/lang}} — idioma: pt-pt, pt-br, es, en\n"
+        "• {{/reset}} — rehacer registro (nombre, ciudad)\n"
+        "• {{/quiet}} 22:00-08:00 — horario silencioso\n\n"
+        "*Consejos*\n"
+        '• Marcar ítem como hecho: puedes decir por audio ("listo", "ya está"), escribir o usar emoji ("✓", "👍") — no hace falta comando.\n'
+        '• Conversa por mensaje o audio; si quieres respuesta en audio, pide "responde en audio", "manda audio" o "háblame". 😊'
+    ),
+    "en": (
+        "*Commands*\n"
+        "• {{/lembrete}} — schedule (e.g. tomorrow 9am; in 30 min)\n"
+        "• {{/list}} — lists (shopping, recipes, books, music, notes, sites, to-dos). E.g.: {{/list}} market add milk\n"
+        "• {{/hoje}}, {{/semana}} — see what you have today or this week\n"
+        "• {{/timeline}} — history (reminders, tasks, events)\n"
+        "• {{/stats}} — statistics; {{/stats}} day or {{/stats}} week\n"
+        "• {{/resumo}} — week summary\n"
+        "• {{/recorrente}} — recurring reminders (e.g. {{/recorrente}} drink water every day 8am)\n"
+        "• {{/meta}} add Name until DD/MM — goals with deadline; {{/metas}} to list\n"
+        "• {{/pomodoro}} — 25 min focus timer; {{/pomodoro}} stop to cancel\n\n"
+        "*Settings*\n"
+        "• {{/tz}} City — set timezone (e.g. {{/tz}} London)\n"
+        "• {{/lang}} — language: pt-pt, pt-br, es, en\n"
+        "• {{/reset}} — redo signup (name, city)\n"
+        "• {{/quiet}} 22:00-08:00 — quiet hours\n\n"
+        "*Tips*\n"
+        '• Mark item done: you can say by voice ("done", "finished"), type or use emoji ("✓", "👍") — no command needed.\n'
+        '• Chat by message or voice; for voice reply ask "reply in audio", "send audio" or "talk to me". 😊'
+    ),
+}
+
+
+def build_help(lang: LangCode) -> str:
+    """Devolve o texto completo do /help no idioma, com nomes de comandos localizados."""
+    text = HELP_FULL.get(lang, HELP_FULL["en"])
+    names = COMMAND_DISPLAY_NAME.get(lang, COMMAND_DISPLAY_NAME["en"])
+    for canonical, display_name in names.items():
+        text = text.replace("{{" + canonical + "}}", display_name)
+    return text
+
+
 # Fallback quando o agente não produz resposta (ex.: mensagem muito longa, stress test)
 AGENT_NO_RESPONSE_FALLBACK: dict[LangCode, str] = {
     "pt-PT": "Desculpa, não consegui processar completamente. Podes reformular ou dividir em partes mais pequenas? /help mostra os comandos. Podes escrever ou enviar áudio. 😊",

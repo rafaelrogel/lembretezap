@@ -1,6 +1,6 @@
 """Histórico de pedidos e lembretes para o cliente rever e para análises («rever lembretes», «quantos esta semana?»)."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 from sqlalchemy.orm import Session
@@ -48,7 +48,7 @@ def add_delivered(db: Session, chat_id: str, message: str) -> None:
         kind="delivered",
         message=(message or "").strip() or "",
         status="sent",
-        delivered_at=datetime.utcnow(),
+        delivered_at=datetime.now(timezone.utc),
     )
     db.add(row)
     _trim_history(db, user.id)
@@ -82,7 +82,7 @@ def update_on_delivery(
     row.kind = "delivered"
     row.message = (message or "").strip() or row.message
     row.status = "failed" if failed else "sent"
-    row.delivered_at = datetime.utcnow()
+    row.delivered_at = datetime.now(timezone.utc)
     row.provider_error = (provider_error or "")[:256] if provider_error else None
     db.commit()
     return True

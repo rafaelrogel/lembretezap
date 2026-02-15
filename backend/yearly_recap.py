@@ -5,7 +5,7 @@ Envia a cada utilizador com sessão ativa: agradecimento, estatísticas do ano (
 mensagens, listas), benefícios e tempo de organização poupado.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from loguru import logger
@@ -218,7 +218,7 @@ async def run_year_recap(
     from backend.database import SessionLocal
     from zapista.bus.events import OutboundMessage
 
-    year = datetime.utcnow().year - 1  # ano passado
+    year = datetime.now(timezone.utc).year - 1  # ano passado
     sent = 0
     errors = 0
 

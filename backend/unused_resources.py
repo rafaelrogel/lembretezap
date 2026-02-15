@@ -21,7 +21,7 @@ def gather_unused_resources(
     Reúne recursos sem atividade nos últimos N dias.
     Retorna: {lists_unused: [...], cron_unused: [...], summary: str}.
     """
-    since = datetime.utcnow() - timedelta(days=days)
+    since = datetime.now(timezone.utc) - timedelta(days=days)
     since_ts_ms = int(since.timestamp() * 1000)
 
     # Listas: última atividade (AuditLog ou ListItem) há mais de N dias

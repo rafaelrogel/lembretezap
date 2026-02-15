@@ -557,29 +557,20 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
 
 
 async def handle_help(ctx: HandlerContext, content: str) -> str | None:
-    """/help: lista de comandos e como usar o assistente."""
+    """/help: lista de comandos e como usar o assistente (localizado em pt-PT, pt-BR, es, en)."""
     if not content.strip().lower().startswith("/help"):
         return None
-    return (
-        "*Comandos*\n"
-        "• /lembrete — agendar (ex.: amanhã 9h; em 30 min)\n"
-        "• /list — listas (compras, receitas, livros, músicas, notas, sites, coisas a fazer). Ex.: /list mercado add leite\n"
-        "• /hoje, /semana — ver o que tens hoje ou esta semana\n"
-        "• /timeline — histórico (lembretes, tarefas, eventos)\n"
-        "• /stats — estatísticas; /stats dia ou /stats semana\n"
-        "• /resumo — resumo da semana\n"
-        "• /recorrente — lembretes recorrentes (ex.: /recorrente beber água todo dia 8h)\n"
-        "• /meta add Nome até DD/MM — metas com prazo; /metas para listar\n"
-        "• /pomodoro — timer 25 min foco; /pomodoro stop para cancelar\n\n"
-        "*Configuração*\n"
-        "• /tz Cidade — definir fuso (ex.: /tz Lisboa)\n"
-        "• /lang — idioma: pt-pt, pt-br, es, en\n"
-        "• /reset — refazer cadastro (nome, cidade)\n"
-        "• /quiet 22:00-08:00 — horário silencioso\n\n"
-        "*Dicas*\n"
-        '• Marcar item como feito: podes dizer por áudio ("pronto", "já fiz"), escrever texto ou usar emoji ("✓", "👍") — não precisas de comando.\n'
-        '• Conversa por mensagem ou áudio; se quiseres resposta em áudio, pede "responde em áudio", "manda áudio" ou "fala comigo". 😊'
-    )
+    from backend.database import SessionLocal
+    from backend.user_store import get_user_language
+    from backend.locale import build_help, resolve_response_language
+
+    db = SessionLocal()
+    try:
+        user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+        user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
+        return build_help(user_lang)
+    finally:
+        db.close()
 
 
 async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:

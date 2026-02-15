@@ -475,7 +475,8 @@ async def _cmd_tz(db_session_factory: Any, user_arg: str) -> str:
             hora_local = format_utc_timestamp_for_user(now_sec, tz_iana)
             lines.append(f"Hora local: {hora_local}")
 
-        lines.append(f"Hora servidor (UTC): {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}")
+        from datetime import datetime, timezone
+        lines.append(f"Hora servidor (UTC): {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}")
         return "\n".join(lines)
     except Exception as e:
         logger.debug(f"admin #tz failed: {e}")
@@ -490,7 +491,7 @@ async def _cmd_history(db_session_factory: Any, user_arg: str) -> str:
         return "#history\nErro: DB não disponível."
     digits = _digits(user_arg)
     try:
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
         from backend.user_store import get_or_create_user
         from backend.models_db import ReminderHistory, AuditLog
 
@@ -498,7 +499,7 @@ async def _cmd_history(db_session_factory: Any, user_arg: str) -> str:
         try:
             chat_id = f"{digits}@s.whatsapp.net"
             user = get_or_create_user(db, chat_id)
-            since = datetime.utcnow() - timedelta(days=14)
+            since = datetime.now(timezone.utc) - timedelta(days=14)
 
             entries = []
             for r in db.query(ReminderHistory).filter(

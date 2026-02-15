@@ -40,7 +40,7 @@ def _load_sent_tracking() -> dict[str, str]:
         return {}
     try:
         data = json.loads(_SENT_FILE.read_text())
-        today = datetime.utcnow().strftime("%Y-%m-%d")
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         return {k: v for k, v in (data or {}).items() if v == today}
     except Exception:
         return {}
@@ -56,7 +56,7 @@ def _mark_sent_today(chat_id: str) -> None:
             data = json.loads(_SENT_FILE.read_text()) or {}
         except Exception:
             pass
-    data[str(chat_id)] = datetime.utcnow().strftime("%Y-%m-%d")
+    data[str(chat_id)] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     _SENT_FILE.write_text(json.dumps(data, indent=0))
 
 
@@ -81,7 +81,7 @@ def gather_user_context(
     cron_jobs: lista de CronJob onde payload.to == chat_id (opcional).
     """
     user = get_or_create_user(db, chat_id)
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     week_ago = now - timedelta(days=7)
     week_ahead = now + timedelta(days=7)
 

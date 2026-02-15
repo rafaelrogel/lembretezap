@@ -1,7 +1,7 @@
 """Perguntas analíticas (quantos lembretes, horas comuns, resumos) — Mimo."""
 
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -52,7 +52,7 @@ async def handle_analytics(ctx: "HandlerContext", content: str) -> str | None:
 
     db = SessionLocal()
     try:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         week_start = now - timedelta(days=now.weekday())
         entries = get_reminder_history(db, ctx.chat_id, kind=None, limit=100, since=week_start)
         week_ago = now - timedelta(days=7)
