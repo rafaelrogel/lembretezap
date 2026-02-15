@@ -51,6 +51,16 @@ RE_NL_POR_LISTA = re.compile(
 )
 # NL: "anota X" / "anotar X" (sem "na lista") → list_add notas
 RE_NL_ANOTA = re.compile(r"^(?:anota|anotar)\s+(.+)$", re.I)
+# NL: "hoje tenho muita coisa para fazer, X, Y e Z" → sempre list_add hoje (to-do)
+RE_NL_MUITA_COISA = re.compile(
+    r"^(?:hoje\s+)?tenho\s+(muita\s+coisa|v[aá]rias\s+coisas|v[aá]rias\s+tarefas)(\s+para\s+fazer)?\s*[,:]\s*(.+)$",
+    re.I,
+)
+# NL: "tenho de X, Y e Z" — 1 item = evento (return None); 2+ itens = ambíguo (list_or_events_ambiguous)
+RE_NL_HOJE_TENHO_DE = re.compile(
+    r"^(?:hoje\s+)?tenho\s+(?:de|que)\s+(.+)$",
+    re.I,
+)
 # NL: "lembra de comprar X", "não esqueças de comprar X" → list_add mercado
 RE_NL_LEMBRA_COMPRAR = re.compile(
     r"^(?:lembra[- ]?me\s+de\s+comprar|n[aã]o\s+esque[cç]as?\s+de\s+comprar|lembra\s+de\s+comprar)\s+(.+)$",
@@ -73,29 +83,6 @@ _CATEGORY_TO_LIST = {
     "link": "sites", "links": "sites",
 }
 
-RE_DEPOIS_DE = re.compile(
-    r"(?:depois\s+de\s+|depois\s+do\s+|ap[só]s\s+(?:o\s+)?)([A-Za-z]{2,4})\b",
-    re.I,
-)
-
-
-def _extract_depends_on(text: str) -> tuple[str | None, str]:
-    """Extrai 'depois de X' / 'após X'. Retorna (job_id, texto sem a expressão)."""
-    if not text or not text.strip():
-        return None, text
-    t = text.strip()
-    m = RE_DEPOIS_DE.search(t)
-    if not m:
-        return None, t
-    job_id = (m.group(1) or "").strip().upper()
-    if not job_id:
-        return None, t
-    clean = (t[: m.start()] + t[m.end() :]).strip()
-    clean = re.sub(r"^[,;]\s*", "", clean)
-    clean = re.sub(r"[,;]\s*$", "", clean).strip()
-    return job_id, clean
-
-
 def parse(raw: str) -> dict[str, Any] | None:
     """Parseia a mensagem. Retorna um intent dict ou None."""
     if not raw or not isinstance(raw, str):
@@ -108,11 +95,9 @@ def parse(raw: str) -> dict[str, Any] | None:
     if m:
         rest = m.group(1).strip()
         if rest:
-            depends_on, rest = _extract_depends_on(rest)
             intent = parse_lembrete_time(rest)
             intent["type"] = "lembrete"
-            if depends_on:
-                intent["depends_on_job_id"] = depends_on
+            # Encadeamento ("depois de X") é tratado pelo LLM a partir de áudio/texto natural
             # "até X" = prazo: se não fizer até X, alerta e lembra 3x; sem resposta exclui
             if re.search(r"\bat[eé]\b", rest.lower()):
                 intent["has_deadline"] = True
@@ -187,6 +172,29 @@ def parse(raw: str) -> dict[str, Any] | None:
         item = m.group(1).strip()
         if item:
             return {"type": "list_add", "list_name": "notas", "item": item}
+    # NL: "hoje tenho muita coisa para fazer, X, Y e Z" → sempre lista de afazeres (to-do)
+    m = RE_NL_MUITA_COISA.match(text)
+    if m:
+        raw_items = (m.group(3) or "").strip()
+        if raw_items:
+            parts = re.split(r"\s*,\s*|\s+e\s+", raw_items)
+            items = [p.strip() for p in parts if p.strip()]
+            if items:
+                if len(items) == 1:
+                    return {"type": "list_add", "list_name": "hoje", "item": items[0]}
+                return {"type": "list_add", "list_name": "hoje", "items": items}
+    # NL: "tenho de X" (1 item) = evento/lembrete → None para fluxo de lembrete; "tenho de X, Y" (2+) = ambíguo
+    m = RE_NL_HOJE_TENHO_DE.match(text)
+    if m:
+        raw_items = m.group(1).strip()
+        if raw_items:
+            parts = re.split(r"\s*,\s*|\s+e\s+", raw_items)
+            items = [p.strip() for p in parts if p.strip()]
+            if not items:
+                return None
+            if len(items) == 1:
+                return None  # evento único → deixa para /lembrete ou LLM
+            return {"type": "list_or_events_ambiguous", "items": items}
     # NL: "lembra de comprar X" → list_add mercado
     m = RE_NL_LEMBRA_COMPRAR.match(text)
     if m:

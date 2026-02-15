@@ -48,10 +48,61 @@ def _is_recipe_list_cancel(content: str) -> bool:
     return t in ("não", "nao", "n", "no", "cancelar", "cancel", "nope")
 
 
+def _parse_list_or_events_choice(content: str) -> str | None:
+    """Retorna 'lista', 'lembretes', 'os dois' ou None."""
+    t = (content or "").strip().lower()
+    if not t or len(t) > 50:
+        return None
+    if t in ("lista", "list", "lista de afazeres", "to-do", "afazeres", "todo"):
+        return "lista"
+    if t in ("lembretes", "lembrete", "eventos", "evento", "reminders", "reminder"):
+        return "lembretes"
+    if t in ("os dois", "ambos", "os dois quero", "lista e lembretes"):
+        return "os dois"
+    if "lista" in t and "lembrete" not in t and "evento" not in t:
+        return "lista"
+    if ("lembrete" in t or "evento" in t) and "lista" not in t:
+        return "lembretes"
+    if "os dois" in t or ("lista" in t and ("lembrete" in t or "evento" in t)):
+        return "os dois"
+    return None
+
+
 async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
     """Resolve confirmação pendente (1=sim 2=não). Chamado primeiro no router."""
     from backend.confirmations import get_pending, clear_pending, is_confirm_reply, is_confirm_yes, is_confirm_no
     pending = get_pending(ctx.channel, ctx.chat_id)
+
+    # Lista vs lembretes (resposta a "lista / lembretes / os dois?")
+    if pending and pending.get("action") == "list_or_events_choice":
+        choice = _parse_list_or_events_choice(content)
+        if choice:
+            clear_pending(ctx.channel, ctx.chat_id)
+            items = (pending.get("payload") or {}).get("items") or []
+            if choice == "lista":
+                if items and ctx.list_tool:
+                    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+                    for it in items:
+                        await ctx.list_tool.execute(action="add", list_name="hoje", item_text=it)
+                    return f"✅ Lista *hoje* criada com {len(items)} afazeres. Usa /list hoje para ver."
+                return "Nenhum item para adicionar."
+            if choice == "lembretes":
+                return (
+                    "Para lembretes, podes usar /lembrete para cada atividade com horário. "
+                    "Ex.: /lembrete ir à escola amanhã 8h. Ou diz-me quando queres ser lembrado e eu ajudo."
+                )
+            if choice == "os dois":
+                if items and ctx.list_tool:
+                    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+                    for it in items:
+                        await ctx.list_tool.execute(action="add", list_name="hoje", item_text=it)
+                    return (
+                        f"✅ Lista *hoje* criada com {len(items)} itens. "
+                        "Para lembretes: usa /lembrete para cada um (ex.: /lembrete ir à escola amanhã 8h) ou diz quando queres ser lembrado."
+                    )
+                return "Nenhum item para adicionar."
+        return None
+
     if pending and pending.get("action") == "create_shopping_list_from_recipe":
         if _is_recipe_list_confirm(content) or is_confirm_yes(content):
             clear_pending(ctx.channel, ctx.chat_id)

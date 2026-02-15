@@ -70,7 +70,7 @@ class CronTool(Tool):
             "message = WHAT to remind (e.g. 'ir à farmácia', 'tomar remédio') — required. Never 'lembrete' or 'alerta'. "
             "If user says 'lembrete amanhã 10h' without event, ask 'De que é o lembrete?' first. "
             "For add: in_seconds = one-time; every_seconds = repeat; cron_expr = fixed times. "
-            "depends_on_job_id = encadear após outro lembrete."
+            "Encadeamento: se o utilizador disser em áudio ou texto 'depois de X', 'após terminar Y', 'quando fizer A avisa para B', usa depends_on_job_id com o id do lembrete anterior (2-4 letras, ex.: AL, PIX)."
         )
     
     @property
@@ -117,7 +117,7 @@ class CronTool(Tool):
                 },
                 "depends_on_job_id": {
                     "type": "string",
-                    "description": "Job ID (2-3 letters like PIX, AL) that must be completed first. Use when user says 'depois de A, lembra B' or 'após terminar X'. The dependent reminder fires when user reacts 👍 to the previous one."
+                    "description": "Encadeamento: id do lembrete (2-4 letras, ex. AL, PIX) que tem de estar feito primeiro. Usar quando o utilizador disser em áudio ou texto 'depois de X', 'após terminar Y', 'quando marcar A como feito avisa para B'. O lembrete dependente dispara quando o utilizador reagir 👍 ao anterior."
                 },
                 "has_deadline": {
                     "type": "boolean",

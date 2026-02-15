@@ -1,7 +1,8 @@
-"""Handler Pomodoro: técnica 25 min foco + 5 min pausa."""
+"""Handler Pomodoro: técnica 25 min foco + 5 min pausa. Aceita /pomodoro e linguagem natural (texto/áudio)."""
 
 from __future__ import annotations
 
+import re
 import time
 from typing import TYPE_CHECKING
 
@@ -10,6 +11,30 @@ if TYPE_CHECKING:
 
 POMODORO_WORK_MIN = 25
 POMODORO_WORK_SEC = POMODORO_WORK_MIN * 60
+
+# Padrões de linguagem natural para iniciar pomodoro (texto ou transcrição de áudio)
+_NL_POMODORO_START = re.compile(
+    r"\b(abre?|abrir|inicia|iniciar|come[çc]a|come[çc]ar|carrega|carregar|ativa|ativar|quero|start|open|begin)\b.*\bpomodoro\b|"
+    r"\bpomodoro\b.*\b(agora|por\s+favor|pf)\b|^\s*pomodoro\s*$",
+    re.I,
+)
+# Evitar confundir com lembrete futuro: "lembra de fazer pomodoro amanhã"
+_NL_POMODORO_FUTURE_TIME = re.compile(
+    r"\b(amanh[ãa]|depois|em\s+\d+|às\s+\d|à\s+\d|próxima|semana|amanhã|tomorrow|next)\b",
+    re.I,
+)
+
+
+def _is_nl_pomodoro_start(content: str) -> bool:
+    """True se a mensagem em texto/áudio pede para iniciar pomodoro agora (sem tempo futuro)."""
+    if not content or len(content.strip()) > 120:
+        return False
+    t = content.strip()
+    if "pomodoro" not in t.lower():
+        return False
+    if _NL_POMODORO_FUTURE_TIME.search(t):
+        return False
+    return bool(_NL_POMODORO_START.search(t)) or t.lower().strip() == "pomodoro"
 
 
 def _is_pomodoro_job(job) -> bool:
@@ -31,17 +56,22 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
     /pomodoro start — mesmo
     /pomodoro stop — para o pomodoro ativo
     /pomodoro status — vê se há pomodoro correndo
+    Também aceita linguagem natural: "abre um pomodoro", "pomodoro por favor", "inicia o pomodoro agora", etc.
     """
     t = (content or "").strip()
-    if not t.lower().startswith("/pomodoro"):
+    is_nl = _is_nl_pomodoro_start(t)
+    if not t.lower().startswith("/pomodoro") and not is_nl:
         return None
 
-    rest = t[9:].strip()  # após "/pomodoro"
+    if is_nl:
+        rest = ""
+    else:
+        rest = t[9:].strip()  # após "/pomodoro"
     sub = (rest.split(None, 1)[0] if rest else "").lower()
     arg = rest.split(None, 1)[1].strip() if rest and len(rest.split(None, 1)) > 1 else ""
 
     if not ctx.cron_service or not ctx.cron_tool:
-        return "🍅 Pomodoro: o cron não está disponível neste canal."
+        return "🍅 Pomodoro: o cron não está disponível neste canal. 🍅"
 
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
 
@@ -53,10 +83,10 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
             if getattr(j.payload, "to", None) == ctx.chat_id and _is_pomodoro_job(j)
         ]
         if not pomo_jobs:
-            return "🍅 Nenhum Pomodoro ativo."
+            return "🍅 Nenhum Pomodoro ativo. 🍅"
         for j in pomo_jobs:
             ctx.cron_service.remove_job(j.id)
-        return f"🍅 Pomodoro parado. {len(pomo_jobs)} timer(s) cancelado(s)."
+        return f"🍅 Pomodoro parado. {len(pomo_jobs)} timer(s) cancelado(s). 🍅"
 
     # /pomodoro status
     if sub == "status":
@@ -66,7 +96,7 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
             if getattr(j.payload, "to", None) == ctx.chat_id and _is_pomodoro_job(j)
         ]
         if not pomo_jobs:
-            return "🍅 Nenhum Pomodoro ativo. Usa /pomodoro para iniciar."
+            return "🍅 Nenhum Pomodoro ativo. Usa /pomodoro para iniciar. 🍅"
         lines = ["🍅 **Pomodoro(s) ativos:**"]
         for j in pomo_jobs:
             next_ms = j.state.next_run_at_ms if j.state else None
@@ -76,15 +106,15 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
                 lines.append(f"  • {j.id}: {m} min restantes")
             else:
                 lines.append(f"  • {j.id}: agendado")
-        return "\n".join(lines)
+        return "\n".join(lines) + " 🍅"
 
     # /pomodoro ou /pomodoro start [tarefa]
     if sub and sub != "start":
         arg = rest
     task_label = arg[:30] if arg else "foco"
-    message = f"🍅 Pomodoro terminou! 🍅 5 min de pausa. (/pomodoro para próximo)"
+    message = f"🍅 Pomodoro terminou! 5 min de pausa. (/pomodoro para próximo) 🍅"
     if task_label and task_label != "foco":
-        message = f"🍅 Pomodoro «{task_label}» terminou! 🍅 5 min de pausa. (/pomodoro para próximo)"
+        message = f"🍅 Pomodoro «{task_label}» terminou! 5 min de pausa. (/pomodoro para próximo) 🍅"
 
     # Só um Pomodoro ativo por vez
     jobs = ctx.cron_service.list_jobs(include_disabled=False)
@@ -92,7 +122,7 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
         getattr(j.payload, "to", None) == ctx.chat_id and _is_pomodoro_job(j)
         for j in jobs
     ):
-        return "🍅 Já tens um Pomodoro ativo. /pomodoro stop para cancelar e iniciar outro."
+        return "🍅 Já tens um Pomodoro ativo. /pomodoro stop para cancelar e iniciar outro. 🍅"
 
     try:
         result = await ctx.cron_tool.execute(
@@ -120,7 +150,7 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
         return (
             f"🍅 **Pomodoro iniciado!**\n"
             f"25 min de foco. Aviso às {end_str}.\n"
-            f"Use /pomodoro stop para cancelar."
+            f"Use /pomodoro stop para cancelar. 🍅"
         )
     except ValueError as e:
         if "MAX_REMINDERS_EXCEEDED" in str(e):
@@ -133,5 +163,6 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
                 db.close()
             except Exception:
                 lang = "pt-BR"
-            return REMINDER_LIMIT_EXCEEDED.get(lang, REMINDER_LIMIT_EXCEEDED["pt-BR"])
+            msg = REMINDER_LIMIT_EXCEEDED.get(lang, REMINDER_LIMIT_EXCEEDED["pt-BR"])
+            return f"🍅 {msg} 🍅" if msg else None
         raise

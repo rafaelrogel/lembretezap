@@ -62,12 +62,33 @@ async def handle_lang(ctx: HandlerContext, content: str) -> str | None:
     return None
 
 
+def _is_nl_quiet_off(content: str) -> bool:
+    """True se a mensagem pede para parar/desativar o horário silencioso (texto ou áudio)."""
+    t = (content or "").strip().lower()
+    if not t or len(t) > 80:
+        return False
+    if "quiet" in t and ("off" in t or "parar" in t or "desativar" in t or "desligar" in t):
+        return True
+    if "horário silencioso" in t or "horario silencioso" in t:
+        if any(p in t for p in ("parar", "desativar", "desligar", "desliga", "off", "remover", "não quero")):
+            return True
+    if t in ("parar silencioso", "desativar silencioso", "quiet off"):
+        return True
+    return False
+
+
 async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
-    """/quiet 22:00-08:00 ou /quiet off."""
-    if not content.strip().lower().startswith("/quiet"):
+    """/quiet 22:00-08:00 ou /quiet off. Aceita linguagem natural: parar horário silencioso, desativar quiet."""
+    t = content.strip()
+    t_lower = t.lower()
+    is_nl_off = _is_nl_quiet_off(t)
+    if not t_lower.startswith("/quiet") and not is_nl_off:
         return None
-    rest = content.strip()[6:].strip()
-    if not rest or rest.lower() in ("off", "desligar", "não", "nao"):
+    if is_nl_off:
+        rest = ""
+    else:
+        rest = t[6:].strip()  # após "/quiet"
+    if is_nl_off or not rest or rest.lower() in ("off", "desligar", "não", "nao"):
         try:
             from backend.database import SessionLocal
             from backend.user_store import set_user_quiet

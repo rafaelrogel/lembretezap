@@ -10,6 +10,7 @@ from backend.handlers import (
     handle_recurring_event,
     handle_recurring_prompt,
     handle_lembrete,
+    handle_list_or_events_ambiguous,
     handle_list,
     handle_add,
     handle_start,
@@ -33,6 +34,7 @@ from backend.handlers_organizacao import (
 from backend.handlers_limpeza import handle_limpeza
 from backend.handlers_pomodoro import handle_pomodoro
 from backend.recipe_handler import handle_recipe
+from backend.command_i18n import normalize_command
 from backend.views import (
     handle_eventos_unificado,
     handle_hoje,
@@ -51,9 +53,11 @@ HANDLERS = [
     handle_recurring_event,
     handle_eventos_unificado,
     handle_sacred_text,  # ativo: responde quando cliente pede versículo bíblia/alcorão
+    handle_list_or_events_ambiguous,  # "tenho de X, Y" → pergunta lista ou lembretes
     handle_list,  # antes de recurring: "lista mercado", "mostre lista" → list_show
     handle_limpeza,  # antes de recurring: "preciso limpar a casa" → fluxo limpeza
     handle_pomodoro,  # /pomodoro — timer 25 min foco
+    handle_quiet,  # /quiet e NL "parar horário silencioso" — antes do fluxo de lembrete
     handle_recipe,  # receita/ingredientes via Perplexity (rápido, fallback agent)
     handle_recurring_prompt,
     handle_lembrete,
@@ -81,7 +85,6 @@ HANDLERS = [
     handle_resumo_conversa,
     handle_analytics,
     handle_rever,
-    handle_quiet,
     handle_stop,
     handle_reset,
     handle_exportar,
@@ -93,7 +96,8 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
     """Despacha mensagem para o handler adequado. Retorna texto ou None (fallback LLM)."""
     if not content or not content.strip():
         return None
-    text = content.strip()
+    content = normalize_command(content.strip())
+    text = content
 
     reply = await resolve_confirm(ctx, text)
     if reply is not None:

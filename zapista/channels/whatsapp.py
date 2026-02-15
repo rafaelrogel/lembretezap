@@ -562,6 +562,17 @@ class WhatsAppChannel(BaseChannel):
                 # Continua à espera de sim/não; ignorar outras mensagens ou repetir o aviso
                 return
 
+            # Horário silencioso: só processar mensagem se for para desativar (comando /quiet off ou NL "parar horário silencioso")
+            try:
+                from backend.user_store import is_user_in_quiet_window
+                from backend.settings_handlers import _is_nl_quiet_off
+                if is_user_in_quiet_window(sender):
+                    raw = (content or "").strip()
+                    if not raw.lower().startswith("/quiet") and not _is_nl_quiet_off(raw):
+                        return  # não responder durante horário silencioso
+            except Exception:
+                pass
+
             # Resposta em áudio: pedido em texto ("responde em áudio", "manda áudio", "fala comigo") ou áudio
             raw_content = (content or "").strip()
             audio_mode = False

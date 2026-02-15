@@ -362,7 +362,11 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     start_date = intent.get("start_date")
     depends_on = intent.get("depends_on_job_id")
     if not (in_sec or every_sec or cron_expr):
-        # Encadeado sem tempo: dispara imediatamente quando o anterior estiver feito
+        # Encadeamento ("depois de X", "após Y") é tratado pelo LLM em linguagem natural
+        msg_lower = (msg_text or "").lower()
+        if "depois de" in msg_lower or " após " in msg_lower or "após " in msg_lower:
+            return None
+        # Encadeado sem tempo (legado): dispara quando o anterior estiver feito
         if depends_on:
             in_sec = 1
         else:
@@ -394,6 +398,23 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
         allow_relaxed_interval=allow_relaxed,
         depends_on_job_id=depends_on,
         has_deadline=bool(intent.get("has_deadline")),
+    )
+
+
+async def handle_list_or_events_ambiguous(ctx: HandlerContext, content: str) -> str | None:
+    """Quando o utilizador diz 'tenho de X, Y' (2+ itens) sem 'muita coisa': pergunta se quer lista ou lembretes."""
+    from backend.command_parser import parse
+    from backend.confirmations import set_pending
+    intent = parse(content)
+    if not intent or intent.get("type") != "list_or_events_ambiguous":
+        return None
+    items = intent.get("items") or []
+    if len(items) < 2:
+        return None
+    set_pending(ctx.channel, ctx.chat_id, "list_or_events_choice", {"items": items})
+    return (
+        "Queres que eu crie uma *lista de afazeres* (to-do) com estes itens ou prefires registar cada um como *lembrete* com horário? "
+        "Também posso fazer *os dois*. Responde: *lista*, *lembretes* ou *os dois*."
     )
 
 
@@ -482,23 +503,24 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
     if not content.strip().lower().startswith("/help"):
         return None
     return (
-        "📋 **Comandos disponíveis:**\n"
-        "• /lembrete — agendar (ex.: amanhã 9h; em 30 min; depois de AL = encadear)\n"
-        "• /list — listas: /list mercado add leite  /list filme Matrix  /list notas add X  /list sites add url  /list receita Bolo\n"
-        "• Marcar feito: por áudio, texto ou emoji (ex.: «pronto», «✓», «👍»)\n"
+        "*Comandos*\n"
+        "• /lembrete — agendar (ex.: amanhã 9h; em 30 min)\n"
+        "• /list — listas (compras, receitas, livros, músicas, notas, sites, coisas a fazer). Ex.: /list mercado add leite\n"
         "• /hoje, /semana — ver o que tens hoje ou esta semana\n"
-        "• /timeline — histórico cronológico (lembretes, tarefas, eventos)\n"
-        "• /stats — estatísticas (tarefas feitas, lembretes); /stats dia ou /stats semana\n"
-        "• /resumo — resumo da semana (tarefas, lembretes, eventos)\n"
-        "• /recorrente — hábitos recorrentes (ex.: /recorrente beber água todo dia 8h)\n"
+        "• /timeline — histórico (lembretes, tarefas, eventos)\n"
+        "• /stats — estatísticas; /stats dia ou /stats semana\n"
+        "• /resumo — resumo da semana\n"
+        "• /recorrente — lembretes recorrentes (ex.: /recorrente beber água todo dia 8h)\n"
         "• /meta add Nome até DD/MM — metas com prazo; /metas para listar\n"
-        "• /pomodoro — timer 25 min foco (Pomodoro); /pomodoro stop para cancelar\n"
+        "• /pomodoro — timer 25 min foco; /pomodoro stop para cancelar\n\n"
+        "*Configuração*\n"
         "• /tz Cidade — definir fuso (ex.: /tz Lisboa)\n"
-        "• /lang pt-pt ou pt-br — idioma\n"
+        "• /lang — idioma: pt-pt, pt-br, es, en\n"
         "• /reset — refazer cadastro (nome, cidade)\n"
-        "• /quiet 22:00-08:00 — horário silencioso\n"
-        "• Pedir resposta em áudio: «responde em áudio», «manda áudio», «fala comigo»\n\n"
-        "Ou conversa comigo por mensagem ou áudio: diz o que precisas e eu ajudo a organizar. 😊"
+        "• /quiet 22:00-08:00 — horário silencioso\n\n"
+        "*Dicas*\n"
+        '• Marcar item como feito: podes dizer por áudio ("pronto", "já fiz"), escrever texto ou usar emoji ("✓", "👍") — não precisas de comando.\n'
+        '• Conversa por mensagem ou áudio; se quiseres resposta em áudio, pede "responde em áudio", "manda áudio" ou "fala comigo". 😊'
     )
 
 

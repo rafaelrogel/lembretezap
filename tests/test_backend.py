@@ -172,12 +172,12 @@ def test_command_parser():
     assert i is not None and i["type"] == "lembrete"
     assert i.get("cron_expr") == "0 9 1 * *" and "pagar contas" in i.get("message", "")
 
-    # /lembrete encadeado: depois de X
+    # /lembrete com "depois de": encadeamento é tratado pelo LLM (parser não extrai depends_on)
     i = parse("/lembrete enviar relatório depois de PIX")
     assert i is not None and i["type"] == "lembrete"
-    assert i.get("depends_on_job_id") == "PIX" and "enviar relatório" in i.get("message", "")
+    assert "enviar relatório" in i.get("message", "") and i.get("depends_on_job_id") is None
     i = parse("/lembrete B em 10 min depois de AL")
-    assert i is not None and i.get("depends_on_job_id") == "AL" and i.get("in_seconds") == 600
+    assert i is not None and i.get("in_seconds") == 600 and i.get("depends_on_job_id") is None
 
     # /list
     i = parse("/list mercado add leite")
