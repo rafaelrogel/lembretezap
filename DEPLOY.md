@@ -257,11 +257,42 @@ Antes de expor ao público ou em VPS em produção, confirma:
 
 ---
 
-## 12. Resumo rápido
+## 12. Verificação final (teste de saúde)
+
+Depois de subir os containers, executa estes comandos para confirmar que está tudo a funcionar:
+
+```bash
+# Ver containers a correr
+docker-compose ps
+
+# Ver logs (Ctrl+C para sair)
+docker-compose logs -f
+
+# Testar health check (API e bridge)
+curl http://localhost:8000/health
+curl http://localhost:3001/health
+```
+
+Se tiveres definido `HEALTH_CHECK_TOKEN` no `.env`, usa o header:
+```bash
+curl -H "X-Health-Token: TEU_TOKEN" http://localhost:8000/health
+curl -H "X-Health-Token: TEU_TOKEN" http://localhost:3001/health
+```
+
+**Recomendações finais:**
+
+1. **Timezone:** Definir `TZ` no `.env` para o teu fuso (ex.: `TZ=America/Sao_Paulo` para Brasil). Sem isto, logs e lembretes usam Europe/Lisbon.
+2. **Imagens (opcional):** Se quiseres nomes de imagem consistentes, podes usar `image: zapista-gateway:latest` no `docker-compose.yml` em cada serviço que faz `build`.
+3. **Validar timezone:** Cria um lembrete no WhatsApp (ex.: «lembrete daqui a 5 minutos testar») e confirma que a hora do lembrete corresponde ao teu fuso.
+
+---
+
+## 13. Resumo rápido
 
 1. Ter **config.json** no volume (ou montar `~/.zapista`).
 2. `docker-compose up -d` (ou com `-f docker-compose.prod.yml` em produção).
 3. `docker-compose logs -f bridge` → escanear QR
 4. **Produção:** Definir `API_SECRET_KEY`, `CORS_ORIGINS`, `allow_from` e usar `docker-compose.prod.yml` para Redis.
 5. (Opcional) Configurar backup: `sudo bash scripts/backup_zapista.sh` ou cron.
-6. Testar mensagem no WhatsApp
+6. Testar mensagem no WhatsApp.
+7. Verificação final: `docker-compose ps`, `curl http://localhost:8000/health` e `curl http://localhost:3001/health`.

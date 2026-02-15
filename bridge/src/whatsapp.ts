@@ -264,7 +264,7 @@ export class WhatsAppClient {
     });
   }
 
-  private basePayload(msg: any): Record<string, unknown> {
+  private basePayload(msg: any): Pick<InboundMessage, 'id' | 'sender' | 'pn' | 'timestamp' | 'isGroup'> & { pushName?: string } {
     const pushName = typeof (msg as any).pushName === 'string' ? (msg as any).pushName.trim() || undefined : undefined;
     return {
       id: msg.key.id || '',
