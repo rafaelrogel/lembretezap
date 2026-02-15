@@ -2,6 +2,10 @@
 # Uso: docker-compose up -d
 # Primeira vez: ver QR do WhatsApp com docker-compose logs -f bridge
 #
+# ⚠️ Timezone: o padrão é Europe/Lisbon (Portugal). Para Brasil, definir no .env:
+#     TZ=America/Sao_Paulo
+# Ou na linha de comando: TZ=America/Sao_Paulo docker-compose up -d
+#
 # Redis: fila assíncrona para outbound (mensagens); gateway consome da fila.
 # Nota: o volume ZAPISTA_data é partilhado por todos os serviços. Para uma única
 # instância está correto. Escala horizontal (vários gateways) exige armazenamento

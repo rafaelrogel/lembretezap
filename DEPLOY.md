@@ -11,6 +11,25 @@ Guia para subir o organizador WhatsApp em servidor com Docker: **bridge** (Whats
 
 ---
 
+## ⚠️ Pontos de Atenção
+
+### Timezone padrão
+
+O `docker-compose.yml` usa por defeito **Europe/Lisbon** (Portugal). Para utilizadores no Brasil, é preciso definir o fuso:
+
+- **No ficheiro `.env`** (recomendado): copia `.env.example` para `.env` e descomenta ou adiciona:
+  ```bash
+  TZ=America/Sao_Paulo
+  ```
+- **Na linha de comando** (uma vez):
+  ```bash
+  TZ=America/Sao_Paulo docker-compose up -d
+  ```
+
+Sem isto, logs, cron e horários podem aparecer na hora de Portugal.
+
+---
+
 ## 1. Config antes do primeiro deploy
 
 O gateway e a API usam o diretório de dados montado em `/root/.zapista` no container. Aí devem estar:
