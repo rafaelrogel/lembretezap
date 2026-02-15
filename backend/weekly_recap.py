@@ -1,8 +1,9 @@
 """
 Resumo da semana / Resumo do mês: automático (tarefas feitas, lembretes, eventos).
 
-Semana: enviado ao domingo 20h UTC ou via /resumo.
-Mês: enviado no dia 1 às 20h UTC ou via /resumo mes.
+Política: o resumo NÃO é enviado proativamente. É entregue no primeiro contacto do
+cliente após o período (aproveitando a sessão aberta por ele). /resumo e /resumo mes
+continuam a mostrar o resumo a pedido.
 """
 
 from datetime import datetime, timedelta, timezone
@@ -141,6 +142,43 @@ def get_month_stats(db, chat_id: str, end_date_local, tz) -> dict[str, Any]:
     }
 
 
+def get_pending_recap_on_first_contact(db, chat_id: str, tz: ZoneInfo):
+    """
+    Calcula se há resumo semanal e/ou mensal pendente para entregar no primeiro contacto.
+    Retorna: (weekly_content, weekly_period_id, monthly_content, monthly_period_id).
+    Cada content é None se não houver pendente; period_id é str para marcar como entregue (ex.: "2026-W06", "2026-01").
+    """
+    from datetime import date
+    today = datetime.now(tz).date()
+    # Última semana completa (terminada no domingo anterior)
+    last_sunday = today - timedelta(days=(today.weekday() + 1) % 7)
+    weekly_period_id = f"{last_sunday.year}-W{last_sunday.isocalendar()[1]:02d}" if last_sunday else None
+    # Último mês completo
+    first_this_month = today.replace(day=1)
+    last_month_end = first_this_month - timedelta(days=1)
+    monthly_period_id = last_month_end.strftime("%Y-%m") if last_month_end else None
+
+    user_lang = get_user_language(db, chat_id)
+    preferred_name = get_user_preferred_name(db, chat_id)
+    weekly_content = None
+    monthly_content = None
+    if last_sunday:
+        stats_w = get_week_stats(db, chat_id, last_sunday, tz)
+        weekly_content = build_weekly_recap_text(
+            stats=stats_w,
+            user_lang=user_lang,
+            preferred_name=preferred_name,
+        )
+    if last_month_end:
+        stats_m = get_month_stats(db, chat_id, last_month_end, tz)
+        monthly_content = build_monthly_recap_text(
+            stats=stats_m,
+            user_lang=user_lang,
+            preferred_name=preferred_name,
+        )
+    return weekly_content, weekly_period_id, monthly_content, monthly_period_id
+
+
 def build_weekly_recap_text(
     *,
     stats: dict[str, Any],
@@ -246,62 +284,12 @@ async def run_weekly_recap(
     default_channel: str = "whatsapp",
 ) -> tuple[int, int]:
     """
-    Envia o resumo da semana a todos os utilizadores com sessão ativa.
-    Usa os últimos 7 dias (até hoje no timezone de cada um).
-    Retorna (enviados, erros).
+    Não envia proativamente. O resumo da semana é entregue no primeiro contacto
+    do cliente (ver get_pending_recap_on_first_contact no agent loop).
+    Retorna (0, 0).
     """
-    from backend.database import SessionLocal
-    from zapista.bus.events import OutboundMessage
-
-    sent = 0
-    errors = 0
-
-    sessions = session_manager.list_sessions()
-    for s in sessions:
-        key = s.get("key") or ""
-        if ":" not in key:
-            continue
-        channel, chat_id = key.split(":", 1)
-        if not chat_id:
-            continue
-        ch = channel if channel else default_channel
-        if ch != "whatsapp":
-            continue
-
-        try:
-            db = SessionLocal()
-            try:
-                user_lang = get_user_language(db, chat_id)
-                preferred_name = get_user_preferred_name(db, chat_id)
-                tz_iana = get_user_timezone(db, chat_id) or "UTC"
-                try:
-                    tz = ZoneInfo(tz_iana)
-                except Exception:
-                    tz = ZoneInfo("UTC")
-                today = datetime.now(tz).date()
-                stats = get_week_stats(db, chat_id, today, tz)
-            finally:
-                db.close()
-
-            content = build_weekly_recap_text(
-                stats=stats,
-                user_lang=user_lang,
-                preferred_name=preferred_name,
-            )
-
-            await bus.publish_outbound(OutboundMessage(
-                channel=ch,
-                chat_id=chat_id,
-                content=content,
-                metadata={"priority": "high"},
-            ))
-            sent += 1
-            logger.info(f"Weekly recap sent to {chat_id[:20]}...")
-        except Exception as e:
-            errors += 1
-            logger.warning(f"Weekly recap failed for {key}: {e}")
-
-    return sent, errors
+    logger.debug("Weekly recap: not sending proactively (delivered on first contact)")
+    return 0, 0
 
 
 async def run_monthly_recap(
@@ -311,59 +299,9 @@ async def run_monthly_recap(
     default_channel: str = "whatsapp",
 ) -> tuple[int, int]:
     """
-    Envia o resumo do mês a todos os utilizadores com sessão ativa.
-    Usa o mês anterior (ou mês atual até ontem) no timezone de cada um.
-    Retorna (enviados, erros).
+    Não envia proativamente. O resumo do mês é entregue no primeiro contacto
+    do cliente (ver get_pending_recap_on_first_contact no agent loop).
+    Retorna (0, 0).
     """
-    from backend.database import SessionLocal
-    from zapista.bus.events import OutboundMessage
-
-    sent = 0
-    errors = 0
-
-    sessions = session_manager.list_sessions()
-    for s in sessions:
-        key = s.get("key") or ""
-        if ":" not in key:
-            continue
-        channel, chat_id = key.split(":", 1)
-        if not chat_id:
-            continue
-        ch = channel if channel else default_channel
-        if ch != "whatsapp":
-            continue
-
-        try:
-            db = SessionLocal()
-            try:
-                user_lang = get_user_language(db, chat_id)
-                preferred_name = get_user_preferred_name(db, chat_id)
-                tz_iana = get_user_timezone(db, chat_id) or "UTC"
-                try:
-                    tz = ZoneInfo(tz_iana)
-                except Exception:
-                    tz = ZoneInfo("UTC")
-                today = datetime.now(tz).date()
-                stats = get_month_stats(db, chat_id, today, tz)
-            finally:
-                db.close()
-
-            content = build_monthly_recap_text(
-                stats=stats,
-                user_lang=user_lang,
-                preferred_name=preferred_name,
-            )
-
-            await bus.publish_outbound(OutboundMessage(
-                channel=ch,
-                chat_id=chat_id,
-                content=content,
-                metadata={"priority": "high"},
-            ))
-            sent += 1
-            logger.info(f"Monthly recap sent to {chat_id[:20]}...")
-        except Exception as e:
-            errors += 1
-            logger.warning(f"Monthly recap failed for {key}: {e}")
-
-    return sent, errors
+    logger.debug("Monthly recap: not sending proactively (delivered on first contact)")
+    return 0, 0

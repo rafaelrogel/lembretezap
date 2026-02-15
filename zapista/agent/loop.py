@@ -606,6 +606,48 @@ class AgentLoop:
             pass
 
         self._set_tool_context(msg.channel, msg.chat_id)
+
+        # Resumo da semana/mês: entregar apenas no primeiro contacto (aproveitar sessão aberta pelo cliente)
+        try:
+            from zoneinfo import ZoneInfo
+            from backend.database import SessionLocal
+            from backend.user_store import get_user_timezone
+            from backend.weekly_recap import get_pending_recap_on_first_contact
+            session = self.sessions.get_or_create(msg.session_key)
+            db = SessionLocal()
+            try:
+                tz_iana = get_user_timezone(db, msg.chat_id) or "UTC"
+                try:
+                    tz = ZoneInfo(tz_iana)
+                except Exception:
+                    tz = ZoneInfo("UTC")
+                weekly_content, weekly_period_id, monthly_content, monthly_period_id = get_pending_recap_on_first_contact(
+                    db, msg.chat_id, tz
+                )
+                delivered = False
+                if weekly_content and weekly_period_id and session.metadata.get("last_weekly_recap_week") != weekly_period_id:
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=msg.channel,
+                        chat_id=msg.chat_id,
+                        content=weekly_content,
+                    ))
+                    session.metadata["last_weekly_recap_week"] = weekly_period_id
+                    delivered = True
+                if monthly_content and monthly_period_id and session.metadata.get("last_monthly_recap_month") != monthly_period_id:
+                    await self.bus.publish_outbound(OutboundMessage(
+                        channel=msg.channel,
+                        chat_id=msg.chat_id,
+                        content=monthly_content,
+                    ))
+                    session.metadata["last_monthly_recap_month"] = monthly_period_id
+                    delivered = True
+                if delivered:
+                    self.sessions.save(session)
+            finally:
+                db.close()
+        except Exception as e:
+            logger.debug(f"Pending recap on first contact failed: {e}")
+
         # Reset + set: se o cliente insistir/reclamar após rejeição por intervalo, permitir até 30 min
         cron_tool = self.tools.get("cron")
         if cron_tool:
