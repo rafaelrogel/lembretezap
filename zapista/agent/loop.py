@@ -608,14 +608,16 @@ class AgentLoop:
         self._set_tool_context(msg.channel, msg.chat_id)
 
         # Resumo da semana/mês: entregar apenas no primeiro contacto (aproveitar sessão aberta pelo cliente)
+        # Estado "já entregue" fica na BD (AuditLog) para não reenviar em cada mensagem.
         try:
             from zoneinfo import ZoneInfo
             from backend.database import SessionLocal
-            from backend.user_store import get_user_timezone
+            from backend.user_store import get_or_create_user, get_user_timezone
+            from backend.models_db import AuditLog
             from backend.weekly_recap import get_pending_recap_on_first_contact
-            session = self.sessions.get_or_create(msg.session_key)
             db = SessionLocal()
             try:
+                user = get_or_create_user(db, msg.chat_id)
                 tz_iana = get_user_timezone(db, msg.chat_id) or "UTC"
                 try:
                     tz = ZoneInfo(tz_iana)
@@ -624,25 +626,35 @@ class AgentLoop:
                 weekly_content, weekly_period_id, monthly_content, monthly_period_id = get_pending_recap_on_first_contact(
                     db, msg.chat_id, tz
                 )
-                delivered = False
-                if weekly_content and weekly_period_id and session.metadata.get("last_weekly_recap_week") != weekly_period_id:
-                    await self.bus.publish_outbound(OutboundMessage(
-                        channel=msg.channel,
-                        chat_id=msg.chat_id,
-                        content=weekly_content,
-                    ))
-                    session.metadata["last_weekly_recap_week"] = weekly_period_id
-                    delivered = True
-                if monthly_content and monthly_period_id and session.metadata.get("last_monthly_recap_month") != monthly_period_id:
-                    await self.bus.publish_outbound(OutboundMessage(
-                        channel=msg.channel,
-                        chat_id=msg.chat_id,
-                        content=monthly_content,
-                    ))
-                    session.metadata["last_monthly_recap_month"] = monthly_period_id
-                    delivered = True
-                if delivered:
-                    self.sessions.save(session)
+                # Só enviar se ainda não tivermos registado entrega para este período (por user_id na BD)
+                if weekly_content and weekly_period_id:
+                    already = db.query(AuditLog).filter(
+                        AuditLog.user_id == user.id,
+                        AuditLog.action == "recap_weekly_delivered",
+                        AuditLog.resource == weekly_period_id,
+                    ).first()
+                    if not already:
+                        await self.bus.publish_outbound(OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content=weekly_content,
+                        ))
+                        db.add(AuditLog(user_id=user.id, action="recap_weekly_delivered", resource=weekly_period_id))
+                        db.commit()
+                if monthly_content and monthly_period_id:
+                    already = db.query(AuditLog).filter(
+                        AuditLog.user_id == user.id,
+                        AuditLog.action == "recap_monthly_delivered",
+                        AuditLog.resource == monthly_period_id,
+                    ).first()
+                    if not already:
+                        await self.bus.publish_outbound(OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content=monthly_content,
+                        ))
+                        db.add(AuditLog(user_id=user.id, action="recap_monthly_delivered", resource=monthly_period_id))
+                        db.commit()
             finally:
                 db.close()
         except Exception as e:
