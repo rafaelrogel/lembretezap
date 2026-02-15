@@ -48,10 +48,11 @@ BACKUP_FILE="${BACKUP_DIR}/zapista-${TIMESTAMP}.tar.gz"
 
 echo "[1/2] A criar backup em $BACKUP_FILE ..."
 # Corre um container efémero com o volume ZAPISTA_data e comprime o conteúdo
-docker compose $COMPOSE_FILES run --rm \
+# --entrypoint sh: o image usa ENTRYPOINT ["zapista"]; precisamos de um shell para executar tar
+docker compose $COMPOSE_FILES run --rm --entrypoint sh \
   -v "${BACKUP_DIR}:/backup:rw" \
   gateway \
-  sh -c "tar -czf /backup/zapista-${TIMESTAMP}.tar.gz -C /root/.zapista . 2>/dev/null || true"
+  -c "tar -czf /backup/zapista-${TIMESTAMP}.tar.gz -C /root/.zapista . 2>/dev/null || true"
 
 if [ -f "$BACKUP_FILE" ]; then
   SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
