@@ -156,11 +156,11 @@ class WhatsAppChannel(BaseChannel):
         job_id = (msg.metadata or {}).get("job_id") if msg.metadata else None
         request_id = str(uuid.uuid4()) if job_id else None
 
-        # audio_mode: TTS → PTT; senão texto
+        # audio_mode: TTS → PTT; se texto longo, vários áudios (split_text_for_tts) + texto
         # Allowlist: mesma lógica do STT (allow_from_tts vazio = todos). Grupos NUNCA.
         audio_mode = (msg.metadata or {}).get("audio_mode") is True
         locale_override = (msg.metadata or {}).get("audio_locale_override")
-        ogg_path = None
+        ogg_paths: list = []
         chat_id_str = str(msg.chat_id)
         tts_allowed = (
             not chat_id_str.strip().endswith(WHATSAPP_GROUP_SUFFIX)
@@ -168,67 +168,97 @@ class WhatsAppChannel(BaseChannel):
         )
         if audio_mode and msg.content and tts_allowed:
             try:
-                from zapista.tts.service import synthesize_voice_note
-                ogg_path = synthesize_voice_note(
-                    msg.content, chat_id_str, locale_override=locale_override
-                )
+                from zapista.tts.service import synthesize_voice_note, split_text_for_tts
+                from zapista.tts.config import tts_max_words
+                chunks = split_text_for_tts(msg.content, tts_max_words())
+                for chunk in chunks:
+                    if not chunk.strip():
+                        continue
+                    ogg = synthesize_voice_note(
+                        chunk, chat_id_str, locale_override=locale_override
+                    )
+                    if ogg and ogg.exists():
+                        ogg_paths.append(ogg)
             except Exception as e:
                 logger.debug(f"TTS synthesize failed: {e}")
 
         try:
-            if ogg_path and ogg_path.exists():
-                payload = {
-                    "type": "send_voice",
-                    "to": msg.chat_id,
-                    "audio_path": str(ogg_path.resolve()),
-                }
-                if job_id:
-                    payload["job_id"] = job_id
-                if request_id:
-                    payload["request_id"] = request_id
-                logger.info(f"WhatsApp send_voice: to={str(msg.chat_id)[:30]}...")
-            else:
-                payload = {
-                    "type": "send",
-                    "to": msg.chat_id,
-                    "text": msg.content,
-                }
-                if job_id:
-                    payload["job_id"] = job_id
-                if request_id:
-                    payload["request_id"] = request_id
-                logger.info(f"WhatsApp send: to={str(msg.chat_id)[:30]}... len={len(msg.content)}")
-
-            future = None
+            if ogg_paths:
+                for i, ogg_path in enumerate(ogg_paths):
+                    payload = {
+                        "type": "send_voice",
+                        "to": msg.chat_id,
+                        "audio_path": str(ogg_path.resolve()),
+                    }
+                    if job_id:
+                        payload["job_id"] = job_id
+                    if request_id:
+                        payload["request_id"] = request_id
+                    logger.info(f"WhatsApp send_voice: to={str(msg.chat_id)[:30]}...")
+                    # Só esperar confirmação no primeiro áudio (para store_sent_mapping)
+                    rid = request_id if i == 0 else None
+                    await self._send_payload(payload, rid, msg.chat_id, job_id)
+                if msg.content:
+                    payload = {
+                        "type": "send",
+                        "to": msg.chat_id,
+                        "text": msg.content,
+                    }
+                    if job_id:
+                        payload["job_id"] = job_id
+                    if request_id:
+                        payload["request_id"] = request_id
+                    logger.info(f"WhatsApp send (texto após áudios): to={str(msg.chat_id)[:30]}...")
+                    await self._send_payload(payload, None, None, None)
+                return
+            payload = {
+                "type": "send",
+                "to": msg.chat_id,
+                "text": msg.content,
+            }
+            if job_id:
+                payload["job_id"] = job_id
             if request_id:
-                future = asyncio.get_running_loop().create_future()
-                self._pending_sends[request_id] = future
-
-            await self._ws.send(json.dumps(payload))
-
-            if future and job_id:
-                try:
-                    result = await asyncio.wait_for(future, timeout=10.0)
-                    msg_id = result.get("id") if isinstance(result, dict) else None
-                    if msg_id:
-                        try:
-                            from backend.database import SessionLocal
-                            from backend.reminder_reaction import store_sent_mapping
-                            db = SessionLocal()
-                            try:
-                                store_sent_mapping(db, msg.chat_id, msg_id, job_id)
-                            finally:
-                                db.close()
-                        except Exception as e:
-                            logger.debug(f"Store sent mapping failed: {e}")
-                except asyncio.TimeoutError:
-                    logger.debug("WhatsApp send: no sent confirmation within 10s")
-                finally:
-                    self._pending_sends.pop(request_id, None)
+                payload["request_id"] = request_id
+            logger.info(f"WhatsApp send: to={str(msg.chat_id)[:30]}... len={len(msg.content)}")
+            await self._send_payload(payload, request_id, msg.chat_id, job_id)
         except Exception as e:
             self._pending_sends.pop(request_id, None) if request_id else None
             logger.error(f"Error sending WhatsApp message: {e}")
-    
+
+    async def _send_payload(
+        self,
+        payload: dict,
+        request_id: str | None = None,
+        chat_id: Any = None,
+        job_id: str | None = None,
+    ) -> None:
+        """Envia um payload ao bridge e opcionalmente espera confirmação (para store_sent_mapping)."""
+        future = None
+        if request_id:
+            future = asyncio.get_running_loop().create_future()
+            self._pending_sends[request_id] = future
+        await self._ws.send(json.dumps(payload))
+        if future and job_id and chat_id is not None:
+            try:
+                result = await asyncio.wait_for(future, timeout=10.0)
+                msg_id = result.get("id") if isinstance(result, dict) else None
+                if msg_id:
+                    try:
+                        from backend.database import SessionLocal
+                        from backend.reminder_reaction import store_sent_mapping
+                        db = SessionLocal()
+                        try:
+                            store_sent_mapping(db, chat_id, msg_id, job_id)
+                        finally:
+                            db.close()
+                    except Exception as e:
+                        logger.debug(f"Store sent mapping failed: {e}")
+            except asyncio.TimeoutError:
+                logger.debug("WhatsApp send: no sent confirmation within 10s")
+            finally:
+                self._pending_sends.pop(request_id, None)
+
     async def _handle_bridge_message(self, raw: str) -> None:
         """Handle a message from the bridge."""
         try:

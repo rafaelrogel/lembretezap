@@ -54,7 +54,7 @@ def _visao_resumo_mes(ctx: "HandlerContext") -> str:
             except Exception:
                 tz = ZoneInfo("UTC")
             today = datetime.now(tz).date()
-            stats = get_month_stats(db, ctx.chat_id, today, tz)
+            stats = get_month_stats(db, ctx.chat_id, today, tz, up_to_today=today)
             user_lang = get_user_language(db, ctx.chat_id)
             preferred_name = get_user_preferred_name(db, ctx.chat_id)
             return build_monthly_recap_text(

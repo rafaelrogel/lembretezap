@@ -80,9 +80,10 @@ def get_week_stats(db, chat_id: str, end_date_local, tz) -> dict[str, Any]:
     }
 
 
-def get_month_stats(db, chat_id: str, end_date_local, tz) -> dict[str, Any]:
+def get_month_stats(db, chat_id: str, end_date_local, tz, up_to_today=None) -> dict[str, Any]:
     """
-    Estatísticas do utilizador no mês de end_date_local (1º ao último dia do mês).
+    Estatísticas do utilizador no mês de end_date_local (1º ao último dia do mês, ou até up_to_today se dado).
+    up_to_today: quando definido (ex.: para "mês corrente"), o fim do período é min(up_to_today, último dia do mês).
     Retorna: tarefas_feitas, lembretes_recebidos, eventos_criados, inicio, fim (dd/mm).
     """
     from calendar import monthrange
@@ -90,7 +91,8 @@ def get_month_stats(db, chat_id: str, end_date_local, tz) -> dict[str, Any]:
     year, month = end_date_local.year, end_date_local.month
     start_date = end_date_local.replace(day=1)
     last_day = monthrange(year, month)[1]
-    end_date = end_date_local.replace(day=last_day)
+    last_day_date = end_date_local.replace(day=last_day)
+    end_date = min(up_to_today, last_day_date) if up_to_today else last_day_date
 
     start_naive = datetime(
         start_date.year, start_date.month, start_date.day, 0, 0, 0,
@@ -145,37 +147,29 @@ def get_month_stats(db, chat_id: str, end_date_local, tz) -> dict[str, Any]:
 def get_pending_recap_on_first_contact(db, chat_id: str, tz: ZoneInfo):
     """
     Calcula se há resumo semanal e/ou mensal pendente para entregar no primeiro contacto.
+    Política: apenas semana corrente (últimos 7 dias até hoje) e mês corrente (1º do mês até hoje).
     Retorna: (weekly_content, weekly_period_id, monthly_content, monthly_period_id).
-    Cada content é None se não houver pendente; period_id é str para marcar como entregue (ex.: "2026-W06", "2026-01").
     """
-    from datetime import date
     today = datetime.now(tz).date()
-    # Última semana completa (terminada no domingo anterior)
-    last_sunday = today - timedelta(days=(today.weekday() + 1) % 7)
-    weekly_period_id = f"{last_sunday.year}-W{last_sunday.isocalendar()[1]:02d}" if last_sunday else None
-    # Último mês completo
-    first_this_month = today.replace(day=1)
-    last_month_end = first_this_month - timedelta(days=1)
-    monthly_period_id = last_month_end.strftime("%Y-%m") if last_month_end else None
+    # Semana corrente: 7 dias terminando em hoje
+    weekly_period_id = f"{today.year}-W{today.isocalendar()[1]:02d}"
+    # Mês corrente: 1º do mês até hoje
+    monthly_period_id = today.strftime("%Y-%m")
 
     user_lang = get_user_language(db, chat_id)
     preferred_name = get_user_preferred_name(db, chat_id)
-    weekly_content = None
-    monthly_content = None
-    if last_sunday:
-        stats_w = get_week_stats(db, chat_id, last_sunday, tz)
-        weekly_content = build_weekly_recap_text(
-            stats=stats_w,
-            user_lang=user_lang,
-            preferred_name=preferred_name,
-        )
-    if last_month_end:
-        stats_m = get_month_stats(db, chat_id, last_month_end, tz)
-        monthly_content = build_monthly_recap_text(
-            stats=stats_m,
-            user_lang=user_lang,
-            preferred_name=preferred_name,
-        )
+    stats_w = get_week_stats(db, chat_id, today, tz)
+    weekly_content = build_weekly_recap_text(
+        stats=stats_w,
+        user_lang=user_lang,
+        preferred_name=preferred_name,
+    )
+    stats_m = get_month_stats(db, chat_id, today, tz, up_to_today=today)
+    monthly_content = build_monthly_recap_text(
+        stats=stats_m,
+        user_lang=user_lang,
+        preferred_name=preferred_name,
+    )
     return weekly_content, weekly_period_id, monthly_content, monthly_period_id
 
 
