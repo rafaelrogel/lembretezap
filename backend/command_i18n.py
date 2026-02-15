@@ -63,6 +63,12 @@ for canonical, aliases in COMMAND_ALIASES:
 
 def normalize_command(content: str) -> str:
     """Substitui o primeiro token (comando) pela forma canónica se for um alias conhecido."""
+    import json as _j, os as _os
+    _log_path = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", "nanobot", ".cursor", "debug.log"))
+    # #region agent log
+    try: open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": content[:200] if content else None}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n"); pass
+    except Exception: pass
+    # #endregion
     if not content or not isinstance(content, str):
         return content
     t = content.strip()
@@ -75,4 +81,9 @@ def normalize_command(content: str) -> str:
     canonical = _CANONICAL_BY_ALIAS.get(first.lower())
     if canonical is None:
         return content
-    return f"{canonical} {rest}" if rest else canonical
+    out = f"{canonical} {rest}" if rest else canonical
+    # #region agent log
+    try: open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": out[:200], "changed": out != content}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n"); pass
+    except Exception: pass
+    # #endregion
+    return out

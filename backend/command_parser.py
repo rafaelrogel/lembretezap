@@ -19,6 +19,9 @@ RE_LIST_CATEGORY_ADD = re.compile(
 )
 RE_LIST_SHOW = re.compile(r"^/list\s+(\S+)\s*$", re.I)
 RE_LIST_ALL = re.compile(r"^/list\s*$", re.I)
+# /feito [list_name] item_id — marcar item como feito
+RE_FEITO_LIST_ID = re.compile(r"^/feito\s+(\S+)\s+(\d+)\s*$", re.I)
+RE_FEITO_ID_ONLY = re.compile(r"^/feito\s+(\d+)\s*$", re.I)
 # Linguagem natural: mostre lista X, lista de X, minha lista X, qual lista, mercado, compras
 RE_NL_MOSTRE_LISTA = re.compile(
     r"^(?:mostr(?:e|ar)|ver|listar|mostra)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?(\w+)\s*$", re.I
@@ -122,6 +125,14 @@ def parse(raw: str) -> dict[str, Any] | None:
         return {"type": "list_show", "list_name": m.group(1).strip()}
     if RE_LIST_ALL.match(text):
         return {"type": "list_show", "list_name": None}
+
+    # /feito
+    m = RE_FEITO_LIST_ID.match(text)
+    if m:
+        return {"type": "feito", "list_name": m.group(1).strip(), "item_id": int(m.group(2))}
+    m = RE_FEITO_ID_ONLY.match(text)
+    if m:
+        return {"type": "feito", "list_name": None, "item_id": int(m.group(1))}
 
     # Linguagem natural: mostre lista mercado, lista de mercado, qual minha lista, mercado
     m = RE_NL_MOSTRE_LISTA.match(text)

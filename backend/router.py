@@ -94,10 +94,20 @@ HANDLERS = [
 
 async def route(ctx: HandlerContext, content: str) -> str | None:
     """Despacha mensagem para o handler adequado. Retorna texto ou None (fallback LLM)."""
+    # #region agent log
+    import json as _json, os as _os
+    _log_path = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", "nanobot", ".cursor", "debug.log"))
+    try: open(_log_path, "a", encoding="utf-8").write(_json.dumps({"location": "router.route.entry", "message": "route", "data": {"content_preview": (content or "")[:120]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H2"}) + "\n"); pass
+    except Exception: pass
+    # #endregion
     if not content or not content.strip():
         return None
     content = normalize_command(content.strip())
     text = content
+    # #region agent log
+    try: open(_log_path, "a", encoding="utf-8").write(_json.dumps({"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": content[:120]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H2"}) + "\n"); pass
+    except Exception: pass
+    # #endregion
 
     reply = await resolve_confirm(ctx, text)
     if reply is not None:
@@ -108,6 +118,10 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         try:
             out = await h(ctx, content)
             if out is not None:
+                # #region agent log
+                try: open(_log_path, "a", encoding="utf-8").write(_json.dumps({"location": "router.route.handler_return", "message": "route", "data": {"handler": h.__name__, "out_preview": (out or "")[:80]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H3"}) + "\n"); pass
+                except Exception: pass
+                # #endregion
                 return out
         except Exception as e:
             if strict:
