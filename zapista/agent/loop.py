@@ -636,7 +636,7 @@ class AgentLoop:
                 await self.bus.publish_outbound(OutboundMessage(
                     channel=msg.channel,
                     chat_id=msg.chat_id,
-                    content=get_searching_message(),
+                    content=get_searching_message(content),
                 ))
         except Exception:
             pass

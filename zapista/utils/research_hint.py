@@ -185,6 +185,12 @@ _RECEITA_LIST = re.compile(
 )
 _URL = re.compile(r"https?://\S+", re.I)
 
+# Mensagens genéricas (sem "lista") — para URLs sozinhos (Twitter, etc.) não usar "A carregar a lista"
+_URL_ONLY_MESSAGES = [
+    m for m in SEARCHING_MESSAGES
+    if "lista" not in m.lower() and "list" not in m.lower() and "compilar" not in m.lower()
+]
+
 
 def is_research_intent(content: str) -> bool:
     """
@@ -201,6 +207,20 @@ def is_research_intent(content: str) -> bool:
     return False
 
 
-def get_searching_message() -> str:
-    """Retorna uma mensagem aleatória da lista (curta, com emoji)."""
+def _is_url_only(content: str) -> bool:
+    """True se a mensagem é basicamente só um URL (ex.: link partilhado)."""
+    if not content or not content.strip():
+        return False
+    text = content.strip()
+    without_url = _URL.sub("", text)
+    return len(without_url.strip()) < 15
+
+
+def get_searching_message(content: str | None = None) -> str:
+    """
+    Retorna uma mensagem aleatória (curta, com emoji).
+    Para URLs sozinhos (ex.: link Twitter), usa mensagens sem "lista" para evitar confusão.
+    """
+    if content and _is_url_only(content) and _URL_ONLY_MESSAGES:
+        return random.choice(_URL_ONLY_MESSAGES)
     return random.choice(SEARCHING_MESSAGES)
