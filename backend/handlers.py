@@ -439,24 +439,8 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
     )
 
 
-async def handle_feito(ctx: HandlerContext, content: str) -> str | None:
-    """/feito nome id. Ex: /feito mercado 1 – marca feito e remove."""
-    from backend.command_parser import parse
-    intent = parse(content)
-    if not intent or intent.get("type") != "feito":
-        return None
-    if not ctx.list_tool:
-        return None
-    list_name = intent.get("list_name")
-    item_id = intent.get("item_id")
-    if item_id is None:
-        return "Use: /feito nome_da_lista id (ex: /feito mercado 1) ou /feito id (ex: /feito 1)"
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
-    return await ctx.list_tool.execute(action="feito", list_name=list_name, item_id=item_id)
-
-
 # ---------------------------------------------------------------------------
-# Aliases: /add [lista] [item] (default lista=mercado), /done nome n
+# Alias: /add [lista] [item] (default lista=mercado). Feito: por áudio, texto ou emoji.
 # ---------------------------------------------------------------------------
 
 async def handle_add(ctx: HandlerContext, content: str) -> str | None:
@@ -477,19 +461,6 @@ async def handle_add(ctx: HandlerContext, content: str) -> str | None:
     return await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
 
 
-async def handle_done(ctx: HandlerContext, content: str) -> str | None:
-    """/done nome n. Ex: /done mercado 1 – remove item."""
-    import re
-    m = re.match(r"^/done\s+(\S+)\s+(\d+)\s*$", content.strip(), re.I)
-    if not m:
-        return None
-    list_name, item_id = m.group(1).strip(), int(m.group(2))
-    if not ctx.list_tool:
-        return None
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
-    return await ctx.list_tool.execute(action="feito", list_name=list_name, item_id=item_id)
-
-
 # ---------------------------------------------------------------------------
 # /start, /recorrente, /pendente, /stop (tz/lang/quiet/reset em settings_handlers)
 # ---------------------------------------------------------------------------
@@ -500,7 +471,7 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
         return None
     return (
         "👋 Olá! Sou o Zapista: lembretes, listas e eventos.\n\n"
-        "📌 Comandos: /lembrete, /list (filme, livro, musica, receita, compras…), /feito.\n"
+        "📌 Comandos: /lembrete, /list (filme, livro, musica, receita, notas, compras…).\n"
         "🌍 Timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.\n\n"
         "Digite /help para ver tudo — ou escreve/envia áudio para conversar. 😊"
     )
@@ -513,16 +484,14 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
     return (
         "📋 **Comandos disponíveis:**\n"
         "• /lembrete — agendar (ex.: amanhã 9h; em 30 min; depois de AL = encadear)\n"
-        "• /list — listas: /list mercado add leite  ou  /list filme Matrix  /list livro 1984  /list musica Nome  /list receita Bolo\n"
-        "• /feito — marcar item como feito: /feito mercado 1  ou  /feito 1\n"
+        "• /list — listas: /list mercado add leite  /list filme Matrix  /list notas add X  /list sites add url  /list receita Bolo\n"
+        "• Marcar feito: por áudio, texto ou emoji (ex.: «pronto», «✓», «👍»)\n"
         "• /hoje, /semana — ver o que tens hoje ou esta semana\n"
         "• /timeline — histórico cronológico (lembretes, tarefas, eventos)\n"
         "• /stats — estatísticas (tarefas feitas, lembretes); /stats dia ou /stats semana\n"
         "• /resumo — resumo da semana (tarefas, lembretes, eventos)\n"
-        "• /habito add Nome, /habito check Nome, /habito hoje — hábitos diários\n"
+        "• /recorrente — hábitos recorrentes (ex.: /recorrente beber água todo dia 8h)\n"
         "• /meta add Nome até DD/MM — metas com prazo; /metas para listar\n"
-        "• /save texto, /nota texto ou /bookmark — guardar (tags e categoria por IA); /guardados ou /bookmarks para listar\n"
-        "• /find \"aquela receita\" — busca nos guardados\n"
         "• /pomodoro — timer 25 min foco (Pomodoro); /pomodoro stop para cancelar\n"
         "• /tz Cidade — definir fuso (ex.: /tz Lisboa)\n"
         "• /lang pt-pt ou pt-br — idioma\n"

@@ -1,4 +1,4 @@
-"""Parser de comandos: /lembrete, /list, /feito, /filme. Retorna intent estruturado ou None.
+"""Parser de comandos: /lembrete, /list, /filme. Retorna intent estruturado ou None.
 
 Suporta lembretes pontuais e recorrentes (diário, semanal, a cada N, mensal).
 Parse de tempo/recorrência em backend.time_parse.
@@ -12,9 +12,9 @@ from backend.time_parse import extract_start_date, parse_lembrete_time
 # Padrões
 RE_LEMBRETE = re.compile(r"^/lembrete\s+(.+)$", re.I)
 RE_LIST_ADD = re.compile(r"^/list\s+(\S+)\s+add\s+(.+)$", re.I)
-# /list filme|livro|musica|receita <item> (categorias especiais; sem "add")
+# /list filme|livro|musica|receita|notas|nota|sites|site|links|link <item> (categorias; sem "add")
 RE_LIST_CATEGORY_ADD = re.compile(
-    r"^/list\s+(filme|filmes|livro|livros|musica|musicas|música|músicas|receita|receitas)\s+(.+)$",
+    r"^/list\s+(filme|filmes|livro|livros|musica|musicas|m[uú]sicas?|receita|receitas|notas?|sites?|links?)\s+(.+)$",
     re.I,
 )
 RE_LIST_SHOW = re.compile(r"^/list\s+(\S+)\s*$", re.I)
@@ -28,9 +28,7 @@ RE_NL_QUAL_LISTA = re.compile(
     r"^qual\s+(?:é|e)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?(\w+)\s*\??\s*$", re.I
 )
 RE_NL_LISTA_SOZINHA = re.compile(r"^(lista|mercado|compras|pendentes)\s*$", re.I)
-RE_FEITO_ID = re.compile(r"^/feito\s+(\d+)\s*$", re.I)
-RE_FEITO_LIST_ID = re.compile(r"^/feito\s+(\S+)\s+(\d+)\s*$", re.I)
-# Atalhos: /filme, /livro, /musica, /receita → equivalente a /list filme|livro|musica|receita <item>
+# Atalhos: /filme, /livro, /musica, /receita, /nota, /site → equivalente a /list <categoria> <item>
 RE_FILME = re.compile(r"^/filme\s+(.+)$", re.I)
 RE_LIVRO = re.compile(r"^/livro\s+(.+)$", re.I)
 RE_MUSICA = re.compile(r"^/musica\s+(.+)$", re.I)
@@ -43,14 +41,16 @@ RE_NL_ADICIONE_LISTA = re.compile(
 )
 # NL: "add lista filmes X", "add list filmes X" → list_add filme
 RE_NL_ADD_LISTA_CATEGORIA = re.compile(
-    r"^(?:add|adicione|adiciona)\s+listas?\s+(filmes?|livros?|m[uú]sicas?|receitas?)\s+(.+)$",
+    r"^(?:add|adicione|adiciona)\s+listas?\s+(filmes?|livros?|m[uú]sicas?|receitas?|notas?|sites?|links?)\s+(.+)$",
     re.I,
 )
-# NL: "coloca/põe/anota X na lista", "põe leite na lista"
+# NL: "coloca/põe/anota X na lista", "põe leite na lista" → list_add mercado
 RE_NL_POR_LISTA = re.compile(
     r"^(?:coloca|coloque|p[oô]e|põe|anota|anotar|inclui|incluir|marca)\s+(.+?)\s+(?:na|no|à|a)\s+(?:lista|listas)\s*$",
     re.I,
 )
+# NL: "anota X" / "anotar X" (sem "na lista") → list_add notas
+RE_NL_ANOTA = re.compile(r"^(?:anota|anotar)\s+(.+)$", re.I)
 # NL: "lembra de comprar X", "não esqueças de comprar X" → list_add mercado
 RE_NL_LEMBRA_COMPRAR = re.compile(
     r"^(?:lembra[- ]?me\s+de\s+comprar|n[aã]o\s+esque[cç]as?\s+de\s+comprar|lembra\s+de\s+comprar)\s+(.+)$",
@@ -68,6 +68,9 @@ _CATEGORY_TO_LIST = {
     "livro": "livro", "livros": "livro",
     "musica": "musica", "musicas": "musica", "música": "musica", "músicas": "musica",
     "receita": "receita", "receitas": "receita",
+    "nota": "notas", "notas": "notas",
+    "site": "sites", "sites": "sites",
+    "link": "sites", "links": "sites",
 }
 
 RE_DEPOIS_DE = re.compile(
@@ -150,14 +153,7 @@ def parse(raw: str) -> dict[str, Any] | None:
         name = m.group(1).strip()
         return {"type": "list_show", "list_name": name if name != "lista" else None}
 
-    m = RE_FEITO_LIST_ID.match(text)
-    if m:
-        return {"type": "feito", "list_name": m.group(1).strip(), "item_id": int(m.group(2))}
-    m = RE_FEITO_ID.match(text)
-    if m:
-        return {"type": "feito", "list_name": None, "item_id": int(m.group(1))}
-
-    # Atalhos: /filme X, /livro X, /musica X, /receita X → list_add (tudo dentro de /list)
+    # Atalhos: /filme X, /livro X, /musica X, /receita X, /nota X, /site X → list_add (tudo dentro de /list)
     m = RE_FILME.match(text)
     if m:
         return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
@@ -185,6 +181,12 @@ def parse(raw: str) -> dict[str, Any] | None:
         item = m.group(1).strip()
         if item:
             return {"type": "list_add", "list_name": "mercado", "item": item}
+    # NL: "anota X" / "anotar X" (sem "na lista") → list_add notas
+    m = RE_NL_ANOTA.match(text)
+    if m:
+        item = m.group(1).strip()
+        if item:
+            return {"type": "list_add", "list_name": "notas", "item": item}
     # NL: "lembra de comprar X" → list_add mercado
     m = RE_NL_LEMBRA_COMPRAR.match(text)
     if m:

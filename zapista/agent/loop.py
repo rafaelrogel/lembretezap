@@ -307,14 +307,6 @@ class AgentLoop:
                 return None
             list_name = intent.get("list_name")
             return await list_tool.execute(action="list", list_name=list_name or "")
-        if t == "feito":
-            if not list_tool:
-                return None
-            list_name = intent.get("list_name")
-            item_id = intent.get("item_id")
-            if list_name is None:
-                return "Use: /feito nome_da_lista id (ex: /feito mercado 1)"
-            return await list_tool.execute(action="feito", list_name=list_name, item_id=item_id)
         return None
 
     async def _out_of_scope_message(self, user_content: str, lang: str = "en") -> str:
