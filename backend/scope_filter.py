@@ -10,6 +10,8 @@ SCOPE_KEYWORDS = re.compile(
     r"add|remover|remove|feito|delete|filme|livro|musica|evento|"
     r"agendar|agenda|daqui a|em \d+ (min|hora|dia)|todo dia|toda semana|"
     r"diariamente|recorrente|mensalmente|a cada \d+ (min|hora|dia)|"
+    r"preciso\s+ir|tenho\s+(consulta|reunião|reuniao)|ir\s+ao\s+(m[eé]dico|dentista)|"
+    r"m[eé]dico|medico|consulta|dentista|reunião|reuniao|"
     r"/lembrete|/list|/filme|/recorrente)\b",
     re.I,
 )

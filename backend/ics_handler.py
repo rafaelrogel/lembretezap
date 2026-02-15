@@ -10,6 +10,41 @@ MAX_EVENTS_PER_ICS = 50
 MAX_ICS_BYTES = 500 * 1024  # 500 KB
 
 
+def _normalize_ics_content(raw: str) -> str:
+    """
+    Normaliza o conteúdo .ics para aumentar a taxa de sucesso do parse:
+    - Remove BOM UTF-8
+    - Normaliza fins de linha para \\n
+    - Desdobra linhas (RFC 5545: linha continua com \\n + espaço)
+    - Remove bytes nulos
+    """
+    if not raw:
+        return raw
+    # BOM UTF-8
+    if raw.startswith("\ufeff"):
+        raw = raw[1:]
+    # Fins de linha: CRLF e CR -> LF
+    raw = raw.replace("\r\n", "\n").replace("\r", "\n")
+    # Desdobrar linhas continuadas (ex.: "DTSTART;TZID=...\n :20260217T120000" -> uma só linha)
+    while "\n " in raw:
+        raw = raw.replace("\n ", " ")
+    # Bytes nulos (podem vir de ficheiros mal formados)
+    raw = raw.replace("\x00", "")
+    return raw.strip()
+
+
+def _try_decode_utf8_from_latin1(s: str) -> str | None:
+    """
+    Se o ficheiro foi interpretado como Latin-1 mas era UTF-8,
+    re-encodar como Latin-1 e decodificar como UTF-8.
+    Retorna None se não fizer sentido (ex.: caracteres fora de range Latin-1).
+    """
+    try:
+        return s.encode("latin-1").decode("utf-8", errors="strict")
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        return None
+
+
 def _to_datetime(dt: date | datetime) -> datetime:
     """Converte date ou datetime para datetime (date -> 00:00:00)."""
     if isinstance(dt, datetime):
@@ -17,6 +52,68 @@ def _to_datetime(dt: date | datetime) -> datetime:
     if isinstance(dt, date):
         return datetime.combine(dt, time.min)
     return datetime.min
+
+
+def _get_dt_from_vevent(component: Any, key: str) -> datetime | None:
+    """
+    Extrai datetime de DTSTART ou DTEND de um VEVENT, tratando TZID e formatos
+    que a icalendar por vezes devolve (naive, ou .dt com estrutura inesperada).
+    """
+    val = component.get(key)
+    if val is None:
+        return None
+    dt: datetime | None = None
+    dt_raw = getattr(val, "dt", None)
+    if isinstance(dt_raw, datetime):
+        dt = dt_raw
+    elif isinstance(dt_raw, date) and not isinstance(dt_raw, datetime):
+        dt = datetime.combine(dt_raw, time.min)
+    elif isinstance(dt_raw, (list, tuple)) and len(dt_raw) >= 1:
+        first = dt_raw[0]
+        if isinstance(first, datetime):
+            dt = first
+        elif isinstance(first, date):
+            dt = datetime.combine(first, time.min)
+
+    if dt is None:
+        # Fallback: icalendar pode devolver valor em formato que não é date/datetime
+        # (ex.: DTSTART;TZID=Africa/Abidjan com .dt não resolvido). Parse manual via to_ical() + params.
+        try:
+            params = getattr(val, "params", None) or {}
+            tzid_list = params.get("TZID") if isinstance(params, dict) else None
+            tzid = (tzid_list[0] if tzid_list else None) if isinstance(tzid_list, list) else tzid_list
+            ical_str = val.to_ical() if hasattr(val, "to_ical") else None
+            if isinstance(ical_str, bytes):
+                ical_str = ical_str.decode("utf-8", errors="replace")
+            if ical_str and isinstance(ical_str, str):
+                ical_str = ical_str.strip()
+                if "T" in ical_str and len(ical_str) >= 15:
+                    dt_naive = datetime.strptime(ical_str[:15], "%Y%m%dT%H%M%S")
+                elif len(ical_str) >= 8:
+                    dt_naive = datetime.strptime(ical_str[:8], "%Y%m%d")
+                else:
+                    dt_naive = None
+                if dt_naive is not None and tzid:
+                    try:
+                        from zoneinfo import ZoneInfo
+                        z = ZoneInfo(str(tzid))
+                        dt = dt_naive.replace(tzinfo=z)
+                    except Exception:
+                        dt = dt_naive
+                elif dt_naive is not None:
+                    dt = dt_naive
+        except Exception as e:
+            logger.debug(f"ics _get_dt_from_vevent fallback failed for {key}: {e}")
+
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        try:
+            from datetime import timezone
+            dt = dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            pass
+    return dt
 
 
 async def handle_ics_payload(
@@ -38,7 +135,10 @@ async def handle_ics_payload(
     if not ics_content or not ics_content.strip():
         return _summary_message(0, [], lang, error="Calendário vazio.")
 
-    raw = ics_content.strip()
+    raw = _normalize_ics_content(ics_content)
+    if not raw:
+        return _summary_message(0, [], lang, error="Calendário vazio.")
+
     if len(raw.encode("utf-8")) > MAX_ICS_BYTES:
         return _summary_message(0, [], lang, error="Ficheiro demasiado grande.")
 
@@ -48,14 +148,28 @@ async def handle_ics_payload(
         logger.warning("icalendar not installed; pip install icalendar")
         return _summary_message(0, [], lang, error="Suporte a .ics não disponível.")
 
+    cal = None
+    parse_error: Exception | None = None
     try:
         cal = icalendar.Calendar.from_ical(raw)
     except Exception as e:
-        logger.debug(f"ics parse failed: {e}")
-        return _summary_message(0, [], lang, error="Calendário inválido. Envia um ficheiro .ics válido.")
+        parse_error = e
+        logger.warning(f"ics parse failed: {e}. Preview: {raw[:300]!r}")
+        # Fallback: ficheiro pode ter sido interpretado como Latin-1 mas ser UTF-8 (ex.: export do Outlook)
+        decoded = _try_decode_utf8_from_latin1(raw)
+        if decoded is not None:
+            try:
+                cal = icalendar.Calendar.from_ical(decoded)
+            except Exception as e2:
+                parse_error = e2
+                logger.debug(f"ics parse (latin1 fallback) failed: {e2}")
 
     if cal is None:
-        return _summary_message(0, [], lang, error="Calendário inválido.")
+        err_msg = (
+            "Calendário inválido ou encoding incorreto. "
+            "Tenta exportar o .ics de novo (UTF-8) ou usar outro ficheiro."
+        )
+        return _summary_message(0, [], lang, error=err_msg)
 
     events_created: list[dict[str, Any]] = []
     if not db_session_factory:
@@ -78,16 +192,18 @@ async def handle_ics_payload(
             if count >= MAX_EVENTS_PER_ICS:
                 break
             try:
-                summary = (component.get("SUMMARY") or "").strip() or "Evento"
-                if isinstance(summary, bytes):
-                    summary = summary.decode("utf-8", errors="replace").strip() or "Evento"
+                summary_val = component.get("SUMMARY") or ""
+                if isinstance(summary_val, bytes):
+                    summary = summary_val.decode("utf-8", errors="replace").strip() or "Evento"
+                else:
+                    summary = (summary_val if isinstance(summary_val, str) else str(summary_val)).strip() or "Evento"
                 if is_absurd_request(summary):
                     continue
                 summary = sanitize_string(summary, 256)[:256]
-                dtstart_val = component.get("DTSTART")
-                dtstart = _to_datetime(getattr(dtstart_val, "dt", None)) if dtstart_val and getattr(dtstart_val, "dt", None) is not None else None
-                dtend_val = component.get("DTEND")
-                dtend = _to_datetime(getattr(dtend_val, "dt", None)) if dtend_val and getattr(dtend_val, "dt", None) is not None else None
+                dtstart = _get_dt_from_vevent(component, "DTSTART")
+                if dtstart is None:
+                    continue  # evento sem data de início — ignorar
+                dtend = _get_dt_from_vevent(component, "DTEND")
                 description = component.get("DESCRIPTION")
                 if description:
                     description = (description if isinstance(description, str) else description.decode("utf-8", errors="replace")).strip()[:1024]

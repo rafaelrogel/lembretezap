@@ -231,3 +231,16 @@ def city_to_iana(city: str) -> str | None:
         return None
     key = key.replace("-", " ").replace("_", " ")
     return CITY_TO_IANA.get(key)
+
+
+def iana_from_offset_minutes(offset_minutes: int) -> str:
+    """
+    Converte offset UTC em minutos (positivo = à frente de UTC) para IANA.
+    Usado quando o utilizador diz «são 14h30» e sabemos a hora UTC do servidor.
+    Retorna Etc/GMT±N (válido em zoneinfo).
+    """
+    if offset_minutes >= 0:
+        hours = min(14, offset_minutes // 60)
+        return f"Etc/GMT-{hours}"  # Etc/GMT-2 = UTC+2
+    hours = min(12, (-offset_minutes) // 60)
+    return f"Etc/GMT+{hours}"  # Etc/GMT+3 = UTC-3

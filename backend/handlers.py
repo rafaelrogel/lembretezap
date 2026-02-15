@@ -341,6 +341,66 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
         # Fallback: resposta inválida em stage desconhecido
         return None
 
+    # --- Novo pedido com evento + data + hora completos (ex.: "preciso ir ao médico amanhã às 17h") → agenda + perguntar lembrete ---
+    if flow is None:
+        from backend.reminder_flow import (
+            parse_full_event_datetime,
+            has_full_event_datetime,
+        )
+        from backend.models_db import Event, AuditLog
+        from backend.database import SessionLocal
+        from backend.user_store import get_or_create_user
+
+        if has_full_event_datetime(text):
+            parsed = parse_full_event_datetime(text, tz_iana)
+            if parsed:
+                content_ev, in_sec, data_at = parsed
+                db_ev = SessionLocal()
+                try:
+                    user_ev = get_or_create_user(db_ev, ctx.chat_id)
+                    from backend.limits import check_event_limits, LIMIT_EVENTS_PER_DAY
+                    from backend.locale import (
+                        LIMIT_AGENDA_PER_DAY_REACHED,
+                        LIMIT_TOTAL_PER_DAY_REACHED,
+                        LIMIT_WARNING_70,
+                    )
+                    target_date = data_at.date() if hasattr(data_at, "date") else data_at
+                    if hasattr(data_at, "astimezone"):
+                        from zoneinfo import ZoneInfo
+                        target_date = data_at.astimezone(ZoneInfo(tz_iana)).date()
+                    allowed, at_warning, ev_count, _, _ = check_event_limits(
+                        db_ev, user_ev.id, target_date, tz_iana,
+                        cron_service=ctx.cron_service, chat_id=ctx.chat_id,
+                    )
+                    if not allowed:
+                        if ev_count >= LIMIT_EVENTS_PER_DAY:
+                            return LIMIT_AGENDA_PER_DAY_REACHED.get(user_lang, LIMIT_AGENDA_PER_DAY_REACHED["en"])
+                        return LIMIT_TOTAL_PER_DAY_REACHED.get(user_lang, LIMIT_TOTAL_PER_DAY_REACHED["en"])
+                    ev = Event(
+                        user_id=user_ev.id,
+                        tipo="evento",
+                        payload={"nome": content_ev},
+                        data_at=data_at,
+                        deleted=False,
+                    )
+                    db_ev.add(ev)
+                    db_ev.add(AuditLog(user_id=user_ev.id, action="event_add", resource="evento"))
+                    db_ev.commit()
+                finally:
+                    db_ev.close()
+                session.metadata[FLOW_KEY] = {
+                    "stage": STAGE_NEED_ADVANCE_PREFERENCE,
+                    "content": content_ev,
+                    "in_seconds": in_sec,
+                    "retry_count": 0,
+                }
+                ctx.session_manager.save(session)
+                from backend.locale import EVENT_REGISTERED_ASK_REMINDER
+                out = EVENT_REGISTERED_ASK_REMINDER.get(user_lang, EVENT_REGISTERED_ASK_REMINDER["en"])
+                if at_warning:
+                    out += "\n\n" + LIMIT_WARNING_70.get(user_lang, LIMIT_WARNING_70["en"])
+                return out
+
     # --- Novo pedido com tempo vago (data sem hora) ---
     ok, msg_content, date_label = is_vague_time_reminder(text)
     if ok:

@@ -667,11 +667,14 @@ class AgentLoop:
         except Exception as e:
             logger.debug(f"Language switch check failed: {e}")
 
-        # Resposta rápida quando o utilizador "chama" o bot (ex.: "Organizador?", "Rapaz?", "Tá aí?", "Are you there?") — Mimo, barato e proativo
+        # Resposta rápida quando o utilizador "chama" o bot (ex.: "Organizador?", "Rapaz?", "Tá aí?") — não tratar como chamada se for evento+data+hora (ex.: "preciso ir ao médico amanhã às 17h")
         try:
             from backend.calling_phrases import is_calling_message
+            from backend.reminder_flow import has_full_event_datetime
             from backend.locale import phone_to_default_language
-            if is_calling_message(content):
+            if has_full_event_datetime(content or ""):
+                pass  # deixa seguir para o router/handler (agenda + lembrete)
+            elif is_calling_message(content):
                 id_for_locale = msg.metadata.get("phone_for_locale") or msg.chat_id
                 reply_lang = phone_to_default_language(id_for_locale)
                 reply = await self._reply_calling_organizer_with_mimo(reply_lang)
@@ -749,206 +752,234 @@ class AgentLoop:
         except Exception as e:
             logger.debug(f"Injection guard failed: {e}")
 
-        # Onboarding: idioma (1/4) → nome (2/4) → cidade (3/4). Skip no canal cli.
+        # Onboarding simplificado: só fuso (cidade ou hora). Não bloqueia o sistema — quem não responde segue para comandos/LLM.
         if msg.channel != "cli":
             try:
+                from datetime import datetime
+                from zoneinfo import ZoneInfo
                 from backend.database import SessionLocal
                 from backend.user_store import (
-                    get_or_create_user, set_user_preferred_name, get_user_preferred_name,
-                    set_user_language, get_user_city, set_user_city, set_user_timezone,
-                    get_user_language as _get_user_lang,
+                    get_or_create_user, get_user_city, set_user_city, set_user_timezone,
+                    get_user_language as _get_user_lang, set_user_preferred_name, get_user_preferred_name,
                 )
                 from backend.locale import (
-                    preferred_name_confirmation,
                     phone_to_default_language as _phone_lang,
-                    get_onboarding_language_question_simple,
-                    parse_onboarding_language_response,
-                    onboarding_progress_suffix,
-                    ONBOARDING_INVALID_RESPONSE,
+                    ONBOARDING_INTRO_TZ_FIRST,
+                    ONBOARDING_ASK_CITY_OR_TIME,
+                    ONBOARDING_ASK_TIME_FALLBACK,
+                    onboarding_time_confirm_message,
                     ONBOARDING_COMPLETE,
-                    ONBOARDING_COMPLETE_TZ_FROM_PHONE,
                     ONBOARDING_EMOJI_TIP,
                     ONBOARDING_RESET_HINT,
+                    ONBOARDING_TZ_SET_FROM_TIME,
+                    NUDGE_TZ_WHEN_MISSING,
+                    PREFERRED_NAME_QUESTION,
+                    preferred_name_confirmation,
                 )
-                from backend.onboarding_skip import (
-                    is_onboarding_refusal_or_skip,
-                    is_likely_valid_name,
-                    is_inappropriate_or_invalid_onboarding_response,
-                    is_likely_not_city,
-                )
+                from backend.onboarding_skip import is_likely_not_city, is_likely_valid_name, is_onboarding_refusal_or_skip
+                from backend.onboarding_time import parse_local_time_from_message
+                from backend.timezone import iana_from_offset_minutes, phone_to_default_timezone, is_valid_iana
                 db = SessionLocal()
                 try:
                     user = get_or_create_user(db, msg.chat_id)
                     session = self.sessions.get_or_create(msg.session_key)
-                    has_name = bool((user.preferred_name or "").strip())
-                    has_city = get_user_city(db, msg.chat_id) is not None
+                    has_tz_set = bool((user.timezone or "").strip())
+                    has_name = bool((get_user_preferred_name(db, msg.chat_id) or "").strip())
+                    pending_preferred_name = session.metadata.get("pending_preferred_name") is True
                     id_for_locale = msg.metadata.get("phone_for_locale") or msg.chat_id
                     intro_lang = _phone_lang(id_for_locale)
-                    onboarding_language_asked = session.metadata.get("onboarding_language_asked") is True
-                    pending_language_choice = session.metadata.get("pending_language_choice") is True
-                    pending_preferred_name = session.metadata.get("pending_preferred_name") is True
-                    pending_city = session.metadata.get("pending_city") is True
-
+                    intro_sent = session.metadata.get("onboarding_intro_sent") is True
+                    pending_timezone = session.metadata.get("pending_timezone") is True
+                    pending_time_confirm = session.metadata.get("pending_time_confirm") is True
                     try:
-                        _pf = msg.metadata.get("phone_for_locale")
-                        user_lang = _get_user_lang(db, msg.chat_id, _pf)
+                        user_lang = _get_user_lang(db, msg.chat_id, msg.metadata.get("phone_for_locale"))
                     except Exception:
                         user_lang = intro_lang
-                    name_for_prompt = get_user_preferred_name(db, msg.chat_id) or "utilizador"
 
-                    # --- 1. Primeira interação: intro + pergunta de idioma (1/4) ---
-                    intro_sent = session.metadata.get("onboarding_intro_sent") is True
-                    if not intro_sent:
-                        intro = await self._get_onboarding_intro(intro_lang)
-                        lang_q = get_onboarding_language_question_simple(intro_lang) + onboarding_progress_suffix(1, 4)
-                        full_msg = intro + "\n\n" + lang_q
-                        session.metadata["onboarding_intro_sent"] = True
-                        session.metadata["pending_language_choice"] = True
-                        self.sessions.save(session)
-                        session.add_message("user", msg.content)
-                        session.add_message("assistant", full_msg)
-                        self.sessions.save(session)
-                        return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=full_msg)
-
-                    # --- 2. Resposta à pergunta de idioma (1/4) ---
-                    if pending_language_choice and not msg.content.strip().startswith("/"):
-                        content_stripped = (msg.content or "").strip()
-                        if is_inappropriate_or_invalid_onboarding_response(content_stripped):
-                            invalid_msg = ONBOARDING_INVALID_RESPONSE.get(user_lang, ONBOARDING_INVALID_RESPONSE["en"])
-                            lang_q = get_onboarding_language_question_simple(intro_lang) + onboarding_progress_suffix(1, 4)
-                            reply = invalid_msg + "\n\n" + lang_q
-                            session.add_message("user", msg.content)
-                            session.add_message("assistant", reply)
-                            self.sessions.save(session)
-                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=reply)
-                        result = parse_onboarding_language_response(
-                            content_stripped, msg.metadata.get("phone_for_locale") or msg.chat_id
-                        )
-                        if result is None and not is_onboarding_refusal_or_skip(content_stripped):
-                            invalid_msg = ONBOARDING_INVALID_RESPONSE.get(user_lang, ONBOARDING_INVALID_RESPONSE["en"])
-                            lang_q = get_onboarding_language_question_simple(intro_lang) + onboarding_progress_suffix(1, 4)
-                            reply = invalid_msg + "\n\n" + lang_q
-                            session.add_message("user", msg.content)
-                            session.add_message("assistant", reply)
-                            self.sessions.save(session)
-                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=reply)
-                        if result == "keep" or is_onboarding_refusal_or_skip(content_stripped):
-                            pass  # manter idioma do número
-                        elif isinstance(result, str):
-                            set_user_language(db, msg.chat_id, result)
-                            user_lang = result
-                            self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
-                        session.metadata.pop("pending_language_choice", None)
-                        session.metadata["onboarding_language_asked"] = True
-                        self.sessions.save(session)
-
-                        question = await self._ask_preferred_name_question(user_lang)
-                        question += onboarding_progress_suffix(2, 4)
-                        session.metadata["pending_preferred_name"] = True
-                        self.sessions.save(session)
-                        session.add_message("user", msg.content)
-                        session.add_message("assistant", question)
-                        self.sessions.save(session)
-                        return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=question)
-
-                    # --- 3. Resposta à pergunta do nome (2/4) ---
-                    if pending_preferred_name and not msg.content.strip().startswith("/"):
-                        content_stripped = (msg.content or "").strip()
-                        if is_inappropriate_or_invalid_onboarding_response(content_stripped) and not is_onboarding_refusal_or_skip(content_stripped):
-                            invalid_msg = ONBOARDING_INVALID_RESPONSE.get(user_lang, ONBOARDING_INVALID_RESPONSE["en"])
-                            question = await self._ask_preferred_name_question(user_lang) + onboarding_progress_suffix(2, 4)
-                            reply = invalid_msg + "\n\n" + question
-                            session.add_message("user", msg.content)
-                            session.add_message("assistant", reply)
-                            self.sessions.save(session)
-                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=reply)
-                        if is_onboarding_refusal_or_skip(content_stripped):
-                            name_raw = "utilizador"
-                        elif is_likely_valid_name(content_stripped):
-                            name_raw = content_stripped[:128]
-                        else:
-                            name_raw = "utilizador"
-                        if name_raw and set_user_preferred_name(db, msg.chat_id, name_raw):
-                            session.metadata.pop("pending_preferred_name", None)
-                            self.sessions.save(session)
-                            self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
-                            conf = preferred_name_confirmation(user_lang, name_raw)
-                            session.add_message("user", msg.content)
-                            session.add_message("assistant", conf)
-                            self.sessions.save(session)
-                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=conf)
+                    # Resposta à pergunta «Como gostarias de ser chamado?» (após fuso definido)
+                    if has_tz_set and pending_preferred_name and not (msg.content or "").strip().startswith("/"):
+                        content_name = (msg.content or "").strip()
+                        name_to_save = None
+                        if content_name and is_likely_valid_name(content_name):
+                            name_to_save = content_name[:128]
+                        if name_to_save is None:
+                            # Fallback: nome do perfil WhatsApp (pushName)
+                            wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                            if wa_name and len(wa_name) >= 2 and not wa_name.isdigit():
+                                name_to_save = wa_name[:128]
+                        if name_to_save is None:
+                            name_to_save = "utilizador"
+                        set_user_preferred_name(db, msg.chat_id, name_to_save)
                         session.metadata.pop("pending_preferred_name", None)
+                        self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
                         self.sessions.save(session)
-
-                    # --- 4. Pedir nome (2/4) quando ainda não tem ---
-                    if onboarding_language_asked and not has_name and not pending_preferred_name and not pending_city:
-                        question = await self._ask_preferred_name_question(user_lang) + onboarding_progress_suffix(2, 4)
-                        session.metadata["pending_preferred_name"] = True
-                        self.sessions.save(session)
+                        lang_key = user_lang if user_lang in ("pt-PT", "pt-BR", "es", "en") else "en"
+                        conf = preferred_name_confirmation(lang_key, name_to_save)
                         session.add_message("user", msg.content)
-                        session.add_message("assistant", question)
+                        session.add_message("assistant", conf)
                         self.sessions.save(session)
-                        return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=question)
+                        db.close()
+                        return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=conf)
 
-                    # --- 5. Pedir cidade (3/4) ---
-                    if has_name and not has_city and not pending_city:
-                        question = await self._ask_city_question(user_lang, name_for_prompt) + onboarding_progress_suffix(3, 4)
-                        session.metadata["pending_city"] = True
-                        self.sessions.save(session)
-                        session.add_message("user", msg.content)
-                        session.add_message("assistant", question)
-                        self.sessions.save(session)
-                        return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=question)
-
-                    # --- 6. Resposta à pergunta da cidade (3/4) → conclusão ---
-                    if pending_city:
-                        city_raw = (msg.content or "").strip()
-                        if city_raw.startswith("/"):
-                            pass  # Deixar handlers processar /reset, /help, etc.
-                        elif is_inappropriate_or_invalid_onboarding_response(city_raw) and not is_onboarding_refusal_or_skip(city_raw):
-                            invalid_msg = ONBOARDING_INVALID_RESPONSE.get(user_lang, ONBOARDING_INVALID_RESPONSE["en"])
-                            question = await self._ask_city_question(user_lang, name_for_prompt) + onboarding_progress_suffix(3, 4)
-                            reply = invalid_msg + "\n\n" + question
-                            session.add_message("user", msg.content)
-                            session.add_message("assistant", reply)
+                    # Já tem fuso definido (e não estamos à espera do nome) → não bloquear
+                    if has_tz_set:
+                        pass  # fall through to handlers
+                    else:
+                        nudge_count = session.metadata.get("onboarding_nudge_count", 0)
+                        # Retry gradual: após 2 mensagens sem responder à pergunta de fuso, perguntar «que horas são aí?»
+                        if intro_sent and not pending_timezone and not pending_time_confirm and nudge_count >= 2:
+                            ask = ONBOARDING_ASK_TIME_FALLBACK.get(user_lang, ONBOARDING_ASK_TIME_FALLBACK["en"])
+                            session.metadata["pending_timezone"] = True
+                            session.metadata["onboarding_nudge_count"] = 0
                             self.sessions.save(session)
-                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=reply)
-                        else:
-                            from backend.timezone import phone_to_default_timezone
-                            if city_raw and not is_likely_not_city(city_raw):
-                                city_name, tz_iana = await self._extract_city_and_timezone_with_mimo(city_raw)
-                                if city_name and not is_likely_not_city(city_name):
+                            session.add_message("user", msg.content)
+                            session.add_message("assistant", ask)
+                            self.sessions.save(session)
+                            db.close()
+                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=ask)
+                        # --- 1. Primeira mensagem: intro + pergunta única (cidade ou hora) ---
+                        if not intro_sent:
+                            intro = ONBOARDING_INTRO_TZ_FIRST.get(intro_lang, ONBOARDING_INTRO_TZ_FIRST["en"])
+                            ask = ONBOARDING_ASK_CITY_OR_TIME.get(intro_lang, ONBOARDING_ASK_CITY_OR_TIME["en"])
+                            full_msg = intro + "\n\n" + ask
+                            session.metadata["onboarding_intro_sent"] = True
+                            session.metadata["pending_timezone"] = True
+                            self.sessions.save(session)
+                            session.add_message("user", msg.content)
+                            session.add_message("assistant", full_msg)
+                            self.sessions.save(session)
+                            db.close()
+                            return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=full_msg)
+
+                        # --- 2. Resposta à confirmação «Ah, data, hora. Confere?» — confirmar ou atribuir mesmo assim ---
+                        if pending_time_confirm and not (msg.content or "").strip().startswith("/"):
+                            content_stripped = (msg.content or "").strip().lower()
+                            confirmado = any(w in content_stripped for w in ("sim", "sí", "si", "yes", "ok", "confere", "confirmo", "certo", "isso", "é", "correto", "correto."))
+                            recusado = any(w in content_stripped for w in ("não", "nao", "no ", "no.", "errado", "incorreto"))
+                            proposed_tz = session.metadata.get("proposed_tz_iana")
+                            if recusado and proposed_tz:
+                                session.metadata.pop("pending_time_confirm", None)
+                                session.metadata.pop("proposed_tz_iana", None)
+                                session.metadata.pop("proposed_date_str", None)
+                                session.metadata.pop("proposed_time_str", None)
+                                session.metadata["pending_timezone"] = True
+                                self.sessions.save(session)
+                                # Perguntar de novo (hora ou cidade)
+                                ask = ONBOARDING_ASK_TIME_FALLBACK.get(user_lang, ONBOARDING_ASK_TIME_FALLBACK["en"])
+                                session.add_message("user", msg.content)
+                                session.add_message("assistant", ask)
+                                self.sessions.save(session)
+                                db.close()
+                                return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=ask)
+                            if (confirmado or proposed_tz) and proposed_tz and is_valid_iana(proposed_tz):
+                                set_user_timezone(db, msg.chat_id, proposed_tz)
+                                session.metadata.pop("pending_time_confirm", None)
+                                session.metadata.pop("pending_timezone", None)
+                                session.metadata.pop("proposed_tz_iana", None)
+                                session.metadata.pop("proposed_date_str", None)
+                                session.metadata.pop("proposed_time_str", None)
+                                self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
+                                self.sessions.save(session)
+                                complete_msg = ONBOARDING_TZ_SET_FROM_TIME.get(user_lang, ONBOARDING_TZ_SET_FROM_TIME["en"])
+                                complete_msg += "\n\n" + ONBOARDING_COMPLETE.get(user_lang, ONBOARDING_COMPLETE["en"])
+                                complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
+                                complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
+                                name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                complete_msg += "\n\n" + name_q
+                                session.metadata["pending_preferred_name"] = True
+                                session.add_message("user", msg.content)
+                                session.add_message("assistant", complete_msg)
+                                self.sessions.save(session)
+                                db.close()
+                                return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=complete_msg)
+                            # Sem confirmação explícita: atribuir mesmo assim (pedido do produto)
+                            if proposed_tz and is_valid_iana(proposed_tz):
+                                set_user_timezone(db, msg.chat_id, proposed_tz)
+                                session.metadata.pop("pending_time_confirm", None)
+                                session.metadata.pop("pending_timezone", None)
+                                session.metadata.pop("proposed_tz_iana", None)
+                                session.metadata.pop("proposed_date_str", None)
+                                session.metadata.pop("proposed_time_str", None)
+                                self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
+                                self.sessions.save(session)
+                                complete_msg = ONBOARDING_TZ_SET_FROM_TIME.get(user_lang, ONBOARDING_TZ_SET_FROM_TIME["en"])
+                                complete_msg += "\n\n" + ONBOARDING_COMPLETE.get(user_lang, ONBOARDING_COMPLETE["en"])
+                                complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
+                                complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
+                                name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                complete_msg += "\n\n" + name_q
+                                session.metadata["pending_preferred_name"] = True
+                                session.add_message("user", msg.content)
+                                session.add_message("assistant", complete_msg)
+                                self.sessions.save(session)
+                                db.close()
+                                return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=complete_msg)
+
+                        # --- 3. Resposta à pergunta cidade/hora (pending_timezone): tentar cidade ou hora ---
+                        if pending_timezone and not pending_time_confirm and not (msg.content or "").strip().startswith("/"):
+                            content_stripped = (msg.content or "").strip()
+                            # 3a. Tentar interpretar como cidade
+                            if content_stripped and not is_likely_not_city(content_stripped):
+                                city_name, tz_iana = await self._extract_city_and_timezone_with_mimo(content_stripped)
+                                if city_name and tz_iana and is_valid_iana(tz_iana):
                                     set_user_city(db, msg.chat_id, city_name, tz_iana=tz_iana)
+                                    session.metadata.pop("pending_timezone", None)
+                                    self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
+                                    self.sessions.save(session)
                                     complete_msg = ONBOARDING_COMPLETE.get(user_lang, ONBOARDING_COMPLETE["en"])
                                     complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                     complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
-                                else:
-                                    tz = phone_to_default_timezone(msg.chat_id)
-                                    set_user_timezone(db, msg.chat_id, tz)
-                                    complete_msg = ONBOARDING_COMPLETE_TZ_FROM_PHONE.get(user_lang, ONBOARDING_COMPLETE_TZ_FROM_PHONE["en"])
-                                    complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
-                                    complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
-                            else:
-                                tz = phone_to_default_timezone(msg.chat_id)
-                                set_user_timezone(db, msg.chat_id, tz)
-                                complete_msg = ONBOARDING_COMPLETE_TZ_FROM_PHONE.get(user_lang, ONBOARDING_COMPLETE_TZ_FROM_PHONE["en"])
-                                complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
-                                complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
-                            session.metadata.pop("pending_city", None)
-                            self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
+                                    name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                    complete_msg += "\n\n" + name_q
+                                    session.metadata["pending_preferred_name"] = True
+                                    session.add_message("user", msg.content)
+                                    session.add_message("assistant", complete_msg)
+                                    self.sessions.save(session)
+                                    db.close()
+                                    return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=complete_msg)
+                            # 3b. Tentar interpretar como hora («que horas são aí?»)
+                            parsed = parse_local_time_from_message(content_stripped)
+                            if parsed:
+                                h, m = parsed
+                                now_utc = datetime.now(ZoneInfo("UTC"))
+                                utc_minutes = now_utc.hour * 60 + now_utc.minute
+                                user_minutes = h * 60 + m
+                                offset_minutes = user_minutes - utc_minutes
+                                # Ajustar se diferença > 12h (provável outro dia)
+                                if offset_minutes > 12 * 60:
+                                    offset_minutes -= 24 * 60
+                                elif offset_minutes < -12 * 60:
+                                    offset_minutes += 24 * 60
+                                tz_iana = iana_from_offset_minutes(offset_minutes)
+                                if is_valid_iana(tz_iana):
+                                    z = ZoneInfo(tz_iana)
+                                    today = datetime.now(z).date()
+                                    date_str = today.strftime("%d/%m") if hasattr(today, "strftime") else str(today)
+                                    time_str = f"{h:02d}:{m:02d}"
+                                    confirm_msg = onboarding_time_confirm_message(
+                                        user_lang if user_lang in ("pt-PT", "pt-BR", "es", "en") else "en",
+                                        date_str,
+                                        time_str,
+                                    )
+                                    session.metadata["pending_time_confirm"] = True
+                                    session.metadata["proposed_tz_iana"] = tz_iana
+                                    session.metadata["proposed_date_str"] = date_str
+                                    session.metadata["proposed_time_str"] = time_str
+                                    session.metadata.pop("pending_timezone", None)
+                                    self.sessions.save(session)
+                                    session.add_message("user", msg.content)
+                                    session.add_message("assistant", confirm_msg)
+                                    self.sessions.save(session)
+                                    db.close()
+                                    return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=confirm_msg)
+                            # 3c. Não é cidade nem hora → não bloquear; deixar seguir para handlers e retry depois
+                            session.metadata.pop("pending_timezone", None)
+                            session.metadata["onboarding_nudge_count"] = nudge_count + 1
                             self.sessions.save(session)
-                            session.add_message("user", msg.content)
-                            session.add_message("assistant", complete_msg)
-                            self.sessions.save(session)
-                            return OutboundMessage(
-                                channel=msg.channel,
-                                chat_id=msg.chat_id,
-                                content=complete_msg,
-                            )
                 finally:
                     db.close()
             except Exception as e:
-                logger.debug(f"Preferred name flow failed: {e}")
+                logger.debug(f"Onboarding (timezone) flow failed: {e}")
 
         # Handlers de comandos (README: /lembrete, /list, /feito, /add, /done, /start, etc.)
         # Confirmações sem botões: 1=sim 2=não. TODO: Após WhatsApp Business API, use buttons.
@@ -970,6 +1001,25 @@ class AgentLoop:
             )
             result = await handlers_route(ctx, msg.content)
             if result is not None:
+                # Nudge suave quando falta fuso (máx 1x por sessão para não incomodar)
+                try:
+                    from backend.database import SessionLocal as _DB
+                    from backend.user_store import get_or_create_user as _get_user, get_user_language as _get_lang
+                    from backend.locale import NUDGE_TZ_WHEN_MISSING
+                    _db = _DB()
+                    try:
+                        _u = _get_user(_db, msg.chat_id)
+                        if not (_u.timezone and _u.timezone.strip()):
+                            _s = self.sessions.get_or_create(msg.session_key)
+                            if _s.metadata.get("onboarding_intro_sent") and _s.metadata.get("nudge_append_done") != True:
+                                _s.metadata["nudge_append_done"] = True
+                                self.sessions.save(_s)
+                                _lang = _get_lang(_db, msg.chat_id) or "en"
+                                result = result + "\n\n" + NUDGE_TZ_WHEN_MISSING.get(_lang, NUDGE_TZ_WHEN_MISSING["en"])
+                    finally:
+                        _db.close()
+                except Exception:
+                    pass
                 # Persistir também na sessão para o histórico da conversa ficar completo
                 try:
                     session = self.sessions.get_or_create(msg.session_key)

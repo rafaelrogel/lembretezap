@@ -27,6 +27,8 @@ export interface InboundMessage {
   content: string;
   timestamp: number;
   isGroup: boolean;
+  /** Display name from WhatsApp profile (Baileys pushName). Used e.g. for onboarding fallback. */
+  pushName?: string;
   /** Raw .ics file content when the user sends a document with .ics / text/calendar */
   attachmentIcs?: string;
   /** Base64-encoded audio when user sends voice message (PTT). Option A: inline no payload. */
@@ -180,16 +182,19 @@ export class WhatsAppClient {
                 { logger, reuploadRequest: this.sock.updateMediaMessage },
               );
               if (buffer && buffer.length > 0 && buffer.length <= MAX_ICS_BYTES) {
-                const icsContent = buffer.toString('utf-8');
+                let icsContent = buffer.toString('utf-8');
+                // Se UTF-8 não parecer um .ics válido (ex.: ficheiro em Latin-1), tentar Latin-1
+                if (icsContent.trim() && !/BEGIN:VCALENDAR/i.test(icsContent)) {
+                  const asLatin1 = (Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer as ArrayBuffer)).toString('latin1');
+                  if (/BEGIN:VCALENDAR/i.test(asLatin1)) {
+                    icsContent = asLatin1;
+                  }
+                }
                 if (icsContent.trim()) {
                   const caption = doc.caption ? (typeof doc.caption === 'string' ? doc.caption : '') : '';
                   this.options.onMessage({
-                    id: msg.key.id || '',
-                    sender: msg.key.remoteJid || '',
-                    pn: msg.key.remoteJidAlt || '',
+                    ...this.basePayload(msg),
                     content: caption || '[Calendar]',
-                    timestamp: msg.messageTimestamp as number,
-                    isGroup,
                     attachmentIcs: icsContent,
                   });
                   continue;
@@ -208,12 +213,8 @@ export class WhatsAppClient {
           const isForwarded = ctx?.isForwarded === true || ((ctx?.forwardingScore ?? 0) > 0);
           if (isForwarded) {
             this.options.onMessage({
-              id: msg.key.id || '',
-              sender: msg.key.remoteJid || '',
-              pn: msg.key.remoteJidAlt || '',
+              ...this.basePayload(msg),
               content: '[Voice Message]',
-              timestamp: msg.messageTimestamp as number,
-              isGroup,
               audioForwarded: true,
             });
             continue;
@@ -228,24 +229,16 @@ export class WhatsAppClient {
             if (buffer && buffer.length > 0 && buffer.length <= MAX_AUDIO_BYTES) {
               const mediaBase64 = Buffer.isBuffer(buffer) ? buffer.toString('base64') : Buffer.from(buffer as ArrayBuffer).toString('base64');
               this.options.onMessage({
-                id: msg.key.id || '',
-                sender: msg.key.remoteJid || '',
-                pn: msg.key.remoteJidAlt || '',
+                ...this.basePayload(msg),
                 content: '[Voice Message]',
-                timestamp: msg.messageTimestamp as number,
-                isGroup,
                 mediaBase64,
               });
               continue;
             }
             if (buffer && buffer.length > MAX_AUDIO_BYTES) {
               this.options.onMessage({
-                id: msg.key.id || '',
-                sender: msg.key.remoteJid || '',
-                pn: msg.key.remoteJidAlt || '',
+                ...this.basePayload(msg),
                 content: '[Voice Message]',
-                timestamp: msg.messageTimestamp as number,
-                isGroup,
                 audioTooLarge: true,
               });
               continue;
@@ -254,12 +247,8 @@ export class WhatsAppClient {
             console.error('Audio download failed:', (err as Error).message);
           }
           this.options.onMessage({
-            id: msg.key.id || '',
-            sender: msg.key.remoteJid || '',
-            pn: msg.key.remoteJidAlt || '',
+            ...this.basePayload(msg),
             content: '[Voice Message]',
-            timestamp: msg.messageTimestamp as number,
-            isGroup,
           });
           continue;
         }
@@ -268,15 +257,23 @@ export class WhatsAppClient {
         if (!content) continue;
 
         this.options.onMessage({
-          id: msg.key.id || '',
-          sender: msg.key.remoteJid || '',
-          pn: msg.key.remoteJidAlt || '',
+          ...this.basePayload(msg),
           content,
-          timestamp: msg.messageTimestamp as number,
-          isGroup,
         });
       }
     });
+  }
+
+  private basePayload(msg: any): Record<string, unknown> {
+    const pushName = typeof (msg as any).pushName === 'string' ? (msg as any).pushName.trim() || undefined : undefined;
+    return {
+      id: msg.key.id || '',
+      sender: msg.key.remoteJid || '',
+      pn: msg.key.remoteJidAlt || '',
+      timestamp: msg.messageTimestamp as number,
+      isGroup: msg.key.remoteJid?.endsWith('@g.us') || false,
+      ...(pushName ? { pushName } : {}),
+    };
   }
 
   private extractMessageContent(msg: any): string | null {

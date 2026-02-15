@@ -51,6 +51,15 @@ Output: {"task_type": "list", "confidence": 0.65, "entities": [{"type": "categor
 Input: "que horas é a reunião de amanhã?"
 Output: {"task_type": "query", "confidence": 0.9, "entities": [{"type": "item_name", "value": "reunião", "confidence": 0.9}, {"type": "datetime", "value": "amanhã", "confidence": 0.95}], "requires_clarification": false, "clarification_options": null, "follow_up_suggestion": null}
 
+Input: "preciso ir ao medico amanha às 17h00"
+Output: {"task_type": "event", "confidence": 0.95, "entities": [{"type": "item_name", "value": "ir ao médico", "confidence": 0.95}, {"type": "datetime", "value": "amanhã 17h00", "confidence": 0.95}], "requires_clarification": false, "clarification_options": null, "follow_up_suggestion": null}
+
+Input: "preciso ir ao médico toda segunda às 17h"
+Output: {"task_type": "recurring", "confidence": 0.95, "entities": [{"type": "item_name", "value": "ir ao médico", "confidence": 0.95}, {"type": "recurrence", "value": "toda segunda 17h", "confidence": 0.95}], "requires_clarification": false, "clarification_options": null, "follow_up_suggestion": null}
+
+Input: "lembrar de beber água todo dia às 8h"
+Output: {"task_type": "recurring", "confidence": 0.95, "entities": [{"type": "item_name", "value": "beber água", "confidence": 0.95}, {"type": "recurrence", "value": "todo dia 8h", "confidence": 0.95}], "requires_clarification": false, "clarification_options": null, "follow_up_suggestion": null}
+
 Input: "oi, tudo bem?"
 Output: {"task_type": "general", "confidence": 0.95, "entities": [], "requires_clarification": false, "clarification_options": null, "follow_up_suggestion": null}
 

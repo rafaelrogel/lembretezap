@@ -397,10 +397,13 @@ class WhatsAppChannel(BaseChannel):
                     ))
                 except Exception as e:
                     logger.exception(f"ICS handler failed: {e}")
+                    ics_err = (
+                        "Erro ao processar o calendário. Tenta exportar o .ics de novo (UTF-8) ou outro ficheiro."
+                    )
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=sender,
-                        content="Erro ao processar o calendário. Tenta outro ficheiro .ics.",
+                        content=ics_err,
                     ))
                 return
 
@@ -594,6 +597,10 @@ class WhatsAppChannel(BaseChannel):
                 "trace_id": trace_id,
                 "phone_for_locale": pn or sender,
             }
+            # Nome do perfil WhatsApp (Baileys pushName) — usado no onboarding como fallback
+            push_name = (data.get("pushName") or data.get("push_name") or "").strip()
+            if push_name:
+                meta["sender_display_name"] = push_name[:128]
             if audio_mode:
                 meta["audio_mode"] = True
                 if audio_locale_override:

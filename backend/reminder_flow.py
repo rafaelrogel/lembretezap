@@ -284,6 +284,100 @@ def is_consulta_context(content: str) -> bool:
     )
 
 
+def has_full_event_datetime(text: str) -> bool:
+    """
+    True se a mensagem parece um evento/compromisso com data E hora já indicados
+    (ex.: "preciso ir ao médico amanhã às 17h00", "tenho consulta amanhã 10h").
+    Retorna False se for recorrência (toda segunda, todo dia, etc.) — esses vão para o fluxo recorrente.
+    """
+    if not text or len(text.strip()) < 10:
+        return False
+    try:
+        from backend.recurring_event_flow import has_recurrence_indicator
+        if has_recurrence_indicator(text):
+            return False
+    except Exception:
+        pass
+    if not has_reminder_intent(text):
+        return False
+    if not _HOUR_RE.search(text.strip()):
+        return False
+    words = set(re.findall(r"\b\w+\b", text.strip().lower()))
+    return bool(words & _DATE_WORDS)
+
+
+def parse_full_event_datetime(
+    text: str, tz_iana: str = "UTC"
+) -> tuple[str, int, Any] | None:
+    """
+    Extrai (content, in_seconds, data_at) de uma mensagem com evento + data + hora.
+    data_at = datetime no fuso tz_iana (para registar na agenda).
+    Retorna None se não conseguir parsear.
+    """
+    if not has_full_event_datetime(text):
+        return None
+    t = text.strip()
+    tl = t.lower()
+    # Extrair hora e minuto (ex.: às 17h00, 17:00, 17h)
+    hour, minute = 0, 0
+    for pattern, extractor in _TIME_RESPONSE_PATTERNS:
+        m = re.search(pattern, t, re.I)
+        if m:
+            try:
+                h, mn = extractor(m)
+                if 0 <= h <= 23 and 0 <= mn <= 59:
+                    hour, minute = h, mn
+                    break
+            except (ValueError, IndexError, AttributeError):
+                pass
+    # Extrair data (amanhã, hoje, segunda...)
+    date_label = ""
+    for dw in sorted(_DATE_WORDS, key=len, reverse=True):
+        if dw in tl:
+            date_label = dw
+            break
+    if not date_label:
+        return None
+    # Conteúdo: remover data e hora do texto
+    content = re.sub(_HOUR_RE, " ", t)
+    for dw in (date_label, "às", "as", "à", "a"):
+        content = re.sub(rf"\b{re.escape(dw)}\b", "", content, flags=re.I)
+    content = re.sub(r"\s+", " ", content).strip()
+    if not content or len(content) < 2:
+        return None
+    in_sec = compute_in_seconds_from_date_hour(date_label, hour, minute, tz_iana)
+    if not in_sec or in_sec <= 0:
+        return None
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    try:
+        z = ZoneInfo(tz_iana)
+        now = datetime.now(tz=z)
+        today = now.date()
+        dl = date_label.lower().strip()
+        target_date = today
+        if dl in ("amanhã", "amanha", "tomorrow"):
+            target_date = today + timedelta(days=1)
+        elif dl in ("hoje", "today"):
+            target_date = today
+        elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo"):
+            from backend.time_parse import DIAS_SEMANA
+            dow_target = DIAS_SEMANA.get(dl)
+            if dow_target is not None:
+                today_cron = (now.weekday() + 1) % 7
+                diff = (dow_target - today_cron) % 7
+                if diff == 0 and (now.hour > hour or (now.hour == hour and now.minute >= minute)):
+                    diff = 7
+                target_date = today + timedelta(days=diff)
+        data_at = datetime(
+            target_date.year, target_date.month, target_date.day,
+            hour, minute, 0, 0, tzinfo=z
+        )
+        return (content, in_sec, data_at)
+    except Exception:
+        return None
+
+
 def compute_in_seconds_from_date_hour(
     date_label: str, hour: int, minute: int, tz_iana: str = "UTC"
 ) -> int | None:

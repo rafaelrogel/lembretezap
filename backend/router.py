@@ -32,6 +32,7 @@ from backend.handlers_organizacao import (
     handle_template,
 )
 from backend.handlers_limpeza import handle_limpeza
+from backend.handlers_agenda_remove import handle_agenda_remove
 from backend.handlers_pomodoro import handle_pomodoro
 from backend.recipe_handler import handle_recipe
 from backend.command_i18n import normalize_command
@@ -39,6 +40,8 @@ from backend.views import (
     handle_eventos_unificado,
     handle_hoje,
     handle_semana,
+    handle_agenda,
+    handle_agenda_nl,
     handle_mes,
     handle_timeline,
     handle_stats,
@@ -68,6 +71,9 @@ HANDLERS = [
     handle_pendente,
     handle_hoje,
     handle_semana,
+    handle_agenda,
+    handle_agenda_nl,  # "minha agenda", "o que tenho hoje" (texto/áudio)
+    handle_agenda_remove,  # "remover a consulta", "já fiz a reunião" → remove da agenda
     handle_mes,
     handle_timeline,
     handle_stats,

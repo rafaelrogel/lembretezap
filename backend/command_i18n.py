@@ -21,6 +21,7 @@ COMMAND_ALIASES: Sequence[tuple[str, Sequence[str]]] = (
     # Hoje / Semana / Timeline
     ("/hoje", ("/hoje", "/hoy", "/today")),
     ("/semana", ("/semana", "/week")),
+    ("/agenda", ("/agenda",)),
     ("/timeline", ("/timeline", "/cronologia", "/cronología", "/linha")),
     ("/mes", ("/mes", "/mês", "/month")),
     # Estatísticas

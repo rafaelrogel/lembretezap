@@ -382,6 +382,45 @@ class CronTool(Tool):
         else:
             return "Error: use every_seconds (repeat), in_seconds (once), or cron_expr"
 
+        # Limites por dia (40 lembretes, 80 total): verificar antes de criar
+        at_warning_reminder = False
+        if not depends_on_job_id:
+            from zapista.cron.service import _compute_next_run
+            now_ms = int(time.time() * 1000)
+            next_ms = _compute_next_run(schedule, now_ms)
+            if next_ms is not None:
+                from datetime import datetime
+                from zoneinfo import ZoneInfo
+                from backend.database import SessionLocal
+                from backend.user_store import get_user_timezone, get_or_create_user
+                from backend.limits import check_reminder_limits, LIMIT_REMINDERS_PER_DAY
+                from backend.locale import (
+                    LIMIT_REMINDERS_PER_DAY_REACHED,
+                    LIMIT_TOTAL_PER_DAY_REACHED,
+                    LIMIT_WARNING_70,
+                )
+                tz_iana = "UTC"
+                try:
+                    db_lim = SessionLocal()
+                    try:
+                        tz_iana = get_user_timezone(db_lim, self._chat_id) or "UTC"
+                        user_lim = get_or_create_user(db_lim, self._chat_id)
+                        z = ZoneInfo(tz_iana)
+                        target_date = datetime.fromtimestamp(next_ms / 1000.0, tz=z).date()
+                        allowed, at_warning_reminder, _, rem_count, _ = check_reminder_limits(
+                            self._cron, self._chat_id, target_date, tz_iana,
+                            db=db_lim, user_id=user_lim.id,
+                        )
+                        if not allowed:
+                            _lang = self._get_user_lang()
+                            if rem_count >= LIMIT_REMINDERS_PER_DAY:
+                                return LIMIT_REMINDERS_PER_DAY_REACHED.get(_lang, LIMIT_REMINDERS_PER_DAY_REACHED["pt-BR"])
+                            return LIMIT_TOTAL_PER_DAY_REACHED.get(_lang, LIMIT_TOTAL_PER_DAY_REACHED["pt-BR"])
+                    finally:
+                        db_lim.close()
+                except Exception:
+                    pass  # em falha (ex.: timezone) deixar criar
+
         # Verificação de duplicatas com contexto: exact match ou Mimo (últimas 20 msgs)
         dup_result = await self._check_duplicate_with_context(
             message=message,
@@ -522,6 +561,10 @@ class CronTool(Tool):
             msg += f" Se não confirmares com 👍, relembro em {m} min."
         if depends_on_job_id:
             msg += f" Dispara depois de marcar «{depends_on_job_id}» como feito."
+        if at_warning_reminder:
+            from backend.locale import LIMIT_WARNING_70
+            _lang = self._get_user_lang()
+            msg += "\n\n" + LIMIT_WARNING_70.get(_lang, LIMIT_WARNING_70["pt-BR"])
         # Para lembretes "daqui a X min", mostrar a hora no timezone do utilizador
         if in_seconds is not None and in_seconds > 0 and job.state.next_run_at_ms:
             at_sec = job.state.next_run_at_ms // 1000

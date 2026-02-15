@@ -24,16 +24,16 @@ class EventTool(Tool):
 
     @property
     def description(self) -> str:
-        return "Add or list events. action: add (tipo=filme|livro|musica|evento, nome, ...), list (tipo optional)."
+        return "Add, list or remove events. action: add (tipo=filme|livro|musica|evento, nome, ...), list (tipo optional), remove (nome=substring to match today's event to remove from agenda)."
 
     @property
     def parameters(self) -> dict[str, Any]:
         return {
             "type": "object",
             "properties": {
-                "action": {"type": "string", "enum": ["add", "list"], "description": "add | list"},
+                "action": {"type": "string", "enum": ["add", "list", "remove"], "description": "add | list | remove"},
                 "tipo": {"type": "string", "enum": ["filme", "livro", "musica", "evento"], "description": "Type"},
-                "nome": {"type": "string", "description": "Name (e.g. film title)"},
+                "nome": {"type": "string", "description": "Name (e.g. film title); for remove, substring to match event name)"},
                 "payload": {"type": "object", "description": "Extra data (optional)"},
             },
             "required": ["action"],
@@ -56,6 +56,8 @@ class EventTool(Tool):
                 return self._add(db, user.id, tipo, nome, payload or {})
             if action == "list":
                 return self._list(db, user.id, tipo)
+            if action == "remove":
+                return self._remove(db, user.id, nome or "")
             return f"Unknown action: {action}"
         finally:
             db.close()
@@ -86,3 +88,52 @@ class EventTool(Tool):
             return f"Nenhum {tipo or 'evento'}."
         lines = [f"{e.id}. [{e.tipo}] {e.payload.get('nome', e.payload)}" for e in events]
         return "\n".join(lines)
+
+    def _remove(self, db, user_id: int, nome_ref: str) -> str:
+        """Remove da agenda (soft-delete) evento(s) de hoje cujo nome contém nome_ref."""
+        from zoneinfo import ZoneInfo
+        from datetime import datetime
+        from backend.user_store import get_user_timezone
+
+        nome_ref = (nome_ref or "").strip()
+        if not nome_ref:
+            return "Error: nome required for remove (e.g. substring of event name)"
+        tz_iana = get_user_timezone(db, self._chat_id) or "UTC"
+        try:
+            tz = ZoneInfo(tz_iana)
+        except Exception:
+            tz = ZoneInfo("UTC")
+        today = datetime.now(tz).date()
+        events = (
+            db.query(Event)
+            .filter(
+                Event.user_id == user_id,
+                Event.deleted == False,
+                Event.data_at.isnot(None),
+            )
+            .all()
+        )
+        today_events = []
+        for ev in events:
+            if not ev.data_at:
+                continue
+            ev_date = ev.data_at if ev.data_at.tzinfo else ev.data_at.replace(tzinfo=ZoneInfo("UTC"))
+            try:
+                ev_local = ev_date.astimezone(tz).date()
+            except Exception:
+                ev_local = ev_date.date()
+            if ev_local == today:
+                today_events.append(ev)
+        ref_lower = nome_ref.lower()
+        matched = [e for e in today_events if ref_lower in (e.payload.get("nome", "") or "").lower()]
+        if not matched:
+            return f"Nenhum evento de hoje com «{nome_ref}» na agenda."
+        if len(matched) > 1:
+            names = ", ".join((e.payload.get("nome", "") or "?") for e in matched[:5])
+            return f"Vários eventos coincidem. Especifica: {names}"
+        ev = matched[0]
+        ev.deleted = True
+        db.add(AuditLog(user_id=user_id, action="event_remove", resource=ev.tipo))
+        db.commit()
+        nome = ev.payload.get("nome", "") or "evento"
+        return f"Removido da agenda: «{nome}»."

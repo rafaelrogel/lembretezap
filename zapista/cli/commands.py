@@ -282,7 +282,7 @@ def gateway(
                 logger.exception(f"Yearly recap failed: {e}")
                 return f"Recap Ano Novo falhou: {e}"
 
-        # Revisão semanal: domingo 20h UTC
+        # Resumo da semana: domingo 20h UTC
         if getattr(job.payload, "kind", None) == "system_event" and (job.payload.message or "").strip() == "weekly_recap":
             try:
                 from backend.weekly_recap import run_weekly_recap
@@ -291,10 +291,24 @@ def gateway(
                     session_manager=agent.sessions,
                     default_channel="whatsapp",
                 )
-                return f"Revisão semanal: enviados={sent}, erros={errors}"
+                return f"Resumo da semana: enviados={sent}, erros={errors}"
             except Exception as e:
                 logger.exception(f"Weekly recap failed: {e}")
-                return f"Revisão semanal falhou: {e}"
+                return f"Resumo da semana falhou: {e}"
+
+        # Resumo do mês: dia 1 às 20h UTC
+        if getattr(job.payload, "kind", None) == "system_event" and (job.payload.message or "").strip() == "monthly_recap":
+            try:
+                from backend.weekly_recap import run_monthly_recap
+                sent, errors = await run_monthly_recap(
+                    bus=bus,
+                    session_manager=agent.sessions,
+                    default_channel="whatsapp",
+                )
+                return f"Resumo do mês: enviados={sent}, erros={errors}"
+            except Exception as e:
+                logger.exception(f"Monthly recap failed: {e}")
+                return f"Resumo do mês falhou: {e}"
 
         # Limpeza da casa: tarefas weekly/bi-weekly com rotação (8–10h local)
         if getattr(job.payload, "kind", None) == "system_event" and (job.payload.message or "").strip() == "house_chores_daily":
@@ -437,6 +451,14 @@ def gateway(
             except Exception as e:
                 logger.warning(f"Cron deliver failed: {e}")
                 response = job.payload.message or ""
+            # Mensagem extra empática ou positiva (enterro, médico, encontro com amigos, etc.)
+            try:
+                from backend.empathy_positive_messages import get_extra_message_for_reminder
+                extra = get_extra_message_for_reminder(job.payload.message or "", user_lang)
+                if extra:
+                    response = (response or "") + "\n\n" + extra
+            except Exception:
+                pass
             ch, to = job.payload.channel or "cli", job.payload.to
             logger.info(f"Cron deliver: channel={ch} to={to[:20]}... content_len={len(response or '')}")
             try:
@@ -487,6 +509,21 @@ def gateway(
             chat_id=job.payload.to or "direct",
         )
         if job.payload.deliver and job.payload.to:
+            # Mensagem extra empática ou positiva
+            try:
+                from backend.database import SessionLocal
+                from backend.user_store import get_user_language
+                from backend.empathy_positive_messages import get_extra_message_for_reminder
+                _db = SessionLocal()
+                try:
+                    _lang = get_user_language(_db, job.payload.to) or "en"
+                    extra = get_extra_message_for_reminder(job.payload.message or "", _lang)
+                    if extra:
+                        response = (response or "") + "\n\n" + extra
+                finally:
+                    _db.close()
+            except Exception:
+                pass
             ch, to = job.payload.channel or "cli", job.payload.to
             logger.info(f"Cron deliver: channel={ch} to={to[:20]}... content_len={len(response or '')}")
             await bus.publish_outbound(OutboundMessage(
@@ -533,16 +570,26 @@ def gateway(
                 payload_kind="system_event",
             )
             console.print("[dim]Job 'Limpeza da casa' (8–10h local) registado.[/dim]")
-        # Revisão semanal: domingo 20h UTC
+        # Resumo da semana: domingo 20h UTC
         existing_wr = [j for j in cron.list_jobs(include_disabled=True) if (getattr(j.payload, "message", None) or "") == "weekly_recap"]
         if not existing_wr:
             cron.add_job(
-                name="Revisão semanal",
+                name="Resumo da semana",
                 schedule=CronSchedule(kind="cron", expr="0 20 * * 0"),  # domingo 20h UTC
                 message="weekly_recap",
                 payload_kind="system_event",
             )
-            console.print("[dim]Job 'Revisão semanal' (domingo 20h UTC) registado.[/dim]")
+            console.print("[dim]Job 'Resumo da semana' (domingo 20h UTC) registado.[/dim]")
+        # Resumo do mês: dia 1 às 20h UTC
+        existing_mr = [j for j in cron.list_jobs(include_disabled=True) if (getattr(j.payload, "message", None) or "") == "monthly_recap"]
+        if not existing_mr:
+            cron.add_job(
+                name="Resumo do mês",
+                schedule=CronSchedule(kind="cron", expr="0 20 1 * *"),  # dia 1 de cada mês, 20h UTC
+                message="monthly_recap",
+                payload_kind="system_event",
+            )
+            console.print("[dim]Job 'Resumo do mês' (dia 1, 20h UTC) registado.[/dim]")
     except Exception as e:
         logger.debug(f"System cron jobs setup: {e}")
 

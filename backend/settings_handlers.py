@@ -138,17 +138,22 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
     except Exception:
         lang = "pt-BR"
     msgs = {
-        "pt-PT": "Cadastro apagado. Na próxima mensagem, recomeço o onboarding (nome, cidade). Respeitamos LGPD: só o essencial. 😊",
-        "pt-BR": "Cadastro apagado. Na próxima mensagem, recomeço o cadastro (nome, cidade). Respeitamos LGPD: só o essencial. 😊",
-        "es": "Registro borrado. En el próximo mensaje, reinicio (nombre, ciudad). Respetamos RGPD. 😊",
-        "en": "Registration cleared. Next message, I'll restart (name, city). We respect GDPR. 😊",
+        "pt-PT": "Cadastro apagado. Na próxima mensagem, pergunto de novo onde estás (cidade ou hora) para acertar o fuso. /tz ou /fuso para mudar depois. LGPD: só o essencial. 😊",
+        "pt-BR": "Cadastro apagado. Na próxima mensagem, pergunto de novo onde você está (cidade ou hora) para acertar o fuso. /tz ou /fuso para mudar depois. LGPD: só o essencial. 😊",
+        "es": "Registro borrado. En el próximo mensaje, pregunto de nuevo dónde estás (ciudad u hora) para el huso. /tz o /fuso para cambiar después. RGPD. 😊",
+        "en": "Registration cleared. Next message, I'll ask again where you are (city or time) to set your timezone. /tz or /fuso to change later. GDPR. 😊",
     }
     if ctx.session_manager:
         try:
             key = f"{ctx.channel}:{ctx.chat_id}"
             session = ctx.session_manager.get_or_create(key)
-            for k in ("pending_preferred_name", "pending_language_choice", "pending_city",
-                      "onboarding_intro_sent", "onboarding_language_asked"):
+            for k in (
+                "pending_preferred_name", "pending_language_choice", "pending_city",
+                "onboarding_intro_sent", "onboarding_language_asked",
+                "pending_timezone", "pending_time_confirm",
+                "proposed_tz_iana", "proposed_date_str", "proposed_time_str",
+                "onboarding_nudge_count", "nudge_append_done",
+            ):
                 session.metadata.pop(k, None)
             ctx.session_manager.save(session)
         except Exception:

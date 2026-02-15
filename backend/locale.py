@@ -224,6 +224,53 @@ ONBOARDING_RESET_HINT: dict[LangCode, str] = {
     "en": " /reset to redo registration anytime.",
 }
 
+# --- Onboarding simplificado: fuso primeiro (sem bloquear o sistema) ---
+# Intro: o mais importante é onde a pessoa está para lembretes na hora certa
+ONBOARDING_INTRO_TZ_FIRST: dict[LangCode, str] = {
+    "pt-PT": "Olá! Sou a tua assistente de organização — listas, lembretes e agenda. 📋",
+    "pt-BR": "Oi! Sou sua assistente de organização — listas, lembretes e agenda. 📋",
+    "es": "¡Hola! Soy tu asistente de organización — listas, recordatorios y agenda. 📋",
+    "en": "Hi! I'm your organization assistant — lists, reminders and agenda. 📋",
+}
+# Pergunta única: cidade OU que horas são aí (informação mais importante = fuso)
+ONBOARDING_ASK_CITY_OR_TIME: dict[LangCode, str] = {
+    "pt-PT": "Para enviar os lembretes na hora certa, preciso saber onde estás. Em que cidade vives? (Ou diz-me que horas são aí agora.)",
+    "pt-BR": "Para enviar os lembretes na hora certa, preciso saber onde você está. Em que cidade você mora? (Ou me diga que horas são aí agora.)",
+    "es": "Para enviar los recordatorios a la hora correcta, necesito saber dónde estás. ¿En qué ciudad vives? (O dime qué hora es ahí ahora.)",
+    "en": "To send reminders at the right time, I need to know where you are. Which city do you live in? (Or tell me what time it is there now.)",
+}
+# Retry: perguntar só a hora
+ONBOARDING_ASK_TIME_FALLBACK: dict[LangCode, str] = {
+    "pt-PT": "Que horas são aí agora? (Assim acerto o fuso dos teus lembretes.)",
+    "pt-BR": "Que horas são aí agora? (Assim acerto o fuso dos seus lembretes.)",
+    "es": "¿Qué hora es ahí ahora? (Así ajusto el huso de tus recordatorios.)",
+    "en": "What time is it there now? (So I can set your reminder times right.)",
+}
+# Confirmação: "Ah, [data], [hora]. Confere?"
+def onboarding_time_confirm_message(lang: LangCode, date_str: str, time_str: str) -> str:
+    """Mensagem de confirmação: data e hora interpretados. Ex.: 'Ah, 8 de fev, 14:30. Confere?'"""
+    templates = {
+        "pt-PT": f"Ah, {date_str}, {time_str}. Confere?",
+        "pt-BR": f"Ah, {date_str}, {time_str}. Confere?",
+        "es": f"Ah, {date_str}, {time_str}. ¿Confirma?",
+        "en": f"So, {date_str}, {time_str}. Correct?",
+    }
+    return templates.get(lang, templates["en"])
+# Fuso definido a partir da hora (não da cidade)
+ONBOARDING_TZ_SET_FROM_TIME: dict[LangCode, str] = {
+    "pt-PT": "Fuso definido. Podes mudar quando quiseres com /tz ou /fuso.",
+    "pt-BR": "Fuso definido. Você pode mudar quando quiser com /tz ou /fuso.",
+    "es": "Huso definido. Puedes cambiar cuando quieras con /tz o /fuso.",
+    "en": "Timezone set. You can change anytime with /tz or /fuso.",
+}
+# Nudge quando falta fuso (não bloquear; lembrete suave)
+NUDGE_TZ_WHEN_MISSING: dict[LangCode, str] = {
+    "pt-PT": "Quando puderes, diz a tua cidade ou que horas são aí para os lembretes chegarem na hora. 😊",
+    "pt-BR": "Quando puder, diga sua cidade ou que horas são aí para os lembretes chegarem na hora. 😊",
+    "es": "Cuando puedas, dime tu ciudad o qué hora es ahí para que los recordatorios lleguen a tiempo. 😊",
+    "en": "When you can, tell me your city or what time it is there so reminders arrive on time. 😊",
+}
+
 # Dica sobre emojis em lembretes (feito / soneca / não feito)
 ONBOARDING_EMOJI_TIP: dict[LangCode, str] = {
     "pt-PT": "\n\n💡 Quando receberes um lembrete, reage à mensagem:\n• 👍 (feito) — depois confirma com *sim*\n• ⏰ (adiar 5 min, máx 3x)\n• 👎 (remover) — pergunto se queres alterar horário ou cancelar\n\nOu escreve/envia áudio, ex.: «feito», «remover», «adiar 1 hora».",
@@ -273,6 +320,7 @@ COMMAND_DISPLAY_NAME: dict[LangCode, dict[str, str]] = {
         "/list": "/lista",
         "/hoje": "/hoje",
         "/semana": "/semana",
+        "/agenda": "/agenda",
         "/timeline": "/linha",
         "/stats": "/estatísticas",
         "/resumo": "/resumo",
@@ -290,6 +338,7 @@ COMMAND_DISPLAY_NAME: dict[LangCode, dict[str, str]] = {
         "/list": "/lista",
         "/hoje": "/hoje",
         "/semana": "/semana",
+        "/agenda": "/agenda",
         "/timeline": "/linha",
         "/stats": "/estatísticas",
         "/resumo": "/resumo",
@@ -345,10 +394,10 @@ HELP_FULL: dict[LangCode, str] = {
         "*Comandos*\n"
         "• {{/lembrete}} — agendar (ex.: amanhã 9h; em 30 min)\n"
         "• {{/list}} — listas (compras, receitas, livros, músicas, notas, sites, coisas a fazer). Ex.: {{/list}} mercado add leite\n"
-        "• {{/hoje}}, {{/semana}} — ver o que tens hoje ou esta semana\n"
+        "• {{/hoje}} — agenda e lembretes do dia  |  {{/semana}} — agenda da semana (só eventos)\n"
         "• {{/timeline}} — histórico (lembretes, tarefas, eventos)\n"
         "• {{/stats}} — estatísticas; {{/stats}} dia ou {{/stats}} semana\n"
-        "• {{/resumo}} — resumo da semana\n"
+        "• {{/resumo}} — resumo da semana; {{/resumo}} mes — resumo do mês\n"
         "• {{/recorrente}} — lembretes recorrentes (ex.: {{/recorrente}} beber água todo dia 8h)\n"
         "• {{/meta}} add Nome até DD/MM — metas com prazo; {{/metas}} para listar\n"
         "• {{/pomodoro}} — timer 25 min foco; {{/pomodoro}} stop para cancelar\n\n"
@@ -365,10 +414,10 @@ HELP_FULL: dict[LangCode, str] = {
         "*Comandos*\n"
         "• {{/lembrete}} — agendar (ex.: amanhã 9h; em 30 min)\n"
         "• {{/list}} — listas (compras, receitas, livros, músicas, notas, sites, coisas a fazer). Ex.: {{/list}} mercado add leite\n"
-        "• {{/hoje}}, {{/semana}} — ver o que você tem hoje ou esta semana\n"
+        "• {{/hoje}} — agenda e lembretes do dia  |  {{/semana}} — agenda da semana (só eventos)\n"
         "• {{/timeline}} — histórico (lembretes, tarefas, eventos)\n"
         "• {{/stats}} — estatísticas; {{/stats}} dia ou {{/stats}} semana\n"
-        "• {{/resumo}} — resumo da semana\n"
+        "• {{/resumo}} — resumo da semana; {{/resumo}} mes — resumo do mês\n"
         "• {{/recorrente}} — lembretes recorrentes (ex.: {{/recorrente}} beber água todo dia 8h)\n"
         "• {{/meta}} add Nome até DD/MM — metas com prazo; {{/metas}} para listar\n"
         "• {{/pomodoro}} — timer 25 min foco; {{/pomodoro}} stop para cancelar\n\n"
@@ -385,10 +434,10 @@ HELP_FULL: dict[LangCode, str] = {
         "*Comandos*\n"
         "• {{/lembrete}} — programar (ej.: mañana 9h; en 30 min)\n"
         "• {{/list}} — listas (compras, recetas, libros, música, notas, sitios, cosas por hacer). Ej.: {{/list}} mercado add leche\n"
-        "• {{/hoje}}, {{/semana}} — ver qué tienes hoy o esta semana\n"
+        "• {{/hoje}} — agenda y recordatorios del día  |  {{/semana}} — agenda de la semana (solo eventos)\n"
         "• {{/timeline}} — historial (recordatorios, tareas, eventos)\n"
         "• {{/stats}} — estadísticas; {{/stats}} dia o {{/stats}} semana\n"
-        "• {{/resumo}} — resumen de la semana\n"
+        "• {{/resumo}} — resumen de la semana; {{/resumo}} mes — resumen del mes\n"
         "• {{/recorrente}} — recordatorios recurrentes (ej.: {{/recorrente}} beber agua cada día 8h)\n"
         "• {{/meta}} add Nombre hasta DD/MM — metas con plazo; {{/metas}} para listar\n"
         "• {{/pomodoro}} — temporizador 25 min foco; {{/pomodoro}} stop para cancelar\n\n"
@@ -405,10 +454,10 @@ HELP_FULL: dict[LangCode, str] = {
         "*Commands*\n"
         "• {{/lembrete}} — schedule (e.g. tomorrow 9am; in 30 min)\n"
         "• {{/list}} — lists (shopping, recipes, books, music, notes, sites, to-dos). E.g.: {{/list}} market add milk\n"
-        "• {{/hoje}}, {{/semana}} — see what you have today or this week\n"
+        "• {{/hoje}} — agenda and reminders for today  |  {{/semana}} — week agenda only (events)\n"
         "• {{/timeline}} — history (reminders, tasks, events)\n"
         "• {{/stats}} — statistics; {{/stats}} day or {{/stats}} week\n"
-        "• {{/resumo}} — week summary\n"
+        "• {{/resumo}} — week summary; {{/resumo}} month — month summary\n"
         "• {{/recorrente}} — recurring reminders (e.g. {{/recorrente}} drink water every day 8am)\n"
         "• {{/meta}} add Name until DD/MM — goals with deadline; {{/metas}} to list\n"
         "• {{/pomodoro}} — 25 min focus timer; {{/pomodoro}} stop to cancel\n\n"
@@ -431,6 +480,15 @@ def build_help(lang: LangCode) -> str:
     for canonical, display_name in names.items():
         text = text.replace("{{" + canonical + "}}", display_name)
     return text
+
+
+# Segunda vez que o cliente vê a agenda no mesmo dia: perguntar se já realizou e se quer remover
+AGENDA_SECOND_VIEW_PROMPT: dict[LangCode, str] = {
+    "pt-PT": "\n\nJá realizaste ou concluíste algum destes eventos? Queres que eu remova algum da agenda? Podes dizer qual (quais) para eu remover.",
+    "pt-BR": "\n\nJá realizou ou concluiu algum destes eventos? Quer que eu remova algum da agenda? Pode dizer qual (quais) para eu remover.",
+    "es": "\n\n¿Ya realizaste o concluiste alguno de estos eventos? ¿Quieres que quite alguno de la agenda? Puedes decir cuál (cuáles) para que lo quite.",
+    "en": "\n\nHave you already done or completed any of these events? Do you want me to remove any from the agenda? You can say which one(s) for me to remove.",
+}
 
 
 # Fallback quando o agente não produz resposta (ex.: mensagem muito longa, stress test)
@@ -506,6 +564,14 @@ REMINDER_ASK_TIME_GENERIC: dict[LangCode, str] = {
 }
 
 # Preferência de antecedência
+# Após registar evento na agenda (data+hora completos): perguntar se quer lembrete
+EVENT_REGISTERED_ASK_REMINDER: dict[LangCode, str] = {
+    "pt-PT": "Registado na agenda. Queres que eu te lembre na hora (ou com antecedência)?",
+    "pt-BR": "Registrado na agenda. Quer que eu te lembre na hora (ou com antecedência)?",
+    "es": "Registrado en la agenda. ¿Quieres que te avise a la hora (o con antelación)?",
+    "en": "Added to your agenda. Do you want me to remind you at the time (or in advance)?",
+}
+
 REMINDER_ASK_ADVANCE_PREFERENCE: dict[LangCode, str] = {
     "pt-PT": "Queres ser lembrado com antecedência ou apenas na hora do evento?",
     "pt-BR": "Quer ser lembrado com antecedência ou apenas na hora do evento?",
@@ -645,11 +711,36 @@ REMINDER_MIN_INTERVAL_2H: dict[LangCode, str] = {
     "es": "El intervalo mínimo para recordatorios recurrentes es 2 horas. Ej.: «cada 2 horas» o «cada 3 horas».",
     "en": "The minimum interval for recurring reminders is 2 hours. E.g. «every 2 hours» or «every 3 hours».",
 }
+# Limites por dia: 40 agenda, 40 lembretes, 80 total (aviso aos 70%)
+LIMIT_AGENDA_PER_DAY_REACHED: dict[LangCode, str] = {
+    "pt-PT": "Atingiste o limite de 40 eventos de agenda para este dia. Remove alguns da agenda antes de adicionar mais.",
+    "pt-BR": "Você atingiu o limite de 40 eventos de agenda para este dia. Remova alguns da agenda antes de adicionar mais.",
+    "es": "Has alcanzado el límite de 40 eventos de agenda para este día. Elimina algunos antes de añadir más.",
+    "en": "You've reached the limit of 40 agenda events for this day. Remove some from your agenda before adding more.",
+}
+LIMIT_REMINDERS_PER_DAY_REACHED: dict[LangCode, str] = {
+    "pt-PT": "Atingiste o limite de 40 lembretes para este dia. Remove alguns com 👎 ou /lembrete antes de adicionar mais.",
+    "pt-BR": "Você atingiu o limite de 40 lembretes para este dia. Remova alguns com 👎 ou /lembrete antes de adicionar mais.",
+    "es": "Has alcanzado el límite de 40 recordatorios para este día. Elimina algunos con 👎 o /lembrete antes de añadir más.",
+    "en": "You've reached the limit of 40 reminders for this day. Remove some with 👎 or /lembrete before adding more.",
+}
+LIMIT_TOTAL_PER_DAY_REACHED: dict[LangCode, str] = {
+    "pt-PT": "Atingiste o limite de 80 itens (agenda + lembretes) para este dia. Remove alguns antes de adicionar mais.",
+    "pt-BR": "Você atingiu o limite de 80 itens (agenda + lembretes) para este dia. Remova alguns antes de adicionar mais.",
+    "es": "Has alcanzado el límite de 80 ítems (agenda + recordatorios) para este día. Elimina algunos antes de añadir más.",
+    "en": "You've reached the limit of 80 items (agenda + reminders) for this day. Remove some before adding more.",
+}
+LIMIT_WARNING_70: dict[LangCode, str] = {
+    "pt-PT": "Estás a 70% do limite diário (40 eventos de agenda, 40 lembretes, 80 no total). Convém não ultrapassar.",
+    "pt-BR": "Você está em 70% do limite diário (40 eventos de agenda, 40 lembretes, 80 no total). Convém não ultrapassar.",
+    "es": "Estás al 70% del límite diario (40 eventos de agenda, 40 recordatorios, 80 en total). Conviene no superar.",
+    "en": "You're at 70% of the daily limit (40 agenda events, 40 reminders, 80 total). Best not to exceed it.",
+}
 REMINDER_LIMIT_EXCEEDED: dict[LangCode, str] = {
-    "pt-PT": "Tens o limite máximo de 50 lembretes ativos. Remove alguns com 👎 ou /lembrete antes de adicionar mais.",
-    "pt-BR": "Você atingiu o limite máximo de 50 lembretes ativos. Remova alguns com 👎 ou /lembrete antes de adicionar mais.",
-    "es": "Has alcanzado el límite máximo de 50 recordatorios activos. Elimina algunos con 👎 o /lembrete antes de añadir más.",
-    "en": "You've reached the maximum limit of 50 active reminders. Remove some with 👎 or /lembrete before adding more.",
+    "pt-PT": "Tens o limite máximo de 40 lembretes para este dia. Remove alguns com 👎 ou /lembrete antes de adicionar mais.",
+    "pt-BR": "Você atingiu o limite de 40 lembretes para este dia. Remova alguns com 👎 ou /lembrete antes de adicionar mais.",
+    "es": "Has alcanzado el límite de 40 recordatorios para este día. Elimina algunos con 👎 o /lembrete antes de añadir más.",
+    "en": "You've reached the limit of 40 reminders for this day. Remove some with 👎 or /lembrete before adding more.",
 }
 
 # Mensagens de áudio (voice messages)
