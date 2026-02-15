@@ -210,6 +210,32 @@ def test_command_parser():
     assert parse("") is None
 
 
+def test_command_parser_lembrete_timezone_amanha():
+    """«Amanhã Xh» deve usar o timezone do utilizador para calcular in_seconds."""
+    from backend.command_parser import parse
+    from backend.time_parse import parse_lembrete_time
+
+    # Com UTC: "amanhã 9h" → in_seconds até amanhã 9h UTC
+    i = parse("/lembrete reunião amanhã 9h", tz_iana="UTC")
+    assert i is not None and i["type"] == "lembrete"
+    assert "in_seconds" in i
+    sec = i["in_seconds"]
+    assert sec > 0 and sec <= 86400 * 30, "in_seconds deve ser positivo e até ~30 dias"
+    assert "reunião" in (i.get("message") or "")
+
+    # Com America/Sao_Paulo: mesmo texto, in_seconds até amanhã 9h no fuso de São Paulo
+    j = parse("/lembrete reunião amanhã 9h", tz_iana="America/Sao_Paulo")
+    assert j is not None and j["type"] == "lembrete"
+    assert "in_seconds" in j
+    assert j["in_seconds"] > 0 and j["in_seconds"] <= 86400 * 30
+
+    # Diretamente em parse_lembrete_time: Europe/Lisbon
+    out = parse_lembrete_time("reunião amanhã 14h", tz_iana="Europe/Lisbon")
+    assert "in_seconds" in out
+    assert out["in_seconds"] > 0
+    assert "reunião" in (out.get("message") or "")
+
+
 def test_rate_limit():
     """Token bucket: first max_per_minute allowed, then rate limited."""
     from backend.rate_limit import is_rate_limited, get_remaining, reset_for_test

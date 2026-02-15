@@ -86,8 +86,9 @@ _CATEGORY_TO_LIST = {
     "link": "sites", "links": "sites",
 }
 
-def parse(raw: str) -> dict[str, Any] | None:
-    """Parseia a mensagem. Retorna um intent dict ou None."""
+def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
+    """Parseia a mensagem. Retorna um intent dict ou None.
+    tz_iana: fuso do utilizador para lembretes (hoje/amanhã/datas); ex. America/Sao_Paulo."""
     if not raw or not isinstance(raw, str):
         return None
     text = raw.strip()
@@ -98,7 +99,7 @@ def parse(raw: str) -> dict[str, Any] | None:
     if m:
         rest = m.group(1).strip()
         if rest:
-            intent = parse_lembrete_time(rest)
+            intent = parse_lembrete_time(rest, tz_iana=tz_iana)
             intent["type"] = "lembrete"
             # Encadeamento ("depois de X") é tratado pelo LLM a partir de áudio/texto natural
             # "até X" = prazo: se não fizer até X, alerta e lembra 3x; sem resposta exclui
@@ -106,7 +107,7 @@ def parse(raw: str) -> dict[str, Any] | None:
                 intent["has_deadline"] = True
             # "a partir de 1º de julho" → start_date para cron/every
             if intent.get("cron_expr") or intent.get("every_seconds"):
-                sd = extract_start_date(rest)
+                sd = extract_start_date(rest, tz_iana=tz_iana)
                 if sd:
                     intent["start_date"] = sd
             return intent

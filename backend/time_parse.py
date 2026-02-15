@@ -2,11 +2,13 @@
 
 Extraído do command_parser para manter o parse de comandos enxuto.
 O parse() de comando chama parse_lembrete_time() quando detecta /lembrete.
+Usa tz_iana (ex. America/Sao_Paulo) para «hoje», «amanhã» e datas no fuso do utilizador.
 """
 
 import re
 from datetime import datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 # Recorrência: dia da semana em cron (0=domingo, 1=segunda, ..., 6=sábado)
 DIAS_SEMANA = {
@@ -44,9 +46,14 @@ def clean_message(t: str) -> str:
     return t or "Lembrete"
 
 
-def extract_start_date(text: str) -> str | None:
-    """Extrai «a partir de 1º de julho» → '2026-07-01'. Retorna None se não encontrar."""
+def extract_start_date(text: str, tz_iana: str = "UTC") -> str | None:
+    """Extrai «a partir de 1º de julho» → '2026-07-01'. Retorna None se não encontrar. Ano atual no fuso tz_iana."""
     text_lower = (text or "").strip().lower()
+    try:
+        z = ZoneInfo(tz_iana)
+        current_year = datetime.now(z).year
+    except Exception:
+        current_year = datetime.now().year
     m = re.search(
         r"a\s+partir\s+de\s+(\d{1,2})[ºª]?\s*(?:de\s+)?"
         r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
@@ -58,7 +65,7 @@ def extract_start_date(text: str) -> str | None:
         dia = int(m.group(1))
         mes_str = m.group(2).lower()
         mes = int(mes_str) if mes_str.isdigit() else MESES.get(mes_str)
-        ano = int(m.group(3)) if m.group(3) else datetime.now().year
+        ano = int(m.group(3)) if m.group(3) else current_year
         if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
             try:
                 dt = datetime(ano, mes, min(dia, 28))
@@ -68,7 +75,7 @@ def extract_start_date(text: str) -> str | None:
     m = re.search(r"a\s+partir\s+de\s+(\d{1,2})/(\d{1,2})(?:/(\d{4}))?\b", text_lower, re.I)
     if m:
         dia, mes = int(m.group(1)), int(m.group(2))
-        ano = int(m.group(3)) if m.group(3) else datetime.now().year
+        ano = int(m.group(3)) if m.group(3) else current_year
         if 1 <= dia <= 31 and 1 <= mes <= 12:
             try:
                 dt = datetime(ano, mes, min(dia, 28))
@@ -78,10 +85,16 @@ def extract_start_date(text: str) -> str | None:
     return None
 
 
-def parse_lembrete_time(text: str) -> dict[str, Any]:
-    """Extrai in_seconds, every_seconds ou cron_expr e message. Suporta recorrência."""
+def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
+    """Extrai in_seconds, every_seconds ou cron_expr e message. Suporta recorrência.
+    tz_iana: fuso do utilizador para «hoje», «amanhã» e datas (ex. America/Sao_Paulo)."""
     text = text.strip()
     text_lower = text.lower()
+    try:
+        z = ZoneInfo(tz_iana)
+        now = datetime.now(z)
+    except Exception:
+        now = datetime.now()
 
     for pattern in (RE_LEMBRETE_DAQUI, RE_LEMBRETE_EM):
         m = pattern.search(text)
@@ -120,10 +133,10 @@ def parse_lembrete_time(text: str) -> dict[str, Any]:
     if m:
         hora = min(23, max(0, int(m.group(1))))
         message = strip_pattern(text, r"amanh[ãa]\s+(?:às?\s*)?\d{1,2}\s*h?\s*")
-        tomorrow = (datetime.now() + timedelta(days=1)).replace(
+        tomorrow = (now + timedelta(days=1)).replace(
             hour=hora, minute=0, second=0, microsecond=0
         )
-        delta = (tomorrow - datetime.now()).total_seconds()
+        delta = (tomorrow - now).total_seconds()
         if delta > 0 and delta <= 86400 * 30:
             return {"in_seconds": int(delta), "message": clean_message(message)}
 
@@ -139,7 +152,7 @@ def parse_lembrete_time(text: str) -> dict[str, Any]:
                 text, r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+(?:às?|as)\s*\d{1,2}\s*h?\s*"
             )
             out = {"cron_expr": f"0 {hora} * * *", "message": clean_message(message)}
-            sd = extract_start_date(text)
+            sd = extract_start_date(text, tz_iana)
             if sd:
                 out["start_date"] = sd
             return out
@@ -150,7 +163,7 @@ def parse_lembrete_time(text: str) -> dict[str, Any]:
                 hora = min(23, max(0, int(m.group(1))))
                 message = re.sub(pat, "", text, flags=re.I).strip()
                 out = {"cron_expr": f"0 {hora} * * {cron_dow}", "message": clean_message(message)}
-                sd = extract_start_date(text)
+                sd = extract_start_date(text, tz_iana)
                 if sd:
                     out["start_date"] = sd
                 return out
@@ -167,12 +180,13 @@ def parse_lembrete_time(text: str) -> dict[str, Any]:
         mes = int(mes_str) if mes_str.isdigit() else MESES.get(mes_str)
         if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
             hora = min(23, max(0, int(m.group(3))))
-            ano = datetime.now().year
+            ano = now.year
             try:
-                target = datetime(ano, mes, min(dia, 28), hora, 0, 0)
-                if target < datetime.now():
-                    target = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0)
-                delta = (target - datetime.now()).total_seconds()
+                tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
+                target = datetime(ano, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                if target < now:
+                    target = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                delta = (target - now).total_seconds()
                 if delta > 0 and delta <= 86400 * 365:
                     message = strip_pattern(text, _pat_data_hora)
                     return {"in_seconds": int(delta), "message": clean_message(message)}
@@ -192,12 +206,13 @@ def parse_lembrete_time(text: str) -> dict[str, Any]:
         mes = int(mes_str) if mes_str.isdigit() else MESES.get(mes_str)
         if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
             hora = 9
-            ano = datetime.now().year
+            ano = now.year
             try:
-                target = datetime(ano, mes, min(dia, 28), hora, 0, 0)
-                if target < datetime.now():
-                    target = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0)
-                delta = (target - datetime.now()).total_seconds()
+                tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
+                target = datetime(ano, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                if target < now:
+                    target = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                delta = (target - now).total_seconds()
                 if delta > 0 and delta <= 86400 * 365:
                     _pat_data = r"(?:dia\s+)?\d{1,2}[ºª]?\s*(?:de|/)\s*(?:\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de\s+\d{4})?\s*"
                     message = strip_pattern(text, _pat_data)

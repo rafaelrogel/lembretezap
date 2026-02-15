@@ -339,10 +339,19 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     from backend.guardrails import is_absurd_request, user_insisting_on_interval_rejection
     from backend.recurring_detector import maybe_ask_recurrence
     from backend.locale import LangCode, resolve_response_language
-    from backend.user_store import get_user_language
+    from backend.user_store import get_user_language, get_user_timezone
     from backend.database import SessionLocal
 
-    intent = parse(content)
+    tz_iana = "UTC"
+    try:
+        db = SessionLocal()
+        try:
+            tz_iana = get_user_timezone(db, ctx.chat_id) or "UTC"
+        finally:
+            db.close()
+    except Exception:
+        pass
+    intent = parse(content, tz_iana=tz_iana)
     if not intent or intent.get("type") != "lembrete":
         return None
     allow_relaxed = await user_insisting_on_interval_rejection(
@@ -527,12 +536,23 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
 async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
     """/recorrente [msg] [freq]. Ex: /recorrente academia seg 7h."""
     from backend.command_parser import parse
+    from backend.user_store import get_user_timezone
+    from backend.database import SessionLocal
     import re
     m = re.match(r"^/recorrente\s+(.+)$", content.strip(), re.I)
     if not m:
         return None
     rest = m.group(1).strip()
-    intent = parse("/lembrete " + rest)
+    tz_iana = "UTC"
+    try:
+        db = SessionLocal()
+        try:
+            tz_iana = get_user_timezone(db, ctx.chat_id) or "UTC"
+        finally:
+            db.close()
+    except Exception:
+        pass
+    intent = parse("/lembrete " + rest, tz_iana=tz_iana)
     if not intent or intent.get("type") != "lembrete":
         return None
     if not ctx.cron_service or not ctx.cron_tool:
