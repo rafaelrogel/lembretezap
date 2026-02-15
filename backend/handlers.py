@@ -617,8 +617,9 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
 
 
 async def handle_help(ctx: HandlerContext, content: str) -> str | None:
-    """/help: lista de comandos e como usar o assistente (localizado em pt-PT, pt-BR, es, en)."""
-    if not content.strip().lower().startswith("/help"):
+    """/help, /ajuda: lista completa de comandos (localizado em pt-PT, pt-BR, es, en)."""
+    c = content.strip().lower()
+    if not (c.startswith("/help") or c.startswith("/ajuda") or c.startswith("/ayuda")):
         return None
     from backend.database import SessionLocal
     from backend.user_store import get_user_language

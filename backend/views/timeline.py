@@ -81,11 +81,14 @@ def _visao_timeline(ctx: "HandlerContext", dias: int = 7) -> str:
                 elif ts:
                     ts = ts.replace(tzinfo=timezone.utc).astimezone(tz)
                 if ts:
-                    nome = (ev.payload or {}).get("nome", "") if isinstance(ev.payload, dict) else str(ev.payload)[:40]
-                    items.append((ts, f"Evento: {nome or ev.tipo}"))
+                    pl = ev.payload if isinstance(ev.payload, dict) else {}
+                    nome = pl.get("nome", "") or (str(ev.payload)[:40] if ev.payload else ev.tipo)
+                    from_ics = " (importado do calendário)" if pl.get("source") == "ics" else ""
+                    items.append((ts, f"Evento{from_ics}: {nome}"))
 
             items.sort(key=lambda x: x[0], reverse=True)
             lines = [f"📜 **Timeline** (últimos {dias} dias)"]
+            lines.append(f"Horários no teu fuso: {tz_iana}. «Ontem»/«hoje» = data no teu fuso.")
             for ts, label in items[:25]:
                 lines.append(f"• {ts.strftime('%d/%m %H:%M')} — {label}")
             if not items:

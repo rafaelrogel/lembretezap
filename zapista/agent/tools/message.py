@@ -34,7 +34,7 @@ class MessageTool(Tool):
     
     @property
     def description(self) -> str:
-        return "Send a message to the user. Use this when you want to communicate something."
+        return "Send a message to a *different* channel or chat_id (e.g. another user). Do NOT use for replying to the current user — your normal text response is sent automatically. Using this for the current chat sends duplicate text and does not support voice."
     
     @property
     def parameters(self) -> dict[str, Any]:

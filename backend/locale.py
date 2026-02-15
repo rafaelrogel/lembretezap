@@ -73,11 +73,15 @@ def resolve_response_language(
     """
     Redundância: usa o número de telefone para corrigir idioma em caso de onboarding mal feito.
 
-    Quando a DB tem "en" mas o prefixo do número sugere pt-BR, pt-PT ou es,
-    prefere o idioma do número (evita respostas em inglês para utilizadores lusófonos/hispânicos).
+    - Quando a DB tem "en" mas o prefixo do número sugere pt-BR, pt-PT ou es, prefere o idioma do número.
+    - Quando o número é do Brasil (55) ou Portugal (351) mas a DB tem "es", prefere pt-BR/pt-PT
+      (evita insistir em espanhol com quem tem número lusófono e já pediu português).
     """
     phone_lang = phone_to_default_language(phone_for_locale or chat_id)
     if db_lang == "en" and phone_lang in ("pt-BR", "pt-PT", "es"):
+        return phone_lang
+    # Número Brasil/Portugal mas DB tem es → corrigir para não insistir em espanhol
+    if db_lang == "es" and phone_lang in ("pt-BR", "pt-PT"):
         return phone_lang
     return db_lang
 
@@ -95,6 +99,9 @@ _LANG_SWITCH_PATTERNS: list[tuple[re.Pattern, LangCode]] = [
     (re.compile(r"\b(?:fala?r?\s+em\s+)?portugu[eê]s\s+(?:do\s+)?br\b", re.I), "pt-BR"),
     (re.compile(r"\b(?:speak\s+)?(?:in\s+)?brazilian\s+portuguese\b", re.I), "pt-BR"),
     (re.compile(r"\bpt[- ]?br\b", re.I), "pt-BR"),
+    # Pedido de NÃO falar em espanhol → inferir pt-BR/pt-PT pelo número
+    (re.compile(r"\b(?:n[aã]o\s+)?fala?e?\s+em\s+espanhol\b", re.I), "pt"),
+    (re.compile(r"\bpara\s+de\s+fala?r?\s+em\s+espanhol\b", re.I), "pt"),
     # Português genérico (fale/fala em português) — inferir pt-PT/pt-BR pelo número (ver parse_language_switch_request)
     # \w+ cobre ê, é, e e variantes de codificação (ex.: ê como 2 chars)
     (re.compile(r"\b(?:fala?e?\s+(?:comigo\s+)?(?:em\s+)?|em\s+)portugu\w+s\b", re.I), "pt"),  # "pt" = inferir do número
@@ -391,6 +398,7 @@ COMMAND_DISPLAY_NAME: dict[LangCode, dict[str, str]] = {
 # /help — texto completo localizado; use {{/comando}} para o nome localizado (substituído por build_help)
 HELP_FULL: dict[LangCode, str] = {
     "pt-PT": (
+        "📋 *Todos os comandos:*\n\n"
         "*Comandos*\n"
         "• {{/lembrete}} — agendar (ex.: amanhã 9h; em 30 min)\n"
         "• {{/list}} — listas (compras, receitas, livros, músicas, notas, sites, coisas a fazer). Ex.: {{/list}} mercado add leite\n"
@@ -411,6 +419,7 @@ HELP_FULL: dict[LangCode, str] = {
         '• Conversa por mensagem ou áudio; se quiseres resposta em áudio, pede "responde em áudio", "manda áudio" ou "fala comigo". 😊'
     ),
     "pt-BR": (
+        "📋 *Todos os comandos:*\n\n"
         "*Comandos*\n"
         "• {{/lembrete}} — agendar (ex.: amanhã 9h; em 30 min)\n"
         "• {{/list}} — listas (compras, receitas, livros, músicas, notas, sites, coisas a fazer). Ex.: {{/list}} mercado add leite\n"
@@ -431,6 +440,7 @@ HELP_FULL: dict[LangCode, str] = {
         '• Conversa por mensagem ou áudio; se quiser resposta em áudio, peça "responde em áudio", "manda áudio" ou "fala comigo". 😊'
     ),
     "es": (
+        "📋 *Todos los comandos:*\n\n"
         "*Comandos*\n"
         "• {{/lembrete}} — programar (ej.: mañana 9h; en 30 min)\n"
         "• {{/list}} — listas (compras, recetas, libros, música, notas, sitios, cosas por hacer). Ej.: {{/list}} mercado add leche\n"
@@ -451,6 +461,7 @@ HELP_FULL: dict[LangCode, str] = {
         '• Conversa por mensaje o audio; si quieres respuesta en audio, pide "responde en audio", "manda audio" o "háblame". 😊'
     ),
     "en": (
+        "📋 *All commands:*\n\n"
         "*Commands*\n"
         "• {{/lembrete}} — schedule (e.g. tomorrow 9am; in 30 min)\n"
         "• {{/list}} — lists (shopping, recipes, books, music, notes, sites, to-dos). E.g.: {{/list}} market add milk\n"

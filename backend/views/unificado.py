@@ -1,4 +1,5 @@
-"""Visão unificada: lembretes (cron) + eventos (filme, livro, etc.)."""
+"""Visão unificada: lembretes (cron) + listas (filmes, livros, músicas, etc.).
+Nota: Agenda e eventos são sinónimos (compromissos com data/hora). Listas = filmes, livros, músicas, notas, sites, to-dos, etc."""
 
 import re
 
@@ -6,7 +7,7 @@ from backend.handler_context import HandlerContext
 
 
 def _is_eventos_unificado_intent(content: str) -> bool:
-    """Detecta pedidos de visão unificada: eventos + lembretes."""
+    """Detecta pedidos de visão unificada: lembretes + listas/agenda."""
     t = (content or "").strip().lower()
     patterns = [
         r"meus?\s+eventos?",
@@ -22,7 +23,7 @@ def _is_eventos_unificado_intent(content: str) -> bool:
 
 
 async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | None:
-    """Visão unificada: lembretes (cron) + eventos (filme, livro, etc.)."""
+    """Visão unificada: lembretes (cron) + listas (filmes, livros, músicas, etc.)."""
     if not _is_eventos_unificado_intent(content):
         return None
 
@@ -41,12 +42,12 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
         try:
             event_out = await ctx.event_tool.execute(action="list", tipo="")
         except Exception:
-            event_out = "Nenhum evento."
+            event_out = "Nenhum item."
         if isinstance(event_out, str) and "Nenhum" not in event_out:
-            parts.append("📋 **Eventos (filmes, livros, etc.):**\n" + event_out)
+            parts.append("📋 **Listas (filmes, livros, músicas, etc.):**\n" + event_out)
         else:
-            parts.append("📋 **Eventos:** Nenhum registado.")
+            parts.append("📋 **Listas:** Nenhum registado.")
 
     if not parts:
-        return "Não tens lembretes nem eventos agendados. Queres adicionar algum?"
+        return "Não tens lembretes nem listas. Queres adicionar algum?"
     return "\n\n".join(parts)

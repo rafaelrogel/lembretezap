@@ -227,6 +227,7 @@ async def handle_ics_payload(
                     "descricao": description,
                     "local": location,
                     "url": url,
+                    "source": "ics",  # evento importado do calendário (.ics); user pode não ter partilhado de propósito
                 }
                 ev = Event(
                     user_id=user_id,

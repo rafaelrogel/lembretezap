@@ -86,7 +86,12 @@ class EventTool(Tool):
         events = q.order_by(Event.created_at.desc()).limit(50).all()
         if not events:
             return f"Nenhum {tipo or 'evento'}."
-        lines = [f"{e.id}. [{e.tipo}] {e.payload.get('nome', e.payload)}" for e in events]
+        lines = []
+        for e in events:
+            pl = e.payload or {}
+            nome = pl.get("nome", pl)
+            suf = " (importado do calendário)" if pl.get("source") == "ics" else ""
+            lines.append(f"{e.id}. [{e.tipo}] {nome}{suf}")
         return "\n".join(lines)
 
     def _remove(self, db, user_id: int, nome_ref: str) -> str:

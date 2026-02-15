@@ -16,9 +16,9 @@ SCOPE_KEYWORDS = re.compile(
     re.I,
 )
 
-_SCOPE_PROMPT_FALLBACK = """Analise se a mensagem do usuário é sobre: agenda, lembrete, lista (compras/pendentes/notas), evento, filme/livro/música a anotar, ou comando organizacional (/lembrete, /list, /filme, /recorrente).
+_SCOPE_PROMPT_FALLBACK = """Analise se a mensagem do usuário é sobre: agenda/eventos (compromissos com data), lembrete, listas (compras, filmes, livros, músicas, notas, sites, to-dos), ou comando organizacional (/lembrete, /list, /filme, /recorrente).
 Responda apenas: SIM ou NAO
-- SIM = é escopo do organizador (lembretes, listas, eventos, comandos /list etc)
+- SIM = escopo do organizador (lembretes, agenda/eventos, listas, comandos /list etc)
 - NAO = conversa geral, política, opiniões, perguntas fora do tema
 
 Mensagem: "{input}"
