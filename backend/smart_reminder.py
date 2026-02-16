@@ -31,6 +31,56 @@ from backend.timezone import phone_to_default_timezone
 
 
 _SENT_FILE = Path.home() / ".zapista" / "smart_reminder_sent.json"
+_DAILY_USER_MSGS_FILE = Path.home() / ".zapista" / "daily_user_messages.json"
+
+# Mínimo de mensagens que o cliente deve ter enviado no dia (no seu fuso) para receber o lembrete inteligente
+SMART_REMINDER_MIN_MESSAGES_FROM_USER = 2
+
+
+def _today_in_tz(tz_iana: str) -> str:
+    """Data de hoje no fuso do utilizador (YYYY-MM-DD)."""
+    try:
+        from zoneinfo import ZoneInfo
+        z = ZoneInfo(tz_iana)
+        return datetime.now(z).strftime("%Y-%m-%d")
+    except Exception:
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def _load_daily_user_messages() -> dict[str, dict]:
+    """Carrega {chat_id: {"date": "YYYY-MM-DD", "count": N}} (data no fuso do user)."""
+    import json
+    if not _DAILY_USER_MSGS_FILE.exists():
+        return {}
+    try:
+        data = json.loads(_DAILY_USER_MSGS_FILE.read_text())
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def record_user_message_sent(chat_id: str, tz_iana: str) -> None:
+    """Regista que o cliente enviou uma mensagem hoje (no fuso dele). Chamar ao receber cada mensagem."""
+    import json
+    _DAILY_USER_MSGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+    data = _load_daily_user_messages()
+    today = _today_in_tz(tz_iana)
+    key = str(chat_id)
+    if key not in data or data[key].get("date") != today:
+        data[key] = {"date": today, "count": 1}
+    else:
+        data[key]["count"] = data[key].get("count", 0) + 1
+    _DAILY_USER_MSGS_FILE.write_text(json.dumps(data, indent=0))
+
+
+def get_daily_user_message_count(chat_id: str, tz_iana: str) -> int:
+    """Número de mensagens que o cliente enviou hoje (no fuso dele). Só enviar lembrete inteligente se >= SMART_REMINDER_MIN_MESSAGES_FROM_USER."""
+    data = _load_daily_user_messages()
+    today = _today_in_tz(tz_iana)
+    entry = data.get(str(chat_id), {})
+    if entry.get("date") != today:
+        return 0
+    return entry.get("count", 0)
 
 
 def _load_sent_tracking() -> dict[str, str]:
@@ -349,6 +399,9 @@ async def run_smart_reminder_daily(
                     continue
                 tz_iana = get_user_timezone(db, chat_id) or phone_to_default_timezone(chat_id)
                 if not _is_in_smart_reminder_window(tz_iana):
+                    continue
+                # Só enviar se o cliente já enviou pelo menos N mensagens hoje (proteção anti-spam)
+                if get_daily_user_message_count(chat_id, tz_iana) < SMART_REMINDER_MIN_MESSAGES_FROM_USER:
                     continue
                 user_lang = get_user_language(db, chat_id)
                 preferred_name = get_user_preferred_name(db, chat_id)

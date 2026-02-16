@@ -105,7 +105,9 @@ def _visao_produtividade(ctx: "HandlerContext", mode: str = "semana") -> str:
 
 
 async def handle_produtividade(ctx: "HandlerContext", content: str) -> str | None:
-    """/produtividade ou /produtividade mes."""
+    """/produtividade ou /produtividade mes. Aceita NL: produtividade."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     t = content.strip().lower()
     if not t.startswith("/produtividade"):
         return None

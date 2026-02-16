@@ -97,8 +97,10 @@ def _get_limpeza_intro(lang: str = "pt-BR") -> str:
 async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
     """
     /limpeza — tarefas de limpeza (weekly/bi-weekly) com rotação.
-    Também ativa por linguagem natural: «preciso limpar a casa», «limpar banheiro», etc.
+    Aceita NL: limpeza, «preciso limpar a casa», «limpar banheiro», etc.
     """
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     t = content.strip()
     # Linguagem natural: «preciso limpar a casa», «limpar banheiro», etc.
     if not t.lower().startswith("/limpeza") and _is_limpeza_nl_intent(t):

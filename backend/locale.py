@@ -546,6 +546,14 @@ REMINDER_ASK_WHAT: dict[LangCode, str] = {
     "en": "What's the reminder for? E.g.: go to the pharmacy, take medicine, meeting with John, pick up the kids...",
 }
 
+# Horário pedido já passou hoje (evita agendar para o ano seguinte e avisa)
+REMINDER_TIME_PAST_TODAY: dict[LangCode, str] = {
+    "pt-PT": "Esse horário já passou hoje. Queres que eu agende para amanhã à mesma hora?",
+    "pt-BR": "Esse horário já passou hoje. Quer que eu agende para amanhã à mesma hora?",
+    "es": "Esa hora ya pasó hoy. ¿Quieres que lo programe para mañana a la misma hora?",
+    "en": "That time has already passed today. Should I schedule it for tomorrow at the same time?",
+}
+
 # Data vaga: pedir dia (ex.: "médico às 10h" → "Que dia é a consulta?")
 REMINDER_ASK_DATE_CONSULTA: dict[LangCode, str] = {
     "pt-PT": "Que dia é a tua consulta? Amanhã? Hoje? Segunda?",

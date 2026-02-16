@@ -101,7 +101,9 @@ def _visao_timeline(ctx: "HandlerContext", dias: int = 7) -> str:
 
 
 async def handle_timeline(ctx: "HandlerContext", content: str) -> str | None:
-    """/timeline ou /timeline 14: histórico cronológico."""
+    """/timeline ou /timeline 14. Aceita NL: timeline, cronologia, linha do tempo."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     t = content.strip().lower()
     if not t.startswith("/timeline"):
         return None

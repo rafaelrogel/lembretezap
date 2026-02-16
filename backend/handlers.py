@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -441,8 +442,34 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
 # Handlers por comando (README: /lembrete, /list, /feito)
 # ---------------------------------------------------------------------------
 
+def _looks_like_reminder_nl(text: str) -> bool:
+    """True se parece pedido de lembrete em linguagem natural (avisar/lembrar + tempo)."""
+    if not text or len(text.strip()) < 10:
+        return False
+    t = text.strip().lower()
+    if t.startswith("/lembrete"):
+        return False
+    # Padrões: "avisar me", "lembra me", "avisa às 10h", "lembrete hoje 10h", "lembrar amanhã"
+    if not (
+        "avisar" in t or "avisa" in t or "lembrar" in t or "lembra" in t or "lembrete" in t
+    ):
+        return False
+    time_ref = (
+        "hoje" in t or "amanhã" in t or "amanha" in t or "às " in t or "as " in t
+        or "dia " in t or "daqui" in t or re.search(r"\d{1,2}\s*/\s*\d", t) is not None
+        or re.search(r"\d{1,2}\s*h", t, re.I) is not None
+    )
+    return time_ref
+
+
+def _normalize_nl_to_command(content: str) -> str:
+    """Reexport para uso neste módulo; lógica em backend.command_nl."""
+    from backend.command_nl import normalize_nl_to_command
+    return normalize_nl_to_command(content)
+
+
 async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
-    """/lembrete [msg] [data/hora]. Ex: /lembrete reunião amanhã 14h."""
+    """/lembrete [msg] [data/hora]. Ex: /lembrete reunião amanhã 14h. Aceita NL: 'avisar me hoje 10h'."""
     from backend.command_parser import parse
     from backend.guardrails import is_absurd_request, user_insisting_on_interval_rejection
     from backend.recurring_detector import maybe_ask_recurrence
@@ -450,16 +477,34 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     from backend.user_store import get_user_language, get_user_timezone
     from backend.database import SessionLocal
 
+    text = content.strip()
+    if _looks_like_reminder_nl(text):
+        text = "/lembrete " + text
+
     tz_iana = "UTC"
+    user_lang: LangCode = "pt-BR"
     try:
         db = SessionLocal()
         try:
             tz_iana = get_user_timezone(db, ctx.chat_id) or "UTC"
+            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
+            try:
+                from zoneinfo import ZoneInfo
+                ZoneInfo(tz_iana)
+            except Exception:
+                from backend.timezone import phone_to_default_timezone
+                tz_iana = phone_to_default_timezone(ctx.chat_id)
         finally:
             db.close()
     except Exception:
         pass
-    intent = parse(content, tz_iana=tz_iana)
+    if tz_iana == "UTC":
+        from backend.timezone import DEFAULT_TZ_BY_LANG
+        if user_lang in DEFAULT_TZ_BY_LANG:
+            tz_iana = DEFAULT_TZ_BY_LANG[user_lang]
+
+    intent = parse(text, tz_iana=tz_iana)
     if not intent or intent.get("type") != "lembrete":
         return None
     allow_relaxed = await user_insisting_on_interval_rejection(
@@ -583,8 +628,8 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 async def handle_add(ctx: HandlerContext, content: str) -> str | None:
-    """/add [lista] [item]. Default lista=mercado. UX: 'adicione pão' → LLM fallback."""
-    import re
+    """/add [lista] [item]. Default lista=mercado. Aceita NL: adicione X, adiciona X."""
+    content = _normalize_nl_to_command(content)
     m = re.match(r"^/add\s+(.+)$", content.strip(), re.I)
     if not m:
         return None
@@ -605,7 +650,8 @@ async def handle_add(ctx: HandlerContext, content: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 async def handle_start(ctx: HandlerContext, content: str) -> str | None:
-    """/start: opt-in, setup timezone/idioma via texto."""
+    """/start: opt-in, setup timezone/idioma. Aceita NL: começar, início, iniciar."""
+    content = _normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/start"):
         return None
     return (
@@ -617,7 +663,8 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
 
 
 async def handle_help(ctx: HandlerContext, content: str) -> str | None:
-    """/help, /ajuda: lista completa de comandos (localizado em pt-PT, pt-BR, es, en)."""
+    """/help, /ajuda: lista completa de comandos. Aceita NL: ajuda, comandos, o que você faz."""
+    content = _normalize_nl_to_command(content)
     c = content.strip().lower()
     if not (c.startswith("/help") or c.startswith("/ajuda") or c.startswith("/ayuda")):
         return None
@@ -635,11 +682,11 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | None:
 
 
 async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
-    """/recorrente [msg] [freq]. Ex: /recorrente academia seg 7h."""
+    """/recorrente [msg] [freq]. Aceita NL: lembrete recorrente X, todo dia X."""
+    content = _normalize_nl_to_command(content)
     from backend.command_parser import parse
     from backend.user_store import get_user_timezone
     from backend.database import SessionLocal
-    import re
     m = re.match(r"^/recorrente\s+(.+)$", content.strip(), re.I)
     if not m:
         return None
@@ -678,7 +725,8 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
 
 
 async def handle_pendente(ctx: HandlerContext, content: str) -> str | None:
-    """/pendente: tudo aberto (listas com itens não feitos)."""
+    """/pendente: tudo aberto. Aceita NL: pendente, pendentes, tarefas pendentes."""
+    content = _normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/pendente"):
         return None
     if not ctx.list_tool:
@@ -688,7 +736,8 @@ async def handle_pendente(ctx: HandlerContext, content: str) -> str | None:
 
 
 async def handle_stop(ctx: HandlerContext, content: str) -> str | None:
-    """/stop: opt-out."""
+    """/stop: opt-out. Aceita NL: parar, pausar, stop."""
+    content = _normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/stop"):
         return None
     return _reply_confirm_prompt(

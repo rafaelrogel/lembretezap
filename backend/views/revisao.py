@@ -69,7 +69,9 @@ def _visao_resumo_mes(ctx: "HandlerContext") -> str:
 
 
 async def handle_revisao(ctx: "HandlerContext", content: str) -> str | None:
-    """/resumo ou /revisao — resumo da semana. /resumo mes (ou mensal, month) — resumo do mês."""
+    """/resumo ou /revisao. Aceita NL: resumo, revisão, summary."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     t = content.strip().lower()
     if not (t.startswith("/resumo") or t.startswith("/revisao")):
         return None

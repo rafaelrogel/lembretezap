@@ -4,7 +4,9 @@ from backend.handler_context import HandlerContext, _reply_confirm_prompt
 
 
 async def handle_exportar(ctx: HandlerContext, content: str) -> str | None:
-    """/exportar: confirma? 1=sim 2=não."""
+    """/exportar: confirma? 1=sim 2=não. Aceita NL: exportar, export."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/exportar"):
         return None
     from backend.confirmations import set_pending
@@ -13,8 +15,10 @@ async def handle_exportar(ctx: HandlerContext, content: str) -> str | None:
 
 
 async def handle_deletar_tudo(ctx: HandlerContext, content: str) -> str | None:
-    """/deletar_tudo: confirma? 1=sim 2=não."""
+    """/deletar_tudo: confirma? 1=sim 2=não. Aceita NL: apagar tudo, deletar tudo."""
     import re
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     if not re.match(r"^/deletar[_\s]?tudo\s*$", content.strip(), re.I):
         return None
     from backend.confirmations import set_pending

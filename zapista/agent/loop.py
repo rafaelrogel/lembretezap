@@ -583,6 +583,19 @@ class AgentLoop:
             metadata=msg.metadata,
             trace_id=msg.trace_id,
         )
+        # Regista mensagem do cliente para contagem diária (lembrete inteligente só após >= 2 msgs no dia)
+        try:
+            from backend.database import SessionLocal
+            from backend.user_store import get_user_timezone
+            from backend.smart_reminder import record_user_message_sent
+            _db = SessionLocal()
+            try:
+                _tz = get_user_timezone(_db, msg.chat_id) or "UTC"
+                record_user_message_sent(msg.chat_id, _tz)
+            finally:
+                _db.close()
+        except Exception:
+            pass
         # Não responder a mensagens triviais (ok, tá, não, emojis soltos) — evita loop e custo de tokens
         try:
             from backend.guardrails import should_skip_reply
@@ -609,12 +622,15 @@ class AgentLoop:
 
         # Resumo da semana/mês: entregar apenas no primeiro contacto (aproveitar sessão aberta pelo cliente)
         # Estado "já entregue" fica na BD (AuditLog) para não reenviar em cada mensagem.
+        # Só ativo a partir de abril de 2026.
         try:
+            from datetime import date, datetime
             from zoneinfo import ZoneInfo
             from backend.database import SessionLocal
             from backend.user_store import get_or_create_user, get_user_timezone
             from backend.models_db import AuditLog
             from backend.weekly_recap import get_pending_recap_on_first_contact
+            RECAP_ACTIVE_FROM = date(2026, 4, 1)
             db = SessionLocal()
             try:
                 user = get_or_create_user(db, msg.chat_id)
@@ -623,38 +639,40 @@ class AgentLoop:
                     tz = ZoneInfo(tz_iana)
                 except Exception:
                     tz = ZoneInfo("UTC")
-                weekly_content, weekly_period_id, monthly_content, monthly_period_id = get_pending_recap_on_first_contact(
-                    db, msg.chat_id, tz
-                )
-                # Só enviar se ainda não tivermos registado entrega para este período (por user_id na BD)
-                if weekly_content and weekly_period_id:
-                    already = db.query(AuditLog).filter(
-                        AuditLog.user_id == user.id,
-                        AuditLog.action == "recap_weekly_delivered",
-                        AuditLog.resource == weekly_period_id,
-                    ).first()
-                    if not already:
-                        await self.bus.publish_outbound(OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=weekly_content,
-                        ))
-                        db.add(AuditLog(user_id=user.id, action="recap_weekly_delivered", resource=weekly_period_id))
-                        db.commit()
-                if monthly_content and monthly_period_id:
-                    already = db.query(AuditLog).filter(
-                        AuditLog.user_id == user.id,
-                        AuditLog.action == "recap_monthly_delivered",
-                        AuditLog.resource == monthly_period_id,
-                    ).first()
-                    if not already:
-                        await self.bus.publish_outbound(OutboundMessage(
-                            channel=msg.channel,
-                            chat_id=msg.chat_id,
-                            content=monthly_content,
-                        ))
-                        db.add(AuditLog(user_id=user.id, action="recap_monthly_delivered", resource=monthly_period_id))
-                        db.commit()
+                today_user = date(datetime.now(tz).year, datetime.now(tz).month, datetime.now(tz).day) if tz else date.today()
+                if today_user >= RECAP_ACTIVE_FROM:
+                    weekly_content, weekly_period_id, monthly_content, monthly_period_id = get_pending_recap_on_first_contact(
+                        db, msg.chat_id, tz
+                    )
+                    # Só enviar se ainda não tivermos registado entrega para este período (por user_id na BD)
+                    if weekly_content and weekly_period_id:
+                        already = db.query(AuditLog).filter(
+                            AuditLog.user_id == user.id,
+                            AuditLog.action == "recap_weekly_delivered",
+                            AuditLog.resource == weekly_period_id,
+                        ).first()
+                        if not already:
+                            await self.bus.publish_outbound(OutboundMessage(
+                                channel=msg.channel,
+                                chat_id=msg.chat_id,
+                                content=weekly_content,
+                            ))
+                            db.add(AuditLog(user_id=user.id, action="recap_weekly_delivered", resource=weekly_period_id))
+                            db.commit()
+                    if monthly_content and monthly_period_id:
+                        already = db.query(AuditLog).filter(
+                            AuditLog.user_id == user.id,
+                            AuditLog.action == "recap_monthly_delivered",
+                            AuditLog.resource == monthly_period_id,
+                        ).first()
+                        if not already:
+                            await self.bus.publish_outbound(OutboundMessage(
+                                channel=msg.channel,
+                                chat_id=msg.chat_id,
+                                content=monthly_content,
+                            ))
+                            db.add(AuditLog(user_id=user.id, action="recap_monthly_delivered", resource=monthly_period_id))
+                            db.commit()
             finally:
                 db.close()
         except Exception as e:

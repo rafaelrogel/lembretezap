@@ -92,7 +92,9 @@ def _visao_stats(ctx: "HandlerContext", mode: str = "resumo") -> str:
 
 
 async def handle_stats(ctx: "HandlerContext", content: str) -> str | None:
-    """/stats ou /stats dia ou /stats semana."""
+    """/stats ou /stats dia ou /stats semana. Aceita NL: stats, estatísticas."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     t = content.strip().lower()
     if not t.startswith("/stats"):
         return None

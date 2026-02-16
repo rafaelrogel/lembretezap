@@ -313,7 +313,11 @@ class CronTool(Tool):
             _lang = self._get_user_lang()
             if is_cron_interval_too_short(cron_expr, allow_relaxed=allow_relaxed_interval):
                 return REMINDER_MIN_INTERVAL_2H.get(_lang, REMINDER_MIN_INTERVAL_2H["pt-BR"])
-        if in_seconds is not None and (in_seconds < 0 or in_seconds > 86400 * 365):
+        if in_seconds is not None and in_seconds <= 0:
+            _lang = self._get_user_lang()
+            from backend.locale import REMINDER_TIME_PAST_TODAY
+            return REMINDER_TIME_PAST_TODAY.get(_lang, REMINDER_TIME_PAST_TODAY["pt-BR"])
+        if in_seconds is not None and in_seconds > 86400 * 365:
             return "Error: in_seconds deve estar entre 0 e 1 ano"
         min_every = 1800 if allow_relaxed_interval else 7200  # 30 min ou 2h
         if every_seconds is not None and (every_seconds < min_every or every_seconds > 86400 * 30):

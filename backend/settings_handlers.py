@@ -78,7 +78,9 @@ def _is_nl_quiet_off(content: str) -> bool:
 
 
 async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
-    """/quiet 22:00-08:00 ou /quiet off. Aceita linguagem natural: parar horário silencioso, desativar quiet."""
+    """/quiet 22:00-08:00 ou /quiet off. Aceita NL: silêncio, quiet, parar horário silencioso."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     t = content.strip()
     t_lower = t.lower()
     is_nl_off = _is_nl_quiet_off(t)
@@ -122,7 +124,9 @@ async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
 
 
 async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
-    """/reset: limpa dados do onboarding (nome, cidade) para refazer o cadastro."""
+    """/reset: limpa dados do onboarding. Aceita NL: reiniciar, reset."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/reset"):
         return None
     try:

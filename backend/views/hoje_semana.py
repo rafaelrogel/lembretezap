@@ -183,21 +183,27 @@ def _visao_semana(ctx: "HandlerContext") -> str:
 
 
 async def handle_hoje(ctx: "HandlerContext", content: str) -> str | None:
-    """/hoje, /hoy, /today: agenda + lembretes do dia."""
+    """/hoje, /hoy, /today. Aceita NL: hoje, o que tenho hoje."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/hoje"):
         return None
     return _visao_hoje(ctx)
 
 
 async def handle_semana(ctx: "HandlerContext", content: str) -> str | None:
-    """/semana, /week: apenas agenda da semana (sem lembretes)."""
+    """/semana, /week. Aceita NL: semana, esta semana."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/semana"):
         return None
     return _visao_semana(ctx)
 
 
 async def handle_agenda(ctx: "HandlerContext", content: str) -> str | None:
-    """/agenda: agenda do dia corrente (eventos de hoje); na 2.ª vez pergunta se já realizou e se quer remover."""
+    """/agenda. Aceita NL: agenda, minha agenda, o que tenho agendado."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/agenda"):
         return None
     return _visao_agenda_dia(ctx)

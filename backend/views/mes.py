@@ -78,7 +78,9 @@ def _visao_mes(ctx: "HandlerContext", year: int, month: int) -> str:
 
 
 async def handle_mes(ctx: "HandlerContext", content: str) -> str | None:
-    """/mes ou /mes 3 ou /mes 2026-03: calendário do mês."""
+    """/mes ou /mes 3 ou /mes 2026-03. Aceita NL: mês, mes, month."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     t = content.strip().lower()
     if not t.startswith("/mes"):
         return None

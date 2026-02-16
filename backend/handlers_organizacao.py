@@ -39,7 +39,9 @@ def _parse_deadline(text: str):
 
 
 async def handle_meta(ctx: "HandlerContext", content: str) -> str | None:
-    """/meta add Nome até DD/MM | /metas"""
+    """/meta add Nome até DD/MM | /metas. Aceita NL: meta, metas, objetivo(s)."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     t = content.strip()
     if not t.lower().startswith("/meta"):
         return None
@@ -77,7 +79,9 @@ async def handle_meta(ctx: "HandlerContext", content: str) -> str | None:
 
 
 async def handle_metas(ctx: "HandlerContext", content: str) -> str | None:
-    """/metas - atalho."""
+    """/metas - atalho. Aceita NL: metas, objetivos."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/metas"):
         return None
     return await handle_meta(ctx, "/meta " + content.strip()[6:])
@@ -88,7 +92,9 @@ async def handle_metas(ctx: "HandlerContext", content: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 async def handle_projeto(ctx: "HandlerContext", content: str) -> str | None:
-    """/projeto add Nome | /projeto Nome add item | /projeto Nome | /projetos"""
+    """/projeto add Nome | /projeto Nome. Aceita NL: projeto, project."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     t = content.strip()
     if not t.lower().startswith("/projeto"):
         return None
@@ -157,7 +163,9 @@ async def handle_projeto(ctx: "HandlerContext", content: str) -> str | None:
 
 
 async def handle_projetos(ctx: "HandlerContext", content: str) -> str | None:
-    """/projetos - listar projetos."""
+    """/projetos - listar projetos. Aceita NL: projetos, projects."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/projetos"):
         return None
     return await handle_projeto(ctx, "/projeto " + content.strip()[9:])
@@ -168,7 +176,9 @@ async def handle_projetos(ctx: "HandlerContext", content: str) -> str | None:
 # ---------------------------------------------------------------------------
 
 async def handle_template(ctx: "HandlerContext", content: str) -> str | None:
-    """/template add Nome item1, item2 | /template Nome usar | /templates"""
+    """/template add Nome item1, item2 | /template Nome usar. Aceita NL: template, modelo."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     t = content.strip()
     if not t.lower().startswith("/template"):
         return None
@@ -229,7 +239,9 @@ async def handle_template(ctx: "HandlerContext", content: str) -> str | None:
 
 
 async def handle_templates(ctx: "HandlerContext", content: str) -> str | None:
-    """/templates - listar templates."""
+    """/templates - listar templates. Aceita NL: templates, modelos."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/templates"):
         return None
     return await handle_template(ctx, "/template " + content.strip()[10:])

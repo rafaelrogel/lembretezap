@@ -126,6 +126,21 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             return {"every_seconds": every, "message": clean_message(message)}
 
     m = re.search(
+        r"hoje\s+(?:às?\s*)?(\d{1,2})\s*h?\b",
+        text_lower,
+        re.I,
+    )
+    if m:
+        hora = min(23, max(0, int(m.group(1))))
+        message = strip_pattern(text, r"hoje\s+(?:às?\s*)?\d{1,2}\s*h?\s*")
+        today_at = now.replace(hour=hora, minute=0, second=0, microsecond=0)
+        delta = (today_at - now).total_seconds()
+        if delta > 0 and delta <= 86400:
+            return {"in_seconds": int(delta), "message": clean_message(message)}
+        if delta <= 0 and delta >= -86400:
+            return {"in_seconds": int(delta), "message": clean_message(message)}
+
+    m = re.search(
         r"amanh[ãa]\s+(?:às?\s*)?(\d{1,2})\s*h?\b",
         text_lower,
         re.I,
@@ -184,9 +199,14 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             try:
                 tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
                 target = datetime(ano, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                delta = (target - now).total_seconds()
+                if target < now and target.date() == now.date() and delta >= -86400:
+                    # Hoje mas o horário já passou: devolver in_seconds negativo para o cron avisar (não agendar ano seguinte)
+                    message = strip_pattern(text, _pat_data_hora)
+                    return {"in_seconds": int(delta), "message": clean_message(message)}
                 if target < now:
                     target = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
-                delta = (target - now).total_seconds()
+                    delta = (target - now).total_seconds()
                 if delta > 0 and delta <= 86400 * 365:
                     message = strip_pattern(text, _pat_data_hora)
                     return {"in_seconds": int(delta), "message": clean_message(message)}
