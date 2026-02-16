@@ -148,9 +148,9 @@ async def handle_rever(ctx: "HandlerContext", content: str) -> str | None:
             if out:
                 return out
             if intent == "pedido":
-                return f"Foi este o pedido: «{last_pedido}»" if last_pedido else "Ainda não tens nenhum pedido registado."
+                return f"Foi este o pedido: \"{last_pedido}\"" if last_pedido else "Ainda não tens nenhum pedido registado."
             if intent == "lembrete":
-                return f"Foi esta a lembrança: «{last_lembrete}»" if last_lembrete else "Ainda não recebeste nenhuma lembrança."
+                return f"Foi esta a lembrança: \"{last_lembrete}\"" if last_lembrete else "Ainda não recebeste nenhuma lembrança."
             return "\n".join(data_parts)
         finally:
             db.close()

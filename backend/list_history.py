@@ -101,7 +101,7 @@ def format_last_week_for_mimo(items_by_list: dict[str, list[dict[str, Any]]]) ->
     lines = ["## Listas da semana passada (itens adicionados)"]
     for list_name, items in items_by_list.items():
         texts = [i["text"] for i in items[:8]]
-        lines.append(f"- Lista «{list_name}»: {', '.join(texts)}")
+        lines.append(f"- Lista \"{list_name}\": {', '.join(texts)}")
     return "\n".join(lines)
 
 
@@ -113,5 +113,5 @@ def format_frequent_for_mimo(freq: dict[str, list[tuple[str, int]]]) -> str:
     for list_name, pairs in freq.items():
         parts = [f"{t} ({c}x)" for t, c in pairs[:6]]
         if parts:
-            lines.append(f"- Lista «{list_name}»: {', '.join(parts)}")
+            lines.append(f"- Lista \"{list_name}\": {', '.join(parts)}")
     return "\n".join(lines)

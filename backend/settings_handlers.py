@@ -22,7 +22,7 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
         if not tz_iana:
             tz_iana = city_to_iana(raw.replace(" ", ""))
     if not tz_iana:
-        return f"🌍 Cidade «{raw}» não reconhecida. Tenta: /tz Lisboa, /tz São Paulo ou /tz Europe/Lisbon (IANA)."
+        return f"🌍 Cidade \"{raw}\" não reconhecida. Tenta: /tz Lisboa, /tz São Paulo ou /tz Europe/Lisbon (IANA)."
     try:
         from backend.database import SessionLocal
         from backend.user_store import set_user_timezone

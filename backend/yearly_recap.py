@@ -136,7 +136,8 @@ async def build_recap_message(
 
     # Parte 1: DeepSeek — mensagem variada, tocante e criativa (não usar texto genérico)
     deepseek_prompt = (
-        f"Write a short, warm and CREATIVE New Year message (2-3 sentences) to a user named «{name}». "
+        f"Write a short, warm and CREATIVE New Year message (2-3 sentences) to a user named \"{name}\". "
+        "Use only normal quotes in the message, never guillemets (« »). "
         "Say how happy we are to have them as a friend and user, that we want to make their life easier "
         "all year long, and that we hope our partnership lasts many, many years. "
         "Be genuine, touching and VARIED — avoid generic phrases; surprise them with a fresh wording. "

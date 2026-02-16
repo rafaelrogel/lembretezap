@@ -150,7 +150,7 @@ class ListTool(Tool):
             if text and text.strip() and text.strip().lower() not in pending_texts
         ]
         if not candidates:
-            return f"Lista «{list_name}»: não há itens habituais novos para adicionar (já tens tudo ou sem histórico)."
+            return f"Lista \"{list_name}\": não há itens habituais novos para adicionar (já tens tudo ou sem histórico)."
 
         # Mimo sugere com base no contexto (se disponível); já valida contra candidatos
         to_add: list[str] = []
@@ -187,7 +187,7 @@ class ListTool(Tool):
             db.add(AuditLog(user_id=user_id, action="list_add", resource=list_name, payload_json=audit_payload))
             added.append(item_clean)
         db.commit()
-        return f"Adicionei o habitual a «{list_name}»: {', '.join(added)}."
+        return f"Adicionei o habitual a \"{list_name}\": {', '.join(added)}."
 
     async def _ask_mimo_suggestion(
         self,

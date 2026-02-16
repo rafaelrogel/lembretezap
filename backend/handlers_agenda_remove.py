@@ -94,10 +94,10 @@ def _match_events(ref: str, events: list[Event]) -> list[Event]:
 
 # Mensagens localizadas
 _MSG_REMOVED: dict[LangCode, str] = {
-    "pt-PT": "Removido da agenda: «{nome}».",
-    "pt-BR": "Removido da agenda: «{nome}».",
-    "es": "Quitado de la agenda: «{nombre}».",
-    "en": "Removed from agenda: «{name}».",
+    "pt-PT": "Removido da agenda: \"{nome}\".",
+    "pt-BR": "Removido da agenda: \"{nome}\".",
+    "es": "Quitado de la agenda: \"{nombre}\".",
+    "en": "Removed from agenda: \"{name}\".",
 }
 
 _MSG_WHICH_ONE: dict[LangCode, str] = {

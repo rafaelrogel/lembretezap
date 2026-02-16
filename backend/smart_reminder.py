@@ -223,7 +223,7 @@ def _format_context_for_mimo(ctx: dict[str, Any]) -> str:
     if ctx.get("lists_pending"):
         parts.append("\n## Listas com itens por fazer")
         for l in ctx["lists_pending"]:
-            parts.append(f"- Lista «{l['name']}»: {l['pending_count']} pendentes, {l['done_count']} feitos")
+            parts.append(f"- Lista \"{l['name']}\": {l['pending_count']} pendentes, {l['done_count']} feitos")
             for p in l["pending"][:3]:
                 parts.append(f"  · {p}")
     last_week_str = format_last_week_for_mimo(ctx.get("lists_last_week") or {})

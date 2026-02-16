@@ -832,11 +832,11 @@ async def _cmd_cleanup(
         if data["lists_unused"]:
             lines.append(f"\nListas: {len(data['lists_unused'])}")
             for u in data["lists_unused"][:8]:
-                lines.append(f"  - «{u['list_name']}» (user_id={u['user_id']}): {u['pending']} pendentes")
+                lines.append(f"  - \"{u['list_name']}\" (user_id={u['user_id']}): {u['pending']} pendentes")
         if data["cron_unused"]:
             lines.append(f"\nLembretes (cron): {len(data['cron_unused'])}")
             for u in data["cron_unused"][:8]:
-                lines.append(f"  - «{u['message']}» ***{u['to']}: {u['reason']}")
+                lines.append(f"  - \"{u['message']}\" ***{u['to']}: {u['reason']}")
         return "\n".join(lines)
     except Exception as e:
         logger.debug(f"admin #cleanup failed: {e}")

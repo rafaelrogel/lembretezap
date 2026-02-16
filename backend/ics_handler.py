@@ -324,7 +324,7 @@ def _summary_message(
                 data_str = str(data_at)[:16]
         else:
             data_str = "—"
-        lines.append(f"• «{nome}» {data_str}")
+        lines.append(f"• \"{nome}\" {data_str}")
     if with_reminder:
         suffix = {
             "pt-PT": " Vou lembrar-te 15 min antes de cada um.",

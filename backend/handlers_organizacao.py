@@ -116,7 +116,7 @@ async def handle_projeto(ctx: "HandlerContext", content: str) -> str | None:
                 return "Use: /projeto add Nome (ex: /projeto add Casa)"
             existing = db.query(Project).filter(Project.user_id == user.id, Project.name == name).first()
             if existing:
-                return f"Projeto «{name}» já existe."
+                return f"Projeto \"{name}\" já existe."
             proj = Project(user_id=user.id, name=name)
             db.add(proj)
             db.flush()
@@ -130,7 +130,7 @@ async def handle_projeto(ctx: "HandlerContext", content: str) -> str | None:
         proj_name = sanitize_string(parts[0], MAX_LIST_NAME_LEN)
         proj = db.query(Project).filter(Project.user_id == user.id, Project.name == proj_name).first()
         if not proj:
-            return f"Projeto «{proj_name}» não encontrado. Use /projetos"
+            return f"Projeto \"{proj_name}\" não encontrado. Use /projetos"
         lst = db.query(List).filter(List.user_id == user.id, List.project_id == proj.id).first()
         if not lst:
             lst = List(user_id=user.id, name=proj_name, project_id=proj.id)
@@ -144,7 +144,7 @@ async def handle_projeto(ctx: "HandlerContext", content: str) -> str | None:
             item = ListItem(list_id=lst.id, text=item_text)
             db.add(item)
             db.commit()
-            return f"✅ Adicionado a «{proj_name}»: {item_text} (id: {item.id})"
+            return f"✅ Adicionado a \"{proj_name}\": {item_text} (id: {item.id})"
 
         items = (
             db.query(ListItem)
@@ -153,7 +153,7 @@ async def handle_projeto(ctx: "HandlerContext", content: str) -> str | None:
             .all()
         )
         if not items:
-            return f"Projeto «{proj_name}»: sem tarefas. Use /projeto {proj_name} add item"
+            return f"Projeto \"{proj_name}\": sem tarefas. Use /projeto {proj_name} add item"
         lines = [f"📁 **{proj_name}**"]
         for i in items:
             lines.append(f"{i.id}. {i.text}")
@@ -205,7 +205,7 @@ async def handle_template(ctx: "HandlerContext", content: str) -> str | None:
             if existing:
                 existing.items_json = json.dumps(items)
                 db.commit()
-                return f"✅ Template «{name}» atualizado ({len(items)} itens)"
+                return f"✅ Template \"{name}\" atualizado ({len(items)} itens)"
             db.add(ListTemplate(user_id=user.id, name=name, items_json=json.dumps(items)))
             db.commit()
             return f"✅ Template criado: {name} ({len(items)} itens). Use /template {name} usar"
@@ -215,7 +215,7 @@ async def handle_template(ctx: "HandlerContext", content: str) -> str | None:
             name = sanitize_string(m.group(1), MAX_LIST_NAME_LEN)
             tmpl = db.query(ListTemplate).filter(ListTemplate.user_id == user.id, ListTemplate.name == name).first()
             if not tmpl:
-                return f"Template «{name}» não encontrado."
+                return f"Template \"{name}\" não encontrado."
             try:
                 items = json.loads(tmpl.items_json)
             except Exception:
@@ -231,7 +231,7 @@ async def handle_template(ctx: "HandlerContext", content: str) -> str | None:
                     db.add(ListItem(list_id=lst.id, text=item_text))
                     added += 1
             db.commit()
-            return f"✅ Lista «{name}» criada com {added} itens."
+            return f"✅ Lista \"{name}\" criada com {added} itens."
 
         return "Use: /template add Nome item1, item2 | /template Nome usar | /templates"
     finally:

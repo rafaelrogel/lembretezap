@@ -132,7 +132,7 @@ class EventTool(Tool):
         ref_lower = nome_ref.lower()
         matched = [e for e in today_events if ref_lower in (e.payload.get("nome", "") or "").lower()]
         if not matched:
-            return f"Nenhum evento de hoje com «{nome_ref}» na agenda."
+            return f"Nenhum evento de hoje com \"{nome_ref}\" na agenda."
         if len(matched) > 1:
             names = ", ".join((e.payload.get("nome", "") or "?") for e in matched[:5])
             return f"Vários eventos coincidem. Especifica: {names}"
@@ -141,4 +141,4 @@ class EventTool(Tool):
         db.add(AuditLog(user_id=user_id, action="event_remove", resource=ev.tipo))
         db.commit()
         nome = ev.payload.get("nome", "") or "evento"
-        return f"Removido da agenda: «{nome}»."
+        return f"Removido da agenda: \"{nome}\"."

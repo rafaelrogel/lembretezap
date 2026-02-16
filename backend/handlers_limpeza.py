@@ -97,12 +97,12 @@ def _get_limpeza_intro(lang: str = "pt-BR") -> str:
 async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
     """
     /limpeza — tarefas de limpeza (weekly/bi-weekly) com rotação.
-    Aceita NL: limpeza, «preciso limpar a casa», «limpar banheiro», etc.
+    Aceita NL: limpeza, "preciso limpar a casa", "limpar banheiro", etc.
     """
     from backend.command_nl import normalize_nl_to_command
     content = normalize_nl_to_command(content)
     t = content.strip()
-    # Linguagem natural: «preciso limpar a casa», «limpar banheiro», etc.
+    # Linguagem natural: "preciso limpar a casa", "limpar banheiro", etc.
     if not t.lower().startswith("/limpeza") and _is_limpeza_nl_intent(t):
         try:
             from backend.user_store import get_user_language
@@ -169,20 +169,20 @@ async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
             slug, freq_raw, dia_raw, time_raw = m.group(1), m.group(2), m.group(3), m.group(4)
             slug_lower = slug.lower().replace("-", "_")
             if slug_lower not in CHORE_CATALOG:
-                return f"Tarefa «{slug}» não encontrada. Use /limpeza catálogo."
+                return f"Tarefa \"{slug}\" não encontrada. Use /limpeza catálogo."
             freq = "weekly" if freq_raw in ("weekly", "semanal") else "bi-weekly"
             weekday = WEEKDAY_MAP.get(dia_raw.lower(), None)
             if weekday is None:
-                return f"Dia «{dia_raw}» inválido. Ex.: segunda, sábado."
+                return f"Dia \"{dia_raw}\" inválido. Ex.: segunda, sábado."
             time_hhmm = _parse_time_hhmm(time_raw)
             if not time_hhmm:
-                return f"Hora «{time_raw}» inválida. Use 9h ou 09:00."
+                return f"Hora \"{time_raw}\" inválida. Use 9h ou 09:00."
             existing = db.query(HouseChoreTask).filter(
                 HouseChoreTask.user_id == user.id,
                 HouseChoreTask.catalog_slug == slug_lower,
             ).first()
             if existing:
-                return f"Tarefa «{get_chore_name(slug_lower)}» já existe."
+                return f"Tarefa \"{get_chore_name(slug_lower)}\" já existe."
             db.add(HouseChoreTask(
                 user_id=user.id,
                 catalog_slug=slug_lower,
@@ -201,7 +201,7 @@ async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
                 HouseChoreTask.catalog_slug == slug,
             ).first()
             if not task:
-                return f"Tarefa «{slug}» não encontrada."
+                return f"Tarefa \"{slug}\" não encontrada."
             db.delete(task)
             db.commit()
             return f"✅ Tarefa removida."

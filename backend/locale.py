@@ -280,42 +280,42 @@ NUDGE_TZ_WHEN_MISSING: dict[LangCode, str] = {
 
 # Dica sobre emojis em lembretes (feito / soneca / não feito)
 ONBOARDING_EMOJI_TIP: dict[LangCode, str] = {
-    "pt-PT": "\n\n💡 Quando receberes um lembrete, reage à mensagem:\n• 👍 (feito) — depois confirma com *sim*\n• ⏰ (adiar 5 min, máx 3x)\n• 👎 (remover) — pergunto se queres alterar horário ou cancelar\n\nOu escreve/envia áudio, ex.: «feito», «remover», «adiar 1 hora».",
-    "pt-BR": "\n\n💡 Quando receber um lembrete, reaja à mensagem:\n• 👍 (feito) — depois confirme com *sim*\n• ⏰ (adiar 5 min, máx 3x)\n• 👎 (remover) — pergunto se você quer alterar horário ou cancelar\n\nOu escreva/envie áudio, ex.: «feito», «remover», «adiar 1 hora».",
-    "es": "\n\n💡 Cuando recibas un recordatorio, reacciona al mensaje:\n• 👍 (hecho) — luego confirma con *sí*\n• ⏰ (pospóner 5 min, máx 3x)\n• 👎 (eliminar) — pregunto si quieres cambiar horario o cancelar\n\nO escribe/envía audio, ej.: «hecho», «eliminar», «pospóner 1 hora».",
-    "en": "\n\n💡 When you receive a reminder, react to the message:\n• 👍 (done) — then confirm with *yes*\n• ⏰ (snooze 5 min, max 3x)\n• 👎 (remove) — I'll ask if you want to change time or cancel\n\nOr type/send audio, e.g. «done», «remove», «snooze 1 hour».",
+    "pt-PT": "\n\n💡 Quando receberes um lembrete, reage à mensagem:\n• 👍 (feito) — depois confirma com *sim*\n• ⏰ (adiar 5 min, máx 3x)\n• 👎 (remover) — pergunto se queres alterar horário ou cancelar\n\nOu escreve/envia áudio, ex.: feito, remover, adiar 1 hora.",
+    "pt-BR": "\n\n💡 Quando receber um lembrete, reaja à mensagem:\n• 👍 (feito) — depois confirme com *sim*\n• ⏰ (adiar 5 min, máx 3x)\n• 👎 (remover) — pergunto se você quer alterar horário ou cancelar\n\nOu escreva/envie áudio, ex.: feito, remover, adiar 1 hora.",
+    "es": "\n\n💡 Cuando recibas un recordatorio, reacciona al mensaje:\n• 👍 (hecho) — luego confirma con *sí*\n• ⏰ (pospóner 5 min, máx 3x)\n• 👎 (eliminar) — pregunto si quieres cambiar horario o cancelar\n\nO escribe/envía audio, ej.: hecho, eliminar, posponer 1 hora.",
+    "en": "\n\n💡 When you receive a reminder, react to the message:\n• 👍 (done) — then confirm with *yes*\n• ⏰ (snooze 5 min, max 3x)\n• 👎 (remove) — I'll ask if you want to change time or cancel\n\nOr type/send audio, e.g. done, remove, snooze 1 hour.",
 }
 
 
-# Fallbacks para mensagem "fora do escopo" — curtos (~30% menores)
+# Fallbacks para mensagem "fora do escopo" — indicar claramente que /help é comando a digitar
 OUT_OF_SCOPE_FALLBACKS: dict[LangCode, list[str]] = {
     "pt-PT": [
-        "Esse assunto foge ao que consigo fazer, mas adorava ajudar noutra coisa! 😊 Organizo lembretes e listas. Usa /help ou fala comigo por mensagem ou áudio.",
-        "Não tenho superpoderes para isso. Posso ajudar com lembretes e listas. /help mostra os comandos. Ou escreve/envia áudio.",
-        "Nesse tema não consigo ajudar. O que faço: lembretes e listas. /help ou conversa por mensagem/áudio. ✨",
-        "Isso fica fora da minha zona. Foco: organizar teu tempo. /help mostra tudo. Podes escrever ou mandar áudio.",
-        "Adorava ajudar noutra coisa. /help para comandos ou fala por mensagem/áudio. 😊",
+        "Esse assunto foge ao que consigo fazer, mas adorava ajudar noutra coisa! 😊 Organizo lembretes e listas. Podes digitar /help para ver a lista de comandos, ou falar por mensagem/áudio.",
+        "Não tenho superpoderes para isso. Posso ajudar com lembretes e listas. Digita /help para ver os comandos; ou escreve/envia áudio.",
+        "Nesse tema não consigo ajudar. O que faço: lembretes e listas. Também podes digitar /help para ver a lista de comandos, ou conversar por mensagem/áudio. ✨",
+        "Isso fica fora da minha zona. Foco: organizar teu tempo. Digita /help para ver tudo; podes escrever ou mandar áudio.",
+        "Adorava ajudar noutra coisa. Digita /help para ver a lista de comandos, ou fala por mensagem/áudio. 😊",
     ],
     "pt-BR": [
-        "Esse assunto foge do que consigo fazer, mas adoraria ajudar em outra coisa! 😊 Organizo lembretes e listas. Use /help ou fale comigo por mensagem ou áudio.",
-        "Não tenho superpoderes para isso. Posso ajudar com lembretes e listas. /help mostra os comandos. Ou escreva/envie áudio.",
-        "Nesse tema não consigo ajudar. O que faço: lembretes e listas. /help ou converse por mensagem/áudio. ✨",
-        "Isso fica fora da minha área. Foco: organizar seu tempo. /help mostra tudo. Pode escrever ou mandar áudio.",
-        "Adoraria ajudar em outra coisa. /help para comandos ou fale por mensagem/áudio. 😊",
+        "Esse assunto foge do que consigo fazer, mas adoraria ajudar em outra coisa! 😊 Organizo lembretes e listas. Você pode digitar /help para ver a lista de comandos, ou falar por mensagem ou áudio.",
+        "Não tenho superpoderes para isso. Posso ajudar com lembretes e listas. Digite /help para ver os comandos; ou escreva/envie áudio.",
+        "Nesse tema não consigo ajudar. O que faço: lembretes e listas. Você também pode digitar /help para ver a lista de comandos, ou conversar por mensagem/áudio. ✨",
+        "Isso fica fora da minha área. Foco: organizar seu tempo. Digite /help para ver tudo; pode escrever ou mandar áudio.",
+        "Adoraria ajudar em outra coisa. Digite /help para ver a lista de comandos, ou fale por mensagem/áudio. 😊",
     ],
     "es": [
-        "Ese tema se sale de lo que puedo hacer, ¡pero me encantaría ayudarte! 😊 Organizo recordatorios y listas. Usa /help o háblame por mensaje o audio.",
-        "No tengo superpoderes para eso. Ayudo con recordatorios y listas. /help muestra comandos. O escribe/envía audio.",
-        "En ese tema no puedo ayudar. Lo mío: recordatorios y listas. /help o conversa por mensaje/audio. ✨",
-        "Eso se sale de mi zona. Foco: organizar tu tiempo. /help lo muestra todo. Puedes escribir o mandar audio.",
-        "Me encantaría ayudarte en otra cosa. /help o háblame por mensaje/audio. 😊",
+        "Ese tema se sale de lo que puedo hacer, ¡pero me encantaría ayudarte! 😊 Organizo recordatorios y listas. Puedes escribir /help para ver la lista de comandos, o hablarme por mensaje o audio.",
+        "No tengo superpoderes para eso. Ayudo con recordatorios y listas. Escribe /help para ver los comandos; o escribe/envía audio.",
+        "En ese tema no puedo ayudar. Lo mío: recordatorios y listas. Puedes escribir /help para ver la lista de comandos, o conversar por mensaje/audio. ✨",
+        "Eso se sale de mi zona. Foco: organizar tu tiempo. Escribe /help para ver todo; puedes escribir o mandar audio.",
+        "Me encantaría ayudarte en otra cosa. Escribe /help para ver la lista de comandos, o háblame por mensaje/audio. 😊",
     ],
     "en": [
-        "That's outside what I can do, but I'd love to help with something else! 😊 I do reminders and lists. Use /help or message me / send audio.",
-        "I don't have superpowers for that. I help with reminders and lists. /help shows commands. Or type/send audio.",
-        "I can't help with that topic. What I do: reminders and lists. /help or chat by message/audio. ✨",
-        "That's outside my lane. I focus on organising your time. /help shows everything. You can type or send audio.",
-        "I'd love to help with something else. /help or message me / send audio. 😊",
+        "That's outside what I can do, but I'd love to help with something else! 😊 I do reminders and lists. You can type /help to see the list of commands, or message me / send audio.",
+        "I don't have superpowers for that. I help with reminders and lists. Type /help to see the commands; or type/send audio.",
+        "I can't help with that topic. What I do: reminders and lists. You can also type /help to see the list of commands, or chat by message/audio. ✨",
+        "That's outside my lane. I focus on organising your time. Type /help to see everything; you can type or send audio.",
+        "I'd love to help with something else. Type /help to see the list of commands, or message me / send audio. 😊",
     ],
 }
 
@@ -504,19 +504,19 @@ AGENDA_SECOND_VIEW_PROMPT: dict[LangCode, str] = {
 
 # Fallback quando o agente não produz resposta (ex.: mensagem muito longa, stress test)
 AGENT_NO_RESPONSE_FALLBACK: dict[LangCode, str] = {
-    "pt-PT": "Desculpa, não consegui processar completamente. Podes reformular ou dividir em partes mais pequenas? /help mostra os comandos. Podes escrever ou enviar áudio. 😊",
-    "pt-BR": "Desculpa, não consegui processar completamente. Pode reformular ou dividir em partes menores? /help mostra os comandos. Pode escrever ou enviar áudio. 😊",
-    "es": "Lo siento, no pude procesar completamente. ¿Puedes reformular o dividir en partes más pequeñas? /help muestra los comandos. Puedes escribir o enviar audio. 😊",
-    "en": "Sorry, I couldn't process that fully. Can you rephrase or break it into smaller parts? /help shows the commands. You can type or send audio. 😊",
+    "pt-PT": "Desculpa, não consegui processar completamente. Podes reformular ou dividir em partes mais pequenas? Digita /help para ver a lista de comandos. Podes escrever ou enviar áudio. 😊",
+    "pt-BR": "Desculpa, não consegui processar completamente. Pode reformular ou dividir em partes menores? Digite /help para ver a lista de comandos. Pode escrever ou enviar áudio. 😊",
+    "es": "Lo siento, no pude procesar completamente. ¿Puedes reformular o dividir en partes más pequeñas? Escribe /help para ver la lista de comandos. Puedes escribir o enviar audio. 😊",
+    "en": "Sorry, I couldn't process that fully. Can you rephrase or break it into smaller parts? Type /help to see the list of commands. You can type or send audio. 😊",
 }
 
 
 # Durante o onboarding: "Quer comunicar noutro idioma? Temos pt-PT, pt-BR, es, en." (legado)
 ONBOARDING_LANGUAGE_QUESTION: dict[LangCode, str] = {
-    "pt-PT": "Queres comunicar noutro idioma? Temos português de Portugal (pt-PT), português do Brasil (pt-BR), espanhol (es) e inglês (en). Diz o código ou o nome do idioma, ou «não» para continuar. 😊",
-    "pt-BR": "Quer comunicar em outro idioma? Temos português de Portugal (pt-PT), português do Brasil (pt-BR), espanhol (es) e inglês (en). Diga o código ou o nome do idioma, ou «não» para continuar. 😊",
-    "es": "¿Quieres comunicarte en otro idioma? Tenemos portugués de Portugal (pt-PT), portugués de Brasil (pt-BR), español (es) e inglés (en). Di el código o el nombre del idioma, o «no» para seguir. 😊",
-    "en": "Want to use another language? We have Portuguese from Portugal (pt-PT), Brazilian Portuguese (pt-BR), Spanish (es) and English (en). Say the code or language name, or «no» to continue. 😊",
+    "pt-PT": "Queres comunicar noutro idioma? Temos português de Portugal (pt-PT), português do Brasil (pt-BR), espanhol (es) e inglês (en). Diz o código ou o nome do idioma, ou 'não' para continuar. 😊",
+    "pt-BR": "Quer comunicar em outro idioma? Temos português de Portugal (pt-PT), português do Brasil (pt-BR), espanhol (es) e inglês (en). Diga o código ou o nome do idioma, ou 'não' para continuar. 😊",
+    "es": "¿Quieres comunicarte en otro idioma? Tenemos portugués de Portugal (pt-PT), portugués de Brasil (pt-BR), español (es) e inglés (en). Di el código o el nombre del idioma, o 'no' para seguir. 😊",
+    "en": "Want to use another language? We have Portuguese from Portugal (pt-PT), Brazilian Portuguese (pt-BR), Spanish (es) and English (en). Say the code or language name, or 'no' to continue. 😊",
 }
 
 # Pergunta curta de idioma: default por número + sim/não/outro
@@ -677,10 +677,10 @@ REMINDER_FAILED_NO_INFO: dict[LangCode, str] = {
 
 # Mensagem quando resposta é inválida: repetir ou oferecer pular
 ONBOARDING_INVALID_RESPONSE: dict[LangCode, str] = {
-    "pt-PT": "Não percebi. Responde à pergunta ou diz «pular» para avançar.",
-    "pt-BR": "Não entendi. Responda à pergunta ou diga «pular» para avançar.",
-    "es": "No entendí. Responde la pregunta o di «saltar» para seguir.",
-    "en": "I didn't get that. Answer the question or say «skip» to continue.",
+    "pt-PT": "Não percebi. Responde à pergunta ou diz 'pular' para avançar.",
+    "pt-BR": "Não entendi. Responda à pergunta ou diga 'pular' para avançar.",
+    "es": "No entendí. Responde la pregunta o di 'saltar' para seguir.",
+    "en": "I didn't get that. Answer the question or say 'skip' to continue.",
 }
 
 
@@ -719,16 +719,16 @@ def parse_onboarding_language_response(
 
 # Intervalo mínimo para lembretes recorrentes
 REMINDER_MIN_INTERVAL_30MIN: dict[LangCode, str] = {
-    "pt-PT": "O intervalo mínimo para lembretes recorrentes é 30 minutos. Ex.: «a cada 30 min» ou «a cada 1 hora».",
-    "pt-BR": "O intervalo mínimo para lembretes recorrentes é 30 minutos. Ex.: «a cada 30 min» ou «a cada 1 hora».",
-    "es": "El intervalo mínimo para recordatorios recurrentes es 30 minutos. Ej.: «cada 30 min» o «cada 1 hora».",
-    "en": "The minimum interval for recurring reminders is 30 minutes. E.g. «every 30 min» or «every 1 hour».",
+    "pt-PT": "O intervalo mínimo para lembretes recorrentes é 30 minutos. Ex.: a cada 30 min ou a cada 1 hora.",
+    "pt-BR": "O intervalo mínimo para lembretes recorrentes é 30 minutos. Ex.: a cada 30 min ou a cada 1 hora.",
+    "es": "El intervalo mínimo para recordatorios recurrentes es 30 minutos. Ej.: cada 30 min o cada 1 hora.",
+    "en": "The minimum interval for recurring reminders is 30 minutes. E.g. every 30 min or every 1 hour.",
 }
 REMINDER_MIN_INTERVAL_2H: dict[LangCode, str] = {
-    "pt-PT": "O intervalo mínimo para lembretes recorrentes é 2 horas. Ex.: «a cada 2 horas» ou «a cada 3 horas».",
-    "pt-BR": "O intervalo mínimo para lembretes recorrentes é 2 horas. Ex.: «a cada 2 horas» ou «a cada 3 horas».",
-    "es": "El intervalo mínimo para recordatorios recurrentes es 2 horas. Ej.: «cada 2 horas» o «cada 3 horas».",
-    "en": "The minimum interval for recurring reminders is 2 hours. E.g. «every 2 hours» or «every 3 hours».",
+    "pt-PT": "O intervalo mínimo para lembretes recorrentes é 2 horas. Ex.: a cada 2 horas ou a cada 3 horas.",
+    "pt-BR": "O intervalo mínimo para lembretes recorrentes é 2 horas. Ex.: a cada 2 horas ou a cada 3 horas.",
+    "es": "El intervalo mínimo para recordatorios recurrentes es 2 horas. Ej.: cada 2 horas o cada 3 horas.",
+    "en": "The minimum interval for recurring reminders is 2 hours. E.g. every 2 hours or every 3 hours.",
 }
 # Limites por dia: 40 agenda, 40 lembretes, 80 total (aviso aos 70%)
 LIMIT_AGENDA_PER_DAY_REACHED: dict[LangCode, str] = {

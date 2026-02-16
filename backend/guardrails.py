@@ -129,8 +129,8 @@ ABSURD_PATTERNS = re.compile(
 
 # Respostas para intervalos irrazoáveis (< 2h entre repetições)
 FUN_RESPONSES_INTERVAL_SHORT = [
-    "O intervalo mínimo para lembretes recorrentes é 2 horas — senão vira spam. 😊 Ex.: «a cada 2 horas» ou «todo dia às 8h e às 14h».",
-    "Para evitar bombardeamento de notificações, o mínimo entre repetições é 2 horas. Ex.: «a cada 3 horas» ou «3 vezes ao dia».",
+    "O intervalo mínimo para lembretes recorrentes é 2 horas — senão vira spam. 😊 Ex.: a cada 2 horas ou todo dia às 8h e às 14h.",
+    "Para evitar bombardeamento de notificações, o mínimo entre repetições é 2 horas. Ex.: a cada 3 horas ou 3 vezes ao dia.",
 ]
 
 # Respostas divertidas para viagem no tempo / impossíveis (uma escolhida ao acaso)
@@ -252,8 +252,8 @@ async def user_insisting_on_interval_rejection(
                 f"{m.get('role','?')}: {(m.get('content') or '')[:150]}"
                 for m in recent
             ) + f"\nuser: {current_content[:200]}"
-            prompt = f"""O assistente rejeitou um lembrete por «intervalo mínimo 2 horas».
-O utilizador respondeu: «{current_content[:200]}»
+            prompt = f"""O assistente rejeitou um lembrete por "intervalo mínimo 2 horas".
+O utilizador respondeu: "{current_content[:200]}"
 O utilizador está a INSISTIR ou RECLAMAR, pedindo exceção? (ex.: precisa mesmo, médicos recomendaram, por favor)
 Responde APENAS: SIM ou NAO"""
             try:

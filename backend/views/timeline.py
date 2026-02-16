@@ -88,7 +88,7 @@ def _visao_timeline(ctx: "HandlerContext", dias: int = 7) -> str:
 
             items.sort(key=lambda x: x[0], reverse=True)
             lines = [f"📜 **Timeline** (últimos {dias} dias)"]
-            lines.append(f"Horários no teu fuso: {tz_iana}. «Ontem»/«hoje» = data no teu fuso.")
+            lines.append(f"Horários no teu fuso: {tz_iana}. 'Ontem'/'hoje' = data no teu fuso.")
             for ts, label in items[:25]:
                 lines.append(f"• {ts.strftime('%d/%m %H:%M')} — {label}")
             if not items:

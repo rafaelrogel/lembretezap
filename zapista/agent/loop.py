@@ -322,10 +322,11 @@ class AgentLoop:
         if self.scope_provider and self.scope_model:
             try:
                 prompt = (
-                    "Out of scope: «"
+                    "Out of scope: \""
                     + (user_content[:150] if user_content else "")
-                    + "». Reply in 1 SHORT sentence. Say you help with reminders and lists. /help. Mention they can message or send audio. 1 emoji. "
-                    "Reply ONLY the message, " + lang_instruction + ". No preamble."
+                    + "\". Reply in 1 SHORT sentence. Say you help with reminders and lists. "
+                    "Tell them they can type the command /help to see the full list of commands, and that they can also send a message or audio. 1 emoji. "
+                    "Use only normal quotes in your reply, never guillemets. Reply ONLY the message, " + lang_instruction + ". No preamble."
                 )
                 r = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
@@ -384,7 +385,7 @@ class AgentLoop:
         return fallbacks.get(user_lang, fallbacks["en"])
 
     async def _ask_preferred_name_question(self, user_lang: str) -> str:
-        """Pergunta amigável «como gostaria de ser chamado» no idioma do utilizador (Xiaomi ou fallback)."""
+        """Pergunta amigável 'como gostaria de ser chamado' no idioma do utilizador (Xiaomi ou fallback)."""
         from backend.locale import PREFERRED_NAME_QUESTION, LangCode, SUPPORTED_LANGS
         lang_instruction = {
             "pt-PT": "em português de Portugal",
@@ -396,7 +397,7 @@ class AgentLoop:
             try:
                 prompt = (
                     "You are a friendly assistant. Ask the user in ONE short sentence how they would like to be called. "
-                    f"Reply only with that question, {lang_instruction}. No other text."
+                    f"Reply only with that question, {lang_instruction}. Use only normal quotes, never guillemets (« »). No other text."
                 )
                 r = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
@@ -421,7 +422,7 @@ class AgentLoop:
         if self.scope_provider and self.scope_model:
             try:
                 prompt1 = (
-                    "The user was asked which city they are in. They replied: «" + (user_content[:200] or "") + "». "
+                    "The user was asked which city they are in. They replied: \"" + (user_content[:200] or "") + "\". "
                     "Extract the city name (one city only). Use standard English name (e.g. Lisbon, São Paulo, London, Tokyo). "
                     "If they mention a country/region without a city, use the capital. Reply with ONLY the city name, nothing else."
                 )
@@ -447,7 +448,7 @@ class AgentLoop:
         if (not tz_iana or not is_valid_iana(tz_iana)) and self.scope_provider and self.scope_model:
             try:
                 prompt2 = (
-                    "What is the IANA timezone for the city «" + city_name + "»? "
+                    "What is the IANA timezone for the city \"" + city_name + "\"? "
                     "Reply with ONLY the IANA timezone identifier, e.g. Europe/Lisbon or America/Sao_Paulo or Asia/Tokyo. One line only."
                 )
                 r2 = await self.scope_provider.chat(
@@ -1205,7 +1206,7 @@ class AgentLoop:
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
-                content="Serviço temporariamente limitado. Use /help para ver os comandos.",
+                content="Serviço temporariamente limitado. Digite /help para ver a lista de comandos.",
                 metadata=dict(msg.metadata or {}),
             )
 
@@ -1284,7 +1285,7 @@ class AgentLoop:
                     return OutboundMessage(
                         channel=msg.channel,
                         chat_id=msg.chat_id,
-                        content="Serviço temporariamente indisponível. Tente /help para ver os comandos.",
+                        content="Serviço temporariamente indisponível. Digite /help para ver a lista de comandos.",
                         metadata=dict(msg.metadata or {}),
                     )
 

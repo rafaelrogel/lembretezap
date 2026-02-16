@@ -114,7 +114,7 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
     task_label = arg[:30] if arg else "foco"
     message = f"🍅 Pomodoro terminou! 5 min de pausa. (/pomodoro para próximo) 🍅"
     if task_label and task_label != "foco":
-        message = f"🍅 Pomodoro «{task_label}» terminou! 5 min de pausa. (/pomodoro para próximo) 🍅"
+        message = f"🍅 Pomodoro \"{task_label}\" terminou! 5 min de pausa. (/pomodoro para próximo) 🍅"
 
     # Só um Pomodoro ativo por vez
     jobs = ctx.cron_service.list_jobs(include_disabled=False)

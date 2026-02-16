@@ -105,13 +105,13 @@ def gather_unused_resources(
     if lists_unused:
         lines.append("## Listas sem atividade (últimos {} dias)".format(days))
         for u in lists_unused[:20]:
-            lines.append("- Lista «{}» (user_id={}): {} pendentes, {} itens totais".format(
+            lines.append("- Lista \"{}\" (user_id={}): {} pendentes, {} itens totais".format(
                 u["list_name"], u["user_id"], u["pending"], u["total_items"]
             ))
     if cron_unused:
         lines.append("\n## Lembretes (cron) pouco usados")
         for u in cron_unused[:15]:
-            lines.append("- «{}» (***{}): {}".format(u["message"], u["to"], u["reason"]))
+            lines.append("- \"{}\" (***{}): {}".format(u["message"], u["to"], u["reason"]))
     summary = "\n".join(lines) if lines else "Nenhum recurso pouco usado encontrado nos últimos {} dias.".format(days)
 
     return {

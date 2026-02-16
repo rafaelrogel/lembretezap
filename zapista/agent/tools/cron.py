@@ -435,11 +435,11 @@ class CronTool(Tool):
 
         if remind_again_if_unconfirmed_seconds is not None:
             if remind_again_if_unconfirmed_seconds < 60 or remind_again_if_unconfirmed_seconds > 3600:
-                return "O adiamento «lembra de novo se não confirmar» deve estar entre 1 e 60 minutos."
+                return "O adiamento 'lembra de novo se não confirmar' deve estar entre 1 e 60 minutos."
         if depends_on_job_id:
             dep = self._cron.get_job(depends_on_job_id.strip().upper()[:16])
             if not dep or getattr(dep.payload, "to", None) != self._chat_id:
-                return f"Não encontrei o lembrete «{depends_on_job_id}» para encadear. Verifica o id em /lembrete (lista)."
+                return f"Não encontrei o lembrete \"{depends_on_job_id}\" para encadear. Verifica o id em /lembrete (lista)."
         # has_deadline: apenas para lembretes pontuais (in_seconds); main não remove até confirmar ou 3 lembretes pós-prazo
         use_deadline = has_deadline and in_seconds is not None and in_seconds > 0
         try:
@@ -564,7 +564,7 @@ class CronTool(Tool):
             m = remind_again_if_unconfirmed_seconds // 60
             msg += f" Se não confirmares com 👍, relembro em {m} min."
         if depends_on_job_id:
-            msg += f" Dispara depois de marcar «{depends_on_job_id}» como feito."
+            msg += f" Dispara depois de marcar \"{depends_on_job_id}\" como feito."
         if at_warning_reminder:
             from backend.locale import LIMIT_WARNING_70
             _lang = self._get_user_lang()
@@ -627,10 +627,10 @@ class CronTool(Tool):
                         return (
                             f"Job {job_id} não está na lista (lembretes únicos são removidos após disparar). "
                             f"O último lembrete entregue foi em {delivered.strftime('%d/%m/%Y %H:%M')}. "
-                            "Use «rever lembretes» para ver o histórico completo."
+                            "Use 'rever lembretes' para ver o histórico completo."
                         )
             finally:
                 db.close()
         except Exception:
             pass
-        return f"Job {job_id} não encontrado. Se era um lembrete único, pode já ter sido executado. Use «rever lembretes» para ver o histórico."
+        return f"Job {job_id} não encontrado. Se era um lembrete único, pode já ter sido executado. Use 'rever lembretes' para ver o histórico."
