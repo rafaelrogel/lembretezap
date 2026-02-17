@@ -42,45 +42,52 @@ class ContextBuilder:
         """
         parts = []
         
-        # Current time and timezone for prompt: SEMPRE coerentes para lembretes (evitar 11h no fuso errado)
-        # User TZ quando temos session; senão UTC (NUNCA server local para não atrasar lembretes 3h)
+        # Current time and timezone for prompt: usa tempo efectivo (clock_drift) para evitar relógio do servidor atrasado
+        # User TZ quando temos session; senão inferir pelo número ou UTC
         now_for_prompt = None
         tz_for_prompt = None
+        try:
+            from zapista.clock_drift import get_effective_time
+            effective_ts = get_effective_time()
+        except Exception:
+            import time
+            effective_ts = time.time()
+        from datetime import datetime, timezone
+        _dt_utc = datetime.fromtimestamp(effective_ts, tz=timezone.utc)
         if session_key and ":" in session_key:
             try:
                 _chat_id = session_key.split(":", 1)[1]
                 from backend.database import SessionLocal
                 from backend.user_store import get_user_timezone
-                from datetime import datetime
                 from zoneinfo import ZoneInfo
                 _db = SessionLocal()
                 try:
                     _tz_iana = get_user_timezone(_db, _chat_id)
-                    _z = ZoneInfo(_tz_iana)
-                    now_for_prompt = datetime.now(_z).strftime("%Y-%m-%d %H:%M (%A)")
-                    tz_for_prompt = _tz_iana
-                    # #region agent log
-                    try:
-                        import json as _j
-                        _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
-                        open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "context.build_system_prompt.now", "message": "Current Time for prompt", "data": {"tz_iana": _tz_iana, "now_for_prompt": now_for_prompt, "chat_id_prefix": (_chat_id or "")[:24]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H2"}) + "\n")
-                    except Exception:
-                        pass
-                    # #endregion
+                    if _tz_iana:
+                        _z = ZoneInfo(_tz_iana)
+                        _dt_local = _dt_utc.astimezone(_z)
+                        now_for_prompt = _dt_local.strftime("%Y-%m-%d %H:%M (%A)")
+                        tz_for_prompt = _tz_iana
                 finally:
                     _db.close()
-            except Exception as _e:
+            except Exception:
+                pass
+            # Se não tem timezone na BD, inferir pelo número (ex.: 351... → Europe/Lisbon)
+            if now_for_prompt is None and session_key and ":" in session_key:
                 try:
-                    import json as _j
-                    _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
-                    open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "context.build_system_prompt.fallback", "message": "Current Time fallback (exception)", "data": {"error": str(_e)[:80], "chat_id_prefix": (session_key or "").split(":", 1)[-1][:24] if session_key else ""}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H2"}) + "\n")
+                    from backend.timezone import phone_to_default_timezone
+                    _chat_id = session_key.split(":", 1)[1]
+                    _tz_iana = phone_to_default_timezone(_chat_id)
+                    if _tz_iana and _tz_iana != "UTC":
+                        from zoneinfo import ZoneInfo
+                        _z = ZoneInfo(_tz_iana)
+                        _dt_local = _dt_utc.astimezone(_z)
+                        now_for_prompt = _dt_local.strftime("%Y-%m-%d %H:%M (%A)")
+                        tz_for_prompt = _tz_iana
                 except Exception:
                     pass
-                pass
-        # Fallback: UTC explícito (nunca datetime.now() sem tz = server local, que atrasa lembretes)
         if now_for_prompt is None:
-            from datetime import datetime, timezone
-            now_for_prompt = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M (%A) (UTC)")
+            now_for_prompt = _dt_utc.strftime("%Y-%m-%d %H:%M (%A) (UTC)")
             tz_for_prompt = "UTC"
         # Core identity (Current Time + Timezone para o LLM interpretar "11h" no fuso do utilizador)
         parts.append(self._get_identity(now_override=now_for_prompt, tz_iana=tz_for_prompt))
@@ -137,7 +144,9 @@ Skills with available="false" need dependencies (apt/brew).
         runtime = f"{'macOS' if system == 'Darwin' else system} {platform.machine()}, Python {platform.python_version()}"
         time_block = f"## Current Time\n{now}"
         if tz_iana:
-            time_block += f"\n## Timezone (user)\n{tz_iana}\n\nTodas as horas que o user disser (ex.: 11h, amanhã 9h) são **neste** fuso. Calcula in_seconds para que o lembrete dispare nessa hora local."
+            time_block += f"\n## Timezone (user)\n{tz_iana}\n\nTodas as horas que o user disser (ex.: 11h, amanhã 9h) são **neste** fuso. Calcula in_seconds para que o lembrete dispare nessa hora local. Quando o user perguntar que horas são, responde com esta hora e indica o fuso (ex.: "São 15:39, hora de Lisboa")."
+        else:
+            time_block += "\nQuando o user perguntar que horas são, responde com a Current Time acima e indica que é UTC."
         
         return f"""# zapista 🐈 — Organizador pessoal
 

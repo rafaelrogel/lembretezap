@@ -122,7 +122,12 @@ async def handle_admin_command(
     raw = (command or "").strip()
     cmd = raw.lstrip("#").strip().lower() if raw.startswith("#") else raw.lower()
     if not cmd or cmd not in _VALID_COMMANDS:
-        return f"Comando desconhecido: #{command or '?'}\nComandos: #status #users #cron [detalhado] #lembretes <nr> #tz <nr> #history <nr> #server #msgs #system #ai #painpoints #injection #blocked #lockout #cleanup #add <nr> #remove <nr> #mute <nr> #quit"
+        return (
+            f"Comando desconhecido: #{command or '?'}\n"
+            "Comandos: #hora #ativos #erros #diagnostico #help #clientes #jobs #redis #whatsapp | "
+            "#status #users #cron #server #system #msgs #lembretes <nr> #tz <nr> #history <nr> | "
+            "#add <nr> #remove <nr> #mute <nr> #lockout #cleanup #quit"
+        )
 
     if cmd == "status":
         return _cmd_status()

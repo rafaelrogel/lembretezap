@@ -26,6 +26,7 @@ _HOUR_PATTERNS = (
     r"às?\s*\d{1,2}(?::\d{2})?",
     r"as\s*\d{1,2}(?::\d{2})?",
     r"\d{1,2}\s*(?:am|pm)\b",
+    r"\d{1,2}:\d{2}\s*(?:am|pm)\b",  # 3:25 PM, 10:30 AM
 )
 
 _HOUR_RE = re.compile("|".join(_HOUR_PATTERNS), re.I)
@@ -199,8 +200,19 @@ def parse_date_from_response(text: str) -> str | None:
     return None
 
 
+def _am_pm_to_24(m) -> tuple[int, int]:
+    """Converte 3:25 PM -> (15, 25); 12:00 AM -> (0, 0); 12:00 PM -> (12, 0)."""
+    h = int(m.group(1))
+    mn = int(m.group(2) or 0)
+    pm = (m.group(3).lower() == "pm")
+    h24 = (h % 12) + (12 if pm else 0)
+    return (h24, mn)
+
+
 # Parsing de hora na resposta do utilizador
 _TIME_RESPONSE_PATTERNS = (
+    (r"(\d{1,2}):(\d{2})\s*(am|pm)\b", _am_pm_to_24),  # 3:25 PM, 10:30 AM (antes dos outros)
+    (r"(\d{1,2})\s*(am|pm)\b", lambda m: ((int(m.group(1)) % 12) + (12 if m.group(2).lower() == "pm" else 0), 0)),
     (r"(?:às?|as)\s*(\d{1,2})(?::(\d{2}))?\s*h?", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
     (r"(\d{1,2})h(\d{2})\b", lambda m: (int(m.group(1)), int(m.group(2)))),  # 10h00
     (r"(\d{1,2})(?::(\d{2}))?\s*h", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
@@ -365,11 +377,15 @@ def parse_full_event_datetime(
     in_sec = compute_in_seconds_from_date_hour(date_label, hour, minute, tz_iana)
     if not in_sec or in_sec <= 0:
         return None
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     from zoneinfo import ZoneInfo
     try:
         z = ZoneInfo(tz_iana)
-        now = datetime.now(tz=z)
+        try:
+            from zapista.clock_drift import get_effective_time
+            now = datetime.fromtimestamp(get_effective_time(), tz=timezone.utc).astimezone(z)
+        except Exception:
+            now = datetime.now(tz=z)
         today = now.date()
         dl = date_label.lower().strip()
         target_date = today
@@ -401,13 +417,18 @@ def compute_in_seconds_from_date_hour(
     """
     Calcula in_seconds para «date_label» às hour:minute no fuso tz_iana.
     date_label: "amanhã", "hoje", "segunda", etc.
+    Usa tempo efectivo (clock_drift) para coincidir com o executor do cron.
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     from zoneinfo import ZoneInfo
 
     try:
         z = ZoneInfo(tz_iana)
-        now = datetime.now(tz=z)
+        try:
+            from zapista.clock_drift import get_effective_time
+            now = datetime.fromtimestamp(get_effective_time(), tz=timezone.utc).astimezone(z)
+        except Exception:
+            now = datetime.now(tz=z)
         today = now.date()
 
         # #region agent log

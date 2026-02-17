@@ -79,7 +79,7 @@ class CronTool(Tool):
             "Schedule one-time or recurring reminders. Actions: add, list, remove. "
             "message = WHAT to remind (e.g. 'ir à farmácia', 'tomar remédio') — required. Never 'lembrete' or 'alerta'. "
             "If user says 'lembrete amanhã 10h' without event, ask 'De que é o lembrete?' first. "
-            "For add: in_seconds = seconds from NOW (UTC) until the reminder should fire. Use the prompt's Current Time and Timezone (user): e.g. '11h' = 11:00 in that timezone; compute in_seconds so the reminder fires at that local time. "
+            "For add: in_seconds = seconds from NOW (UTC) until the reminder should fire. CRITICAL: The user's time (e.g. '3:25 PM', '11h', 'tomorrow 9am') is always in the prompt's Timezone (user). Convert that local moment to UTC, then in_seconds = (that UTC timestamp - now_utc). Wrong timezone = reminder 1–3 hours late. "
             "every_seconds = repeat; cron_expr = fixed times (interpreted in user timezone when stored). "
             "Encadeamento: se o utilizador disser em áudio ou texto 'depois de X', 'após terminar Y', 'quando fizer A avisa para B', usa depends_on_job_id com o id do lembrete anterior (2-4 letras, ex.: AL, PIX)."
         )

@@ -480,7 +480,7 @@ class WhatsAppChannel(BaseChannel):
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=sender,
-                        content="God-mode ativo. Comandos: #status #users #cron #add #remove #mute #quit ...",
+                        content="God-mode ativo. Comandos: #hora #ativos #erros #diagnostico #help #clientes #jobs #redis #whatsapp | #status #users #cron #server #system #add #remove #mute #quit",
                     ))
                     return
                 cmd, arg = parse_admin_command_arg(raw)

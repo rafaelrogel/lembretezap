@@ -54,6 +54,12 @@ def test_parse_time_from_response():
     assert parse_time_from_response("10") == (10, 0)
     assert parse_time_from_response("às 9h") == (9, 0)
     assert parse_time_from_response("não sei") is None
+    # AM/PM (ex.: "3:25 PM" = 15:25 para lembrete à hora certa)
+    assert parse_time_from_response("3:25 PM") == (15, 25)
+    assert parse_time_from_response("10:30 AM") == (10, 30)
+    assert parse_time_from_response("12:00 PM") == (12, 0)
+    assert parse_time_from_response("12:00 AM") == (0, 0)
+    assert parse_time_from_response("3 PM") == (15, 0)
 
 
 def test_parse_advance_seconds():
