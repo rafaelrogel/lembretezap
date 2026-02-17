@@ -756,6 +756,7 @@ class AgentLoop:
                         channel=msg.channel,
                         chat_id=msg.chat_id,
                         content=reply,
+                        metadata=dict(msg.metadata or {}),
                     )
         except Exception as e:
             logger.debug(f"Calling-phrases check failed: {e}")
