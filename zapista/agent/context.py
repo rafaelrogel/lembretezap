@@ -144,7 +144,7 @@ Skills with available="false" need dependencies (apt/brew).
         runtime = f"{'macOS' if system == 'Darwin' else system} {platform.machine()}, Python {platform.python_version()}"
         time_block = f"## Current Time\n{now}"
         if tz_iana:
-            time_block += f"\n## Timezone (user)\n{tz_iana}\n\nTodas as horas que o user disser (ex.: 11h, amanhã 9h) são **neste** fuso. Calcula in_seconds para que o lembrete dispare nessa hora local. Quando o user perguntar que horas são, responde com esta hora e indica o fuso (ex.: "São 15:39, hora de Lisboa")."
+            time_block += f'\n## Timezone (user)\n{tz_iana}\n\nTodas as horas que o user disser (ex.: 11h, amanhã 9h) são **neste** fuso. Calcula in_seconds para que o lembrete dispare nessa hora local. Quando o user perguntar que horas são, responde com esta hora e indica o fuso (ex.: "São 15:39, hora de Lisboa").'
         else:
             time_block += "\nQuando o user perguntar que horas são, responde com a Current Time acima e indica que é UTC."
         
