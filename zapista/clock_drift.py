@@ -142,9 +142,14 @@ async def clock_drift_loop(
     threshold_s: float = CLOCK_DRIFT_ALERT_THRESHOLD_S,
 ) -> None:
     """
-    Loop em background: a cada interval_s segundos executa check_clock_drift.
-    Não levanta exceções; falhas são apenas logadas.
+    Loop em background: executa check_clock_drift ao arranque (para corrigir hora logo)
+    e depois a cada interval_s segundos.
     """
+    # Verificação imediata ao arranque: evita mostrar hora errada (ex.: 14:51 em vez de 20:42) até 45 min
+    try:
+        await check_clock_drift(threshold_s=threshold_s)
+    except Exception as e:
+        logger.debug(f"Clock drift initial check: {e}")
     while True:
         await asyncio.sleep(interval_s)
         try:

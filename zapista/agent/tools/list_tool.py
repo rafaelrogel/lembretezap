@@ -10,7 +10,7 @@ from zapista.agent.tools.base import Tool
 from backend.database import SessionLocal
 from backend.user_store import get_or_create_user
 from backend.models_db import List, ListItem, AuditLog, Project
-from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_ITEM_TEXT_LEN
+from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_LIST_ITEM_TEXT_LEN, looks_like_confidential_data
 from backend.list_item_correction import suggest_correction
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -74,14 +74,15 @@ class ListTool(Tool):
             user = get_or_create_user(db, self._chat_id)
             if action == "add":
                 list_clean = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
-                item_clean = sanitize_string(item_text or "", MAX_ITEM_TEXT_LEN)
+                # Receitas e conteúdo longo: até MAX_LIST_ITEM_TEXT_LEN, com newlines
+                item_clean = sanitize_string(item_text or "", MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
                 corrected = await suggest_correction(
                     list_clean, item_clean,
                     self._scope_provider, self._scope_model,
-                    max_len=MAX_ITEM_TEXT_LEN,
+                    max_len=MAX_LIST_ITEM_TEXT_LEN,
                 )
                 if corrected:
-                    item_clean = sanitize_string(corrected, MAX_ITEM_TEXT_LEN)
+                    item_clean = sanitize_string(corrected, MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
                 return self._add(db, user.id, list_clean, item_clean)
             if action == "habitual":
                 return await self._habitual(db, user.id, list_name or "")
@@ -103,9 +104,11 @@ class ListTool(Tool):
 
     def _add(self, db, user_id: int, list_name: str, item_text: str) -> str:
         list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
-        item_text = sanitize_string(item_text or "", MAX_ITEM_TEXT_LEN)
+        item_text = sanitize_string(item_text or "", MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
         if not list_name or not item_text:
             return "Error: list_name and item_text required for add"
+        if looks_like_confidential_data(item_text):
+            return "Por política de privacidade (RGPD/LGPD), não guardamos dados confidenciais em listas (ex.: CPF, números de cartão). Pode guardar receitas, compras e outros textos sem dados pessoais sensíveis."
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
             proj = db.query(Project).filter(Project.user_id == user_id, Project.name == list_name).first()
@@ -167,7 +170,7 @@ class ListTool(Tool):
         # Fallback: top por frequência
         if not to_add:
             for text, _ in candidates[:6]:
-                item_clean = sanitize_string(text, MAX_ITEM_TEXT_LEN)
+                item_clean = sanitize_string(text, MAX_LIST_ITEM_TEXT_LEN)
                 if item_clean and item_clean.lower() not in pending_texts:
                     to_add.append(item_clean)
                     pending_texts.add(item_clean.lower())

@@ -6,7 +6,9 @@ from typing import Any
 # Limites razoáveis para conteúdo de utilizador/LLM
 MAX_MESSAGE_LEN = 2000
 MAX_LIST_NAME_LEN = 128
+# Itens de lista: 512 para itens curtos; 8000 para receitas / conteúdo longo (uma entrada por receita)
 MAX_ITEM_TEXT_LEN = 512
+MAX_LIST_ITEM_TEXT_LEN = 8000
 MAX_EVENT_NAME_LEN = 256
 MAX_PAYLOAD_KEYS = 20
 MAX_PAYLOAD_DEPTH = 3
@@ -105,3 +107,26 @@ def clamp_limit(limit: int | None, default: int = 100, maximum: int = 500) -> in
         return max(1, min(maximum, n))
     except (TypeError, ValueError):
         return default
+
+
+# Padrões que sugerem dados confidenciais (RGPD/LGPD: não guardar em listas)
+_RE_CPF = re.compile(r"\b\d{3}[.\s]?\d{3}[.\s]?\d{3}[-.\s]?\d{2}\b")
+_RE_CC_GROUPS = re.compile(r"\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b")
+_RE_16_DIGITS = re.compile(r"\d{16,}")
+
+
+def looks_like_confidential_data(text: str) -> bool:
+    """
+    True se o texto parece conter dados confidenciais (CPF, cartão, etc.).
+    Usar para não guardar em listas (conformidade RGPD/LGPD).
+    """
+    if not text or len(text.strip()) < 10:
+        return False
+    t = text.strip()
+    if _RE_CPF.search(t):
+        return True
+    if _RE_CC_GROUPS.search(t):
+        return True
+    if _RE_16_DIGITS.search(t):
+        return True
+    return False

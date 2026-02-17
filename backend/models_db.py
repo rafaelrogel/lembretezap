@@ -142,7 +142,7 @@ class ListItem(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     list_id = Column(Integer, ForeignKey("lists.id"), nullable=False, index=True)
-    text = Column(String(512), nullable=False)
+    text = Column(Text, nullable=False)  # receitas e itens longos até 8000 chars (RGPD/LGPD: sem dados confidenciais)
     done = Column(Boolean, default=False)
     position = Column(Integer, default=0, nullable=False)  # ordem na lista; shuffle altera isto
     created_at = Column(DateTime, default=_utc_now)

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 from backend.database import SessionLocal
 from backend.user_store import get_or_create_user
 from backend.models_db import Goal, Project, List, ListItem, ListTemplate
-from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_ITEM_TEXT_LEN
+from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_ITEM_TEXT_LEN, MAX_LIST_ITEM_TEXT_LEN
 
 if TYPE_CHECKING:
     from backend.handler_context import HandlerContext
@@ -138,7 +138,7 @@ async def handle_projeto(ctx: "HandlerContext", content: str) -> str | None:
             db.flush()
 
         if len(parts) >= 3 and parts[1].lower() == "add":
-            item_text = sanitize_string(parts[2], MAX_ITEM_TEXT_LEN)
+            item_text = sanitize_string(parts[2], MAX_LIST_ITEM_TEXT_LEN)
             if not item_text:
                 return "Use: /projeto Nome add item"
             item = ListItem(list_id=lst.id, text=item_text)
@@ -197,7 +197,7 @@ async def handle_template(ctx: "HandlerContext", content: str) -> str | None:
         if m:
             name = sanitize_string(m.group(1), MAX_LIST_NAME_LEN)
             raw_items = m.group(2).strip()
-            items = [sanitize_string(x.strip(), MAX_ITEM_TEXT_LEN) for x in re.split(r"[,;]", raw_items) if x.strip()]
+            items = [sanitize_string(x.strip(), MAX_LIST_ITEM_TEXT_LEN) for x in re.split(r"[,;]", raw_items) if x.strip()]
             items = items[:50]
             if not name or not items:
                 return "Use: /template add Nome item1, item2 (ex: /template add mercado leite, pão, café)"
