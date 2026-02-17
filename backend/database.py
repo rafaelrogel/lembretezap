@@ -90,6 +90,7 @@ def init_db() -> None:
         "ALTER TABLE users ADD COLUMN extra_reminder_leads TEXT",
         "ALTER TABLE users ADD COLUMN language VARCHAR(8)",
         "ALTER TABLE users ADD COLUMN timezone VARCHAR(64)",
+        "ALTER TABLE users ADD COLUMN context_notes TEXT",
         "ALTER TABLE users ADD COLUMN quiet_start VARCHAR(5)",
         "ALTER TABLE users ADD COLUMN quiet_end VARCHAR(5)",
         "ALTER TABLE reminder_history ADD COLUMN job_id VARCHAR(64)",
