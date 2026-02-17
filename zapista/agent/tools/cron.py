@@ -584,23 +584,26 @@ class CronTool(Tool):
             from backend.locale import LIMIT_WARNING_70
             _lang = self._get_user_lang()
             msg += "\n\n" + LIMIT_WARNING_70.get(_lang, LIMIT_WARNING_70["pt-BR"])
-        # Para lembretes "daqui a X min", mostrar a hora no timezone do utilizador
+        # Para lembretes "daqui a X min", mostrar a hora no timezone do utilizador (nunca hora do servidor)
         if in_seconds is not None and in_seconds > 0 and job.state.next_run_at_ms:
             at_sec = job.state.next_run_at_ms // 1000
             try:
                 from backend.database import SessionLocal
                 from backend.user_store import get_user_timezone
-                from backend.timezone import format_utc_timestamp_for_user
+                from backend.timezone import format_utc_timestamp_for_user, phone_to_default_timezone
                 db = SessionLocal()
                 try:
-                    tz = get_user_timezone(db, self._chat_id)
+                    tz = get_user_timezone(db, self._chat_id) or phone_to_default_timezone(self._chat_id) or "UTC"
                     hora_str = format_utc_timestamp_for_user(at_sec, tz)
+                    tz_label = "no teu fuso"
                 finally:
                     db.close()
             except Exception:
-                from datetime import datetime
-                hora_str = datetime.fromtimestamp(at_sec).strftime("%H:%M")
-            msg += f" Será enviado às {hora_str} (no teu fuso). Mantém o Zapista ligado para receberes a notificação."
+                # Nunca usar datetime.fromtimestamp(at_sec) sem tz: seria hora local do servidor (ex. 14:56 em vez de 21:45)
+                from backend.timezone import format_utc_timestamp_for_user
+                hora_str = format_utc_timestamp_for_user(at_sec, "UTC")
+                tz_label = "UTC (configura /tz para ver no teu fuso)"
+            msg += f" Será enviado às {hora_str} ({tz_label}). Mantém o Zapista ligado para receberes a notificação."
         if self._channel == "cli":
             msg += " (Criado pelo terminal; para receber no WhatsApp, envia o lembrete pelo próprio WhatsApp.)"
         return msg
