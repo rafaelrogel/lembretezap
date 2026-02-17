@@ -47,12 +47,14 @@ TIMESTAMP=$(date +%Y%m%d-%H%M)
 BACKUP_FILE="${BACKUP_DIR}/zapista-${TIMESTAMP}.tar.gz"
 
 echo "[1/2] A criar backup em $BACKUP_FILE ..."
-# Corre um container efémero com o volume ZAPISTA_data e comprime o conteúdo
-# --entrypoint sh: o image usa ENTRYPOINT ["zapista"]; precisamos de um shell para executar tar
+# Corre um container efémero com o volume ZAPISTA_data e comprime o conteúdo.
+# Com docker-compose.vps.yml o volume monta em $DATA_DIR (ex.: /opt/zapista/data); senão em /root/.zapista.
+# Usar ZAPISTA_DATA se definido no container, senão /root/.zapista.
 docker compose $COMPOSE_FILES run --rm --entrypoint sh \
   -v "${BACKUP_DIR}:/backup:rw" \
+  -e BACKUP_TS="${TIMESTAMP}" \
   gateway \
-  -c "tar -czf /backup/zapista-${TIMESTAMP}.tar.gz -C /root/.zapista . 2>/dev/null || true"
+  -c 'DATA_PATH="${ZAPISTA_DATA:-/root/.zapista}"; tar -czf /backup/zapista-${BACKUP_TS}.tar.gz -C "$DATA_PATH" . 2>/dev/null || true'
 
 if [ -f "$BACKUP_FILE" ]; then
   SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
