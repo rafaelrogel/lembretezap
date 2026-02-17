@@ -1115,6 +1115,7 @@ class AgentLoop:
                     channel=msg.channel,
                     chat_id=msg.chat_id,
                     content=result,
+                    metadata=dict(msg.metadata or {}),
                 )
         except Exception as e:
             logger.debug(f"Handlers route failed: {e}")

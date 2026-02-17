@@ -340,12 +340,13 @@ fi
 _esc() { echo "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'; }
 
 # TTS: ativar se Piper instalado (múltiplas vozes em models/piper/)
+# PIPER_BIN e TTS_MODELS_BASE usam DATA_DIR para coincidir com o volume no gateway (montado em $DATA_DIR no vps override)
 TTS_ENV=""
 if [ -f "$DATA_DIR/bin/piper" ] && [ -d "$DATA_DIR/models/piper" ]; then
   TTS_ENV="
 TTS_ENABLED=1
-PIPER_BIN=/root/.zapista/bin/piper
-TTS_MODELS_BASE=/root/.zapista/models/piper
+PIPER_BIN=${DATA_DIR}/bin/piper
+TTS_MODELS_BASE=${DATA_DIR}/models/piper
 "
 fi
 
@@ -365,7 +366,8 @@ chmod 600 "$INSTALL_DIR/.env"
 
 cat > "$INSTALL_DIR/docker-compose.vps.yml" << EOF
 # Override para VPS: dados persistidos em pasta local; Redis não exposto na internet
-# O volume ZAPISTA_data monta em /root/.zapista nos containers; organizer.db fica em DATA_DIR/organizer.db
+# O volume ZAPISTA_data faz bind a DATA_DIR no host. Gateway (e api) montam em DATA_DIR no container
+# para que PIPER_BIN e TTS_MODELS_BASE no .env (ex.: /opt/zapista/data/bin/piper) funcionem.
 volumes:
   ZAPISTA_data:
     driver: local
@@ -378,8 +380,16 @@ services:
     ports: []   # Só rede interna; não expor 6379 na internet
   gateway:
     env_file: .env
+    volumes:
+      - ZAPISTA_data:$DATA_DIR
+    environment:
+      - ZAPISTA_DATA=$DATA_DIR
   api:
     env_file: .env
+    volumes:
+      - ZAPISTA_data:$DATA_DIR
+    environment:
+      - ZAPISTA_DATA=$DATA_DIR
 EOF
 
 cd "$INSTALL_DIR"

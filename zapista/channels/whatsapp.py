@@ -169,18 +169,23 @@ class WhatsAppChannel(BaseChannel):
         if audio_mode and msg.content and tts_allowed:
             try:
                 from zapista.tts.service import synthesize_voice_note, split_text_for_tts
-                from zapista.tts.config import tts_max_words
-                chunks = split_text_for_tts(msg.content, tts_max_words())
-                for chunk in chunks:
-                    if not chunk.strip():
-                        continue
-                    ogg = synthesize_voice_note(
-                        chunk, chat_id_str, locale_override=locale_override
-                    )
-                    if ogg and ogg.exists():
-                        ogg_paths.append(ogg)
+                from zapista.tts.config import tts_max_words, tts_enabled
+                if not tts_enabled():
+                    logger.info("TTS requested but TTS_ENABLED is not set; sending text only. Set TTS_ENABLED=1 and configure Piper for voice replies.")
+                else:
+                    chunks = split_text_for_tts(msg.content, tts_max_words())
+                    for chunk in chunks:
+                        if not chunk.strip():
+                            continue
+                        ogg = synthesize_voice_note(
+                            chunk, chat_id_str, locale_override=locale_override
+                        )
+                        if ogg and ogg.exists():
+                            ogg_paths.append(ogg)
+                    if not ogg_paths and msg.content:
+                        logger.info("TTS requested but no audio generated (check TTS_MODELS_BASE/Piper voices and logs). Sending text only.")
             except Exception as e:
-                logger.debug(f"TTS synthesize failed: {e}")
+                logger.warning(f"TTS synthesize failed: {e}")
 
         try:
             if ogg_paths:
