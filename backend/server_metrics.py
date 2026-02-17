@@ -125,6 +125,7 @@ def record_snapshot(
         except Exception:
             pass
 
+    disk_total_mb = round(disk.total / (1024 * 1024), 1) if hasattr(disk, "total") and disk.total else 0
     snapshot = {
         "ts": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "ram_pct": round(mem.percent, 1),
@@ -135,6 +136,7 @@ def record_snapshot(
         "load_1m": round(load[0], 2),
         "disk_pct": round(disk.percent, 1),
         "disk_free_mb": round(disk.free / (1024 * 1024), 1),
+        "disk_total_mb": disk_total_mb,
         "data_dir_mb": round(data_mb, 1),
         "gateway_uptime_s": int(gateway_uptime_s),
         "bridge_connected": bridge_connected,

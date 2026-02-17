@@ -3,6 +3,8 @@
 Senha em GOD_MODE_PASSWORD (env). Quem enviar #<senha_correta> ativa god-mode para esse chat.
 #<senha_errada> ou #cmd sem ter ativado = sem resposta (silêncio).
 Nunca retornar secrets (tokens, API keys, connection strings).
+
+Autorização alternativa: zapista.utils.admin_security.AdminSecurity (hash + sessão 24h).
 """
 
 import json
@@ -62,6 +64,8 @@ _VALID_COMMANDS = frozenset({
     "status", "users", "paid", "cron", "server", "system", "ai", "painpoints",
     "injection", "blocked", "lockout", "add", "remove", "mute", "quit", "msgs", "lembretes", "tz",
     "cleanup", "history",
+    "hora", "time", "ativos", "erros", "diagnostico", "diag", "help", "comandos", "clientes", "jobs",
+    "redis", "whatsapp",
 })
 
 
@@ -152,7 +156,7 @@ async def handle_admin_command(
         return _cmd_msgs()
 
     if cmd == "system":
-        return _cmd_system()
+        return _cmd_system(wa_channel=wa_channel)
 
     if cmd == "ai":
         return _cmd_ai()
@@ -196,6 +200,36 @@ async def handle_admin_command(
             return f"#remove\nRemovido: {digits}"
         return f"#remove\nO número {digits} não estava na lista."
 
+    if cmd in ("hora", "time"):
+        return _cmd_hora()
+
+    if cmd == "ativos":
+        _, arg = parse_admin_command_arg(raw)
+        return await _cmd_ativos(db_session_factory, arg)
+
+    if cmd == "erros":
+        _, arg = parse_admin_command_arg(raw)
+        return _cmd_erros(arg)
+
+    if cmd in ("diagnostico", "diag"):
+        return await _cmd_diagnostico(cron_store_path, db_session_factory, wa_channel)
+
+    if cmd in ("help", "comandos"):
+        return _cmd_help()
+
+    if cmd == "clientes":
+        return await _cmd_clientes(db_session_factory)
+
+    if cmd == "jobs":
+        _, arg = parse_admin_command_arg(raw)
+        return _cmd_jobs(cron_store_path, arg)
+
+    if cmd == "redis":
+        return _cmd_redis()
+
+    if cmd == "whatsapp":
+        return _cmd_whatsapp(wa_channel)
+
     # quit e mute são tratados no canal (WhatsApp) para enviar mensagem ao utilizador muted
     if cmd == "quit":
         return "God-mode desativado. (Use #<senha> para ativar de novo.)"
@@ -209,7 +243,8 @@ def _cmd_status() -> str:
     """Resumo rápido do sistema."""
     lines = [
         "#status",
-        "God Mode ativo. Comandos: #users #cron [detalhado] #lembretes <nr> #tz <nr> #history <nr> #server #msgs #system #ai #painpoints",
+        "God Mode ativo. Comandos: #hora #ativos #erros #diagnostico #help #clientes #jobs #redis #whatsapp",
+        "#users #cron [detalhado] #lembretes <nr> #tz <nr> #history <nr> #server #msgs #system #ai #painpoints",
         "#injection #blocked #lockout #cleanup #add <nr> #remove <nr> #mute <nr> #quit",
     ]
     return "\n".join(lines)
@@ -260,10 +295,11 @@ def _cmd_cron(cron_store_path: Path | None, arg: str = "") -> str:
         data = json.loads(path.read_text())
         jobs = data.get("jobs", [])
         enabled_jobs = [j for j in jobs if j.get("enabled", True)]
+        disabled_jobs = [j for j in jobs if not j.get("enabled", True)]
         total = len(jobs)
         enabled = len(enabled_jobs)
         now_ms = int(time.time() * 1000)
-        lines = [f"#cron\nJobs: {total} (ativos: {enabled})"]
+        lines = [f"#cron\nJobs: {total} (ativos: {enabled}, desativados: {len(disabled_jobs)})"]
 
         # Jobs por utilizador (payload.to)
         by_user: dict[str, list] = {}
@@ -310,10 +346,15 @@ def _cmd_cron(cron_store_path: Path | None, arg: str = "") -> str:
             if len(atrasados) > 5:
                 lines.append(f"    ... e mais {len(atrasados) - 5}")
 
-        # Primeiros 8 (ou todos se detalhado) jobs
+        # Próxima execução: mínimo entre os ativos
+        next_runs = [(j.get("state") or {}).get("nextRunAtMs") for j in enabled_jobs if (j.get("state") or {}).get("nextRunAtMs")]
+        if next_runs:
+            next_min = min(next_runs)
+            lines.append(f"Próxima execução: {_ms_to_short(next_min)}")
+        # Jobs que não executaram (atrasados >60s já listados acima)
+        lines.append("")
         detalhado = (arg or "").strip().lower() == "detalhado"
         n_show = len(enabled_jobs) if detalhado else min(8, len(enabled_jobs))
-        lines.append("")
         for j in enabled_jobs[:n_show]:
             state = j.get("state", {})
             next_ms = state.get("nextRunAtMs")
@@ -335,6 +376,15 @@ def _cmd_cron(cron_store_path: Path | None, arg: str = "") -> str:
                 lines.append(f"  {name} | ***{_digits(to)[-6:]}{atraso} | {next_str} | {last_str}")
         if enabled > n_show and not detalhado:
             lines.append(f"  ... e mais {enabled - n_show}")
+        if detalhado and disabled_jobs:
+            lines.append("")
+            lines.append("--- Desativados ---")
+            for j in disabled_jobs[:5]:
+                payload = j.get("payload") or {}
+                name = (payload.get("message") or j.get("id", "?"))[:30]
+                lines.append(f"  [OFF] {name}")
+            if len(disabled_jobs) > 5:
+                lines.append(f"  ... e mais {len(disabled_jobs) - 5}")
         return "\n".join(lines)
     except Exception as e:
         logger.debug(f"admin #cron failed: {e}")
@@ -568,11 +618,49 @@ def _cmd_server(
         f"swap: {snapshot['swap_used_mb']:.0f}/{snapshot['swap_total_mb']:.0f}M"
     )
     lines.append(f"CPU: {snapshot['cpu_pct']}% | load 1m: {snapshot['load_1m']}")
-    lines.append(
-        f"Disco: {snapshot['disk_pct']}% usado | livre: {snapshot['disk_free_mb']:.0f}M | "
-        f"dados .zapista: {snapshot['data_dir_mb']:.0f}M"
-    )
+    # Disco: total, usado, livre, percentual
+    disk_total_mb = snapshot.get("disk_total_mb")
+    if disk_total_mb is not None and disk_total_mb > 0:
+        disk_used_mb = disk_total_mb - snapshot.get("disk_free_mb", 0)
+        lines.append(
+            f"Disco: {snapshot['disk_pct']}% usado | total: {disk_total_mb:.0f}M | "
+            f"livre: {snapshot['disk_free_mb']:.0f}M | dados .zapista: {snapshot['data_dir_mb']:.0f}M"
+        )
+    else:
+        lines.append(
+            f"Disco: {snapshot['disk_pct']}% usado | livre: {snapshot['disk_free_mb']:.0f}M | "
+            f"dados .zapista: {snapshot['data_dir_mb']:.0f}M"
+        )
     lines.append(f"Gateway uptime: {_uptime_str(snapshot['gateway_uptime_s'])}")
+    # Top 5 processos por memória
+    try:
+        import psutil
+        procs = sorted(psutil.process_iter(["pid", "name", "memory_info"]), key=lambda p: (p.info.get("memory_info") or (0,)).rss, reverse=True)
+        top5 = []
+        for p in procs[:5]:
+            try:
+                mi = p.info.get("memory_info")
+                rss_mb = (mi.rss / (1024 * 1024)) if mi else 0
+                name = (p.info.get("name") or "?")[:20]
+                top5.append(f"{name}: {rss_mb:.0f}M")
+            except (psutil.NoSuchProcess, Exception):
+                continue
+        if top5:
+            lines.append("Top 5 memória: " + " | ".join(top5))
+    except Exception:
+        pass
+    # Temperatura CPU (Linux)
+    try:
+        import psutil
+        if hasattr(psutil, "sensors_temperatures"):
+            temps = psutil.sensors_temperatures()
+            if temps:
+                for name, entries in list(temps.items())[:2]:
+                    for e in entries[:1]:
+                        lines.append(f"Temp {name}: {e.current:.0f}°C")
+                        break
+    except Exception:
+        pass
     bridge_st = "connected" if snapshot.get("bridge_connected") else "disconnected"
     lines.append(f"Bridge WhatsApp: {bridge_st}")
     lines.append(f"Cron: {snapshot['cron_jobs']} jobs | atrasados >60s: {snapshot['cron_delayed_60s']}")
@@ -690,12 +778,36 @@ def _bytes_short(n: int) -> str:
     return f"{n}B"
 
 
-def _cmd_system() -> str:
-    """Erros últimos 60 min, latência média (estrutura; métricas a integrar)."""
+def _cmd_system(wa_channel: Any = None) -> str:
+    """Erros últimos 60 min, latência média, fila Redis, health dos serviços."""
     lines = ["#system"]
-    # Placeholder: sem store de erros/latência ainda
-    lines.append("Erros (60 min): N/A – configurar logging agregado")
-    lines.append("Latência média: N/A – configurar métricas")
+    try:
+        from backend.server_metrics import _load_metrics
+        data = _load_metrics()
+        events = data.get("today_events", {})
+        lines.append(f"Erros (hoje): {events.get('errors', 0)} errors, {events.get('warnings', 0)} warnings")
+    except Exception:
+        lines.append("Erros: N/A – configurar logging agregado")
+    lines.append("Latência média API: N/A – configurar métricas")
+    # Fila Redis
+    try:
+        from zapista.bus.queue import MessageBus
+        bus = MessageBus()
+        if getattr(bus, "redis_url", None):
+            import redis
+            r = redis.from_url(bus.redis_url)
+            keys = r.dbsize()
+            info = r.info("memory")
+            mem = info.get("used_memory_human", "N/A")
+            lines.append(f"Fila Redis: {keys} chaves | memória: {mem}")
+        else:
+            lines.append("Fila: em memória (Redis não configurado)")
+    except Exception as e:
+        lines.append(f"Redis: {str(e)[:50]}")
+    # Health: bridge
+    if wa_channel:
+        bridge = "conectado" if getattr(wa_channel, "_connected", None) else "desconectado"
+        lines.append(f"Health WhatsApp bridge: {bridge}")
     return "\n".join(lines)
 
 
@@ -912,4 +1024,302 @@ def _cmd_painpoints(cron_store_path: Path | None) -> str:
         lines.append("Clientes: erro ao ler")
     lines.append("Endpoints lentos: N/A – configurar APM")
     lines.append("Picos de erro: N/A – configurar agregado")
+    return "\n".join(lines)
+
+
+# ---------- Novos comandos admin ----------
+
+def _cmd_hora() -> str:
+    """Horário atual do servidor (host) e do container (TZ)."""
+    from datetime import datetime, timezone
+    tz_env = (os.environ.get("TZ") or "UTC").strip()
+    now_utc = datetime.now(timezone.utc)
+    try:
+        from zoneinfo import ZoneInfo
+        z = ZoneInfo(tz_env) if ("/" in tz_env or tz_env in ("UTC", "GMT")) else ZoneInfo("UTC")
+        now_local = datetime.now(z)
+        tz_str = str(now_local.strftime("%Z")) or tz_env
+        local_str = now_local.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        now_local = now_utc
+        tz_str = tz_env
+        local_str = now_utc.strftime("%Y-%m-%d %H:%M:%S")
+    utc_str = now_utc.strftime("%Y-%m-%d %H:%M:%S")
+    return f"🕐 Servidor: {utc_str} (UTC) | Docker: {local_str} ({tz_str}) | TZ={tz_env}"
+
+
+async def _cmd_ativos(db_session_factory: Any, arg: str) -> str:
+    """Número de clientes ativos nos últimos N minutos (enviaram ou receberam mensagem)."""
+    minutes = 15
+    if arg and arg.isdigit():
+        minutes = max(1, min(1440, int(arg)))
+    try:
+        from zapista.utils.helpers import get_sessions_path
+        sessions_dir = get_sessions_path()
+    except Exception:
+        sessions_dir = Path.home() / ".zapista" / "sessions"
+    if not sessions_dir.exists():
+        return f"📱 Ativos últimos {minutes} min: 0 utilizadores (pasta de sessões não existe)."
+    cutoff = time.time() - (minutes * 60)
+    active_chats: set[str] = set()
+    for path in sessions_dir.glob("*.jsonl"):
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    data = json.loads(line)
+                    ts_str = (data.get("timestamp") or "").strip()
+                    if not ts_str or len(ts_str) < 10:
+                        continue
+                    try:
+                        from datetime import datetime
+                        dt = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+                        ts = dt.timestamp()
+                    except Exception:
+                        continue
+                    if ts >= cutoff:
+                        active_chats.add(path.stem)
+                        break
+        except Exception:
+            continue
+    return f"📱 Ativos últimos {minutes} min: {len(active_chats)} utilizadores"
+
+
+def _cmd_erros(arg: str) -> str:
+    """Erros do sistema nas últimas N horas (logs ou Redis)."""
+    hours = 1
+    if arg and arg.replace(".", "").isdigit():
+        hours = max(0.1, min(168, float(arg)))
+    lines = [f"❌ Erros (últimas {hours}h)"]
+    try:
+        from backend.server_metrics import _load_metrics
+        data = _load_metrics()
+        events = data.get("today_events", {})
+        errors = events.get("errors", 0)
+        warnings = events.get("warnings", 0)
+        info = events.get("info", 0)
+        if errors or warnings or info:
+            lines.append(f"  ERROR: {errors} | WARNING: {warnings} | INFO: {info}")
+        else:
+            lines.append("  Nenhum evento registado em today_events. Configurar record_event('errors') nos handlers.")
+    except Exception:
+        lines.append("  N/A (configurar logging agregado em server_metrics ou logs)")
+    return "\n".join(lines)
+
+
+async def _cmd_diagnostico(
+    cron_store_path: Path | None,
+    db_session_factory: Any,
+    wa_channel: Any,
+) -> str:
+    """Verificação completa: Redis, bridge, API, recursos, usuários, jobs, erros recentes, latência LLM, WhatsApp."""
+    lines = ["🔧 #diagnostico"]
+    # Redis
+    try:
+        from zapista.bus.queue import MessageBus
+        bus = MessageBus()
+        if getattr(bus, "redis_url", None):
+            import redis
+            r = redis.from_url(bus.redis_url)
+            r.ping()
+            info = r.info("memory")
+            keys = r.dbsize()
+            lines.append(f"✅ Redis: conectado | chaves: {keys} | memória: {info.get('used_memory_human', 'N/A')}")
+        else:
+            lines.append("⚠ Redis: não configurado (fila em memória)")
+    except Exception as e:
+        lines.append(f"❌ Redis: {str(e)[:60]}")
+    # Bridge WhatsApp
+    bridge_st = "conectado" if (wa_channel and getattr(wa_channel, "_connected", None)) else "desconectado"
+    lines.append(f"📱 WhatsApp: {bridge_st}")
+    # Recursos
+    try:
+        import psutil
+        mem = psutil.virtual_memory()
+        cpu = psutil.cpu_percent(interval=0.1)
+        lines.append(f"💻 RAM: {mem.percent}% | CPU: {cpu}%")
+    except Exception:
+        lines.append("💻 Recursos: N/A (psutil)")
+    # Usuários e jobs
+    if db_session_factory:
+        try:
+            from backend.models_db import User
+            db = db_session_factory()
+            try:
+                total_users = db.query(User).count()
+                lines.append(f"👥 Utilizadores: {total_users}")
+            finally:
+                db.close()
+        except Exception:
+            lines.append("👥 Utilizadores: N/A")
+    path = cron_store_path or (Path.home() / ".zapista" / "cron" / "jobs.json")
+    if path.exists():
+        try:
+            data = json.loads(path.read_text())
+            jobs = data.get("jobs", [])
+            enabled = sum(1 for j in jobs if j.get("enabled", True))
+            lines.append(f"📅 Jobs: {len(jobs)} total, {enabled} ativos")
+        except Exception:
+            lines.append("📅 Jobs: erro ao ler")
+    else:
+        lines.append("📅 Jobs: 0 (ficheiro não encontrado)")
+    # Erros recentes (hoje)
+    try:
+        from backend.server_metrics import _load_metrics
+        data = _load_metrics()
+        events = data.get("today_events", {})
+        err = events.get("errors", 0)
+        warn = events.get("warnings", 0)
+        lines.append(f"❌ Erros recentes (hoje): {err} errors, {warn} warnings")
+    except Exception:
+        lines.append("❌ Erros recentes: N/A")
+    # Latência média LLM (a implementar em token_usage ou APM)
+    lines.append("⏱ Latência LLM: N/A (configurar métricas)")
+    return "\n".join(lines)
+
+
+def _cmd_help() -> str:
+    """Lista de todos os comandos admin com descrição e exemplos."""
+    lines = [
+        "#help / #comandos",
+        "Comandos disponíveis (God Mode):",
+        "",
+        "🕐 #hora / #time — Horário do servidor e do container (TZ)",
+        "📱 #ativos [min] — Clientes ativos nos últimos N min (padrão 15)",
+        "❌ #erros [horas] — Erros do sistema nas últimas N horas (padrão 1)",
+        "🔧 #diagnostico / #diag — Verificação completa (Redis, bridge, recursos, jobs, erros)",
+        "👥 #clientes — Lista de clientes cadastrados (chat_id, nome, timezone, criação)",
+        "📅 #jobs [chat_id] — Jobs de um usuário ou todos (job_id, mensagem, próximo run, status)",
+        "🔴 #redis — Status Redis (conexão, chaves, memória)",
+        "📲 #whatsapp — Status WhatsApp (conectado, msgs hoje, fila, última msg)",
+        "",
+        "#users — Total utilizadores | #cron [detalhado] — Jobs (incl. desativados e próxima execução)",
+        "#server — Snapshot (RAM, CPU, disco, uptime, top 5 mem, temp CPU) + histórico 7d",
+        "#system — Erros, latência API, fila Redis, health dos serviços",
+        "#msgs — Mensagens tocadas | #lembretes <nr> — Lembretes do número",
+        "#tz <nr> — Timezone do número | #history <nr> — Histórico",
+        "#add <nr> / #remove <nr> — Lista allow | #mute <nr> — Silenciar",
+        "#lockout — Bloqueios senha | #cleanup — Recursos pouco usados",
+        "#quit — Desativar God Mode",
+        "",
+        "Exemplos:",
+        "  #ativos 30   → ativos nos últimos 30 min",
+        "  #erros 2     → erros nas últimas 2 horas",
+        "  #jobs 5511999999999  → jobs desse número",
+        "  #cron detalhado  → lista completa com desativados",
+    ]
+    return "\n".join(lines)
+
+
+async def _cmd_clientes(db_session_factory: Any) -> str:
+    """Lista de clientes cadastrados (chat_id, nome, timezone, criação)."""
+    if not db_session_factory:
+        return "#clientes\nErro: DB não disponível."
+    try:
+        from backend.models_db import User
+        from datetime import datetime
+        db = db_session_factory()
+        try:
+            users = db.query(User).order_by(User.created_at.desc()).limit(100).all()
+            lines = [f"#clientes\nTotal: {len(users)} (mostrando até 100)"]
+            for u in users:
+                phone = getattr(u, "phone_truncated", "") or "?"
+                name = (getattr(u, "preferred_name", None) or "")[:20]
+                tz = getattr(u, "timezone", None) or "-"
+                created = getattr(u, "created_at", None)
+                created_str = created.strftime("%d/%m %Y") if created else "-"
+                lines.append(f"  {phone} | {name} | {tz} | {created_str}")
+            return "\n".join(lines)
+        finally:
+            db.close()
+    except Exception as e:
+        logger.debug(f"admin #clientes failed: {e}")
+        return "#clientes\nErro ao listar."
+
+
+def _cmd_jobs(cron_store_path: Path | None, arg: str) -> str:
+    """Listar jobs de um usuário (#jobs chat_id) ou todos (#jobs)."""
+    path = cron_store_path or (Path.home() / ".zapista" / "cron" / "jobs.json")
+    if not path.exists():
+        return "#jobs\n0 jobs (ficheiro não encontrado)."
+    try:
+        data = json.loads(path.read_text())
+        jobs = data.get("jobs", [])
+        if arg and _digits(arg):
+            jobs = [j for j in jobs if _to_matches_user((j.get("payload") or {}).get("to"), arg)]
+        lines = [f"#jobs\n{len(jobs)} jobs"]
+        now_ms = int(time.time() * 1000)
+        for j in jobs[:30]:
+            payload = j.get("payload") or {}
+            state = j.get("state") or {}
+            sched = j.get("schedule") or {}
+            name = (payload.get("message") or j.get("id", "?"))[:35]
+            to = _digits((payload.get("to") or ""))[-8:]
+            next_ms = state.get("nextRunAtMs")
+            next_str = _ms_to_short(next_ms) if next_ms else "-"
+            enabled = "✓" if j.get("enabled", True) else "✗"
+            lines.append(f"  [{j.get('id', '?')[:8]}] {name} | ***{to} | next: {next_str} | {enabled}")
+        if len(jobs) > 30:
+            lines.append(f"  ... e mais {len(jobs) - 30}")
+        return "\n".join(lines)
+    except Exception as e:
+        logger.debug(f"admin #jobs failed: {e}")
+        return "#jobs\nErro ao ler jobs."
+
+
+def _cmd_redis() -> str:
+    """Status da conexão Redis, chaves e memória."""
+    lines = ["#redis"]
+    try:
+        from zapista.bus.queue import MessageBus
+        bus = MessageBus()
+        if not getattr(bus, "redis_url", None):
+            lines.append("Redis não configurado (fila em memória).")
+            return "\n".join(lines)
+        import redis
+        r = redis.from_url(bus.redis_url)
+        r.ping()
+        info = r.info("memory")
+        keys = r.dbsize()
+        used = info.get("used_memory_human", "N/A")
+        peak = info.get("used_memory_peak_human", "N/A")
+        lines.append(f"Conectado. Chaves: {keys} | Memória: {used} (pico: {peak})")
+        # Últimas chaves (sample)
+        try:
+            sample = r.keys("*")[:10]
+            if sample:
+                lines.append("Amostra de chaves: " + ", ".join(k.decode() if isinstance(k, bytes) else str(k) for k in sample[:5]))
+        except Exception:
+            pass
+        return "\n".join(lines)
+    except Exception as e:
+        lines.append(f"Erro: {str(e)[:80]}")
+        return "\n".join(lines)
+
+
+def _cmd_whatsapp(wa_channel: Any) -> str:
+    """Status da conexão WhatsApp, mensagens hoje e fila."""
+    lines = ["#whatsapp"]
+    if not wa_channel:
+        lines.append("Canal WhatsApp não injetado.")
+        return "\n".join(lines)
+    connected = getattr(wa_channel, "_connected", False)
+    lines.append(f"Conectado: {'sim' if connected else 'não'}")
+    # Mensagens processadas hoje / fila: se houver atributos no canal
+    msgs_today = getattr(wa_channel, "_messages_processed_today", None)
+    if msgs_today is not None:
+        lines.append(f"Mensagens processadas hoje: {msgs_today}")
+    queue_len = getattr(wa_channel, "_outbound_queue_len", None)
+    if queue_len is not None:
+        lines.append(f"Mensagens na fila de envio: {queue_len}")
+    last_msg = getattr(wa_channel, "_last_message_received_at", None)
+    if last_msg:
+        try:
+            from datetime import datetime
+            dt = datetime.fromtimestamp(last_msg)
+            lines.append(f"Última mensagem recebida: {dt.strftime('%H:%M:%S')}")
+        except Exception:
+            pass
     return "\n".join(lines)
