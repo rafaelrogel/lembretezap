@@ -298,11 +298,17 @@ if [ -n "$PIPER_TGZ" ]; then
   echo "    A instalar Piper TTS (binário + 4 vozes: pt_BR, pt_PT, es_ES, en_US)..."
   mkdir -p "$DATA_DIR/bin"
   PIPER_URL="https://github.com/rhasspy/piper/releases/download/${PIPER_RELEASE}/${PIPER_TGZ}"
-  if [ ! -f "$DATA_DIR/bin/piper" ]; then
+  # Instalar ou reparar Piper: binário + .so (sem .so o Piper falha com libpiper_phonemize.so.1 / espeak-ng)
+  _piper_needs_install=0
+  _piper_needs_libs=0
+  [ ! -f "$DATA_DIR/bin/piper" ] && _piper_needs_install=1
+  if [ -f "$DATA_DIR/bin/piper" ] && [ ! -f "$DATA_DIR/bin/libpiper_phonemize.so.1" ]; then
+    _piper_needs_libs=1
+  fi
+  if [ "$_piper_needs_install" = "1" ] || [ "$_piper_needs_libs" = "1" ]; then
     _piper_tmp=$(mktemp -d)
     if curl -fsSL "$PIPER_URL" -o "$_piper_tmp/piper.tar.gz"; then
       tar -xzf "$_piper_tmp/piper.tar.gz" -C "$_piper_tmp"
-      # Piper tarball: binário + .so na mesma pasta; copiar todos para DATA_DIR/bin
       _piper_bin=$(find "$_piper_tmp" -name "piper" -type f 2>/dev/null | head -1)
       if [ -n "$_piper_bin" ]; then
         _piper_dir=$(dirname "$_piper_bin")
@@ -311,9 +317,10 @@ if [ -n "$PIPER_TGZ" ]; then
         for _so in "$_piper_dir"/*.so*; do
           [ -e "$_so" ] && cp "$_so" "$DATA_DIR/bin/" && chmod 755 "$DATA_DIR/bin/$(basename "$_so")"
         done
+        [ "$_piper_needs_libs" = "1" ] && echo "    Piper: bibliotecas .so copiadas (reparação)."
       fi
     else
-      echo "    Aviso: não foi possível descarregar Piper de $PIPER_URL"
+      [ "$_piper_needs_install" = "1" ] && echo "    Aviso: não foi possível descarregar Piper de $PIPER_URL"
     fi
     rm -rf "$_piper_tmp"
   fi
