@@ -38,9 +38,9 @@ class ListTool(Tool):
     @property
     def description(self) -> str:
         return (
-            "Manage user lists. action: add (list_name, item), list (list_name), remove (list_name, item_id), "
-            "feito (list_name, item_id to mark done), habitual (list_name: add frequent items from history), "
-            "shuffle (list_name: randomize order of items in place)."
+            "Manage user lists. Always use this tool when the user asks to create a list, add items (e.g. books, recipes), or show lists; do not say the system is broken without calling the tool first. "
+            "Actions: add (list_name, item), list (list_name), remove (list_name, item_id), "
+            "feito (list_name, item_id to mark done), habitual (list_name), shuffle (list_name)."
         )
 
     @property
