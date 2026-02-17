@@ -27,6 +27,10 @@ CLOCK_DRIFT_ALERT_THRESHOLD_S = 60
 # Desvio a partir do qual aplicamos correção automática (segundos). Ex.: 60 = corrigir se > 1 min
 CLOCK_DRIFT_AUTO_CORRECT_THRESHOLD_S = 60
 
+# Limite do offset automático (API): ±12h. Evita aplicar offset absurdo se a API externa vier errada.
+# CLOCK_OFFSET_SECONDS (env) não é limitado (override manual confiável).
+CLOCK_DRIFT_AUTO_OFFSET_CAP_S = 12 * 3600
+
 # Fonte externa de tempo UTC (sem API key)
 EXTERNAL_TIME_URL = "https://worldtimeapi.org/api/timezone/Etc/UTC"
 
@@ -146,13 +150,21 @@ async def check_clock_drift(
             server_ts,
             external_ts,
         )
-        # Correção automática: aplicar offset para que get_effective_time() = hora externa
-        if abs_drift >= CLOCK_DRIFT_AUTO_CORRECT_THRESHOLD_S:
-            _apply_offset(external_ts - server_ts)
+        # Correção automática: aplicar offset (limitado a ±12h). Não sobrescrever se o utilizador definiu CLOCK_OFFSET_SECONDS.
+        if abs_drift >= CLOCK_DRIFT_AUTO_CORRECT_THRESHOLD_S and not _env_offset_applied:
+            offset_s = external_ts - server_ts
+            capped = max(-CLOCK_DRIFT_AUTO_OFFSET_CAP_S, min(CLOCK_DRIFT_AUTO_OFFSET_CAP_S, offset_s))
+            if capped != offset_s:
+                logger.warning(
+                    "Clock drift: offset da API limitado a ±12h (calculado={:.0f}s, aplicado={:.0f}s)",
+                    offset_s,
+                    capped,
+                )
+            _apply_offset(capped)
             logger.warning(
                 "{} | offset aplicado={:.1f}s | Correção automática: agendamentos usam hora externa até próximo check.",
                 CLOCK_DRIFT_CORRECTED_TAG,
-                external_ts - server_ts,
+                capped,
             )
         return (False, drift_s)
 

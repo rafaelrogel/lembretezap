@@ -92,8 +92,8 @@ class AgentLoop:
         try:
             from backend.database import init_db
             init_db()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("init_db failed (listas/eventos podem falhar): {}", e)
         # Message tool
         message_tool = MessageTool(send_callback=self.bus.publish_outbound)
         self.tools.register(message_tool)

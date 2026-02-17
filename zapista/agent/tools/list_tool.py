@@ -4,6 +4,7 @@ import json
 import random
 from typing import Any
 
+from loguru import logger
 from sqlalchemy import func
 
 from zapista.agent.tools.base import Tool
@@ -99,6 +100,21 @@ class ListTool(Tool):
             if action == "shuffle":
                 return self._shuffle(db, user.id, list_name or "")
             return f"Unknown action: {action}"
+        except Exception as e:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            logger.exception(
+                "list_tool execute failed: action={} list_name={!r} chat_id_prefix={}",
+                action,
+                (list_name or "")[:50],
+                (self._chat_id or "")[:24],
+            )
+            return (
+                "Desculpa, houve um erro técnico ao aceder às listas. Tenta de novo daqui a pouco; "
+                "se continuar, o suporte pode verificar os logs (list_tool execute failed)."
+            )
         finally:
             db.close()
 

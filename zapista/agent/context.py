@@ -6,6 +6,8 @@ import platform
 from pathlib import Path
 from typing import Any
 
+from loguru import logger
+
 from zapista.agent.memory import MemoryStore
 from zapista.agent.skills import SkillsLoader
 
@@ -49,8 +51,9 @@ class ContextBuilder:
         try:
             from zapista.clock_drift import get_effective_time
             effective_ts = get_effective_time()
-        except Exception:
+        except Exception as e:
             import time
+            logger.warning("context: get_effective_time failed, using time.time(): {}", e)
             effective_ts = time.time()
         from datetime import datetime, timezone
         _dt_utc = datetime.fromtimestamp(effective_ts, tz=timezone.utc)
@@ -70,8 +73,8 @@ class ContextBuilder:
                         tz_for_prompt = _tz_iana
                 finally:
                     _db.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("context: get_user_timezone failed (chat_id prefix: {}): {}", (session_key or "").split(":", 1)[-1][:24] if session_key else "", e)
             # Se não tem timezone na BD, inferir pelo número (ex.: 351... → Europe/Lisbon)
             if now_for_prompt is None and session_key and ":" in session_key:
                 try:
@@ -84,8 +87,8 @@ class ContextBuilder:
                         _dt_local = _dt_utc.astimezone(_z)
                         now_for_prompt = _dt_local.strftime("%Y-%m-%d %H:%M (%A)")
                         tz_for_prompt = _tz_iana
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("context: phone_to_default_timezone fallback failed: {}", e)
             # Se ainda UTC (ex.: após reset ou LID sem dígitos), usar fuso padrão do idioma (pt-PT → Europe/Lisbon)
             if (now_for_prompt is None or tz_for_prompt == "UTC") and session_key and ":" in session_key:
                 try:
@@ -104,8 +107,8 @@ class ContextBuilder:
                             tz_for_prompt = _tz_iana
                     finally:
                         _db.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("context: DEFAULT_TZ_BY_LANG fallback failed: {}", e)
         if now_for_prompt is None:
             now_for_prompt = _dt_utc.strftime("%Y-%m-%d %H:%M (%A) (UTC)")
             tz_for_prompt = "UTC"
