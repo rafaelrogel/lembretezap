@@ -84,9 +84,9 @@ async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str 
             ctx.scope_provider, ctx.scope_model, history, content
         )
     else:
-        params = await try_extract_pending_cron(
+    params = await try_extract_pending_cron(
             ctx.scope_provider, ctx.scope_model, history, content
-        )
+    )
     if not params:
         return None
 
@@ -582,23 +582,23 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
         if depends_on:
             in_sec = 1
         else:
-            # Sem tempo: se parecer recorrente, solicitar recorrência
-            user_lang: LangCode = "pt-BR"
+        # Sem tempo: se parecer recorrente, solicitar recorrência
+        user_lang: LangCode = "pt-BR"
+        try:
+            db = SessionLocal()
             try:
-                db = SessionLocal()
-                try:
-                    user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
                     user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
-                finally:
-                    db.close()
-            except Exception:
-                pass
-            ask_msg = await maybe_ask_recurrence(
-                content, user_lang, ctx.scope_provider, ctx.scope_model or "",
-            )
-            if ask_msg:
-                return ask_msg
-            return None
+            finally:
+                db.close()
+        except Exception:
+            pass
+        ask_msg = await maybe_ask_recurrence(
+            content, user_lang, ctx.scope_provider, ctx.scope_model or "",
+        )
+        if ask_msg:
+            return ask_msg
+        return None
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
     result = await ctx.cron_tool.execute(
         action="add",
@@ -661,10 +661,10 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
         results = []
         for it in items_to_add:
             r = await ctx.list_tool.execute(
-                action="add",
+            action="add",
                 list_name=list_name,
                 item_text=it,
-            )
+        )
             results.append(r)
         return "\n".join(results) if len(results) > 1 else (results[0] if results else None)
     return await ctx.list_tool.execute(
@@ -866,7 +866,7 @@ async def handle_recurring_prompt(ctx: HandlerContext, content: str) -> str | No
     from backend.recurring_detector import maybe_ask_recurrence
     from backend.scope_filter import is_in_scope_fast
     from backend.user_store import get_user_language
-    from backend.database import SessionLocal
+        from backend.database import SessionLocal
     from backend.locale import LangCode, resolve_response_language
     from backend.integrations.sacred_text import _is_sacred_text_intent
 
@@ -874,7 +874,7 @@ async def handle_recurring_prompt(ctx: HandlerContext, content: str) -> str | No
         return None
     t = (content or "").strip().lower()
     if not t:
-        return None
+    return None
     if not is_in_scope_fast(t):
         return None
     for pat in _NOT_REMINDER_PATTERNS:
@@ -882,14 +882,14 @@ async def handle_recurring_prompt(ctx: HandlerContext, content: str) -> str | No
             return None
     user_lang: LangCode = "pt-BR"
     try:
-        db = SessionLocal()
-        try:
+            db = SessionLocal()
+            try:
             user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
             user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
-        finally:
-            db.close()
-    except Exception:
-        pass
+            finally:
+                db.close()
+        except Exception:
+            pass
     return await maybe_ask_recurrence(
         content, user_lang, ctx.scope_provider, ctx.scope_model or "",
     )
@@ -929,11 +929,11 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
         RECURRING_REGISTERED_UNTIL,
     )
     from backend.user_store import get_user_language, get_user_timezone
-    from backend.database import SessionLocal
+        from backend.database import SessionLocal
     from backend.locale import resolve_response_language
 
     if not ctx.session_manager or not ctx.cron_tool or not content or not content.strip():
-        return None
+    return None
 
     text = content.strip()
     if re.match(r"^/lembrete\s+", text, re.I):
@@ -957,10 +957,10 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
             except Exception:
                 from backend.timezone import phone_to_default_timezone
                 tz_iana = phone_to_default_timezone(ctx.chat_id)
-        finally:
-            db.close()
-    except Exception:
-        pass
+    finally:
+        db.close()
+        except Exception:
+            pass
 
     # --- Estamos no fluxo ---
     if flow and isinstance(flow, dict):
@@ -973,7 +973,7 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
             if looks_like_confirm_no(text):
                 session.metadata.pop(FLOW_KEY, None)
                 ctx.session_manager.save(session)
-                return None
+        return None
             if looks_like_confirm_yes(text):
                 session.metadata[FLOW_KEY] = {
                     **flow,
@@ -981,7 +981,7 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
                 }
                 ctx.session_manager.save(session)
                 return RECURRING_ASK_END_DATE.get(user_lang, RECURRING_ASK_END_DATE["en"])
-            return None
+        return None
 
         if stage == STAGE_NEED_END_DATE:
             end_type = parse_end_date_response(text)
@@ -990,7 +990,7 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
                 if retry >= MAX_RETRIES_END_DATE:
                     session.metadata.pop(FLOW_KEY, None)
                     ctx.session_manager.save(session)
-                    return None
+        return None
                 flow["retry_count"] = retry
                 session.metadata[FLOW_KEY] = flow
                 ctx.session_manager.save(session)
@@ -1046,7 +1046,7 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
             schedule=schedule_display,
         )
 
-    return None
+        return None
 
 
 # Route e HANDLERS em backend.router (agent loop importa route de router)

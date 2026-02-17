@@ -408,7 +408,11 @@ def gateway(
             try:
                 from backend.user_store import is_user_in_quiet_window
                 if is_user_in_quiet_window(job.payload.to):
-                    logger.info(f"Cron deliver skipped (quiet window): to={job.payload.to[:20]}...")
+                    logger.info(
+                        "Cron deliver skipped (quiet window): to=%s message=%s",
+                        (job.payload.to or "")[:24],
+                        (job.payload.message or "")[:50],
+                    )
                     return "skipped (quiet window)"
             except Exception:
                 pass

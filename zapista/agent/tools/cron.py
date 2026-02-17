@@ -3,6 +3,7 @@
 import time
 from typing import Any, TYPE_CHECKING
 
+from loguru import logger
 from zapista.agent.tools.base import Tool
 
 def _effective_now_ms() -> int:
@@ -81,7 +82,8 @@ class CronTool(Tool):
             "If user says 'lembrete amanhã 10h' without event, ask 'De que é o lembrete?' first. "
             "For add: in_seconds = seconds from NOW (UTC) until the reminder should fire. CRITICAL: The user's time (e.g. '3:25 PM', '11h', 'tomorrow 9am') is always in the prompt's Timezone (user). Convert that local moment to UTC, then in_seconds = (that UTC timestamp - now_utc). Wrong timezone = reminder 1–3 hours late. "
             "every_seconds = repeat; cron_expr = fixed times (interpreted in user timezone when stored). "
-            "Encadeamento: se o utilizador disser em áudio ou texto 'depois de X', 'após terminar Y', 'quando fizer A avisa para B', usa depends_on_job_id com o id do lembrete anterior (2-4 letras, ex.: AL, PIX)."
+            "Encadeamento: se o utilizador disser em áudio ou texto 'depois de X', 'após terminar Y', 'quando fizer A avisa para B', usa depends_on_job_id com o id do lembrete anterior (2-4 letras, ex.: AL, PIX). "
+            "When confirming a reminder to the user, use the EXACT time from this tool's return (e.g. 'Será enviado às HH:MM'); never substitute with the Current Time from the prompt."
         )
     
     @property
@@ -362,7 +364,12 @@ class CronTool(Tool):
                     pass
         # Pontual (não recorrente): após a entrega o job é removido do cron (esquecido pelo sistema); pode existir histórico noutra camada
         if in_seconds is not None and in_seconds > 0:
-            at_ms = _effective_now_ms() + in_seconds * 1000
+            now_ms = _effective_now_ms()
+            at_ms = now_ms + in_seconds * 1000
+            if at_ms <= now_ms:
+                # Relógio ou skew: evitar job no passado (nunca dispararia)
+                at_ms = now_ms + 60 * 1000
+                logger.warning("Cron: in_seconds would yield past time; scheduling in 1 min instead")
             schedule = CronSchedule(kind="at", at_ms=at_ms)
             delete_after_run = True
         # Recorrente: mantém-se listado até o utilizador remover ou fim da recorrência
@@ -603,7 +610,7 @@ class CronTool(Tool):
                 from backend.timezone import format_utc_timestamp_for_user
                 hora_str = format_utc_timestamp_for_user(at_sec, "UTC")
                 tz_label = "UTC (configura /tz para ver no teu fuso)"
-            msg += f" Será enviado às {hora_str} ({tz_label}). Mantém o Zapista ligado para receberes a notificação."
+            msg += f" Será enviado às {hora_str} ({tz_label}). Mantém o Zapista ligado para receberes a notificação. Se não receberes à hora indicada, verifica em /definições o horário silencioso."
         if self._channel == "cli":
             msg += " (Criado pelo terminal; para receber no WhatsApp, envia o lembrete pelo próprio WhatsApp.)"
         return msg

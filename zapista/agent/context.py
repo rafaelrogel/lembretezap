@@ -86,6 +86,26 @@ class ContextBuilder:
                         tz_for_prompt = _tz_iana
                 except Exception:
                     pass
+            # Se ainda UTC (ex.: após reset ou LID sem dígitos), usar fuso padrão do idioma (pt-PT → Europe/Lisbon)
+            if (now_for_prompt is None or tz_for_prompt == "UTC") and session_key and ":" in session_key:
+                try:
+                    from backend.database import SessionLocal
+                    from backend.user_store import get_user_language
+                    from backend.timezone import DEFAULT_TZ_BY_LANG
+                    _chat_id = session_key.split(":", 1)[1]
+                    _db = SessionLocal()
+                    try:
+                        _lang = get_user_language(_db, _chat_id)
+                        if _lang and _lang in DEFAULT_TZ_BY_LANG:
+                            _tz_iana = DEFAULT_TZ_BY_LANG[_lang]
+                            _z = ZoneInfo(_tz_iana)
+                            _dt_local = _dt_utc.astimezone(_z)
+                            now_for_prompt = _dt_local.strftime("%Y-%m-%d %H:%M (%A)")
+                            tz_for_prompt = _tz_iana
+                    finally:
+                        _db.close()
+                except Exception:
+                    pass
         if now_for_prompt is None:
             now_for_prompt = _dt_utc.strftime("%Y-%m-%d %H:%M (%A) (UTC)")
             tz_for_prompt = "UTC"
