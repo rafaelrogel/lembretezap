@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from loguru import logger
+
 from zapista.agent.tools.base import Tool
 
 
@@ -59,6 +61,12 @@ class ToolRegistry:
                 return f"Error: Invalid parameters for tool '{name}': " + "; ".join(errors)
             return await tool.execute(**params)
         except Exception as e:
+            logger.exception(
+                "Tool execute failed: name={} params_keys={} error={}",
+                name,
+                list(params.keys()) if params else [],
+                str(e),
+            )
             return f"Error executing {name}: {str(e)}"
     
     @property
