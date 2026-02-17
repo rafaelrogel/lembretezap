@@ -302,11 +302,15 @@ if [ -n "$PIPER_TGZ" ]; then
     _piper_tmp=$(mktemp -d)
     if curl -fsSL "$PIPER_URL" -o "$_piper_tmp/piper.tar.gz"; then
       tar -xzf "$_piper_tmp/piper.tar.gz" -C "$_piper_tmp"
-      # Piper tarball pode extrair para piper/, piper_linux_*/, etc. Procurar binário
+      # Piper tarball: binário + .so na mesma pasta; copiar todos para DATA_DIR/bin
       _piper_bin=$(find "$_piper_tmp" -name "piper" -type f 2>/dev/null | head -1)
       if [ -n "$_piper_bin" ]; then
+        _piper_dir=$(dirname "$_piper_bin")
         cp "$_piper_bin" "$DATA_DIR/bin/piper"
         chmod +x "$DATA_DIR/bin/piper"
+        for _so in "$_piper_dir"/*.so*; do
+          [ -e "$_so" ] && cp "$_so" "$DATA_DIR/bin/" && chmod 755 "$DATA_DIR/bin/$(basename "$_so")"
+        done
       fi
     else
       echo "    Aviso: não foi possível descarregar Piper de $PIPER_URL"
@@ -384,6 +388,7 @@ services:
       - ZAPISTA_data:$DATA_DIR
     environment:
       - ZAPISTA_DATA=$DATA_DIR
+      - LD_LIBRARY_PATH=$DATA_DIR/bin
   api:
     env_file: .env
     volumes:
