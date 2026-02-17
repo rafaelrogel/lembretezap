@@ -4,9 +4,14 @@ Verificação de desvio do relógio do servidor (VPS/Docker) em relação a uma 
 Executa a cada 45 min; em caso de desvio > limiar, regista ERROR e aplica correção
 automática em memória (offset). O cron e a criação de jobs usam get_effective_time()
 para que lembretes disparem na hora certa mesmo com relógio do host errado.
+
+Override manual: se o relógio do servidor estiver errado e a API externa falhar,
+defina CLOCK_OFFSET_SECONDS no ambiente. Ex.: servidor 7.5h atrasado = 27000
+(segundos a somar a time.time() para obter a hora real).
 """
 
 import asyncio
+import os
 import threading
 import time
 from typing import Tuple
@@ -32,13 +37,38 @@ CLOCK_DRIFT_CORRECTED_TAG = "CLOCK_DRIFT_CORRECTED"
 # Offset em segundos a somar a time.time() para obter "hora efectiva" (corrigida). Thread-local safe.
 _clock_offset_s: float = 0.0
 _lock = threading.Lock()
+_env_offset_applied = False
+
+
+def _apply_env_offset() -> None:
+    """Aplica offset a partir de CLOCK_OFFSET_SECONDS (override manual quando o relógio do servidor está errado)."""
+    global _clock_offset_s, _env_offset_applied
+    if _env_offset_applied:
+        return
+    raw = os.environ.get("CLOCK_OFFSET_SECONDS", "").strip()
+    if not raw:
+        return
+    try:
+        offset = float(raw)
+        with _lock:
+            _clock_offset_s = offset
+        _env_offset_applied = True
+        logger.info(
+            "Clock drift: offset aplicado a partir de CLOCK_OFFSET_SECONDS=%.1f (hora do servidor + %.1fs = hora efectiva)",
+            offset,
+            offset,
+        )
+    except ValueError:
+        logger.warning("CLOCK_OFFSET_SECONDS inválido (deve ser número): %r", raw[:20])
 
 
 def get_effective_time() -> float:
     """
     Retorna a hora UTC efectiva para agendamento (cron, criação de jobs).
     Se foi detectado desvio grande, inclui o offset da correção automática.
+    CLOCK_OFFSET_SECONDS (env) é aplicado na primeira chamada do loop ou aqui.
     """
+    _apply_env_offset()
     with _lock:
         return time.time() + _clock_offset_s
 
@@ -143,9 +173,10 @@ async def clock_drift_loop(
 ) -> None:
     """
     Loop em background: executa check_clock_drift ao arranque (para corrigir hora logo)
-    e depois a cada interval_s segundos.
+    e depois a cada interval_s segundos. Se CLOCK_OFFSET_SECONDS estiver definido, aplica-o primeiro.
     """
-    # Verificação imediata ao arranque: evita mostrar hora errada (ex.: 14:51 em vez de 20:42) até 45 min
+    _apply_env_offset()
+    # Verificação imediata ao arranque: evita mostrar hora errada (ex.: 14:51 em vez de 22:20) até 45 min
     try:
         await check_clock_drift(threshold_s=threshold_s)
     except Exception as e:
