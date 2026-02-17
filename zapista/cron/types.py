@@ -46,6 +46,8 @@ class CronPayload:
     # Jobs pós-prazo (1,2,3): id do job principal; ao confirmar, remover todos
     deadline_main_job_id: str | None = None
     deadline_post_index: int | None = None  # 1, 2 ou 3
+    # Nudge proativo 12h antes (quando user não pediu lembrete): não aparece na lista /lembrete
+    is_proactive_nudge: bool = False
 
 
 @dataclass

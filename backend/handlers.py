@@ -132,6 +132,7 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
         parse_advance_seconds,
         looks_like_advance_preference_yes,
         looks_like_advance_preference_no,
+        looks_like_no_reminder_at_all,
         is_consulta_context,
         compute_in_seconds_from_date_hour,
     )
@@ -147,6 +148,8 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
         REMINDER_ASK_AGAIN,
         REMINDER_RETRY_SUFFIX,
         REMINDER_FAILED_NO_INFO,
+        EVENT_REGISTERED_NO_REMINDER,
+        PROACTIVE_NUDGE_12H_MSG,
     )
     from backend.user_store import get_user_language, get_user_timezone
     from backend.database import SessionLocal
@@ -266,6 +269,38 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
             return _retry_or_fail(flow, q)
 
         elif stage == STAGE_NEED_ADVANCE_PREFERENCE:
+            if looks_like_no_reminder_at_all(text):
+                # Cliente não quer NENHUM lembrete; evento já está na agenda. Nudge proativo 12h antes se evento importante.
+                session.metadata.pop(FLOW_KEY, None)
+                ctx.session_manager.save(session)
+                in_sec = flow.get("in_seconds")
+                event_name = (flow.get("content") or msg_content or "").strip()
+                try:
+                    from backend.proactive_nudge_events import is_important_event_for_proactive_nudge
+                    import time
+                    from zapista.cron.types import CronSchedule
+                    if event_name and in_sec and in_sec > 12 * 3600 and ctx.cron_service and is_important_event_for_proactive_nudge(event_name):
+                        try:
+                            from zapista.clock_drift import get_effective_time_ms
+                            at_ms = get_effective_time_ms() + (in_sec - 12 * 3600) * 1000
+                        except Exception:
+                            at_ms = int(time.time() * 1000) + (in_sec - 12 * 3600) * 1000
+                        nudge_msg = (PROACTIVE_NUDGE_12H_MSG.get(user_lang, PROACTIVE_NUDGE_12H_MSG["en"])).format(event_name=event_name)
+                        ctx.cron_service.add_job(
+                            name=(event_name[:26] + " (nudge)"),
+                            schedule=CronSchedule(kind="at", at_ms=at_ms),
+                            message=nudge_msg,
+                            deliver=True,
+                            channel=ctx.channel,
+                            to=ctx.chat_id,
+                            phone_for_locale=getattr(ctx, "phone_for_locale", None),
+                            delete_after_run=True,
+                            is_proactive_nudge=True,
+                        )
+                except Exception:
+                    pass
+                return EVENT_REGISTERED_NO_REMINDER.get(user_lang, EVENT_REGISTERED_NO_REMINDER["en"])
+
             if looks_like_advance_preference_no(text):
                 # Só na hora → criar 1 lembrete
                 in_sec = flow.get("in_seconds")
@@ -523,6 +558,21 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     cron_expr = intent.get("cron_expr")
     start_date = intent.get("start_date")
     depends_on = intent.get("depends_on_job_id")
+    date_in_past = intent.get("date_in_past")
+    if date_in_past and in_sec is not None and in_sec > 0:
+        from backend.confirmations import set_pending
+        from backend.locale import REMINDER_DATE_PAST_ASK_NEXT_YEAR
+        set_pending(
+            ctx.channel,
+            ctx.chat_id,
+            "date_past_next_year",
+            {
+                "in_seconds": in_sec,
+                "message": msg_text,
+                "has_deadline": bool(intent.get("has_deadline")),
+            },
+        )
+        return REMINDER_DATE_PAST_ASK_NEXT_YEAR.get(user_lang, REMINDER_DATE_PAST_ASK_NEXT_YEAR["pt-BR"])
     if not (in_sec or every_sec or cron_expr):
         # Encadeamento ("depois de X", "após Y") é tratado pelo LLM em linguagem natural
         msg_lower = (msg_text or "").lower()

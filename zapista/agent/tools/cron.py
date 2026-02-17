@@ -4,6 +4,14 @@ import time
 from typing import Any, TYPE_CHECKING
 
 from zapista.agent.tools.base import Tool
+
+def _effective_now_ms() -> int:
+    """Agora em ms (UTC); usa correção de clock_drift se houver desvio grande."""
+    try:
+        from zapista.clock_drift import get_effective_time_ms
+        return get_effective_time_ms()
+    except Exception:
+        return int(time.time() * 1000)
 from zapista.cron.service import CronService
 from zapista.cron.types import CronSchedule
 from zapista.cron.friendly_id import get_prefix_from_list
@@ -354,7 +362,7 @@ class CronTool(Tool):
                     pass
         # Pontual (não recorrente): após a entrega o job é removido do cron (esquecido pelo sistema); pode existir histórico noutra camada
         if in_seconds is not None and in_seconds > 0:
-            at_ms = int(time.time() * 1000) + in_seconds * 1000
+            at_ms = _effective_now_ms() + in_seconds * 1000
             schedule = CronSchedule(kind="at", at_ms=at_ms)
             delete_after_run = True
         # Recorrente: mantém-se listado até o utilizador remover ou fim da recorrência
@@ -393,7 +401,7 @@ class CronTool(Tool):
         at_warning_reminder = False
         if not depends_on_job_id:
             from zapista.cron.service import _compute_next_run
-            now_ms = int(time.time() * 1000)
+            now_ms = _effective_now_ms()
             next_ms = _compute_next_run(schedule, now_ms)
             if next_ms is not None:
                 from datetime import datetime
@@ -494,7 +502,7 @@ class CronTool(Tool):
                         lead_sec = AUTO_LEAD_LONG_EVENT_SECONDS
                         when_sec = in_seconds - lead_sec
                         if when_sec > 0:
-                            at_ms = int(time.time() * 1000) + when_sec * 1000
+                            at_ms = _effective_now_ms() + when_sec * 1000
                             self._cron.add_job(
                                 name=(message[:26] + " (antes)"),
                                 schedule=CronSchedule(kind="at", at_ms=at_ms),
@@ -526,7 +534,7 @@ class CronTool(Tool):
                             when_sec = in_seconds - lead_sec
                             if when_sec <= 0:
                                 continue
-                            at_ms = int(time.time() * 1000) + when_sec * 1000
+                            at_ms = _effective_now_ms() + when_sec * 1000
                             self._cron.add_job(
                                 name=(message[:26] + " (antes)"),
                                 schedule=CronSchedule(kind="at", at_ms=at_ms),
@@ -598,9 +606,14 @@ class CronTool(Tool):
         return msg
     
     def _list_jobs(self) -> str:
-        """Lista apenas os lembretes do utilizador atual (payload.to == chat_id). Isolamento por conversa."""
+        """Lista apenas os lembretes do utilizador atual (payload.to == chat_id). Isolamento por conversa.
+        Nudge proativo (is_proactive_nudge) não aparece — é surpresa 12h antes."""
         all_jobs = self._cron.list_jobs()
-        jobs = [j for j in all_jobs if getattr(j.payload, "to", None) == self._chat_id]
+        jobs = [
+            j for j in all_jobs
+            if getattr(j.payload, "to", None) == self._chat_id
+            and not getattr(j.payload, "is_proactive_nudge", False)
+        ]
         if not jobs:
             return "Nenhum lembrete agendado."
         lines = [f"- {j.name} (id: {j.id}, {j.schedule.kind})" for j in jobs]

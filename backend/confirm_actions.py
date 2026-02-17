@@ -139,6 +139,40 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
         if _is_recipe_list_cancel(content) or is_confirm_no(content):
             clear_pending(ctx.channel, ctx.chat_id)
             return "Ok, lista de compras cancelada."
+    # Data no passado: agendar para o ano que vem se confirmar
+    if pending and pending.get("action") == "date_past_next_year":
+        if is_confirm_no(content):
+            clear_pending(ctx.channel, ctx.chat_id)
+            return "Ok, não agendei. Quando quiseres, diz a data e hora de novo."
+        if is_confirm_yes(content):
+            clear_pending(ctx.channel, ctx.chat_id)
+            payload = pending.get("payload") or {}
+            in_sec = payload.get("in_seconds")
+            msg_text = (payload.get("message") or "").strip()
+            if in_sec and in_sec > 0 and msg_text and ctx.cron_tool:
+                ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+                result = await ctx.cron_tool.execute(
+                    action="add",
+                    message=msg_text,
+                    in_seconds=in_sec,
+                    has_deadline=bool(payload.get("has_deadline")),
+                )
+                from backend.locale import REMINDER_DATE_PAST_SCHEDULED
+                try:
+                    from backend.user_store import get_user_language
+                    from backend.database import SessionLocal
+                    db = SessionLocal()
+                    try:
+                        lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                        scheduled_msg = REMINDER_DATE_PAST_SCHEDULED.get(lang, REMINDER_DATE_PAST_SCHEDULED["pt-BR"])
+                    finally:
+                        db.close()
+                    return f"{scheduled_msg}\n\n{result}" if result else scheduled_msg
+                except Exception:
+                    return result or REMINDER_DATE_PAST_SCHEDULED.get("pt-BR", "Registado para o ano que vem. ✨")
+            return "Não consegui agendar. Tenta de novo com a data e hora."
+        return None
+
     if not is_confirm_reply(content):
         return None
     if not pending:

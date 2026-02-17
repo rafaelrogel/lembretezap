@@ -274,6 +274,23 @@ def looks_like_advance_preference_no(text: str) -> bool:
     )
 
 
+def looks_like_no_reminder_at_all(text: str) -> bool:
+    """Resposta indicando que NÃO quer NENHUM lembrete (nem na hora)."""
+    t = (text or "").strip().lower()
+    if not t or len(t) > 100:
+        return False
+    no_phrases = (
+        "não quero", "nao quero", "não preciso", "nao preciso", "dispensa", "dispenso",
+        "não é preciso", "nao e preciso", "não precisa", "nao precisa", "não lembrar", "nao lembrar",
+        "não precisa lembrar", "nao precisa lembrar", "sem lembrete", "não quero lembrete",
+        "nao quero lembrete", "skip", "pular", "nada", "obrigado não", "obrigada não",
+        "don't need", "no need", "skip reminder", "no reminder", "don't remind",
+        "no hace falta", "no necesito", "no quiero", "dispenso", "saltar",
+        "não obrigado", "nao obrigado", "não obrigada", "nao obrigada",
+    )
+    return any(p in t for p in no_phrases)
+
+
 def is_consulta_context(content: str) -> bool:
     """True se o conteúdo sugere consulta (médico, dentista, etc.) → usar 'A que horas é a sua consulta?'."""
     if not content:

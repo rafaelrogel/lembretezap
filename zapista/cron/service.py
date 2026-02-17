@@ -15,6 +15,9 @@ from typing import Any, Callable, Coroutine
 
 from loguru import logger
 
+# Tipo: lista de (channel, to, [(job_id, job_name), ...])
+StaleRemovals = list[tuple[str, str, list[tuple[str, str]]]]
+
 from zapista.cron.friendly_id import (
     generate_friendly_job_id,
     generate_friendly_job_id_with_prefix,
@@ -23,8 +26,12 @@ from zapista.cron.types import CronJob, CronJobState, CronPayload, CronSchedule,
 
 
 def _now_ms() -> int:
-    """Current time in ms since epoch (UTC). All cron comparisons use this."""
-    return int(time.time() * 1000)
+    """Current time in ms since epoch (UTC). Uses clock_drift.get_effective_time_ms() se houver correção automática."""
+    try:
+        from zapista.clock_drift import get_effective_time_ms
+        return get_effective_time_ms()
+    except Exception:
+        return int(time.time() * 1000)
 
 
 def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
@@ -44,11 +51,15 @@ def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
             from croniter import croniter
             from zoneinfo import ZoneInfo
             # Só considerar ocorrências >= not_before_ms (evita disparar antes da data de início)
-            start_epoch = time.time()
+            try:
+                from zapista.clock_drift import get_effective_time
+                start_epoch = get_effective_time()
+            except Exception:
+                start_epoch = time.time()
             if schedule.not_before_ms and schedule.not_before_ms > now_ms:
                 start_epoch = schedule.not_before_ms / 1000.0
             elif schedule.not_before_ms and schedule.not_before_ms > 0:
-                start_epoch = max(time.time(), schedule.not_before_ms / 1000.0)
+                start_epoch = max(start_epoch, schedule.not_before_ms / 1000.0)
             # Usar timezone do utilizador para interpretar "0 9 * * *" como 9h no seu fuso (não no do VPS)
             if schedule.tz:
                 try:
@@ -79,12 +90,16 @@ class CronService:
     def __init__(
         self,
         store_path: Path,
-        on_job: Callable[[CronJob], Coroutine[Any, Any, str | None]] | None = None
+        on_job: Callable[[CronJob], Coroutine[Any, Any, str | None]] | None = None,
+        on_stale_removed: Callable[[StaleRemovals], None] | None = None,
     ):
         self.store_path = store_path
         self.on_job = on_job  # Callback to execute job, returns response text
+        self.on_stale_removed = on_stale_removed  # Chamado 1x/dia com lembretes removidos (at no passado)
         self._store: CronStore | None = None
         self._timer_task: asyncio.Task | None = None
+        self._daily_stale_task: asyncio.Task | None = None
+        self._stale_loop_task: asyncio.Task | None = None
         self._running = False
     
     def _load_store(self) -> CronStore:
@@ -125,6 +140,7 @@ class CronService:
                             deadline_check_for_job_id=j["payload"].get("deadlineCheckForJobId"),
                             deadline_main_job_id=j["payload"].get("deadlineMainJobId"),
                             deadline_post_index=j["payload"].get("deadlinePostIndex"),
+                            is_proactive_nudge=j["payload"].get("isProactiveNudge", False),
                         ),
                         state=CronJobState(
                             next_run_at_ms=j.get("state", {}).get("nextRunAtMs"),
@@ -184,6 +200,7 @@ class CronService:
                         "deadlineCheckForJobId": getattr(j.payload, "deadline_check_for_job_id", None),
                         "deadlineMainJobId": getattr(j.payload, "deadline_main_job_id", None),
                         "deadlinePostIndex": getattr(j.payload, "deadline_post_index", None),
+                        "isProactiveNudge": getattr(j.payload, "is_proactive_nudge", False),
                     },
                     "state": {
                         "nextRunAtMs": j.state.next_run_at_ms,
@@ -209,6 +226,14 @@ class CronService:
         self._recompute_next_runs()
         self._save_store()
         self._arm_timer()
+        # Limpeza de jobs "at" no passado: 1x ao arranque e depois 1x por dia
+        removals = self.remove_stale_at_jobs()
+        if removals and self.on_stale_removed:
+            try:
+                self.on_stale_removed(removals)
+            except Exception as e:
+                logger.warning(f"Cron: on_stale_removed failed: {e}")
+        self._daily_stale_task = asyncio.create_task(self._daily_stale_loop())
         logger.info(f"Cron service started with {len(self._store.jobs if self._store else [])} jobs")
     
     def stop(self) -> None:
@@ -217,6 +242,9 @@ class CronService:
         if self._timer_task:
             self._timer_task.cancel()
             self._timer_task = None
+        if self._daily_stale_task:
+            self._daily_stale_task.cancel()
+            self._daily_stale_task = None
     
     def _recompute_next_runs(self) -> None:
         """Recompute next run times for all enabled jobs."""
@@ -253,6 +281,24 @@ class CronService:
                 await self._on_timer()
         
         self._timer_task = asyncio.create_task(tick())
+
+    async def _daily_stale_loop(self) -> None:
+        """Uma vez por dia: remove jobs 'at' no passado e regista notificação (callback)."""
+        while self._running:
+            try:
+                await asyncio.sleep(24 * 3600)
+                if not self._running:
+                    break
+                removals = self.remove_stale_at_jobs()
+                if removals and self.on_stale_removed:
+                    try:
+                        self.on_stale_removed(removals)
+                    except Exception as e:
+                        logger.warning(f"Cron: on_stale_removed failed: {e}")
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.warning(f"Cron: daily stale loop error: {e}")
     
     async def _on_timer(self) -> None:
         """Handle timer tick - run due jobs."""
@@ -335,6 +381,7 @@ class CronService:
         deadline_main_job_id: str | None = None,
         deadline_post_index: int | None = None,
         phone_for_locale: str | None = None,
+        is_proactive_nudge: bool = False,
     ) -> CronJob:
         """Add a new job. suggested_prefix: quando dado (ex. pelo MIMO), usa para o ID em vez de derivar da mensagem."""
         logger.debug(
@@ -437,6 +484,7 @@ class CronService:
                 deadline_check_for_job_id=deadline_check_for_job_id,
                 deadline_main_job_id=deadline_main_job_id,
                 deadline_post_index=deadline_post_index,
+                is_proactive_nudge=is_proactive_nudge,
             ),
             created_at_ms=now,
             updated_at_ms=now,
@@ -493,6 +541,42 @@ class CronService:
             self._save_store()
             self._arm_timer()
         return count
+
+    def remove_stale_at_jobs(self) -> list[tuple[str, str, list[tuple[str, str]]]]:
+        """
+        Remove jobs com kind=\"at\" cujo at_ms já passou (ou next_run_at_ms é None).
+        Retorna lista de (channel, to, [(job_id, job_name), ...]) para notificar o utilizador.
+        Deve ser chamado 1x por dia; a notificação é enviada só após 2 msgs do user (anti-spam).
+        """
+        store = self._load_store()
+        now = _now_ms()
+        to_remove: list[CronJob] = []
+        notif_by_chat: dict[tuple[str | None, str | None], list[tuple[str, str]]] = {}
+        for j in store.jobs:
+            if not j.enabled or j.schedule.kind != "at":
+                continue
+            at_ms = getattr(j.schedule, "at_ms", None)
+            next_ms = getattr(j.state, "next_run_at_ms", None)
+            if at_ms is None:
+                continue
+            if at_ms <= now or next_ms is None:
+                to_remove.append(j)
+                ch = getattr(j.payload, "channel", None)
+                to = getattr(j.payload, "to", None)
+                if ch and to:
+                    key = (ch, to)
+                    notif_by_chat.setdefault(key, []).append((j.id, (j.name or j.id)[:80]))
+        for j in to_remove:
+            store.jobs = [x for x in store.jobs if x.id != j.id]
+        if to_remove:
+            self._save_store()
+            self._arm_timer()
+            logger.info(f"Cron: removed {len(to_remove)} stale at jobs")
+        return [
+            (ch, to, jobs)
+            for (ch, to), jobs in notif_by_chat.items()
+            if ch and to
+        ]
 
     def remove_job(self, job_id: str) -> bool:
         """Remove a job by ID."""

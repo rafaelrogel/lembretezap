@@ -592,6 +592,28 @@ REMINDER_TIME_PAST_TODAY: dict[LangCode, str] = {
     "en": "That time has already passed today. Should I schedule it for tomorrow at the same time?",
 }
 
+# Data inteira no passado: avisar e pedir confirmação para agendar no ano seguinte
+REMINDER_DATE_PAST_ASK_NEXT_YEAR: dict[LangCode, str] = {
+    "pt-PT": "Essa data já passou. Queres que eu agende para o ano que vem à mesma data e hora? (1=sim 2=não)",
+    "pt-BR": "Essa data já passou. Quer que eu agende para o ano que vem à mesma data e hora? (1=sim 2=não)",
+    "es": "Esa fecha ya pasó. ¿Quieres que lo programe para el año que viene a la misma fecha y hora? (1=sí 2=no)",
+    "en": "That date has already passed. Should I schedule it for next year at the same date and time? (1=yes 2=no)",
+}
+REMINDER_DATE_PAST_SCHEDULED: dict[LangCode, str] = {
+    "pt-PT": "Registado para o ano que vem. ✨",
+    "pt-BR": "Registrado para o ano que vem. ✨",
+    "es": "Programado para el año que viene. ✨",
+    "en": "Scheduled for next year. ✨",
+}
+
+# Lembretes removidos por estarem no passado (bug/API): desculpa e compromisso
+STALE_REMOVAL_APOLOGY: dict[LangCode, str] = {
+    "pt-PT": "Peço desculpa: removi {count} lembrete(s) que estavam no passado e não deviam estar na lista: {removed_list}. Já aprendi com isto e o erro não se vai repetir. 🙏",
+    "pt-BR": "Peço desculpa: removi {count} lembrete(s) que estavam no passado e não deviam estar na lista: {removed_list}. Já aprendi com isso e o erro não vai se repetir. 🙏",
+    "es": "Lo siento: he eliminado {count} recordatorio(s) que estaban en el pasado y no deberían estar en la lista: {removed_list}. Ya he aprendido y el error no se repetirá. 🙏",
+    "en": "I'm sorry: I removed {count} reminder(s) that were in the past and shouldn't have been in the list: {removed_list}. I've learned from this and the error won't happen again. 🙏",
+}
+
 # Data vaga: pedir dia (ex.: "médico às 10h" → "Que dia é a consulta?")
 REMINDER_ASK_DATE_CONSULTA: dict[LangCode, str] = {
     "pt-PT": "Que dia é a tua consulta? Amanhã? Hoje? Segunda?",
@@ -642,6 +664,22 @@ REMINDER_ASK_ADVANCE_AMOUNT: dict[LangCode, str] = {
     "pt-BR": "Quanto tempo antes? Por ex.: 30 min, 1 hora...",
     "es": "¿Cuánto tiempo antes? Ej.: 30 min, 1 hora...",
     "en": "How long before? E.g.: 30 min, 1 hour...",
+}
+
+# Cliente disse que não quer lembrete — confirmação curta
+EVENT_REGISTERED_NO_REMINDER: dict[LangCode, str] = {
+    "pt-PT": "Ok, registado na agenda. Sem lembrete. 😊",
+    "pt-BR": "Ok, registrado na agenda. Sem lembrete. 😊",
+    "es": "Ok, registrado en la agenda. Sin recordatorio. 😊",
+    "en": "Ok, added to your agenda. No reminder. 😊",
+}
+
+# Nudge proativo 12h antes (quando não pediu lembrete mas o evento é importante). {event_name} = nome do evento
+PROACTIVE_NUDGE_12H_MSG: dict[LangCode, str] = {
+    "pt-PT": "🫶 Sei que não pediste para eu lembrar, mas sou um robô proativo e acho que este evento é especial: *{event_name}*. Não te esqueças! 😊",
+    "pt-BR": "🫶 Sei que você não pediu para eu lembrar, mas sou um robô proativo e acho que esse evento é importante: *{event_name}*. Não esqueça! 😊",
+    "es": "🫶 Sé que no pediste que te recordara, pero soy un robot proactivo y me parece que este evento es especial: *{event_name}*. ¡No lo olvides! 😊",
+    "en": "🫶 I know you didn't ask me to remind you, but I'm a proactive robot and this event seems special to me: *{event_name}*. Don't forget! 😊",
 }
 
 # Resposta inválida — insistir (X de 3 tentativas)

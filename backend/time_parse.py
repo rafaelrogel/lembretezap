@@ -205,8 +205,17 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                     message = strip_pattern(text, _pat_data_hora)
                     return {"in_seconds": int(delta), "message": clean_message(message)}
                 if target < now:
-                    target = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
-                    delta = (target - now).total_seconds()
+                    # Data inteira no passado: não agendar; avisar e pedir confirmação para ano seguinte
+                    target_next = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                    delta_next = (target_next - now).total_seconds()
+                    if delta_next > 0 and delta_next <= 86400 * 366:
+                        message = strip_pattern(text, _pat_data_hora)
+                        return {
+                            "date_in_past": True,
+                            "in_seconds": int(delta_next),
+                            "message": clean_message(message),
+                        }
+                    return None
                 if delta > 0 and delta <= 86400 * 365:
                     message = strip_pattern(text, _pat_data_hora)
                     return {"in_seconds": int(delta), "message": clean_message(message)}
@@ -231,7 +240,18 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                 tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
                 target = datetime(ano, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
                 if target < now:
-                    target = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                    # Data no passado: pedir confirmação para ano seguinte
+                    target_next = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                    delta_next = (target_next - now).total_seconds()
+                    if delta_next > 0 and delta_next <= 86400 * 366:
+                        _pat_data = r"(?:dia\s+)?\d{1,2}[ºª]?\s*(?:de|/)\s*(?:\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de\s+\d{4})?\s*"
+                        message = strip_pattern(text, _pat_data)
+                        return {
+                            "date_in_past": True,
+                            "in_seconds": int(delta_next),
+                            "message": clean_message(message),
+                        }
+                    return None
                 delta = (target - now).total_seconds()
                 if delta > 0 and delta <= 86400 * 365:
                     _pat_data = r"(?:dia\s+)?\d{1,2}[ºª]?\s*(?:de|/)\s*(?:\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de\s+\d{4})?\s*"

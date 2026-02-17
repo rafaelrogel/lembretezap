@@ -24,6 +24,7 @@ from zapista.tts.config import (
     tts_tmp_dir,
 )
 from zapista.tts.piper_tts import piper_synthesize
+from zapista.tts.preprocess import prepare_text_for_tts
 from zapista.tts.voices import get_voice_paths, resolve_locale_for_audio
 
 
@@ -127,12 +128,14 @@ def synthesize_voice_note(
     if not text:
         return None
 
+    locale = resolve_locale_for_audio(chat_id, locale_override, phone_for_locale)
+    text = prepare_text_for_tts(text, locale)
+
     words = len(text.split())
     if words > tts_max_words():
         logger.debug(f"TTS skip: {words} words > {tts_max_words()}")
         return None
 
-    locale = resolve_locale_for_audio(chat_id, locale_override, phone_for_locale)
     model_path, config_path = get_voice_paths(locale)
     if not model_path or not config_path:
         logger.debug(f"TTS: no voice for locale {locale}")

@@ -38,6 +38,19 @@ O `docker-compose.yml` pode usar `TZ=${TZ:-UTC}` por defeito. Para ver logs na h
 
 Isto não altera a hora de disparo dos lembretes (essa é sempre baseada no fuso do utilizador guardado na BD).
 
+### Verificação do relógio (clock drift) — a cada 45 min + correção automática
+
+O gateway executa em background uma verificação a cada **45 minutos**: compara o relógio do servidor com uma fonte externa (worldtimeapi.org).
+
+- **Se o desvio for > 60 s**: regista um log em nível **ERROR** com a tag `CLOCK_DRIFT_ALERT` e aplica **correção automática em memória**: um offset é guardado e todo o agendamento (cron e criação de lembretes) passa a usar a hora externa como referência até ao próximo check. Assim os lembretes continuam a disparar na hora certa mesmo com o relógio do host errado.
+- **Log de correção**: quando o offset é aplicado, aparece `CLOCK_DRIFT_CORRECTED` em WARNING.
+- **Quando o desvio volta a ser ≤ 60 s**: o offset é removido (ex.: depois de o NTP corrigir o host).
+
+Para monitorizar:
+
+- **Grep nos logs**: `grep CLOCK_DRIFT_ALERT` (alerta) ou `grep CLOCK_DRIFT_CORRECTED` (correção aplicada).
+- **Alerting**: Configura o teu agregador (Sentry, Datadog, CloudWatch) para alertar em ERROR com `CLOCK_DRIFT_ALERT`. A correção automática reduz o impacto, mas convém corrigir NTP no host (`timedatectl set-ntp true` ou equivalente).
+
 ---
 
 ## 1. Config antes do primeiro deploy

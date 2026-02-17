@@ -243,9 +243,19 @@ def gateway(
     scope_model = (config.agents.defaults.scope_model or "").strip() or None
     scope_provider = _make_provider_for_model(config, scope_model) if scope_model else None
     
-    # Create cron service first (callback set after agent creation)
+    # Create cron service: limpeza diária de jobs "at" no passado → notificação após 2 msgs (anti-spam)
     cron_store_path = get_data_dir() / "cron" / "jobs.json"
-    cron = CronService(cron_store_path)
+
+    def on_stale_removed(removals: list) -> None:
+        try:
+            from backend.stale_removal_notifications import add_removals
+            for ch, to, jobs in removals:
+                if ch and to and jobs:
+                    add_removals(ch, to, jobs)
+        except Exception as e:
+            logger.warning(f"stale_removal_notifications add_removals failed: {e}")
+
+    cron = CronService(cron_store_path, on_stale_removed=on_stale_removed)
     
     # Create agent with cron service
     perplexity_key = (config.providers.perplexity.api_key or "").strip() if config.providers.perplexity else ""
@@ -649,7 +659,8 @@ def gateway(
     if cron_status["jobs"] > 0:
         console.print(f"[green]✓[/green] Cron: {cron_status['jobs']} scheduled jobs")
     
-    console.print(f"[green]✓[/green] Heartbeat: every 30m")
+    console.print("[green]✓[/green] Heartbeat: every 30m")
+    console.print("[green]✓[/green] Clock drift check: every 45m (alerta se desvio > 60s)")
 
     data_dir = get_data_dir()
     wa_channel = channels.get_channel("whatsapp")
@@ -671,6 +682,14 @@ def gateway(
                 )
             except Exception as e:
                 logger.debug(f"Metrics snapshot failed: {e}")
+
+    async def _clock_drift_loop():
+        """Verifica desvio do relógio do servidor a cada 45 min; alerta ERROR se > 60s."""
+        try:
+            from zapista.clock_drift import clock_drift_loop
+        except ImportError:
+            return
+        await clock_drift_loop()
     
     async def run():
         # Fila Redis: iniciar feeder só com event loop a correr (evita RuntimeError: no running event loop)
@@ -681,10 +700,12 @@ def gateway(
             await cron.start()
             await heartbeat.start()
             metrics_task = asyncio.create_task(_metrics_loop())
+            clock_drift_task = asyncio.create_task(_clock_drift_loop())
             await asyncio.gather(
                 agent.run(),
                 channels.start_all(),
                 metrics_task,
+                clock_drift_task,
             )
         except KeyboardInterrupt:
             console.print("\nShutting down...")

@@ -633,6 +633,19 @@ class AgentLoop:
         except Exception:
             pass
 
+        # Notificação atrasada: lembretes removidos (no passado) — enviar só após 2 msgs do cliente (anti-spam)
+        try:
+            from backend.stale_removal_notifications import consume as consume_stale_removal
+            send_apology, apology_text = consume_stale_removal(msg.channel, msg.chat_id)
+            if send_apology and apology_text:
+                await self.bus.publish_outbound(OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content=apology_text,
+                ))
+        except Exception:
+            pass
+
         self._set_tool_context(msg.channel, msg.chat_id, msg.metadata.get("phone_for_locale") if msg.metadata else None)
 
         # Resumo da semana/mês: entregar apenas no primeiro contacto (aproveitar sessão aberta pelo cliente)
