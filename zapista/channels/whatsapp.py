@@ -166,6 +166,8 @@ class WhatsAppChannel(BaseChannel):
             not chat_id_str.strip().endswith(WHATSAPP_GROUP_SUFFIX)
             and self.is_allowed_tts(chat_id_str)
         )
+        if audio_mode:
+            logger.info(f"TTS: audio_mode=True chat_id={str(msg.chat_id)[:24]}... tts_allowed={tts_allowed} content_len={len(msg.content or '')}")
         if audio_mode and msg.content and tts_allowed:
             try:
                 from zapista.tts.service import synthesize_voice_note, split_text_for_tts
@@ -182,11 +184,16 @@ class WhatsAppChannel(BaseChannel):
                         )
                         if ogg and ogg.exists():
                             ogg_paths.append(ogg)
+                    logger.info(f"TTS: tts_enabled=1 chunks={len(chunks)} ogg_paths={len(ogg_paths)} (Piper em PIPER_BIN/TTS_MODELS_BASE)")
                     if not ogg_paths and msg.content:
                         logger.info("TTS requested but no audio generated (check TTS_MODELS_BASE/Piper voices and logs). Sending text only.")
             except Exception as e:
                 logger.warning(f"TTS synthesize failed: {e}")
 
+        if audio_mode and not tts_allowed:
+            logger.info("TTS: audio_mode=True but tts_allowed=False (check allow_from_tts in config or group chat)")
+        if audio_mode and not (msg.content or "").strip():
+            logger.info("TTS: audio_mode=True but content empty; sending nothing or text only")
         try:
             if ogg_paths:
                 for i, ogg_path in enumerate(ogg_paths):
