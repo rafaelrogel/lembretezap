@@ -173,7 +173,7 @@ class WhatsAppChannel(BaseChannel):
                 from zapista.tts.service import synthesize_voice_note, split_text_for_tts
                 from zapista.tts.config import tts_max_words, tts_enabled
                 if not tts_enabled():
-                    logger.info("TTS requested but TTS_ENABLED is not set; sending text only. Set TTS_ENABLED=1 and configure Piper for voice replies.")
+                    logger.info("TTS requested but TTS disabled or Piper not configured; sending text only. Set TTS_ENABLED=1 and PIPER_BIN/TTS_MODELS_BASE for voice replies.")
                 else:
                     chunks = split_text_for_tts(msg.content, tts_max_words())
                     for chunk in chunks:

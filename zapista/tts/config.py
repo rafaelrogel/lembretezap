@@ -4,8 +4,14 @@ import os
 
 
 def tts_enabled() -> bool:
-    """True se TTS estiver ativa."""
-    return os.environ.get("TTS_ENABLED", "").lower() in ("1", "true", "yes")
+    """True se TTS estiver ativa. Se TTS_ENABLED não estiver definido, ativa quando Piper estiver configurado."""
+    explicit = os.environ.get("TTS_ENABLED", "").strip().lower()
+    if explicit in ("1", "true", "yes"):
+        return True
+    if explicit in ("0", "false", "no"):
+        return False
+    # Default: ativar se Piper estiver configurado (bin + models)
+    return bool(piper_bin() and os.environ.get("TTS_MODELS_BASE", "").strip())
 
 
 def tts_max_audio_seconds() -> float:
