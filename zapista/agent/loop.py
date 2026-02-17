@@ -547,12 +547,23 @@ class AgentLoop:
         }
         return fallbacks.get(user_lang, fallbacks["en"])
 
+    def _write_client_memory_file(self, db, chat_id: str) -> None:
+        """Atualiza o ficheiro de memória do cliente (workspace/users/<chat_id>.md) com nome, timezone, idioma da BD."""
+        try:
+            from backend.client_memory import build_client_memory_content, write_client_memory_file
+            content = build_client_memory_content(db, chat_id)
+            if content.strip():
+                write_client_memory_file(self.workspace, chat_id, content)
+        except Exception as e:
+            logger.debug(f"Client memory file write failed: {e}")
+
     def _sync_onboarding_to_memory(self, db, chat_id: str, session_key: str) -> None:
-        """Regista os dados do onboarding na memória longa do cliente (MEMORY.md) para o agente saber e aceder."""
+        """Regista os dados do onboarding na memória longa do agente e no ficheiro do cliente (workspace/users/<chat_id>.md)."""
         try:
             from backend.onboarding_memory import build_onboarding_profile_md, SECTION_HEADING
             md = build_onboarding_profile_md(db, chat_id)
             self.context.memory.upsert_section(session_key, SECTION_HEADING, md)
+            self._write_client_memory_file(db, chat_id)
         except Exception as e:
             logger.debug(f"Onboarding memory sync failed: {e}")
 
@@ -725,6 +736,7 @@ class AgentLoop:
                 if requested_lang is not None:
                     if requested_lang != user_lang:
                         set_user_language(db, msg.chat_id, requested_lang)
+                        self._write_client_memory_file(db, msg.chat_id)
                         return OutboundMessage(
                             channel=msg.channel,
                             chat_id=msg.chat_id,
@@ -761,8 +773,8 @@ class AgentLoop:
         except Exception as e:
             logger.debug(f"Calling-phrases check failed: {e}")
 
-        # Idioma: 1º número do telemóvel, 2º configuração guardada, 3º língua do chat (se pt-PT/pt-BR/es/en)
-        # Em caso de falha (ex.: DB), usar sempre idioma do número — nunca assumir "en" sem número.
+        # Idioma: preferência guardada (fala em ptbr, /lang) tem prioridade; senão infere pelo número (phone_for_locale).
+        # Timezone é independente. Em falha de DB usa número para não assumir "en" à toa.
         user_lang: str = "en"
         try:
             from backend.database import SessionLocal
@@ -776,7 +788,6 @@ class AgentLoop:
             try:
                 phone_for_locale = msg.metadata.get("phone_for_locale")
                 user_lang = get_user_language(db, msg.chat_id, phone_for_locale)
-                # Pedido de idioma já tratado no bloco antecipado (antes do calling)
             finally:
                 db.close()
         except Exception as e:
@@ -784,7 +795,6 @@ class AgentLoop:
             id_for_locale = msg.metadata.get("phone_for_locale") or msg.chat_id
             user_lang = phone_to_default_language(id_for_locale)
 
-        # Redundância: prefere idioma do número quando DB diz "en" mas número é lusófono/hispânico
         user_lang = resolve_response_language(
             user_lang, msg.chat_id, msg.metadata.get("phone_for_locale")
         )
@@ -1075,6 +1085,16 @@ class AgentLoop:
             )
             result = await handlers_route(ctx, msg.content)
             if result is not None:
+                # Atualizar ficheiro de memória do cliente (ex.: /lang, /tz alteram dados na BD)
+                try:
+                    from backend.database import SessionLocal as _DB
+                    _db = _DB()
+                    try:
+                        self._write_client_memory_file(_db, msg.chat_id)
+                    finally:
+                        _db.close()
+                except Exception:
+                    pass
                 # Handler pode devolver lista (ex.: /help = [texto principal, comandos slash]) → enviar extras em mensagens separadas
                 if isinstance(result, list):
                     for part in result[1:]:

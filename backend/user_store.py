@@ -28,8 +28,9 @@ def get_or_create_user(db: Session, phone: str) -> User:
 
 
 def get_user_language(db: Session, chat_id: str, phone_for_locale: str | None = None) -> LangCode:
-    """Idioma do utilizador: guardado ou inferido pelo prefixo do número (pt-BR, pt-PT, es, en).
-    phone_for_locale: quando sender é LID, usar o número (pn) para inferir idioma.
+    """Idioma do utilizador. Prioridade: 1) preferência guardada (set_user_language); 2) inferência pelo número.
+    O valor guardado nunca é sobrescrito pelo número; timezone é independente.
+    phone_for_locale: quando chat_id é LID (ex.: 369...@lid), passar o número real para inferir idioma.
     """
     from backend.locale import SUPPORTED_LANGS
     user = get_or_create_user(db, chat_id)

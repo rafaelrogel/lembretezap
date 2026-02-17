@@ -71,18 +71,11 @@ def resolve_response_language(
     phone_for_locale: str | None = None,
 ) -> LangCode:
     """
-    Redundância: usa o número de telefone para corrigir idioma em caso de onboarding mal feito.
-
-    - Quando a DB tem "en" mas o prefixo do número sugere pt-BR, pt-PT ou es, prefere o idioma do número.
-    - Quando o número é do Brasil (55) ou Portugal (351) mas a DB tem "es", prefere pt-BR/pt-PT
-      (evita insistir em espanhol com quem tem número lusófono e já pediu português).
+    Retorna o idioma a usar nas respostas.
+    Regra: o idioma guardado na DB (escolha explícita do utilizador) tem sempre prioridade.
+    Número e timezone não sobrescrevem a escolha; só entram quando não há idioma guardado
+    (get_user_language usa phone_for_locale para inferir nesse caso).
     """
-    phone_lang = phone_to_default_language(phone_for_locale or chat_id)
-    if db_lang == "en" and phone_lang in ("pt-BR", "pt-PT", "es"):
-        return phone_lang
-    # Número Brasil/Portugal mas DB tem es → corrigir para não insistir em espanhol
-    if db_lang == "es" and phone_lang in ("pt-BR", "pt-PT"):
-        return phone_lang
     return db_lang
 
 
@@ -94,11 +87,13 @@ _LANG_SWITCH_PATTERNS: list[tuple[re.Pattern, LangCode]] = [
     (re.compile(r"\b(?:speak\s+)?(?:in\s+)?portuguese\s+from\s+portugal\b", re.I), "pt-PT"),
     (re.compile(r"\bpt[- ]?pt\b", re.I), "pt-PT"),
     (re.compile(r"\bportugu[eê]s\s+europeu\b", re.I), "pt-PT"),
+    (re.compile(r"\bptpt\b", re.I), "pt-PT"),
     # Português Brasil
     (re.compile(r"\b(?:fala?r?\s+em\s+)?portugu[eê]s\s+(?:do\s+)?brasil\b", re.I), "pt-BR"),
     (re.compile(r"\b(?:fala?r?\s+em\s+)?portugu[eê]s\s+(?:do\s+)?br\b", re.I), "pt-BR"),
     (re.compile(r"\b(?:speak\s+)?(?:in\s+)?brazilian\s+portuguese\b", re.I), "pt-BR"),
     (re.compile(r"\bpt[- ]?br\b", re.I), "pt-BR"),
+    (re.compile(r"\bptbr\b", re.I), "pt-BR"),
     # Pedido de NÃO falar em espanhol → inferir pt-BR/pt-PT pelo número
     (re.compile(r"\b(?:n[aã]o\s+)?fala?e?\s+em\s+espanhol\b", re.I), "pt"),
     (re.compile(r"\bpara\s+de\s+fala?r?\s+em\s+espanhol\b", re.I), "pt"),

@@ -25,7 +25,9 @@ O servidor/VPS pode estar em UTC ou outro fuso. O sistema e a LLM comparam com a
 2. **Ficheiro por cliente**  
    É criado/atualizado um ficheiro por cliente em:
    - `workspace/users/<chat_id_safe>.md`  
-   O conteúdo é o mesmo da secção "Cliente (memória)" (nome, timezone, idioma, instrução de fuso e, se existir, `context_notes`). O sistema e a LLM podem sempre aceder a este ficheiro; ele é atualizado sempre que o contexto do agente é construído para esse cliente (refletindo assim alterações na BD).
+   O conteúdo é o mesmo da secção "Cliente (memória)" (nome, timezone, idioma, instrução de fuso e, se existir, `context_notes`). O ficheiro é atualizado:
+   - **Imediatamente** quando o utilizador responde às perguntas do onboarding (nome, cidade/fuso) ou pede mudança de idioma ("fala em ptbr", /lang, /tz);
+   - E sempre que o contexto do agente é construído para esse cliente (cada mensagem).
 
 3. **Entrega de lembretes**  
    O cron e a entrega de lembretes já usam o timezone do utilizador (BD) para agendar e enviar na hora local. A memória do cliente reforça esse comportamento no contexto da LLM.
@@ -50,6 +52,6 @@ ALTER TABLE users ADD COLUMN context_notes TEXT;
 |------|--------|-----|
 | BD | `User.preferred_name`, `User.timezone`, `User.language` (e opcionalmente `context_notes`) | Fonte de verdade; usado para construir a memória e o ficheiro |
 | System prompt | Secção "Cliente (memória)" | LLM vê sempre nome, timezone, idioma e instrução de fuso |
-| Ficheiro | `workspace/users/<chat_id_safe>.md` | Um ficheiro por cliente; criado/atualizado ao construir o contexto; sistema e LLM podem aceder |
+| Ficheiro | `workspace/users/<chat_id_safe>.md` | Um ficheiro por cliente; atualizado ao construir o contexto e **logo após** respostas de onboarding ou /lang, /tz; sistema e LLM podem aceder |
 
 Assim, o nome, o timezone e o idioma de comunicação ficam registados na memória do cliente, o sistema e a LLM acedem sempre a esse contexto, e os horários são fornecidos no fuso do cliente, com a devida conversão em relação ao horário do servidor/VPS, para que os lembretes cheguem na hora certa no local do cliente.

@@ -200,12 +200,13 @@ def get_calling_phrases() -> set[str]:
     return _CALLING_PHRASES
 
 
-# Palavras que indicam pedido concreto (lembrete, agenda, etc.) — não tratar como "chamada" mesmo que contenha "responde" ou "tá aí"
+# Palavras que indicam pedido concreto — não tratar como "chamada"; encaminhar ao LLM
 _TASK_KEYWORDS = frozenset([
     "lembrete", "lembretes", "recordatorio", "recordatorios", "reminder", "reminders",
     "próximo", "proximo", "próximos", "next", "agenda", "evento", "eventos", "event",
     "lista", "listas", "list", "hoje", "amanhã", "amanha", "tomorrow", "today",
     "horário", "horario", "schedule", "que horas", "qual é o", "qual e o", "what is my",
+    "qual é o meu", "qual e o meu", "meu nome", "my name", "mi nombre",
     "quero", "preciso", "preciso de", "need", "want", "adiciona", "add", "remover",
     "criar", "criar um", "create", "marcar", "agendar", "schedule",
 ])
@@ -225,10 +226,9 @@ def is_calling_message(content: str | None, max_length: int = 42) -> bool:
     if text.startswith("/"):
         return False
     lower = text.lower()
-    # Se contém pergunta (?) e palavras de pedido concreto, não é só "chamada"
-    if "?" in lower:
-        if any(kw in lower for kw in _TASK_KEYWORDS):
-            return False
+    # Se contém palavras de pedido concreto (lembrete, nome, agenda, etc.), não é "chamada" — encaminhar ao LLM
+    if any(kw in lower for kw in _TASK_KEYWORDS):
+        return False
     phrases = get_calling_phrases()
     return any(p in lower for p in phrases)
 
