@@ -47,6 +47,17 @@ RE_NL_ADD_LISTA_CATEGORIA = re.compile(
     r"^(?:add|adicione|adiciona)\s+listas?\s+(filmes?|livros?|m[uú]sicas?|receitas?|notas?|sites?|links?)\s+(.+)$",
     re.I,
 )
+# NL: "cria/faça/mostre uma lista de X ..." (PT) + equivalentes ES/EN → list_add
+# PT: cria, crie, faça, faz, me dê, me de, de-me, dê-me, mostre, mostra, exiba
+# ES: crea, crear, haz, dame, muéstrame, muestra, exhibe
+# EN: create, make, give me, show me, show, display
+RE_NL_CRIA_LISTA_DE = re.compile(
+    r"^(?:cria|crie|faça|faz|me\s+d[êe]|de-me|dê-me|mostre|mostra|exiba"
+    r"|crea|crear|haz|dame|muéstrame|muestra|exhibe"
+    r"|create|make|give\s+me|show\s+me|show|display)\s+"
+    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?(\w+)\s+(.+)$",
+    re.I,
+)
 # NL: "coloca/põe/anota X na lista", "põe leite na lista" → list_add mercado
 RE_NL_POR_LISTA = re.compile(
     r"^(?:coloca|coloque|p[oô]e|põe|anota|anotar|inclui|incluir|marca)\s+(.+?)\s+(?:na|no|à|a)\s+(?:lista|listas)\s*$",
@@ -75,15 +86,30 @@ RE_NL_FILME_LIVRO_VER = re.compile(
     re.I,
 )
 
-# Normalizar categoria para singular (list_name)
+# Normalizar categoria para singular (list_name). PT + EN + ES para mesma lógica em todos os idiomas.
+# Qualquer outro nome (ex.: ingredientes, tarefas) fica como está — lista com esse nome.
 _CATEGORY_TO_LIST = {
+    # PT
     "filme": "filme", "filmes": "filme",
     "livro": "livro", "livros": "livro",
     "musica": "musica", "musicas": "musica", "música": "musica", "músicas": "musica",
     "receita": "receita", "receitas": "receita",
+    "compras": "mercado", "mercado": "mercado",
     "nota": "notas", "notas": "notas",
     "site": "sites", "sites": "sites",
     "link": "sites", "links": "sites",
+    # EN
+    "movie": "filme", "movies": "filme", "film": "filme", "films": "filme",
+    "book": "livro", "books": "livro",
+    "music": "musica", "song": "musica", "songs": "musica",
+    "recipe": "receita", "recipes": "receita",
+    "note": "notas", "notes": "notas",
+    "shopping": "mercado", "grocery": "mercado", "groceries": "mercado",
+    # ES
+    "película": "filme", "películas": "filme", "pelicula": "filme", "peliculas": "filme",
+    "libro": "livro", "libros": "livro",
+    "receta": "receita", "recetas": "receita",
+    "notas": "notas",
 }
 
 def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
@@ -169,6 +195,14 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     if m:
         cat = m.group(1).strip().lower()
         list_name = _CATEGORY_TO_LIST.get(cat, cat)
+        item = m.group(2).strip()
+        if item:
+            return {"type": "list_add", "list_name": list_name, "item": item}
+    # NL: "cria uma lista de livros do lovecraft para eu comprar" → list_add livros
+    m = RE_NL_CRIA_LISTA_DE.match(text)
+    if m:
+        list_name = m.group(1).strip().lower()
+        list_name = _CATEGORY_TO_LIST.get(list_name, list_name)
         item = m.group(2).strip()
         if item:
             return {"type": "list_add", "list_name": list_name, "item": item}
