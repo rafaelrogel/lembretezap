@@ -2,7 +2,7 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 
 # Install Node.js 20 for the WhatsApp bridge + ffmpeg for STT + libespeak-ng for Piper TTS
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends curl ca-certificates gnupg git ffmpeg libespeak-ng1 espeak-ng-data && \
+    apt-get install -y --no-install-recommends curl ca-certificates gnupg git ffmpeg libespeak-ng1 && \
     mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg && \
     echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" > /etc/apt/sources.list.d/nodesource.list && \
@@ -10,6 +10,11 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends nodejs && \
     apt-get purge -y gnupg && \
     apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
+
+# Dados do espeak-ng (Piper precisa de /usr/share/espeak-ng-data/phontab) — RUN separado para evitar cache
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends espeak-ng-data && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
