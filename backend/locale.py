@@ -273,6 +273,14 @@ NUDGE_TZ_WHEN_MISSING: dict[LangCode, str] = {
     "en": "When you can, tell me your city or what time it is there so reminders arrive on time. 😊",
 }
 
+# Apelo ao uso diário: fala comigo todos os dias para eu aprender e não ficar sozinho (call to action + reduz risco spam)
+ONBOARDING_DAILY_USE_APPEAL: dict[LangCode, str] = {
+    "pt-PT": "\n\n🫶 Fala comigo todos os dias — assim aprendo contigo e não fico sozinho. Qualquer dúvida ou lembrete, manda mensagem ou áudio.",
+    "pt-BR": "\n\n🫶 Fale comigo todos os dias — assim eu aprendo com você e não fico sozinho. Qualquer dúvida ou lembrete, mande mensagem ou áudio.",
+    "es": "\n\n🫶 Háblame todos los días — así aprendo contigo y no me quedo solo. Cualquier duda o recordatorio, manda mensaje o audio.",
+    "en": "\n\n🫶 Talk to me every day — that way I learn from you and don't feel alone. Any question or reminder, just message or send audio.",
+}
+
 # Dica sobre emojis em lembretes (feito / soneca / não feito)
 ONBOARDING_EMOJI_TIP: dict[LangCode, str] = {
     "pt-PT": "\n\n💡 Quando receberes um lembrete, reage à mensagem:\n• 👍 (feito) — depois confirma com *sim*\n• ⏰ (adiar 5 min, máx 3x)\n• 👎 (remover) — pergunto se queres alterar horário ou cancelar\n\nOu escreve/envia áudio, ex.: feito, remover, adiar 1 hora.",

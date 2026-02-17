@@ -26,14 +26,16 @@ class CronTool(Tool):
         self._cron = cron_service
         self._channel = ""
         self._chat_id = ""
+        self._phone_for_locale: str | None = None
         self._scope_provider = scope_provider
         self._scope_model = (scope_model or "").strip()
         self._session_manager = session_manager
     
-    def set_context(self, channel: str, chat_id: str) -> None:
-        """Set the current session context for delivery."""
+    def set_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
+        """Set the current session context for delivery. phone_for_locale: número para inferir idioma na entrega (quando chat_id é LID)."""
         self._channel = channel
         self._chat_id = chat_id
+        self._phone_for_locale = phone_for_locale
 
     def set_allow_relaxed_interval(self, allow: bool) -> None:
         """Para este turno: cliente insistiu, permitir intervalo até 30 min."""
@@ -43,7 +45,7 @@ class CronTool(Tool):
         return explicit if explicit is not None else getattr(self, "_allow_relaxed_interval", False)
 
     def _get_user_lang(self) -> str:
-        """Idioma do utilizador para mensagens (pt-PT, pt-BR, es, en). Redundância: prefere idioma do número."""
+        """Idioma do utilizador para mensagens (pt-PT, pt-BR, es, en). Usa preferência guardada; senão infere pelo número."""
         if not self._chat_id:
             return "pt-BR"
         try:
@@ -52,8 +54,8 @@ class CronTool(Tool):
             from backend.locale import resolve_response_language
             db = SessionLocal()
             try:
-                lang = get_user_language(db, self._chat_id) or "pt-BR"
-                return resolve_response_language(lang, self._chat_id, None)
+                lang = get_user_language(db, self._chat_id, getattr(self, "_phone_for_locale", None)) or "pt-BR"
+                return resolve_response_language(lang, self._chat_id, getattr(self, "_phone_for_locale", None))
             finally:
                 db.close()
         except Exception:
@@ -69,7 +71,8 @@ class CronTool(Tool):
             "Schedule one-time or recurring reminders. Actions: add, list, remove. "
             "message = WHAT to remind (e.g. 'ir à farmácia', 'tomar remédio') — required. Never 'lembrete' or 'alerta'. "
             "If user says 'lembrete amanhã 10h' without event, ask 'De que é o lembrete?' first. "
-            "For add: in_seconds = one-time; every_seconds = repeat; cron_expr = fixed times. "
+            "For add: in_seconds = seconds from NOW (UTC) until the reminder should fire. Use the prompt's Current Time and Timezone (user): e.g. '11h' = 11:00 in that timezone; compute in_seconds so the reminder fires at that local time. "
+            "every_seconds = repeat; cron_expr = fixed times (interpreted in user timezone when stored). "
             "Encadeamento: se o utilizador disser em áudio ou texto 'depois de X', 'após terminar Y', 'quando fizer A avisa para B', usa depends_on_job_id com o id do lembrete anterior (2-4 letras, ex.: AL, PIX)."
         )
     
@@ -444,18 +447,19 @@ class CronTool(Tool):
         use_deadline = has_deadline and in_seconds is not None and in_seconds > 0
         try:
             job = self._cron.add_job(
-            name=message[:30],
-            schedule=schedule,
-            message=message,
-            deliver=True,
-            channel=self._channel,
-            to=self._chat_id,
-            delete_after_run=delete_after_run and not use_deadline,
-            suggested_prefix=suggested_prefix,
-            remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
-            depends_on_job_id=depends_on_job_id.strip().upper()[:16] if depends_on_job_id else None,
-            has_deadline=use_deadline,
-        )
+                name=message[:30],
+                schedule=schedule,
+                message=message,
+                deliver=True,
+                channel=self._channel,
+                to=self._chat_id,
+                phone_for_locale=getattr(self, "_phone_for_locale", None),
+                delete_after_run=delete_after_run and not use_deadline,
+                suggested_prefix=suggested_prefix,
+                remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
+                depends_on_job_id=depends_on_job_id.strip().upper()[:16] if depends_on_job_id else None,
+                has_deadline=use_deadline,
+            )
         except ValueError as e:
             if "MAX_REMINDERS_EXCEEDED" in str(e):
                 from backend.locale import REMINDER_LIMIT_EXCEEDED
@@ -471,6 +475,7 @@ class CronTool(Tool):
                 deliver=False,
                 channel=self._channel,
                 to=self._chat_id,
+                phone_for_locale=getattr(self, "_phone_for_locale", None),
                 delete_after_run=True,
                 payload_kind="deadline_check",
                 deadline_check_for_job_id=job.id,
@@ -497,6 +502,7 @@ class CronTool(Tool):
                                 deliver=True,
                                 channel=self._channel,
                                 to=self._chat_id,
+                                phone_for_locale=getattr(self, "_phone_for_locale", None),
                                 delete_after_run=True,
                             )
                             pre_reminder_count = 1
@@ -528,6 +534,7 @@ class CronTool(Tool):
                                 deliver=True,
                                 channel=self._channel,
                                 to=self._chat_id,
+                                phone_for_locale=getattr(self, "_phone_for_locale", None),
                                 delete_after_run=True,
                             )
                             pre_reminder_count += 1

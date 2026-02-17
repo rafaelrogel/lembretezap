@@ -2,9 +2,8 @@
 # Uso: docker-compose up -d
 # Primeira vez: ver QR do WhatsApp com docker-compose logs -f bridge
 #
-# ⚠️ Timezone: o padrão é Europe/Lisbon (Portugal). Para Brasil, definir no .env:
-#     TZ=America/Sao_Paulo
-# Ou na linha de comando: TZ=America/Sao_Paulo docker-compose up -d
+# ⚠️ Timezone: padrão UTC para consistência de lembretes (cron usa timestamps UTC).
+# Para logs na hora de Portugal/Brasil: no .env defina TZ=Europe/Lisbon ou TZ=America/Sao_Paulo.
 #
 # Redis: fila assíncrona para outbound (mensagens); gateway consome da fila.
 # Nota: o volume ZAPISTA_data é partilhado por todos os serviços. Para uma única
@@ -41,7 +40,7 @@ services:
     volumes:
       - ZAPISTA_data:/root/.zapista
     environment:
-      - TZ=${TZ:-Europe/Lisbon}
+      - TZ=${TZ:-UTC}
       - AUTH_DIR=/root/.zapista/whatsapp-auth
       - BRIDGE_PORT=3001
       - BRIDGE_DEBUG=0
@@ -70,7 +69,7 @@ services:
     volumes:
       - ZAPISTA_data:/root/.zapista
     environment:
-      - TZ=${TZ:-Europe/Lisbon}
+      - TZ=${TZ:-UTC}
       - ZAPISTA_DATA=/root/.zapista
       - HEALTH_CHECK_TOKEN=${HEALTH_CHECK_TOKEN:-}
       - API_SECRET_KEY=${API_SECRET_KEY:-}
@@ -112,7 +111,7 @@ services:
     volumes:
       - ZAPISTA_data:/root/.zapista
     environment:
-      - TZ=${TZ:-Europe/Lisbon}
+      - TZ=${TZ:-UTC}
       - ZAPISTA_DATA=/root/.zapista
       - ZAPISTA_CHANNELS__WHATSAPP__BRIDGE_URL=ws://bridge:3001
       - STT_ENABLED=${STT_ENABLED:-1}

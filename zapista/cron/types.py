@@ -30,7 +30,8 @@ class CronPayload:
     # Deliver response to channel
     deliver: bool = False
     channel: str | None = None  # e.g. "whatsapp"
-    to: str | None = None  # e.g. phone number
+    to: str | None = None  # e.g. chat_id (pode ser LID)
+    phone_for_locale: str | None = None  # número para inferir idioma na entrega quando to é LID
     # "Lembra de novo em X min se não confirmar": segundos até reenviar se não houver reação 👍
     remind_again_if_unconfirmed_seconds: int | None = None
     remind_again_max_count: int = 10  # máx reenvios; 0 = não criar mais follow-ups

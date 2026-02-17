@@ -13,20 +13,30 @@ Guia para subir o organizador WhatsApp em servidor com Docker: **bridge** (Whats
 
 ## ⚠️ Pontos de Atenção
 
-### Timezone padrão
+### Coordenação de horários (cliente, VPS, Docker) — importante para lembretes
 
-O `docker-compose.yml` usa por defeito **Europe/Lisbon** (Portugal). Para utilizadores no Brasil, é preciso definir o fuso:
+Para os lembretes dispararem **na hora certa** para cada utilizador:
 
-- **No ficheiro `.env`** (recomendado): copia `.env.example` para `.env` e descomenta ou adiciona:
-  ```bash
-  TZ=America/Sao_Paulo
-  ```
-- **Na linha de comando** (uma vez):
-  ```bash
-  TZ=America/Sao_Paulo docker-compose up -d
-  ```
+1. **Fuso do utilizador** — Vem do onboarding (cidade/hora) ou /tz, guardado na BD. Todas as horas que o user disser («11h», «amanhã 9h») são interpretadas nesse fuso (ex.: Europe/Lisbon, America/Sao_Paulo).
+2. **Cron (agendamento)** — Usa sempre **timestamps Unix (UTC)** internamente (`time.time()`). O serviço de cron compara «agora» com `next_run_at_ms` em UTC; não depende do TZ do contentor.
+3. **Recomendação para o contentor** — Usar **TZ=UTC** no Docker para consistência (logs e qualquer código que use «agora» local). No `docker-compose.yml` o padrão pode ser `TZ=UTC`; se quiseres logs na hora de Portugal ou do Brasil, podes definir no `.env`:
+   ```bash
+   TZ=Europe/Lisbon
+   # ou
+   TZ=America/Sao_Paulo
+   ```
+   Isto **não** altera a hora a que os lembretes disparam; só afecta logs e o fallback de «Current Time» quando não há sessão. O agente recebe sempre o fuso do user na BD para calcular in_seconds correctamente.
 
-Sem isto, logs, cron e horários podem aparecer na hora de Portugal.
+Resumo: cliente tem fuso na BD → prompt do LLM tem «Current Time» + «Timezone (user)» → in_seconds é calculado para essa hora local → cron dispara no instante UTC correcto. O TZ do contentor deve ser UTC para evitar confusão (ou o que preferires para logs).
+
+### Timezone nos containers (opcional)
+
+O `docker-compose.yml` pode usar `TZ=${TZ:-UTC}` por defeito. Para ver logs na hora de Portugal ou do Brasil, define no `.env`:
+
+- **No ficheiro `.env`**: `TZ=Europe/Lisbon` ou `TZ=America/Sao_Paulo`
+- **Na linha de comando**: `TZ=America/Sao_Paulo docker-compose up -d`
+
+Isto não altera a hora de disparo dos lembretes (essa é sempre baseada no fuso do utilizador guardado na BD).
 
 ---
 

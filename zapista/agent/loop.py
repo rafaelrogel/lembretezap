@@ -251,12 +251,15 @@ class AgentLoop:
         except Exception as e:
             logger.debug(f"Sentiment check failed: {e}")
 
-    def _set_tool_context(self, channel: str, chat_id: str) -> None:
-        """Define canal/chat em todas as tools que suportam (parser e LLM usam o mesmo contexto)."""
+    def _set_tool_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
+        """Define canal/chat (e phone_for_locale para cron) em todas as tools que suportam."""
         for name, tool in (("message", MessageTool), ("cron", CronTool), ("list", ListTool), ("event", EventTool)):
             t = self.tools.get(name)
             if t and isinstance(t, tool):
-                t.set_context(channel, chat_id)
+                if isinstance(t, CronTool):
+                    t.set_context(channel, chat_id, phone_for_locale)
+                else:
+                    t.set_context(channel, chat_id)
 
     async def _execute_parsed_intent(self, intent: dict, msg: InboundMessage) -> str | None:
         """Executa intent do parser (cron, list, event). Retorna texto da resposta ou None para seguir ao LLM."""
@@ -630,7 +633,7 @@ class AgentLoop:
         except Exception:
             pass
 
-        self._set_tool_context(msg.channel, msg.chat_id)
+        self._set_tool_context(msg.channel, msg.chat_id, msg.metadata.get("phone_for_locale") if msg.metadata else None)
 
         # Resumo da semana/mês: entregar apenas no primeiro contacto (aproveitar sessão aberta pelo cliente)
         # Estado "já entregue" fica na BD (AuditLog) para não reenviar em cada mensagem.
@@ -853,6 +856,7 @@ class AgentLoop:
                     ONBOARDING_ASK_TIME_FALLBACK,
                     onboarding_time_confirm_message,
                     ONBOARDING_COMPLETE,
+                    ONBOARDING_DAILY_USE_APPEAL,
                     ONBOARDING_EMOJI_TIP,
                     ONBOARDING_RESET_HINT,
                     ONBOARDING_TZ_SET_FROM_TIME,
@@ -966,6 +970,7 @@ class AgentLoop:
                                 self.sessions.save(session)
                                 complete_msg = ONBOARDING_TZ_SET_FROM_TIME.get(user_lang, ONBOARDING_TZ_SET_FROM_TIME["en"])
                                 complete_msg += "\n\n" + ONBOARDING_COMPLETE.get(user_lang, ONBOARDING_COMPLETE["en"])
+                                complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
                                 complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                 complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
                                 name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
@@ -988,6 +993,7 @@ class AgentLoop:
                                 self.sessions.save(session)
                                 complete_msg = ONBOARDING_TZ_SET_FROM_TIME.get(user_lang, ONBOARDING_TZ_SET_FROM_TIME["en"])
                                 complete_msg += "\n\n" + ONBOARDING_COMPLETE.get(user_lang, ONBOARDING_COMPLETE["en"])
+                                complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
                                 complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                 complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
                                 name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
@@ -1011,6 +1017,7 @@ class AgentLoop:
                                     self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
                                     self.sessions.save(session)
                                     complete_msg = ONBOARDING_COMPLETE.get(user_lang, ONBOARDING_COMPLETE["en"])
+                                    complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
                                     complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                     complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
                                     name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])

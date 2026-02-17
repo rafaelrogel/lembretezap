@@ -403,7 +403,7 @@ def gateway(
             except Exception:
                 pass
             try:
-                # Idioma do destinatário (pt-PT, pt-BR, es, en) para a mensagem do lembrete; fallback: inferir do número
+                # Idioma do destinatário: preferência guardada na BD; senão inferir pelo número (phone_for_locale quando to é LID)
                 user_lang = "en"
                 try:
                     from backend.database import SessionLocal
@@ -411,9 +411,10 @@ def gateway(
                     from backend.locale import phone_to_default_language
                     db = SessionLocal()
                     try:
-                        user_lang = get_user_language(db, job.payload.to)
+                        phone_for_locale = getattr(job.payload, "phone_for_locale", None)
+                        user_lang = get_user_language(db, job.payload.to, phone_for_locale)
                         if not user_lang:
-                            user_lang = phone_to_default_language(job.payload.to)
+                            user_lang = phone_to_default_language(phone_for_locale or job.payload.to)
                     finally:
                         db.close()
                 except Exception:
@@ -492,6 +493,7 @@ def gateway(
                     deliver=True,
                     channel=ch,
                     to=to,
+                    phone_for_locale=getattr(job.payload, "phone_for_locale", None),
                     delete_after_run=True,
                     remind_again_if_unconfirmed_seconds=remind_sec,
                     remind_again_max_count=remind_max - 1,
@@ -520,7 +522,8 @@ def gateway(
                 from backend.empathy_positive_messages import get_extra_message_for_reminder
                 _db = SessionLocal()
                 try:
-                    _lang = get_user_language(_db, job.payload.to) or "en"
+                    _phone = getattr(job.payload, "phone_for_locale", None)
+                    _lang = get_user_language(_db, job.payload.to, _phone) or "en"
                     extra = get_extra_message_for_reminder(job.payload.message or "", _lang)
                     if extra:
                         response = (response or "") + "\n\n" + extra

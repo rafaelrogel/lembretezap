@@ -1,4 +1,11 @@
-"""Cron service for scheduling agent tasks."""
+"""Cron service for scheduling agent tasks.
+
+All scheduling uses Unix timestamps (UTC): _now_ms() and at_ms/next_run_at_ms are
+time.time()*1000. The VPS/Docker must use a correct system clock (NTP); set TZ=UTC
+in the container so that any local datetime usage elsewhere stays consistent.
+User-facing times (e.g. "11h") are always in the user's IANA timezone; cron expressions
+use schedule.tz so "0 11 * * *" = 11:00 in that timezone, not server local.
+"""
 
 import asyncio
 import json
@@ -16,6 +23,7 @@ from zapista.cron.types import CronJob, CronJobState, CronPayload, CronSchedule,
 
 
 def _now_ms() -> int:
+    """Current time in ms since epoch (UTC). All cron comparisons use this."""
     return int(time.time() * 1000)
 
 
@@ -108,6 +116,7 @@ class CronService:
                             deliver=j["payload"].get("deliver", False),
                             channel=j["payload"].get("channel"),
                             to=j["payload"].get("to"),
+                            phone_for_locale=j["payload"].get("phoneForLocale"),
                             remind_again_if_unconfirmed_seconds=j["payload"].get("remindAgainIfUnconfirmedSeconds"),
                             remind_again_max_count=j["payload"].get("remindAgainMaxCount", 10),
                             depends_on_job_id=j["payload"].get("dependsOnJobId"),
@@ -166,6 +175,7 @@ class CronService:
                         "deliver": j.payload.deliver,
                         "channel": j.payload.channel,
                         "to": j.payload.to,
+                        "phoneForLocale": getattr(j.payload, "phone_for_locale", None),
                         "remindAgainIfUnconfirmedSeconds": getattr(j.payload, "remind_again_if_unconfirmed_seconds", None),
                         "remindAgainMaxCount": getattr(j.payload, "remind_again_max_count", 10),
                         "dependsOnJobId": getattr(j.payload, "depends_on_job_id", None),
@@ -324,6 +334,7 @@ class CronService:
         deadline_check_for_job_id: str | None = None,
         deadline_main_job_id: str | None = None,
         deadline_post_index: int | None = None,
+        phone_for_locale: str | None = None,
     ) -> CronJob:
         """Add a new job. suggested_prefix: quando dado (ex. pelo MIMO), usa para o ID em vez de derivar da mensagem."""
         logger.debug(
@@ -417,6 +428,7 @@ class CronService:
                 deliver=deliver,
                 channel=channel,
                 to=to,
+                phone_for_locale=phone_for_locale,
                 remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
                 remind_again_max_count=remind_again_max_count,
                 depends_on_job_id=depends_on_job_id,
