@@ -82,10 +82,15 @@ def get_voice_paths(locale: str, try_fallback: bool = True) -> tuple[str | None,
     return None, None
 
 
-def resolve_locale_for_audio(chat_id: str, override: str | None) -> str:
+def resolve_locale_for_audio(
+    chat_id: str,
+    override: str | None,
+    phone_for_locale: str | None = None,
+) -> str:
     """
     Determina o locale para TTS.
     override: pedido explícito de idioma (None = usar default do utilizador).
+    phone_for_locale: quando chat_id é LID (ex.: 369...@lid), usar este número para inferir idioma (351→pt-PT, 55→pt-BR).
     """
     if override:
         m = override.strip().lower()
@@ -109,7 +114,7 @@ def resolve_locale_for_audio(chat_id: str, override: str | None) -> str:
 
         db = SessionLocal()
         try:
-            lang = get_user_language(db, chat_id)
+            lang = get_user_language(db, chat_id, phone_for_locale)
             if lang:
                 return lang
         finally:
@@ -117,4 +122,4 @@ def resolve_locale_for_audio(chat_id: str, override: str | None) -> str:
     except Exception:
         pass
 
-    return phone_to_default_language(chat_id) or "pt-BR"
+    return phone_to_default_language(phone_for_locale or chat_id) or "pt-BR"

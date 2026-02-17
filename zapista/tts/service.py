@@ -112,10 +112,12 @@ def synthesize_voice_note(
     reply_text: str,
     chat_id: str,
     locale_override: str | None = None,
+    phone_for_locale: str | None = None,
 ) -> Path | None:
     """
     Sintetiza texto em voice note (OGG Opus).
     locale_override: pedido explícito de idioma (None = usar default do utilizador).
+    phone_for_locale: quando chat_id é LID, número para inferir idioma (ex.: 351910070509 → pt-PT).
     Retorna path do ficheiro .ogg ou None (fallback para texto).
     """
     if not tts_enabled():
@@ -130,7 +132,7 @@ def synthesize_voice_note(
         logger.debug(f"TTS skip: {words} words > {tts_max_words()}")
         return None
 
-    locale = resolve_locale_for_audio(chat_id, locale_override)
+    locale = resolve_locale_for_audio(chat_id, locale_override, phone_for_locale)
     model_path, config_path = get_voice_paths(locale)
     if not model_path or not config_path:
         logger.debug(f"TTS: no voice for locale {locale}")

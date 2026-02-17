@@ -160,6 +160,7 @@ class WhatsAppChannel(BaseChannel):
         # Allowlist: mesma lógica do STT (allow_from_tts vazio = todos). Grupos NUNCA.
         audio_mode = (msg.metadata or {}).get("audio_mode") is True
         locale_override = (msg.metadata or {}).get("audio_locale_override")
+        phone_for_locale = (msg.metadata or {}).get("phone_for_locale")
         ogg_paths: list = []
         chat_id_str = str(msg.chat_id)
         tts_allowed = (
@@ -180,7 +181,10 @@ class WhatsAppChannel(BaseChannel):
                         if not chunk.strip():
                             continue
                         ogg = synthesize_voice_note(
-                            chunk, chat_id_str, locale_override=locale_override
+                            chunk,
+                            chat_id_str,
+                            locale_override=locale_override,
+                            phone_for_locale=phone_for_locale,
                         )
                         if ogg and ogg.exists():
                             ogg_paths.append(ogg)
