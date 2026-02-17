@@ -12,10 +12,12 @@ RUN apt-get update && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 
-# Dados do espeak-ng (Piper precisa de /usr/share/espeak-ng-data/phontab) — RUN separado para evitar cache
+# Dados do espeak-ng (Piper procura /usr/share/espeak-ng-data/; em Debian o pacote instala em /usr/lib/.../espeak-ng-data)
+ARG ESpeak_DATA_LAYER=1
 RUN apt-get update && \
     apt-get install -y --no-install-recommends espeak-ng-data && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* && \
+    ln -sf /usr/lib/x86_64-linux-gnu/espeak-ng-data /usr/share/espeak-ng-data
 
 WORKDIR /app
 
