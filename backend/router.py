@@ -108,6 +108,19 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
     # #endregion
     if not content or not content.strip():
         return None
+    # Se o utilizador usou /ayuda, reforçar idioma espanhol para lembretes e respostas seguintes
+    if content.strip().lower().startswith("/ayuda"):
+        try:
+            from backend.database import SessionLocal
+            from backend.user_store import set_user_language
+            db = SessionLocal()
+            try:
+                set_user_language(db, ctx.chat_id, "es")
+                db.commit()
+            finally:
+                db.close()
+        except Exception as e:
+            logger.debug(f"Set language from /ayuda: {e}")
     content = normalize_command(content.strip())
     text = content
     # #region agent log

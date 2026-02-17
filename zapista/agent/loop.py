@@ -1074,6 +1074,15 @@ class AgentLoop:
             )
             result = await handlers_route(ctx, msg.content)
             if result is not None:
+                # Handler pode devolver lista (ex.: /help = [texto principal, comandos slash]) → enviar extras em mensagens separadas
+                if isinstance(result, list):
+                    for part in result[1:]:
+                        await self.bus.publish_outbound(OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content=part,
+                        ))
+                    result = result[0]
                 # Nudge suave quando falta fuso (máx 1x por sessão para não incomodar)
                 try:
                     from backend.database import SessionLocal as _DB

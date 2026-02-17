@@ -403,18 +403,22 @@ def gateway(
             except Exception:
                 pass
             try:
-                # Idioma do destinatário (pt-PT, pt-BR, es, en) para a mensagem do lembrete
+                # Idioma do destinatário (pt-PT, pt-BR, es, en) para a mensagem do lembrete; fallback: inferir do número
                 user_lang = "en"
                 try:
                     from backend.database import SessionLocal
                     from backend.user_store import get_user_language
+                    from backend.locale import phone_to_default_language
                     db = SessionLocal()
                     try:
                         user_lang = get_user_language(db, job.payload.to)
+                        if not user_lang:
+                            user_lang = phone_to_default_language(job.payload.to)
                     finally:
                         db.close()
                 except Exception:
                     pass
+                user_lang = user_lang or "en"
                 lang_instruction = {
                     "pt-PT": "Escreve a mensagem em português de Portugal.",
                     "pt-BR": "Escreve a mensagem em português do Brasil.",

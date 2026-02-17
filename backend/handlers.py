@@ -662,21 +662,23 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
     )
 
 
-async def handle_help(ctx: HandlerContext, content: str) -> str | None:
-    """/help, /ajuda: lista completa de comandos. Aceita NL: ajuda, comandos, o que você faz."""
+async def handle_help(ctx: HandlerContext, content: str) -> str | list[str] | None:
+    """/help, /ajuda: lista completa de comandos. Aceita NL: ajuda, comandos, o que você faz. Devolve [texto principal, comandos slash] para enviar em duas mensagens."""
     content = _normalize_nl_to_command(content)
     c = content.strip().lower()
     if not (c.startswith("/help") or c.startswith("/ajuda") or c.startswith("/ayuda")):
         return None
     from backend.database import SessionLocal
     from backend.user_store import get_user_language
-    from backend.locale import build_help, resolve_response_language
+    from backend.locale import build_help, build_help_commands_list, resolve_response_language
 
     db = SessionLocal()
     try:
         user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
         user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
-        return build_help(user_lang)
+        main = build_help(user_lang)
+        commands_msg = build_help_commands_list(user_lang)
+        return [main, commands_msg]
     finally:
         db.close()
 

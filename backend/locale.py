@@ -484,6 +484,22 @@ HELP_FULL: dict[LangCode, str] = {
 }
 
 
+# Cabeçalho da segunda mensagem do /help (lista de comandos slash)
+HELP_COMMANDS_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📌 *Comandos disponíveis:*",
+    "pt-BR": "📌 *Comandos disponíveis:*",
+    "es": "📌 *Comandos disponibles:*",
+    "en": "📌 *Available commands:*",
+}
+
+# Ordem dos comandos a listar na segunda mensagem do /help (canónicos)
+_HELP_COMMANDS_ORDER = (
+    "/help", "/start", "/lembrete", "/list", "/hoje", "/semana", "/agenda", "/timeline",
+    "/stats", "/resumo", "/recorrente", "/meta", "/metas", "/pomodoro",
+    "/tz", "/lang", "/reset", "/quiet", "/pendente",
+)
+
+
 def build_help(lang: LangCode) -> str:
     """Devolve o texto completo do /help no idioma, com nomes de comandos localizados."""
     text = HELP_FULL.get(lang, HELP_FULL["en"])
@@ -493,12 +509,31 @@ def build_help(lang: LangCode) -> str:
     return text
 
 
+def build_help_commands_list(lang: LangCode) -> str:
+    """Devolve uma única mensagem com o cabeçalho e a lista de comandos slash no idioma (para enviar após o /help)."""
+    header = HELP_COMMANDS_HEADER.get(lang, HELP_COMMANDS_HEADER["en"])
+    names = COMMAND_DISPLAY_NAME.get(lang, COMMAND_DISPLAY_NAME["en"])
+    lines = [header, ""]
+    for canonical in _HELP_COMMANDS_ORDER:
+        display = names.get(canonical, canonical)
+        lines.append(display)
+    return "\n".join(lines)
+
+
 # Segunda vez que o cliente vê a agenda no mesmo dia: perguntar se já realizou e se quer remover
 AGENDA_SECOND_VIEW_PROMPT: dict[LangCode, str] = {
     "pt-PT": "\n\nJá realizaste ou concluíste algum destes eventos? Queres que eu remova algum da agenda? Podes dizer qual (quais) para eu remover.",
     "pt-BR": "\n\nJá realizou ou concluiu algum destes eventos? Quer que eu remova algum da agenda? Pode dizer qual (quais) para eu remover.",
     "es": "\n\n¿Ya realizaste o concluiste alguno de estos eventos? ¿Quieres que quite alguno de la agenda? Puedes decir cuál (cuáles) para que lo quite.",
     "en": "\n\nHave you already done or completed any of these events? Do you want me to remove any from the agenda? You can say which one(s) for me to remove.",
+}
+
+# Quando há eventos no dia: oferecer criar lembrete antes do evento (ex.: 15 min antes)
+AGENDA_OFFER_REMINDER: dict[LangCode, str] = {
+    "pt-PT": "\n\nQueres que eu te lembre antes de algum destes eventos? (ex.: 15 min antes) Diz o nome do evento (ex.: \"jantar\") ou \"sim\" para o primeiro.",
+    "pt-BR": "\n\nQuer que eu te lembre antes de algum desses eventos? (ex.: 15 min antes) Diga o nome do evento (ex.: \"jantar\") ou \"sim\" para o primeiro.",
+    "es": "\n\n¿Quieres que te recuerde antes de alguno de estos eventos? (ej.: 15 min antes) Di el nombre del evento (ej.: \"cena\") o \"sí\" para el primero.",
+    "en": "\n\nDo you want me to remind you before any of these events? (e.g. 15 min before) Say the event name (e.g. \"dinner\") or \"yes\" for the first one.",
 }
 
 

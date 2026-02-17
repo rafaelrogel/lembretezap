@@ -80,18 +80,34 @@ class EventTool(Tool):
         return f"Anotado: {tipo} '{nome or str(payload)}' (id: {ev.id})"
 
     def _list(self, db, user_id: int, tipo: str) -> str:
+        from zoneinfo import ZoneInfo
+        from backend.user_store import get_user_timezone
+
         q = db.query(Event).filter(Event.user_id == user_id, Event.deleted == False)
         if tipo:
             q = q.filter(Event.tipo == tipo)
         events = q.order_by(Event.created_at.desc()).limit(50).all()
         if not events:
             return f"Nenhum {tipo or 'evento'}."
+        tz_iana = get_user_timezone(db, self._chat_id) or "UTC"
+        try:
+            tz = ZoneInfo(tz_iana)
+        except Exception:
+            tz = ZoneInfo("UTC")
         lines = []
         for e in events:
             pl = e.payload or {}
             nome = pl.get("nome", pl)
             suf = " (importado do calendário)" if pl.get("source") == "ics" else ""
-            lines.append(f"{e.id}. [{e.tipo}] {nome}{suf}")
+            time_suf = ""
+            if e.data_at:
+                dt = e.data_at if e.data_at.tzinfo else e.data_at.replace(tzinfo=ZoneInfo("UTC"))
+                try:
+                    local = dt.astimezone(tz)
+                    time_suf = f" — {local.strftime('%H:%M %d/%m')}"
+                except Exception:
+                    time_suf = f" — {e.data_at.strftime('%H:%M %d/%m')}"
+            lines.append(f"{e.id}. [{e.tipo}] {nome}{time_suf}{suf}")
         return "\n".join(lines)
 
     def _remove(self, db, user_id: int, nome_ref: str) -> str:

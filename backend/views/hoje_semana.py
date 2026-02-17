@@ -86,6 +86,12 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
             if event_list:
                 for d, _, nome in event_list[:15]:
                     lines.append(f"• {d.strftime('%d/%m')} — {nome[:50]}")
+                # Oferecer criar lembrete antes do evento (ex.: 15 min antes)
+                from backend.user_store import get_user_language
+                from backend.locale import AGENDA_OFFER_REMINDER, resolve_response_language
+                lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                lang = resolve_response_language(lang, ctx.chat_id, None)
+                lines.append(AGENDA_OFFER_REMINDER.get(lang, AGENDA_OFFER_REMINDER["en"]))
             else:
                 lines.append("• Nenhum evento hoje.")
 
@@ -111,7 +117,7 @@ def _visao_agenda_dia(ctx: "HandlerContext") -> str:
     """/agenda: apenas agenda (eventos) do dia corrente."""
     from backend.database import SessionLocal
     from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
-    from backend.locale import AGENDA_SECOND_VIEW_PROMPT, resolve_response_language
+    from backend.locale import AGENDA_OFFER_REMINDER, AGENDA_SECOND_VIEW_PROMPT, resolve_response_language
     from backend.agenda_view_tracker import record_agenda_view
 
     try:
@@ -132,6 +138,9 @@ def _visao_agenda_dia(ctx: "HandlerContext") -> str:
             if event_list:
                 for d, _, nome in event_list[:15]:
                     lines.append(f"• {d.strftime('%d/%m')} — {nome[:50]}")
+                lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                lang = resolve_response_language(lang, ctx.chat_id, None)
+                lines.append(AGENDA_OFFER_REMINDER.get(lang, AGENDA_OFFER_REMINDER["en"]))
             else:
                 lines.append("• Nenhum evento hoje.")
 

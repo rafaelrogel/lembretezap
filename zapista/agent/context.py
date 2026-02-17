@@ -87,6 +87,23 @@ class ContextBuilder:
         if memory:
             parts.append(f"# Memory\n\n{memory}")
         
+        # Memória do cliente: nome, timezone e idioma (sempre); context_notes se existir. Ficheiro por cliente em workspace/users/
+        if session_key and ":" in session_key:
+            _chat_id = session_key.split(":", 1)[1]
+            try:
+                from backend.database import SessionLocal
+                from backend.client_memory import build_client_memory_content, write_client_memory_file
+                _db = SessionLocal()
+                try:
+                    content = build_client_memory_content(_db, _chat_id)
+                    if content.strip():
+                        parts.append(content)
+                        write_client_memory_file(self.workspace, _chat_id, content)
+                finally:
+                    _db.close()
+            except Exception:
+                pass
+        
         # Skills — resumo apenas; carregar via read_file (inclui always skills)
         skills_summary = self.skills.build_skills_summary()
         if skills_summary:

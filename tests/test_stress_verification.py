@@ -91,7 +91,8 @@ async def test_route_help_returns_text():
     for cmd in ["/help", "/ajuda", "/ayuda"]:
         out = await route(ctx, cmd)
         assert out is not None, f"{cmd} deveria retornar texto"
-        assert "Comandos" in out or "comandos" in out.lower(), f"resposta de {cmd} deveria conter comandos: {out[:200]}"
+        main = out[0] if isinstance(out, list) else out
+        assert "Comandos" in main or "comandos" in main.lower(), f"resposta de {cmd} deveria conter comandos: {main[:200]}"
 
 
 @pytest.mark.asyncio
@@ -112,7 +113,8 @@ async def test_stress_route_many_sequential():
         cmd = "/help" if i % 2 == 0 else "/ajuda"
         out = await route(ctx, cmd)
         assert out is not None
-        assert "comandos" in out.lower() or "Comandos" in out
+        main = out[0] if isinstance(out, list) else out
+        assert "comandos" in main.lower() or "Comandos" in main
 
 
 @pytest.mark.asyncio
@@ -138,7 +140,8 @@ async def test_stress_route_concurrent():
         if isinstance(r, Exception):
             pytest.fail(f"Chamada {i} falhou: {r}")
         assert r is not None
-        assert "comandos" in r.lower() or "Comandos" in r
+        main = r[0] if isinstance(r, list) else r
+        assert "comandos" in main.lower() or "Comandos" in main
 
 
 @pytest.mark.asyncio
