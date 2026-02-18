@@ -733,6 +733,16 @@ def gateway(
         try:
             await cron.start()
             await heartbeat.start()
+            
+            # Phase 4: Sincronismo inicial do relógio ANTES de iniciar o agente. 
+            # Evita mostrar hora errada (ex.: 15:20 em vez de 03:00) na primeira resposta.
+            try:
+                from zapista.clock_drift import check_clock_drift
+                await check_clock_drift()
+                logger.info("Clock drift: initial sync completed before startup")
+            except Exception as e:
+                logger.debug(f"Clock drift initial sync failed: {e}")
+
             metrics_task = asyncio.create_task(_metrics_loop())
             clock_drift_task = asyncio.create_task(_clock_drift_loop())
             await asyncio.gather(

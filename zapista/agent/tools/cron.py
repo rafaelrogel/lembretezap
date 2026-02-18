@@ -80,9 +80,10 @@ class CronTool(Tool):
             "Schedule one-time or recurring reminders. Actions: add, list, remove. "
             "message = WHAT to remind (e.g. 'ir à farmácia', 'tomar remédio') — required. Never 'lembrete' or 'alerta'. "
             "If user says 'lembrete amanhã 10h' without event, ask 'De que é o lembrete?' first. "
-            "For add: PREFER 'time_input' with the raw user text (e.g. 'daqui a 5 min', 'amanhã 9h'). The system will parse it using the user's timezone. "
-            "Use 'target_at_iso' ('YYYY-MM-DD HH:MM:SS') only if you calculated the time yourself. Use 'in_seconds' only for abstract timers ('timer 10 min'). "
-            "If using in_seconds = seconds from NOW (UTC) until the reminder should fire. CRITICAL: The user's time (e.g. '3:25 PM', '11h', 'tomorrow 9am') is always in the prompt's Timezone (user). Convert that local moment to UTC, then in_seconds = (that UTC timestamp - now_utc). Wrong timezone = reminder 1–3 hours late. "
+            "For add: CRITICAL: DO NOT CALCULATE TIME. Parsing is done by the system. "
+            "ALWAYS pass the exact time text from the user in 'time_input' (e.g. 'daqui a 5 min', 'amanhã 9h'). "
+            "IGNORE 'in_seconds' and 'target_at_iso' unless explicitly constructing a machine-generated timestamp. "
+            "System will interpret 'time_input' in the User's Timezone. "
             "every_seconds = repeat; cron_expr = fixed times (interpreted in user timezone when stored). "
             "Encadeamento: se o utilizador disser em áudio ou texto 'depois de X', 'após terminar Y', 'quando fizer A avisa para B', usa depends_on_job_id com o id do lembrete anterior (2-4 letras, ex.: AL, PIX). "
             "When confirming a reminder to the user, use the EXACT time from this tool's return (e.g. 'Será enviado às HH:MM'); never substitute with the Current Time from the prompt."
@@ -106,17 +107,17 @@ class CronTool(Tool):
                     "type": "integer",
                     "description": "Repeat every N seconds (minimum 1800 = 30 min, e.g. 3600 = hourly)"
                 },
-                "in_seconds": {
-                    "type": "integer",
-                    "description": "One-time reminder in N seconds (e.g. 120 = in 2 minutes). Use for abstract durations."
-                },
                 "target_at_iso": {
                     "type": "string",
-                    "description": "Exact target time in ISO format 'YYYY-MM-DD HH:MM:SS' (User's Timezone). PREFERRED for 'tomorrow 9am', 'in 30 mins' (calculate Now + 30m). e.g. '2025-02-19 14:30:00'."
+                    "description": "DEPRECATED / INTERNAL USE ONLY. Do not use. System calculates this."
                 },
                 "time_input": {
                     "type": "string",
-                    "description": "Raw user time text (e.g. 'daqui a 5 minutos', 'amanhã às 10h', 'toda terça'). System will parse this using backend logic/timezone. HIGHLY RECOMMENDED for relative times."
+                    "description": "REQUIRED. The exact time text from the user (e.g. 'daqui a 5 minutos', 'amanhã às 10h', 'toda terça'). System will parse this using backend logic/timezone. ALWAYS USE THIS for natural language times."
+                },
+                "in_seconds": {
+                    "type": "integer",
+                    "description": "DEPRECATED / INTERNAL USE ONLY. Do not use. System calculates this."
                 },
                 "cron_expr": {
                     "type": "string",
@@ -211,9 +212,19 @@ class CronTool(Tool):
                             message = parsed_msg
                         
                         logger.info(f"CronTool extracted from time_input='{time_input}': in_s={in_seconds}, cron={cron_expr}, every={every_seconds}, msg='{message}'")
+                    else:
+                        # Parsing returned None or empty dict
+                        logger.warning(f"CronTool: time_input='{time_input}' parsed to empty/None. Failing.")
+                        return f"Error: Could not parse time from '{time_input}'. Please use standard format like 'daqui a 5 minutos', 'amanhã 9h', 'toda terça'."
+                    
+                    # VALIDATION: If we have time_input, we MUST have extracted a schedule.
+                    if in_seconds is None and cron_expr is None and every_seconds is None and target_at_iso is None:
+                         logger.warning(f"CronTool: time_input='{time_input}' yielded no schedule. Returns: {parsed}")
+                         return f"Error: Could not extract time/schedule from '{time_input}'. Ensure it contains a time expression."
+
                 except Exception as e:
                     logger.error(f"CronTool failed to parse time_input '{time_input}': {e}")
-                    # Fallback to other args if parsing fails
+                    return f"Error parsing time_input: {e}"
 
             from backend.guardrails import is_absurd_request
             allow_relaxed = allow_relaxed_interval or self._get_allow_relaxed()

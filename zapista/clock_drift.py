@@ -31,8 +31,16 @@ CLOCK_DRIFT_AUTO_CORRECT_THRESHOLD_S = 60
 # CLOCK_OFFSET_SECONDS (env) não é limitado (override manual confiável).
 CLOCK_DRIFT_AUTO_OFFSET_CAP_S = 12 * 3600
 
-# Fonte externa de tempo UTC (sem API key)
+# Fonte externa de tempo UTC (JSON API)
 EXTERNAL_TIME_URL = "https://worldtimeapi.org/api/timezone/Etc/UTC"
+
+# Fontes redundantes via HTTP Date Header (RFC 2822). 
+# Google e Apple são altamente confiáveis e raramente bloqueadas.
+FALLBACK_TIME_URLS = [
+    "https://www.google.com",
+    "https://www.apple.com",
+    "https://1.1.1.1",
+]
 
 # Tag para grep / alerting
 CLOCK_DRIFT_ALERT_TAG = "CLOCK_DRIFT_ALERT"
@@ -127,34 +135,48 @@ async def check_clock_drift(
         (ok, drift_seconds): ok=False se drift > threshold ou falha; drift_seconds é o desvio (positivo = servidor à frente).
     """
     server_ts = time.time()
+    external_ts = None
+    
+    import httpx
+    
+    # Tentativa 1: WorldTimeAPI (JSON)
     try:
-        import httpx
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        async with httpx.AsyncClient(timeout=8.0) as client:
             r = await client.get(url)
-            r.raise_for_status()
-            data = r.json()
+            if r.status_code == 200:
+                data = r.json()
+                raw = data.get("unixtime") or data.get("datetime")
+                if raw is not None:
+                    if isinstance(raw, (int, float)):
+                        external_ts = float(raw)
+                    elif isinstance(raw, str) and raw.endswith("Z"):
+                        from datetime import datetime
+                        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+                        external_ts = dt.timestamp()
     except Exception as e:
-        logger.warning(f"Clock drift check: could not fetch external time: {e}")
-        return (True, None)  # Não alertar por falha de rede
+        logger.debug(f"Clock drift: WorldTimeAPI failed ({e}), trying fallbacks...")
 
-    raw = data.get("unixtime") or data.get("datetime")
-    if raw is None:
-        logger.warning("Clock drift check: no unixtime/datetime in response")
-        return (True, None)
+    # Tentativa 2: Fallbacks via HTTP Date Header
+    if external_ts is None:
+        from email.utils import parsedate_to_datetime
+        for fallback_url in FALLBACK_TIME_URLS:
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    # HEAD é mais leve e contém o Header Date
+                    r = await client.head(fallback_url)
+                    date_str = r.headers.get("Date")
+                    if date_str:
+                        dt = parsedate_to_datetime(date_str)
+                        external_ts = dt.timestamp()
+                        logger.info(f"Clock drift: time synced via {fallback_url} Date header")
+                        break
+            except Exception as e:
+                logger.debug(f"Clock drift: fallback {fallback_url} failed ({e})")
 
-    if isinstance(raw, (int, float)):
-        external_ts = float(raw)
-    elif isinstance(raw, str) and raw.endswith("Z"):
-        from datetime import datetime, timezone
-        try:
-            dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
-            external_ts = dt.timestamp()
-        except Exception:
-            logger.warning("Clock drift check: could not parse datetime")
-            return (True, None)
-    else:
-        logger.warning("Clock drift check: unknown time format")
-        return (True, None)
+    if external_ts is None:
+        logger.warning("Clock drift check: could not fetch external time from any source")
+        return (True, None)  # Não alertar por falha de rede/API
+
 
     drift_s = server_ts - external_ts
     abs_drift = abs(drift_s)
