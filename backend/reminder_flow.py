@@ -383,9 +383,10 @@ def parse_full_event_datetime(
         z = ZoneInfo(tz_iana)
         try:
             from zapista.clock_drift import get_effective_time
-            now = datetime.fromtimestamp(get_effective_time(), tz=timezone.utc).astimezone(z)
+            _now_ts = get_effective_time()
         except Exception:
-            now = datetime.now(tz=z)
+            _now_ts = __import__("time").time()
+        now = datetime.fromtimestamp(_now_ts, tz=timezone.utc).astimezone(z)
         today = now.date()
         dl = date_label.lower().strip()
         target_date = today
@@ -426,9 +427,10 @@ def compute_in_seconds_from_date_hour(
         z = ZoneInfo(tz_iana)
         try:
             from zapista.clock_drift import get_effective_time
-            now = datetime.fromtimestamp(get_effective_time(), tz=timezone.utc).astimezone(z)
+            _now_ts = get_effective_time()
         except Exception:
-            now = datetime.now(tz=z)
+            _now_ts = __import__("time").time()
+        now = datetime.fromtimestamp(_now_ts, tz=timezone.utc).astimezone(z)
         today = now.date()
 
         # #region agent log

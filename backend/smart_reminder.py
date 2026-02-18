@@ -40,11 +40,17 @@ SMART_REMINDER_MIN_MESSAGES_FROM_USER = 2
 def _today_in_tz(tz_iana: str) -> str:
     """Data de hoje no fuso do utilizador (YYYY-MM-DD)."""
     try:
+        from zapista.clock_drift import get_effective_time
+        _now_ts = get_effective_time()
+    except Exception:
+        _now_ts = __import__("time").time()
+
+    try:
         from zoneinfo import ZoneInfo
         z = ZoneInfo(tz_iana)
-        return datetime.now(z).strftime("%Y-%m-%d")
+        return datetime.fromtimestamp(_now_ts, tz=z).strftime("%Y-%m-%d")
     except Exception:
-        return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        return datetime.fromtimestamp(_now_ts, tz=timezone.utc).strftime("%Y-%m-%d")
 
 
 def _load_daily_user_messages() -> dict[str, dict]:
@@ -89,8 +95,14 @@ def _load_sent_tracking() -> dict[str, str]:
     if not _SENT_FILE.exists():
         return {}
     try:
+        from zapista.clock_drift import get_effective_time
+        _now_ts = get_effective_time()
+    except Exception:
+        _now_ts = __import__("time").time()
+
+    try:
         data = json.loads(_SENT_FILE.read_text())
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = datetime.fromtimestamp(_now_ts, tz=timezone.utc).strftime("%Y-%m-%d")
         return {k: v for k, v in (data or {}).items() if v == today}
     except Exception:
         return {}
@@ -100,22 +112,28 @@ def _mark_sent_today(chat_id: str) -> None:
     """Marca que enviamos lembrete inteligente hoje a este chat."""
     import json
     _SENT_FILE.parent.mkdir(parents=True, exist_ok=True)
-    data = {}
-    if _SENT_FILE.exists():
-        try:
-            data = json.loads(_SENT_FILE.read_text()) or {}
-        except Exception:
-            pass
-    data[str(chat_id)] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    try:
+        from zapista.clock_drift import get_effective_time
+        _now_ts = get_effective_time()
+    except Exception:
+        _now_ts = __import__("time").time()
+
+    data[str(chat_id)] = datetime.fromtimestamp(_now_ts, tz=timezone.utc).strftime("%Y-%m-%d")
     _SENT_FILE.write_text(json.dumps(data, indent=0))
 
 
 def _is_in_smart_reminder_window(tz_iana: str, hour_start: int = 8, hour_end: int = 10) -> bool:
     """True se a hora local do utilizador está na janela (ex.: 8h–10h)."""
     try:
+        from zapista.clock_drift import get_effective_time
+        _now_ts = get_effective_time()
+    except Exception:
+        _now_ts = __import__("time").time()
+
+    try:
         from zoneinfo import ZoneInfo
         z = ZoneInfo(tz_iana)
-        now_local = datetime.now(z)
+        now_local = datetime.fromtimestamp(_now_ts, tz=z)
         return hour_start <= now_local.hour < hour_end
     except Exception:
         return False
@@ -130,8 +148,13 @@ def gather_user_context(
     Reúne contexto do utilizador: lembretes, eventos, listas, cron jobs.
     cron_jobs: lista de CronJob onde payload.to == chat_id (opcional).
     """
-    user = get_or_create_user(db, chat_id)
-    now = datetime.now(timezone.utc)
+    try:
+        from zapista.clock_drift import get_effective_time
+        _now_ts = get_effective_time()
+    except Exception:
+        _now_ts = __import__("time").time()
+
+    now = datetime.fromtimestamp(_now_ts, tz=timezone.utc)
     week_ago = now - timedelta(days=7)
     week_ahead = now + timedelta(days=7)
 

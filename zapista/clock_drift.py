@@ -162,8 +162,8 @@ async def check_clock_drift(
         for fallback_url in FALLBACK_TIME_URLS:
             try:
                 async with httpx.AsyncClient(timeout=5.0) as client:
-                    # HEAD é mais leve e contém o Header Date
-                    r = await client.head(fallback_url)
+                    # Alguns ambientes/proxies podem filtrar HEAD; GET é mais seguro
+                    r = await client.get(fallback_url)
                     date_str = r.headers.get("Date")
                     if date_str:
                         dt = parsedate_to_datetime(date_str)
@@ -191,15 +191,16 @@ async def check_clock_drift(
             server_ts,
             external_ts,
         )
-        # Correção automática: aplicar offset (limitado a ±12h). Não sobrescrever se o utilizador definiu CLOCK_OFFSET_SECONDS.
+        # Correção automática: aplicar offset (limitado a ±24h). Não sobrescrever se o utilizador definiu CLOCK_OFFSET_SECONDS.
         if abs_drift >= CLOCK_DRIFT_AUTO_CORRECT_THRESHOLD_S and not _env_offset_applied:
             offset_s = external_ts - server_ts
-            capped = max(-CLOCK_DRIFT_AUTO_OFFSET_CAP_S, min(CLOCK_DRIFT_AUTO_OFFSET_CAP_S, offset_s))
+            # Aumentado de 12h para 24h pois o VPS do utilizador está >12h desviado
+            limit_s = 24 * 3600 
+            capped = max(-limit_s, min(limit_s, offset_s))
             if capped != offset_s:
                 logger.warning(
-                    "Clock drift: offset da API limitado a ±12h (calculado={:.0f}s, aplicado={:.0f}s)",
-                    offset_s,
-                    capped,
+                    "Clock drift: offset da API limitado a ±24h (desvio real: {:.1f}s)", 
+                    offset_s
                 )
             _apply_offset(capped)
             logger.warning(

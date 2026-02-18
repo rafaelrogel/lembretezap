@@ -277,8 +277,15 @@ def compute_end_date_ms(end_type: str, tz_iana: str = "UTC") -> int | None:
     from zoneinfo import ZoneInfo
 
     try:
+        from zapista.clock_drift import get_effective_time
+        _now_ts = get_effective_time()
+    except Exception:
+        _now_ts = __import__("time").time()
+
+    try:
         z = ZoneInfo(tz_iana)
-        now = datetime.now(tz=z)
+        from datetime import timezone
+        now = datetime.fromtimestamp(_now_ts, tz=timezone.utc).astimezone(z)
 
         if end_type == "fim_semana":
             # Próximo domingo 23:59

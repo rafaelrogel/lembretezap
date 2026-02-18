@@ -50,10 +50,17 @@ def extract_start_date(text: str, tz_iana: str = "UTC") -> str | None:
     """Extrai «a partir de 1º de julho» → '2026-07-01'. Retorna None se não encontrar. Ano atual no fuso tz_iana."""
     text_lower = (text or "").strip().lower()
     try:
-        z = ZoneInfo(tz_iana)
-        current_year = datetime.now(z).year
+        from zapista.clock_drift import get_effective_time
+        _now_ts = get_effective_time()
     except Exception:
-        current_year = datetime.now().year
+        import time
+        _now_ts = time.time()
+
+    try:
+        z = ZoneInfo(tz_iana)
+        current_year = datetime.fromtimestamp(_now_ts, tz=z).year
+    except Exception:
+        current_year = datetime.fromtimestamp(_now_ts).year
     m = re.search(
         r"a\s+partir\s+de\s+(\d{1,2})[ºª]?\s*(?:de\s+)?"
         r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
@@ -91,10 +98,17 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
     text = text.strip()
     text_lower = text.lower()
     try:
-        z = ZoneInfo(tz_iana)
-        now = datetime.now(z)
+        from zapista.clock_drift import get_effective_time
+        _now_ts = get_effective_time()
     except Exception:
-        now = datetime.now()
+        import time
+        _now_ts = time.time()
+
+    try:
+        z = ZoneInfo(tz_iana)
+        now = datetime.fromtimestamp(_now_ts, tz=z)
+    except Exception:
+        now = datetime.fromtimestamp(_now_ts)
 
     for pattern in (RE_LEMBRETE_DAQUI, RE_LEMBRETE_EM):
         m = pattern.search(text)

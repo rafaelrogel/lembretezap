@@ -176,7 +176,9 @@ def is_user_in_quiet_window(chat_id: str) -> bool:
         if tz_iana == "UTC" and getattr(user, "language", None) in DEFAULT_TZ_BY_LANG:
             tz_iana = DEFAULT_TZ_BY_LANG[user.language]
         try:
-            now = datetime.now(ZoneInfo(tz_iana))
+            from zapista.clock_drift import get_effective_time
+            _now_ts = get_effective_time()
+            now = datetime.fromtimestamp(_now_ts, tz=ZoneInfo(tz_iana))
         except Exception:
             return False
         now_m = now.hour * 60 + now.minute
