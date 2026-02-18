@@ -96,6 +96,25 @@ def _clear_offset_if_set() -> None:
             logger.info("Clock drift: offset removido (relógio dentro do limiar).")
 
 
+def get_current_offset() -> float:
+    """Retorna o offset atual (em segundos) que está sendo somado ao time.time()."""
+    with _lock:
+        return _clock_offset_s
+
+
+def get_drift_status() -> dict:
+    """Retorna status do relógio para diagnóstico."""
+    offset = get_current_offset()
+    server_ts = time.time()
+    effective_ts = server_ts + offset
+    return {
+        "server_ts": server_ts,
+        "effective_ts": effective_ts,
+        "offset_seconds": offset,
+        "is_corrected": abs(offset) > 0.1,
+    }
+
+
 async def check_clock_drift(
     *,
     threshold_s: float = CLOCK_DRIFT_ALERT_THRESHOLD_S,

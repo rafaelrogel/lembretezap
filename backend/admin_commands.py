@@ -531,7 +531,18 @@ async def _cmd_tz(db_session_factory: Any, user_arg: str) -> str:
             lines.append(f"Hora local: {hora_local}")
 
         from datetime import datetime, timezone
-        lines.append(f"Hora servidor (UTC): {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}")
+        from zapista.clock_drift import get_drift_status
+        drift = get_drift_status()
+        server_now = datetime.fromtimestamp(drift["server_ts"], tz=timezone.utc)
+        effective_now = datetime.fromtimestamp(drift["effective_ts"], tz=timezone.utc)
+        
+        lines.append(f"Hora servidor (UTC): {server_now.strftime('%H:%M:%S')} ({server_now.strftime('%d/%m')})")
+        if drift["is_corrected"]:
+            lines.append(f"⚠ Clock Drift: {drift['offset_seconds']:.1f}s (Corrigido)")
+            lines.append(f"Hora efetiva (UTC): {effective_now.strftime('%H:%M:%S')}")
+        else:
+            lines.append(f"Clock Drift: {drift['offset_seconds']:.1f}s (OK)")
+
         return "\n".join(lines)
     except Exception as e:
         logger.debug(f"admin #tz failed: {e}")
