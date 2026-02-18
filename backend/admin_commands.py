@@ -1409,3 +1409,33 @@ def _cmd_whatsapp(wa_channel: Any) -> str:
         except Exception:
             pass
     return "\n".join(lines)
+
+
+async def _cmd_debug_time() -> str:
+    """Diagnóstico avançado de relógio e timezone."""
+    try:
+        from zapista.clock_drift import check_clock_drift, get_drift_status
+        from datetime import datetime, timezone
+        
+        # Forçar verificação
+        await check_clock_drift(threshold_s=1.0)
+        status = get_drift_status()
+        
+        server_ts = status["server_ts"]
+        effective_ts = status["effective_ts"]
+        
+        server_dt = datetime.fromtimestamp(server_ts, tz=timezone.utc)
+        effective_dt = datetime.fromtimestamp(effective_ts, tz=timezone.utc)
+        
+        lines = [
+            "#debug_time",
+            f"Server Time (Raw): {server_dt.strftime('%H:%M:%S')} UTC",
+            f"Offset Applied: {status['offset_seconds']:.2f}s",
+            f"Effective Time: {effective_dt.strftime('%H:%M:%S')} UTC",
+            f"Drift Corrected: {status['is_corrected']}",
+            "",
+            "Para corrigir manualmente, use 'It is HH:MM here' no chat."
+        ]
+        return "\n".join(lines)
+    except Exception as e:
+        return f"#debug_time\nFalha no diagnóstico: {e}"

@@ -172,48 +172,42 @@ class AgentLoop:
                 try:
                     response = await self._process_message(msg)
                     if response:
-                        if "FIX_OFFSET|" in response:
+                        # Extract content string safely
+                        content_str = getattr(response, "content", "") or ""
+                        
+                        if "FIX_OFFSET|" in content_str:
                             try:
-                                parts = response.split("|")
-                                offset = float(parts[1])
-                                reason = parts[2] if len(parts) > 2 else "User correction"
-                                
-                                from zapista.clock_drift import set_manual_offset, get_effective_time
-                                set_manual_offset(offset)
-                                
-                                # Recalcula hora para confirmar
-                                new_ts = get_effective_time()
-                                new_time = datetime.fromtimestamp(new_ts, tz=timezone.utc).strftime("%H:%M")
-                                
-                                await self.bus.publish_outbound(OutboundMessage(
-                        elif "FIX_OFFSET|" in response:
-                try:
-                    parts = response.split("|")
-                    offset = float(parts[1])
-                    reason = parts[2] if len(parts) > 2 else "User correction"
-                    
-                    from zapista.clock_drift import set_manual_offset, get_effective_time
-                    set_manual_offset(offset)
-                    
-                    # Recalcula hora para confirmar
-                    new_ts = get_effective_time()
-                    new_time = datetime.fromtimestamp(new_ts, tz=timezone.utc).strftime("%H:%M")
-                    
-                    return OutboundMessage(
-                        channel=msg.channel,
-                        chat_id=msg.chat_id,
-                        content=f"🕒 **Relógio Corrigido!**\n\nApliquei uma correção manual de {offset/3600:.1f}h.\nNova hora do sistema: **{new_time}** (UTC).\nEsta correção é permanente e afeta todo o sistema."
-                    )
-                except Exception as e:
-                    logger.error(f"Failed to set manual offset: {e}")
+                                # SEGURANÇA: Apenas Admin em God Mode pode alterar o relógio global do servidor
+                                from backend.admin_commands import is_god_mode_activated
+                                if not is_god_mode_activated(msg.chat_id):
+                                    logger.warning(f"Clock Fix attempted by non-admin {msg.chat_id}: {content_str}")
+                                    # Fallthrough to normal publishing or other handlers
+                                    await self.bus.publish_outbound(response)
+                                else:
+                                    parts = content_str.split("|")
+                                    offset = float(parts[1])
+                                    
+                                    from zapista.clock_drift import set_manual_offset, get_effective_time
+                                    set_manual_offset(offset)
+                                    
+                                    # Recalcula hora para confirmar
+                                    new_ts = get_effective_time()
+                                    new_time = datetime.fromtimestamp(new_ts, tz=timezone.utc).strftime("%H:%M")
+                                    
+                                    await self.bus.publish_outbound(OutboundMessage(
+                                        channel=msg.channel,
+                                        chat_id=msg.chat_id,
+                                        content=f"🕒 **Relógio Corrigido (God Mode)!**\n\nApliquei uma correção manual de {offset/3600:.1f}h.\nNova hora do sistema: **{new_time}** (UTC).\nEsta correção é permanente e afeta todo o sistema."
+                                    ))
+                            except Exception as e:
+                                logger.error(f"Failed to set manual offset: {e}")
+                                await self.bus.publish_outbound(response)
 
-            elif "FIX|" in response:
-                            # This block was likely intended to be part of the if/elif chain
-                            # and should probably publish the response as well, or handle it.
-                            # Assuming it should publish the response if it's not a special command.
-                            await self.bus.publish_outbound(response)
+                        elif "FIX|" in content_str:
+                             # This seems to be the timezone fix response which uses OutboundMessage
+                             await self.bus.publish_outbound(response)
                         else:
-                            await self.bus.publish_outbound(response)
+                             await self.bus.publish_outbound(response)
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
                     # Send error response
