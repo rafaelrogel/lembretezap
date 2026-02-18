@@ -142,6 +142,26 @@ class ContextBuilder:
             except Exception:
                 pass
         
+        # Inject Current Lists (Optimization: helps agent know what lists exist)
+        if session_key and ":" in session_key:
+            _chat_id = session_key.split(":", 1)[1]
+            try:
+                from backend.database import SessionLocal
+                from backend.models_db import List
+                from backend.user_store import get_or_create_user
+                _db = SessionLocal()
+                try:
+                    _u = get_or_create_user(_db, _chat_id)
+                    _lists = _db.query(List.name).filter(List.user_id == _u.id).all()
+                    if _lists:
+                        _names = sorted([l.name for l in _lists])
+                        list_block = "## Current Lists\n" + "\n".join(f"- {n}" for n in _names)
+                        parts.append(list_block)
+                finally:
+                    _db.close()
+            except Exception as e:
+                logger.debug(f"context: list injection failed: {e}")
+        
         # Skills — resumo apenas; carregar via read_file (inclui always skills)
         skills_summary = self.skills.build_skills_summary()
         if skills_summary:
