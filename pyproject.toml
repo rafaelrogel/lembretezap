@@ -33,6 +33,7 @@ dependencies = [
     "icalendar>=5.0.0",
     "redis>=5.0.0",
     "tzdata>=2023.3",
+    "duckduckgo-search>=6.0.0",
 ]
 
 [project.optional-dependencies]

@@ -104,9 +104,47 @@ class SearchTool(Tool):
             pass
         return None
 
+    async def _call_ddg_fallback(self, q: str) -> str | None:
+        """Fallback: DuckDuckGo Search (gratuito) quando Perplexity falha."""
+        try:
+            from duckduckgo_search import DDGS
+            # Executa em thread separada para não bloquear o loop assíncrono (DDGS é síncrono ou async wrapper)
+            # A lib duckduckgo_search tem suporte a async mas para garantir compatibilidade usamos to_thread se necessário
+            # Mas a versão recente tem aclass AsyncDDGS
+            try:
+                from duckduckgo_search import AsyncDDGS
+                client = AsyncDDGS()
+                results = await client.text(q, max_results=MAX_RESULTS)
+            except ImportError:
+                # Versões antigas ou sync
+                import asyncio
+                loop = asyncio.get_running_loop()
+                def _sync_search():
+                    with DDGS() as ddgs:
+                        return list(ddgs.text(q, max_results=MAX_RESULTS))
+                results = await loop.run_in_executor(None, _sync_search)
+
+            if results:
+                lines = []
+                for i, hit in enumerate(results, 1):
+                    title = hit.get("title") or ""
+                    body = hit.get("body") or hit.get("snippet") or ""
+                    href = hit.get("href") or ""
+                    lines.append(f"{i}. **{title}**\n   {body[:200]}...\n   Source: {href}")
+                return "**Resultados da busca (DuckDuckGo):**\n\n" + "\n\n".join(lines)
+        except Exception as e:
+            # Fallback silencioso (retorna None para dizer erro genérico depois)
+            pass
+        return None
+
     async def execute(self, query: str = "", **kwargs: Any) -> str:
         if not self._api_key:
-            return "Error: Perplexity API not configured. Set ZAPISTA_PROVIDERS__PERPLEXITY__API_KEY."
+             # Tentar logo DDG se não tiver key configurada, em vez de erro
+            ddg_res = await self._call_ddg_fallback(query or "")
+            if ddg_res:
+                return ddg_res
+            return "Error: Perplexity API key missing and fallback failed."
+
         q = (query or "").strip()
         absurd = is_absurd_search(q)
         if absurd:
@@ -117,23 +155,34 @@ class SearchTool(Tool):
                 "convidados, sugestões de organização."
             )
 
-        data = await self._call_search_api(q)
-        if data:
-            results = data.get("results") or []
-            if results:
-                lines = []
-                for i, hit in enumerate(results[:MAX_RESULTS], 1):
-                    title = hit.get("title") or ""
-                    snippet = hit.get("snippet") or ""
-                    lines.append(f"{i}. **{title}**\n   {snippet[:200]}{'…' if len(snippet) > 200 else ''}")
-                return "**Resultados da busca:**\n\n" + "\n\n".join(lines)
-            if not results:
-                return "Nenhum resultado encontrado."
+        # 1. Tentar Perplexity
+        try:
+            data = await self._call_search_api(q)
+            if data:
+                results = data.get("results") or []
+                if results:
+                    lines = []
+                    for i, hit in enumerate(results[:MAX_RESULTS], 1):
+                        title = hit.get("title") or ""
+                        snippet = hit.get("snippet") or ""
+                        lines.append(f"{i}. **{title}**\n   {snippet[:200]}{'…' if len(snippet) > 200 else ''}")
+                    return "**Resultados da busca:**\n\n" + "\n\n".join(lines)
+                if not results:
+                    # Se Perplexity não achou nada, talvez DDG ache
+                    pass 
+        except Exception:
+            # Erro de API, net, ou rate limit -> ir para fallback
+            pass
 
-        # Search falhou: para receitas, tentar Chat API como fallback
+        # 2. Fallback: DuckDuckGo
+        ddg_res = await self._call_ddg_fallback(q)
+        if ddg_res:
+            return ddg_res
+
+        # 3. Fallback final: Chat API para receitas (última tentativa se for receita)
         if _RECIPE_QUERY_RE.search(q):
             chat_result = await self._call_chat_fallback(q)
             if chat_result:
                 return f"**Resultado (receita):**\n\n{chat_result}"
 
-        return "Erro na busca. Tenta de novo em instantes."
+        return "Não consegui encontrar resultados no momento. Tente novamente mais tarde."

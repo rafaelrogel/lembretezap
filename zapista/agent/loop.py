@@ -613,7 +613,7 @@ class AgentLoop:
         """
         content = (msg.content or "").lower()
         # Keywords que sugerem problemas de hora/fuso
-        keywords = ["hora", "time", "fuso", "relógio", "clock", "atrasado", "adiantado", "wrong", "errado"]
+        keywords = ["hora", "time", "fuso", "relógio", "clock", "atrasado", "adiantado", "wrong", "errado", "trouble", "ti is", "timezone"]
         if not any(k in content for k in keywords):
             return None
         
