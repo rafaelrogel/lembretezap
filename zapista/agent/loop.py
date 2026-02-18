@@ -8,6 +8,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any
+from datetime import datetime
 
 from loguru import logger
 
@@ -136,9 +137,9 @@ class AgentLoop:
 
     def _get_now_tz(self, tz: Any) -> datetime:
         """Helper para obter datetime agora no fuso, usando tempo efectivo."""
-        from datetime import datetime
         try:
             from zapista.clock_drift import get_effective_time
+
             ts = get_effective_time()
         except Exception:
             ts = time.time()
