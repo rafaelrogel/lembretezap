@@ -1168,6 +1168,28 @@ async def _cmd_diagnostico(
     # Bridge WhatsApp
     bridge_st = "conectado" if (wa_channel and getattr(wa_channel, "_connected", None)) else "desconectado"
     lines.append(f"📱 WhatsApp: {bridge_st}")
+
+    # Timezone Check
+    try:
+        import time
+        from zoneinfo import ZoneInfo
+        import importlib.util
+        
+        has_tzdata = importlib.util.find_spec("tzdata") is not None
+        lines.append(f"🌍 System TZ: {time.tzname} | tzdata: {'✅' if has_tzdata else '❌'}")
+        
+        try:
+            ZoneInfo("Europe/Lisbon")
+            lines.append("✅ ZoneInfo('Europe/Lisbon'): OK")
+        except Exception as e:
+            lines.append(f"❌ ZoneInfo('Europe/Lisbon'): {e}")
+            
+        from datetime import datetime
+        now_sys = datetime.now()
+        lines.append(f"🕒 System Local: {now_sys.strftime('%H:%M:%S')}")
+    except Exception as e:
+        lines.append(f"❌ TZ Check Error: {e}")
+
     # Recursos
     try:
         import psutil
