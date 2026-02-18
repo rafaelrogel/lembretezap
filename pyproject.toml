@@ -32,6 +32,7 @@ dependencies = [
     "sqlalchemy>=2.0.0",
     "icalendar>=5.0.0",
     "redis>=5.0.0",
+    "tzdata>=2023.3",
 ]
 
 [project.optional-dependencies]
