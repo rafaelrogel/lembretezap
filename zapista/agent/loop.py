@@ -654,40 +654,8 @@ class AgentLoop:
         """
         content = msg.content # Use content from msg, not a global 'content' variable
         if "/debug_time" in content:
-            try:
-                from zapista.clock_drift import check_clock_drift, get_drift_status
-                from backend.database import SessionLocal
-                from backend.user_store import get_user_timezone
-                
-                # Forçar verificação
-                await check_clock_drift(threshold_s=1.0)
-                status = get_drift_status()
-                
-                db = SessionLocal()
-                tz_user = get_user_timezone(db, msg.chat_id)
-                db.close()
-                
-                from datetime import datetime
-                from zoneinfo import ZoneInfo
-                
-                server_dt = datetime.fromtimestamp(status["server_ts"])
-                effective_dt = datetime.fromtimestamp(status["effective_ts"])
-                user_dt = "N/A"
-                if tz_user:
-                    user_dt = effective_dt.astimezone(ZoneInfo(tz_user)).strftime("%H:%M:%S")
+             return None # Moved to God Mode (#debug_time)
 
-                report = (
-                    f"**Time Debug Report**\n"
-                    f"Server Time (Raw): {server_dt.strftime('%H:%M:%S')} UTC\n"
-                    f"Offset Applied: {status['offset_seconds']:.2f}s\n"
-                    f"Effective Time: {effective_dt.strftime('%H:%M:%S')} UTC\n"
-                    f"User Timezone: {tz_user}\n"
-                    f"User Time: {user_dt}\n"
-                    f"Drift Corrected: {status['is_corrected']}"
-                )
-                return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=report)
-            except Exception as e:
-                return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=f"Debug failed: {e}")
 
         # Keywords que sugerem problemas de hora/fuso
         keywords = ["hora", "time", "fuso", "relógio", "clock", "atrasado", "adiantado", "wrong", "errado", "trouble", "ti is", "timezone"]
@@ -731,22 +699,32 @@ class AgentLoop:
             
             if "FIX_OFFSET|" in out:
                 try:
-                    parts = out.split("|")
-                    offset = float(parts[1])
-                    # reason = parts[2] if len(parts) > 2 else "User correction"
-                    
-                    from zapista.clock_drift import set_manual_offset, get_effective_time
-                    set_manual_offset(offset)
-                    
-                    # Recalcula hora para confirmar
-                    new_ts = get_effective_time()
-                    new_time = datetime.fromtimestamp(new_ts, tz=timezone.utc).strftime("%H:%M")
-                    
-                    return OutboundMessage(
-                        channel=msg.channel,
-                        chat_id=msg.chat_id,
-                        content=f"🕒 **Relógio Corrigido!**\n\nApliquei uma correção manual de {offset/3600:.1f}h.\nNova hora do sistema: **{new_time}** (UTC).\nEsta correção é permanente e afeta todo o sistema."
-                    )
+                    # SEGURANÇA: Apenas Admin em God Mode pode alterar o relógio global do servidor
+                    from backend.admin_commands import is_god_mode_activated
+                    if not is_god_mode_activated(msg.chat_id):
+                        logger.warning(f"Clock Fix attempted by non-admin {msg.chat_id}: {out}")
+                        # Podemos opcionalmente responder que não tem permissão ou apenas ignorar
+                        # Mas melhor: tentar usar isso apenas como ajuste de Fuso Horário Individual se possível
+                        # Por segurança, ignoramos o offset global e assumimos que o user está num fuso diferente
+                        # (MIMO pode ter se enganado e achado que era drift do servidor)
+                        pass 
+                    else:
+                        parts = out.split("|")
+                        offset = float(parts[1])
+                        # reason = parts[2] if len(parts) > 2 else "User correction"
+                        
+                        from zapista.clock_drift import set_manual_offset, get_effective_time
+                        set_manual_offset(offset)
+                        
+                        # Recalcula hora para confirmar
+                        new_ts = get_effective_time()
+                        new_time = datetime.fromtimestamp(new_ts, tz=timezone.utc).strftime("%H:%M")
+                        
+                        return OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content=f"🕒 **Relógio Corrigido (God Mode)!**\n\nApliquei uma correção manual de {offset/3600:.1f}h.\nNova hora do sistema: **{new_time}** (UTC).\nEsta correção é permanente e afeta todo o sistema."
+                        )
                 except Exception as e:
                     logger.error(f"Failed to set manual offset: {e}")
 

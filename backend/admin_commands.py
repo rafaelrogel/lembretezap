@@ -75,7 +75,7 @@ _VALID_COMMANDS = frozenset({
     "injection", "blocked", "lockout", "add", "remove", "mute", "quit", "msgs", "lembretes", "tz",
     "cleanup", "history",
     "hora", "time", "ativos", "erros", "diagnostico", "diag", "help", "comandos", "clientes", "jobs",
-    "redis", "whatsapp",
+    "redis", "whatsapp", "debug_time",
 })
 
 
@@ -267,6 +267,9 @@ async def handle_admin_command(
 
     if cmd == "whatsapp":
         return _cmd_whatsapp(wa_channel)
+
+    if cmd == "debug_time":
+        return await _cmd_debug_time()
 
     # quit e mute são tratados no canal (WhatsApp) para enviar mensagem ao utilizador muted
     if cmd == "quit":
