@@ -104,6 +104,43 @@ def _clear_offset_if_set() -> None:
             logger.info("Clock drift: offset removido (relógio dentro do limiar).")
 
 
+CLOCK_STATE_FILE = "clock_state.json"
+
+def _load_persisted_offset() -> float:
+    """Carrega offset salvo em disco (se existir)."""
+    try:
+        if os.path.exists(CLOCK_STATE_FILE):
+            import json
+            with open(CLOCK_STATE_FILE, "r") as f:
+                data = json.load(f)
+                return data.get("offset_seconds", 0.0)
+    except Exception as e:
+        logger.warning(f"Clock drift: failed to load persisted offset: {e}")
+    return 0.0
+
+def _persist_offset(offset_s: float) -> None:
+    """Salva offset em disco."""
+    try:
+        import json
+        with open(CLOCK_STATE_FILE, "w") as f:
+            json.dump({"offset_seconds": offset_s, "updated_at": time.time()}, f)
+    except Exception as e:
+        logger.warning(f"Clock drift: failed to persist offset: {e}")
+
+def set_manual_offset(offset_s: float) -> None:
+    """Aplica um offset manual (usado quando o utilizador corrige a hora via chat) e salva em disco."""
+    global _clock_offset_s
+    with _lock:
+        _clock_offset_s = offset_s
+    _persist_offset(offset_s)
+    logger.info("Clock drift: offset MANUAL aplicado e salvo: %.1fs", offset_s)
+
+# Carregar offset ao iniciar (logo após imports/definições)
+_clock_offset_s = _load_persisted_offset()
+if _clock_offset_s != 0:
+    logger.info(f"Clock drift: loaded persisted offset: {_clock_offset_s:.1f}s")
+
+
 def get_current_offset() -> float:
     """Retorna o offset atual (em segundos) que está sendo somado ao time.time()."""
     with _lock:

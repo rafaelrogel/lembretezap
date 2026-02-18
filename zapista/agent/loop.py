@@ -172,7 +172,48 @@ class AgentLoop:
                 try:
                     response = await self._process_message(msg)
                     if response:
-                        await self.bus.publish_outbound(response)
+                        if "FIX_OFFSET|" in response:
+                            try:
+                                parts = response.split("|")
+                                offset = float(parts[1])
+                                reason = parts[2] if len(parts) > 2 else "User correction"
+                                
+                                from zapista.clock_drift import set_manual_offset, get_effective_time
+                                set_manual_offset(offset)
+                                
+                                # Recalcula hora para confirmar
+                                new_ts = get_effective_time()
+                                new_time = datetime.fromtimestamp(new_ts, tz=timezone.utc).strftime("%H:%M")
+                                
+                                await self.bus.publish_outbound(OutboundMessage(
+                        elif "FIX_OFFSET|" in response:
+                try:
+                    parts = response.split("|")
+                    offset = float(parts[1])
+                    reason = parts[2] if len(parts) > 2 else "User correction"
+                    
+                    from zapista.clock_drift import set_manual_offset, get_effective_time
+                    set_manual_offset(offset)
+                    
+                    # Recalcula hora para confirmar
+                    new_ts = get_effective_time()
+                    new_time = datetime.fromtimestamp(new_ts, tz=timezone.utc).strftime("%H:%M")
+                    
+                    return OutboundMessage(
+                        channel=msg.channel,
+                        chat_id=msg.chat_id,
+                        content=f"🕒 **Relógio Corrigido!**\n\nApliquei uma correção manual de {offset/3600:.1f}h.\nNova hora do sistema: **{new_time}** (UTC).\nEsta correção é permanente e afeta todo o sistema."
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to set manual offset: {e}")
+
+            elif "FIX|" in response:
+                            # This block was likely intended to be part of the if/elif chain
+                            # and should probably publish the response as well, or handle it.
+                            # Assuming it should publish the response if it's not a special command.
+                            await self.bus.publish_outbound(response)
+                        else:
+                            await self.bus.publish_outbound(response)
                 except Exception as e:
                     logger.error(f"Error processing message: {e}")
                     # Send error response
@@ -611,6 +652,7 @@ class AgentLoop:
         Timezone Doctor: usa MIMO para detetar se o user está a reclamar da hora.
         Se sim, tenta extrair a hora correta e ajustar o fuso (ou pedir a cidade).
         """
+        content = msg.content # Use content from msg, not a global 'content' variable
         if "/debug_time" in content:
             try:
                 from zapista.clock_drift import check_clock_drift, get_drift_status
@@ -670,13 +712,14 @@ class AgentLoop:
             
             prompt = (
                 f"User message: \"{msg.content}\"\n"
-                f"Current UTC time: {utc_str}\n"
-                "Task: check if the user is complaining about the time/clock being wrong. "
-                "If they mention a specific time (e.g. 'it is 15:00 here'), try to find the IANA timezone (e.g. Europe/Lisbon, America/Sao_Paulo) "
-                "that matches that time vs UTC. "
-                "Reply format: 'FIX|{iana_timezone}|{reason}' if you are sure about the fix. "
-                "Reply 'ASK_CITY' if they complain but don't say the time or city. "
-                "Reply 'NO' if it's unrelated."
+                f"Current UTC time (Server think): {utc_str}\n"
+                "Task: check if the user is complaining about the time/clock being wrong OR answering an onboarding question about time.\n"
+                "1. If they say 'It is HH:MM' or 'Current time is HH:MM' (in any language), calculate the difference from UTC.\n"
+                "   - If difference matches their timezone (e.g. Europe/Lisbon), reply 'FIX|{timezone}'.\n"
+                "   - If difference DOES NOT match expected timezone (e.g. server is 4h off), reply 'FIX_OFFSET|{offset_in_seconds}|{reason}'.\n"
+                "     Example: User says 'It is 16:00'. Server says '12:00'. Offset needed: +14400s (4h). Reply: 'FIX_OFFSET|14400|User reported 16:00 vs 12:00'.\n"
+                "2. If they just complain without time, reply 'ASK_CITY'.\n"
+                "3. If unrelated, reply 'NO'."
             )
             
             r = await self.scope_provider.chat(
@@ -686,7 +729,28 @@ class AgentLoop:
             )
             out = (r.content or "").strip()
             
-            if out.startswith("FIX|"):
+            if "FIX_OFFSET|" in out:
+                try:
+                    parts = out.split("|")
+                    offset = float(parts[1])
+                    # reason = parts[2] if len(parts) > 2 else "User correction"
+                    
+                    from zapista.clock_drift import set_manual_offset, get_effective_time
+                    set_manual_offset(offset)
+                    
+                    # Recalcula hora para confirmar
+                    new_ts = get_effective_time()
+                    new_time = datetime.fromtimestamp(new_ts, tz=timezone.utc).strftime("%H:%M")
+                    
+                    return OutboundMessage(
+                        channel=msg.channel,
+                        chat_id=msg.chat_id,
+                        content=f"🕒 **Relógio Corrigido!**\n\nApliquei uma correção manual de {offset/3600:.1f}h.\nNova hora do sistema: **{new_time}** (UTC).\nEsta correção é permanente e afeta todo o sistema."
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to set manual offset: {e}")
+
+            if out.startswith("FIX|") or "FIX|" in out:
                 parts = out.split("|")
                 if len(parts) >= 2:
                     new_tz = parts[1].strip()
