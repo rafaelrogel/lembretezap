@@ -688,6 +688,54 @@ class AgentLoop:
             
         return None
 
+    async def _reason_with_mimo(self, history: list[dict], current_msg: str) -> str | None:
+        """
+        Usa o modelo Scope (Mimo) para raciocínio lógico, matemático ou verificações
+        ANTES de passar ao modelo principal (DeepSeek).
+        """
+        if not self.scope_provider or not self.scope_model:
+            return None
+
+        # Se for mensagem muito curta ou trivial, ignorar
+        if len(current_msg) < 5:
+            return None
+
+        prompt = (
+            "Analyze the user's request. Does it involve:\n"
+            "1. Math or calculations?\n"
+            "2. Logic puzzles or comparisons?\n"
+            "3. Sorting or organizing complex data?\n"
+            "4. Checking for conflicts in dates/times?\n"
+            "5. Specific facts that need verification?\n\n"
+            "If YES to any, provide a 'Reasoning Block' with the solution/analysis. "
+            "Show your work step-by-step. "
+            "If the request is simple chat, creative writing, or just adding a simple item to a list, return 'SKIP'.\n"
+            "Output ONLY the reasoning or 'SKIP'."
+        )
+        
+        # Construir histórico recente para contexto (últimas 4 msgs)
+        msgs_for_mimo = [{"role": "system", "content": prompt}]
+        # Adicionar contexto recente se houver (ajuda em "quanto é isso x 2?")
+        if history:
+            msgs_for_mimo.extend(history[-4:])
+        
+        msgs_for_mimo.append({"role": "user", "content": current_msg})
+
+        try:
+            r = await self.scope_provider.chat(
+                messages=msgs_for_mimo,
+                model=self.scope_model,
+                profile="parser",
+                temperature=0.1, # Raciocínio preciso
+            )
+            out = (r.content or "").strip()
+            if out == "SKIP" or "SKIP" in out[:10]:
+                return None
+            return out
+        except Exception as e:
+            logger.debug(f"MIMO Reasoning error: {e}")
+            return None
+
     async def _process_message(self, msg: InboundMessage) -> OutboundMessage | None:
         """
         Process a single inbound message.
@@ -1537,6 +1585,20 @@ class AgentLoop:
         iteration = 0
         final_content = None
         used_fallback = False  # Para tentar scope_provider (Mimo) como fallback
+
+        # Reasoning Phase (MIMO): Check if we need math/logic/checking
+        mimo_reasoning = None
+        if self.scope_provider and self.scope_model:
+            try:
+                mimo_reasoning = await self._reason_with_mimo(session.get_history(), msg.content)
+                if mimo_reasoning:
+                    # Injeta o raciocínio no contexto para o DeepSeek usar
+                    messages.append({
+                        "role": "system",
+                        "content": f"## Analytical Context (from MIMO Logic Engine)\nUse this context to ensure accuracy in your response.\n\n{mimo_reasoning}"
+                    })
+            except Exception as e:
+                logger.debug(f"MIMO Reasoning failed: {e}")
 
         while iteration < self.max_iterations:
             iteration += 1
