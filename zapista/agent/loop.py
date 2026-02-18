@@ -690,8 +690,8 @@ class AgentLoop:
 
     async def _reason_with_mimo(self, history: list[dict], current_msg: str) -> str | None:
         """
-        Usa o modelo Scope (Mimo) para raciocínio lógico, matemático ou verificações
-        ANTES de passar ao modelo principal (DeepSeek).
+        Usa o modelo Scope (Mimo) para raciocínio OU pesquisa.
+        Permite que MIMO use a ferramenta de busca para enriquecer o contexto.
         """
         if not self.scope_provider or not self.scope_model:
             return None
@@ -700,40 +700,55 @@ class AgentLoop:
         if len(current_msg) < 5:
             return None
 
+        # Verificar se search tool está disponível
+        search_tool = self.tools.get("search")
+        tools_def = [search_tool.definition] if search_tool else []
+
         prompt = (
             "Analyze the user's request. Does it involve:\n"
-            "1. Math or calculations?\n"
-            "2. Logic puzzles or comparisons?\n"
-            "3. Sorting or organizing complex data?\n"
-            "4. Checking for conflicts in dates/times?\n"
-            "5. Specific facts that need verification?\n\n"
-            "If YES to any, provide a 'Reasoning Block' with the solution/analysis. "
-            "Show your work step-by-step. "
-            "If the request is simple chat, creative writing, or just adding a simple item to a list, return 'SKIP'.\n"
-            "Output ONLY the reasoning or 'SKIP'."
+            "1. Math/Logic/Sorting/Checking?\n"
+            "2. Searching for lists, facts, recipes, or books (organizational context)?\n\n"
+            "If YES to math/logic: Provide the solution step-by-step.\n"
+            "If YES to search: Call the 'search' tool with a specific query.\n"
+            "If NO (simple chat/creative): Return 'SKIP'.\n"
+            "Output ONLY the reasoning, the tool call, or 'SKIP'."
         )
         
-        # Construir histórico recente para contexto (últimas 4 msgs)
+        # Construir histórico recente para contexto
         msgs_for_mimo = [{"role": "system", "content": prompt}]
-        # Adicionar contexto recente se houver (ajuda em "quanto é isso x 2?")
         if history:
             msgs_for_mimo.extend(history[-4:])
-        
         msgs_for_mimo.append({"role": "user", "content": current_msg})
 
         try:
             r = await self.scope_provider.chat(
                 messages=msgs_for_mimo,
                 model=self.scope_model,
+                tools=tools_def if tools_def else None,
                 profile="parser",
-                temperature=0.1, # Raciocínio preciso
+                temperature=0.1,
             )
+            
+            # 1. Se MIMO chamou a tool (Search)
+            if r.has_tool_calls:
+                for tc in r.tool_calls:
+                    if tc.function.name == "search" and search_tool:
+                        import json
+                        args = json.loads(tc.function.arguments)
+                        query = args.get("query")
+                        if query:
+                            # Executar search
+                            search_res = await search_tool.execute(query=query)
+                            return f"**MIMO Search Result:**\nQuery: {query}\n\n{search_res}"
+            
+            # 2. Se MIMO respondeu texto (Raciocínio)
             out = (r.content or "").strip()
             if out == "SKIP" or "SKIP" in out[:10]:
                 return None
             return out
+
         except Exception as e:
-            logger.debug(f"MIMO Reasoning error: {e}")
+            logger.debug(f"MIMO Reasoning/Search error: {e}")
             return None
 
     async def _process_message(self, msg: InboundMessage) -> OutboundMessage | None:
