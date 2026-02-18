@@ -51,11 +51,12 @@ RE_NL_ADD_LISTA_CATEGORIA = re.compile(
 # PT: cria, crie, faça, faz, me dê, me de, de-me, dê-me, mostre, mostra, exiba
 # ES: crea, crear, haz, dame, muéstrame, muestra, exhibe
 # EN: create, make, give me, show me, show, display
+# Último grupo opcional: "lista de livros" sem resto → item vazio (handler usa placeholder)
 RE_NL_CRIA_LISTA_DE = re.compile(
     r"^(?:cria|crie|faça|faz|me\s+d[êe]|de-me|dê-me|mostre|mostra|exiba"
     r"|crea|crear|haz|dame|muéstrame|muestra|exhibe"
     r"|create|make|give\s+me|show\s+me|show|display)\s+"
-    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?(\w+)\s+(.+)$",
+    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?(\w+)(?:\s+(.+))?$",
     re.I,
 )
 # NL: "coloca/põe/anota X na lista", "põe leite na lista" → list_add mercado
@@ -198,14 +199,13 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         item = m.group(2).strip()
         if item:
             return {"type": "list_add", "list_name": list_name, "item": item}
-    # NL: "cria uma lista de livros do lovecraft para eu comprar" → list_add livros
+    # NL: "cria uma lista de livros do lovecraft para eu comprar" ou "cria uma lista de livros" → list_add
     m = RE_NL_CRIA_LISTA_DE.match(text)
     if m:
         list_name = m.group(1).strip().lower()
         list_name = _CATEGORY_TO_LIST.get(list_name, list_name)
-        item = m.group(2).strip()
-        if item:
-            return {"type": "list_add", "list_name": list_name, "item": item}
+        item = (m.group(2) or "").strip() or "—"
+        return {"type": "list_add", "list_name": list_name, "item": item}
     # NL: "coloca X na lista" → list_add mercado (assumindo compras se não especificar)
     m = RE_NL_POR_LISTA.match(text)
     if m:

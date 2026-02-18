@@ -122,7 +122,7 @@ def normalize_nl_to_command(content: str) -> str:
         return "/produtividade"
 
     # Reset
-    if lower in ("reiniciar", "reinicio", "reset", "restart"):
+    if lower in ("reiniciar", "reinicio", "reset", "restart", "reboot"):
         return "/reset"
 
     # Exportar

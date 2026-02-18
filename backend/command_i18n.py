@@ -38,7 +38,7 @@ COMMAND_ALIASES: Sequence[tuple[str, Sequence[str]]] = (
     # Configuração: tz, lang, reset, quiet
     ("/tz", ("/tz", "/cidade", "/ciudad", "/city", "/fuso", "/timezone")),
     ("/lang", ("/lang", "/idioma", "/language", "/língua", "/lingua")),
-    ("/reset", ("/reset", "/reiniciar", "/reinicio", "/restart")),
+    ("/reset", ("/reset", "/reiniciar", "/reinicio", "/restart", "/reboot")),
     ("/quiet", ("/quiet", "/silêncio", "/silencio", "/silent")),
     # Ações
     ("/add", ("/add", "/adicionar", "/añadir", "/adiciona")),

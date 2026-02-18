@@ -3,6 +3,7 @@
 import asyncio
 import json
 import random
+import re
 import time
 import uuid
 from pathlib import Path
@@ -1100,6 +1101,8 @@ class AgentLoop:
         try:
             from backend.handler_context import HandlerContext
             from backend.router import route as handlers_route
+            from backend.handlers import handle_list as handle_list_fn
+            from backend.command_parser import parse as parse_cmd
             ctx = HandlerContext(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
@@ -1113,6 +1116,127 @@ class AgentLoop:
                 main_provider=self.provider,
                 main_model=self.model,
             )
+            # Listas: tratar primeiro para não cair no LLM (evita "sistema de listas com erro" por histórico)
+            intent = None
+            try:
+                intent = parse_cmd(msg.content)
+            except Exception as e:
+                logger.debug("parse_cmd failed (using fallback): %s", e)
+            if intent and intent.get("type") in ("list_add", "list_show") and ctx.list_tool:
+                try:
+                    result = await handle_list_fn(ctx, msg.content)
+                    if result is not None:
+                        logger.info("List intent handled early: type=%s list_name=%s", intent.get("type"), intent.get("list_name"))
+                        try:
+                            from backend.database import SessionLocal as _DB
+                            _db = _DB()
+                            try:
+                                self._write_client_memory_file(_db, msg.chat_id)
+                            finally:
+                                _db.close()
+                        except Exception:
+                            pass
+                        if isinstance(result, list):
+                            for part in result[1:]:
+                                await self.bus.publish_outbound(OutboundMessage(
+                                    channel=msg.channel, chat_id=msg.chat_id, content=part,
+                                ))
+                            result = result[0]
+                        try:
+                            from backend.database import SessionLocal as _DB
+                            from backend.user_store import get_or_create_user as _get_user, get_user_language as _get_lang
+                            from backend.locale import NUDGE_TZ_WHEN_MISSING
+                            _db = _DB()
+                            try:
+                                _u = _get_user(_db, msg.chat_id)
+                                if not (_u.timezone and _u.timezone.strip()):
+                                    _s = self.sessions.get_or_create(msg.session_key)
+                                    if _s.metadata.get("onboarding_intro_sent") and _s.metadata.get("nudge_append_done") != True:
+                                        _s.metadata["nudge_append_done"] = True
+                                        self.sessions.save(_s)
+                                        _lang = _get_lang(_db, msg.chat_id) or "en"
+                                        result = result + "\n\n" + NUDGE_TZ_WHEN_MISSING.get(_lang, NUDGE_TZ_WHEN_MISSING["en"])
+                            finally:
+                                _db.close()
+                        except Exception:
+                            pass
+                        try:
+                            session = self.sessions.get_or_create(msg.session_key)
+                            session.add_message("user", msg.content)
+                            session.add_message("assistant", result)
+                            self.sessions.save(session)
+                            asyncio.create_task(self._maybe_sentiment_check(session, msg.channel, msg.chat_id))
+                        except Exception:
+                            pass
+                        return OutboundMessage(
+                            channel=msg.channel, chat_id=msg.chat_id, content=result, metadata=dict(msg.metadata or {}),
+                        )
+                except Exception as e:
+                    logger.warning("Early list handle failed (falling through): %s", e)
+            # Fallback: regex local "cria/faça/mostre lista de X" sem depender do backend (funciona mesmo com backend antigo)
+            if ctx.list_tool and msg.content and (not intent or intent.get("type") not in ("list_add", "list_show")):
+                t = (msg.content or "").strip()
+                m = re.match(
+                    r"^(?i)(?:cria|crie|faça|faz|mostre|mostra|exiba|me\s+d[êe]|de-me|dê-me|crea|haz|dame|muéstrame|muestra|create|make|give\s+me|show\s+me|show|display)\s+"
+                    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?(\w+)\s*(.*)$",
+                    t,
+                )
+                if m:
+                    list_name = m.group(1).strip().lower()
+                    item = (m.group(2) or "").strip() or "—"
+                    _norm = {"livros": "livro", "filmes": "filme", "receitas": "receita", "musicas": "musica", "compras": "mercado", "books": "livro", "movies": "filme", "recipes": "receita"}
+                    list_name = _norm.get(list_name, list_name)
+                    try:
+                        ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+                        result = await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
+                        if result:
+                            logger.info("List intent handled via fallback regex: list_name=%s", list_name)
+                            try:
+                                from backend.database import SessionLocal as _DB
+                                _db = _DB()
+                                try:
+                                    self._write_client_memory_file(_db, msg.chat_id)
+                                finally:
+                                    _db.close()
+                            except Exception:
+                                pass
+                            if isinstance(result, list):
+                                for part in result[1:]:
+                                    await self.bus.publish_outbound(OutboundMessage(
+                                        channel=msg.channel, chat_id=msg.chat_id, content=part,
+                                    ))
+                                result = result[0]
+                            try:
+                                from backend.database import SessionLocal as _DB
+                                from backend.user_store import get_or_create_user as _get_user, get_user_language as _get_lang
+                                from backend.locale import NUDGE_TZ_WHEN_MISSING
+                                _db = _DB()
+                                try:
+                                    _u = _get_user(_db, msg.chat_id)
+                                    if not (_u.timezone and _u.timezone.strip()):
+                                        _s = self.sessions.get_or_create(msg.session_key)
+                                        if _s.metadata.get("onboarding_intro_sent") and _s.metadata.get("nudge_append_done") != True:
+                                            _s.metadata["nudge_append_done"] = True
+                                            self.sessions.save(_s)
+                                            _lang = _get_lang(_db, msg.chat_id) or "en"
+                                            result = result + "\n\n" + NUDGE_TZ_WHEN_MISSING.get(_lang, NUDGE_TZ_WHEN_MISSING["en"])
+                                finally:
+                                    _db.close()
+                            except Exception:
+                                pass
+                            try:
+                                session = self.sessions.get_or_create(msg.session_key)
+                                session.add_message("user", msg.content)
+                                session.add_message("assistant", result)
+                                self.sessions.save(session)
+                                asyncio.create_task(self._maybe_sentiment_check(session, msg.channel, msg.chat_id))
+                            except Exception:
+                                pass
+                            return OutboundMessage(
+                                channel=msg.channel, chat_id=msg.chat_id, content=result, metadata=dict(msg.metadata or {}),
+                            )
+                    except Exception as e:
+                        logger.warning("Fallback list handle failed: %s", e)
             result = await handlers_route(ctx, msg.content)
             if result is not None:
                 # Atualizar ficheiro de memória do cliente (ex.: /lang, /tz alteram dados na BD)

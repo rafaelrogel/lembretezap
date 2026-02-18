@@ -127,7 +127,8 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
     """/reset: limpa dados do onboarding. Aceita NL: reiniciar, reset."""
     from backend.command_nl import normalize_nl_to_command
     content = normalize_nl_to_command(content)
-    if not content.strip().lower().startswith("/reset"):
+    c = content.strip().lower()
+    if not (c.startswith("/reset") or c.startswith("/reboot")):
         return None
     try:
         from backend.database import SessionLocal
@@ -142,10 +143,10 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
     except Exception:
         lang = "pt-BR"
     msgs = {
-        "pt-PT": "Cadastro apagado. Na próxima mensagem, pergunto de novo onde estás (cidade ou hora) para acertar o fuso. /tz ou /fuso para mudar depois. LGPD: só o essencial. 😊",
-        "pt-BR": "Cadastro apagado. Na próxima mensagem, pergunto de novo onde você está (cidade ou hora) para acertar o fuso. /tz ou /fuso para mudar depois. LGPD: só o essencial. 😊",
-        "es": "Registro borrado. En el próximo mensaje, pregunto de nuevo dónde estás (ciudad u hora) para el huso. /tz o /fuso para cambiar después. RGPD. 😊",
-        "en": "Registration cleared. Next message, I'll ask again where you are (city or time) to set your timezone. /tz or /fuso to change later. GDPR. 😊",
+        "pt-PT": "Cadastro apagado e conversa reiniciada. Na próxima mensagem, pergunto de novo onde estás (cidade ou hora) para acertar o fuso. /tz ou /fuso para mudar depois. LGPD: só o essencial. 😊\n\nSe no futuro as respostas parecerem estranhas por causa do histórico, usa /reset ou /reiniciar para limpar a conversa.",
+        "pt-BR": "Cadastro apagado e conversa reiniciada. Na próxima mensagem, pergunto de novo onde você está (cidade ou hora) para acertar o fuso. /tz ou /fuso para mudar depois. LGPD: só o essencial. 😊\n\nSe no futuro as respostas parecerem estranhas por causa do histórico, use /reset ou /reiniciar para limpar a conversa.",
+        "es": "Registro borrado y conversación reiniciada. En el próximo mensaje, pregunto de nuevo dónde estás (ciudad u hora) para el huso. /tz o /fuso para cambiar después. RGPD. 😊\n\nSi en el futuro las respuestas parecen raras por el historial, usa /reset o /reiniciar para limpiar la conversa.",
+        "en": "Registration cleared and conversation reset. Next message, I'll ask again where you are (city or time) to set your timezone. /tz or /fuso to change later. GDPR. 😊\n\nIf answers ever seem off due to conversation history, use /reset or /reiniciar to clear the chat.",
     }
     if ctx.session_manager:
         try:

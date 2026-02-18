@@ -419,7 +419,8 @@ HELP_FULL: dict[LangCode, str] = {
         "• {{/quiet}} 22:00-08:00 — horário silencioso\n\n"
         "*Dicas*\n"
         '• Marcar item como feito: podes dizer por áudio ("pronto", "já fiz"), escrever texto ou usar emoji ("✓", "👍") — não precisas de comando.\n'
-        '• Conversa por mensagem ou áudio; se quiseres resposta em áudio, pede "responde em áudio", "manda áudio" ou "fala comigo". 😊'
+        '• Conversa por mensagem ou áudio; se quiseres resposta em áudio, pede "responde em áudio", "manda áudio" ou "fala comigo". 😊\n'
+        '• Se as respostas parecerem estranhas por causa do histórico, usa {{/reset}} ou /reiniciar para limpar a conversa.'
     ),
     "pt-BR": (
         "📋 *Todos os comandos:*\n\n"
@@ -440,7 +441,8 @@ HELP_FULL: dict[LangCode, str] = {
         "• {{/quiet}} 22:00-08:00 — horário silencioso\n\n"
         "*Dicas*\n"
         '• Marcar item como feito: você pode dizer por áudio ("pronto", "já fiz"), escrever texto ou usar emoji ("✓", "👍") — não precisa de comando.\n'
-        '• Conversa por mensagem ou áudio; se quiser resposta em áudio, peça "responde em áudio", "manda áudio" ou "fala comigo". 😊'
+        '• Conversa por mensagem ou áudio; se quiser resposta em áudio, peça "responde em áudio", "manda áudio" ou "fala comigo". 😊\n'
+        '• Se as respostas parecerem estranhas por causa do histórico, use {{/reset}} ou /reiniciar para limpar a conversa.'
     ),
     "es": (
         "📋 *Todos los comandos:*\n\n"
@@ -461,7 +463,8 @@ HELP_FULL: dict[LangCode, str] = {
         "• {{/quiet}} 22:00-08:00 — horario silencioso\n\n"
         "*Consejos*\n"
         '• Marcar ítem como hecho: puedes decir por audio ("listo", "ya está"), escribir o usar emoji ("✓", "👍") — no hace falta comando.\n'
-        '• Conversa por mensaje o audio; si quieres respuesta en audio, pide "responde en audio", "manda audio" o "háblame". 😊'
+        '• Conversa por mensaje o audio; si quieres respuesta en audio, pide "responde en audio", "manda audio" o "háblame". 😊\n'
+        '• Si las respuestas parecen raras por el historial, usa {{/reset}} o /reiniciar para limpiar la conversa.'
     ),
     "en": (
         "📋 *All commands:*\n\n"
@@ -482,7 +485,8 @@ HELP_FULL: dict[LangCode, str] = {
         "• {{/quiet}} 22:00-08:00 — quiet hours\n\n"
         "*Tips*\n"
         '• Mark item done: you can say by voice ("done", "finished"), type or use emoji ("✓", "👍") — no command needed.\n'
-        '• Chat by message or voice; for voice reply ask "reply in audio", "send audio" or "talk to me". 😊'
+        '• Chat by message or voice; for voice reply ask "reply in audio", "send audio" or "talk to me". 😊\n'
+        '• If answers seem off due to conversation history, use {{/reset}} or /reiniciar to clear the chat.'
     ),
 }
 

@@ -635,11 +635,14 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
     """/list nome add item, /list filme|livro|musica|receita item, ou /list [nome]. Filme/livro/musica/receita são listas dentro de /list."""
     from backend.command_parser import parse
     from backend.guardrails import is_absurd_request
+    from loguru import logger
     intent = parse(content)
     if not intent or intent.get("type") not in ("list_add", "list_show"):
         return None
     if not ctx.list_tool:
+        logger.warning("handle_list: list_tool is None, chat_id=%s", (ctx.chat_id or "")[:24])
         return None
+    logger.debug("handle_list: type=%s list_name=%s", intent.get("type"), intent.get("list_name"))
     if intent.get("type") == "list_add":
         list_name = intent.get("list_name", "")
         items = intent.get("items")
@@ -661,10 +664,10 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
         results = []
         for it in items_to_add:
             r = await ctx.list_tool.execute(
-            action="add",
+                action="add",
                 list_name=list_name,
                 item_text=it,
-        )
+            )
             results.append(r)
         return "\n".join(results) if len(results) > 1 else (results[0] if results else None)
     return await ctx.list_tool.execute(

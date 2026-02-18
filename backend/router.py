@@ -52,12 +52,12 @@ from backend.views import (
 HANDLERS = [
     handle_atendimento_request,
     handle_pending_confirmation,
+    handle_list,  # primeiro: "cria lista de X", "mostre lista" → evita cair no LLM com histórico de erro
+    handle_list_or_events_ambiguous,  # "tenho de X, Y" → pergunta lista ou lembretes
     handle_vague_time_reminder,
     handle_recurring_event,
     handle_eventos_unificado,
     handle_sacred_text,  # ativo: responde quando cliente pede versículo bíblia/alcorão
-    handle_list_or_events_ambiguous,  # "tenho de X, Y" → pergunta lista ou lembretes
-    handle_list,  # antes de recurring: "lista mercado", "mostre lista" → list_show
     handle_limpeza,  # antes de recurring: "preciso limpar a casa" → fluxo limpeza
     handle_pomodoro,  # /pomodoro — timer 25 min foco
     handle_quiet,  # /quiet e NL "parar horário silencioso" — antes do fluxo de lembrete
