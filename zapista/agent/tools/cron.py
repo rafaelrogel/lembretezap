@@ -80,7 +80,8 @@ class CronTool(Tool):
             "Schedule one-time or recurring reminders. Actions: add, list, remove. "
             "message = WHAT to remind (e.g. 'ir à farmácia', 'tomar remédio') — required. Never 'lembrete' or 'alerta'. "
             "If user says 'lembrete amanhã 10h' without event, ask 'De que é o lembrete?' first. "
-            "For add: PREFER 'target_at_iso' ('YYYY-MM-DD HH:MM:SS' in user's timezone) for specific times or relative times (e.g. 'tomorrow 9am' -> calculate '2025-02-19 09:00:00'). Use 'in_seconds' only for abstract timers ('timer 10 min'). "
+            "For add: PREFER 'time_input' with the raw user text (e.g. 'daqui a 5 min', 'amanhã 9h'). The system will parse it using the user's timezone. "
+            "Use 'target_at_iso' ('YYYY-MM-DD HH:MM:SS') only if you calculated the time yourself. Use 'in_seconds' only for abstract timers ('timer 10 min'). "
             "If using in_seconds = seconds from NOW (UTC) until the reminder should fire. CRITICAL: The user's time (e.g. '3:25 PM', '11h', 'tomorrow 9am') is always in the prompt's Timezone (user). Convert that local moment to UTC, then in_seconds = (that UTC timestamp - now_utc). Wrong timezone = reminder 1–3 hours late. "
             "every_seconds = repeat; cron_expr = fixed times (interpreted in user timezone when stored). "
             "Encadeamento: se o utilizador disser em áudio ou texto 'depois de X', 'após terminar Y', 'quando fizer A avisa para B', usa depends_on_job_id com o id do lembrete anterior (2-4 letras, ex.: AL, PIX). "
@@ -112,6 +113,10 @@ class CronTool(Tool):
                 "target_at_iso": {
                     "type": "string",
                     "description": "Exact target time in ISO format 'YYYY-MM-DD HH:MM:SS' (User's Timezone). PREFERRED for 'tomorrow 9am', 'in 30 mins' (calculate Now + 30m). e.g. '2025-02-19 14:30:00'."
+                },
+                "time_input": {
+                    "type": "string",
+                    "description": "Raw user time text (e.g. 'daqui a 5 minutos', 'amanhã às 10h', 'toda terça'). System will parse this using backend logic/timezone. HIGHLY RECOMMENDED for relative times."
                 },
                 "cron_expr": {
                     "type": "string",
@@ -152,6 +157,7 @@ class CronTool(Tool):
         every_seconds: int | None = None,
         in_seconds: int | None = None,
         target_at_iso: str | None = None,
+        time_input: str | None = None,
         cron_expr: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
@@ -162,9 +168,53 @@ class CronTool(Tool):
         has_deadline: bool = False,
         **kwargs: Any
     ) -> str:
-        logger.info(f"CronTool.execute inputs: action={action}, msg={message}, target={target_at_iso}, in_seconds={in_seconds}, every={every_seconds}, cron={cron_expr}, chat_id={self._chat_id}, channel={self._channel}")
+        logger.info(f"CronTool.execute inputs: action={action}, msg={message}, time_input={time_input}, target={target_at_iso}, in_seconds={in_seconds}, every={every_seconds}, cron={cron_expr}, chat_id={self._chat_id}, channel={self._channel}")
 
         if action == "add":
+            # Phase 2: System-side time parsing via backend.time_parse
+            if time_input:
+                try:
+                    from backend.time_parse import parse_lembrete_time
+                    from backend.database import SessionLocal
+                    from backend.user_store import get_user_timezone
+                    from backend.timezone import phone_to_default_timezone
+
+                    tz_iana = "UTC"
+                    db = SessionLocal()
+                    try:
+                        tz_iana = get_user_timezone(db, self._chat_id) or phone_to_default_timezone(self._chat_id) or "UTC"
+                    finally:
+                        db.close()
+                    
+                    parsed = parse_lembrete_time(time_input, tz_iana=tz_iana)
+                    if parsed:
+                        if parsed.get("in_seconds"):
+                            in_seconds = parsed["in_seconds"]
+                            # clear conflicting args if parsing succeeded
+                            target_at_iso = None
+                        elif parsed.get("cron_expr"):
+                            cron_expr = parsed["cron_expr"]
+                            every_seconds = None
+                            in_seconds = None
+                            target_at_iso = None
+                        elif parsed.get("every_seconds"):
+                            every_seconds = parsed["every_seconds"]
+                            cron_expr = None
+                            in_seconds = None
+                            target_at_iso = None
+                        
+                        # parsed['message'] usually contains the text sans time.
+                        # If the LLM passed a generic 'Lembrete' or empty message, use the parsed one.
+                        # If LLM passed a specific message (e.g. 'Tomar chá'), keep it (unless it's just 'Lembrete').
+                        parsed_msg = parsed.get("message")
+                        if parsed_msg and (not message or message.lower().strip() in ("lembrete", "alerta", "aviso")):
+                            message = parsed_msg
+                        
+                        logger.info(f"CronTool extracted from time_input='{time_input}': in_s={in_seconds}, cron={cron_expr}, every={every_seconds}, msg='{message}'")
+                except Exception as e:
+                    logger.error(f"CronTool failed to parse time_input '{time_input}': {e}")
+                    # Fallback to other args if parsing fails
+
             from backend.guardrails import is_absurd_request
             allow_relaxed = allow_relaxed_interval or self._get_allow_relaxed()
             absurd = is_absurd_request(message, allow_relaxed=allow_relaxed)
