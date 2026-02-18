@@ -611,7 +611,42 @@ class AgentLoop:
         Timezone Doctor: usa MIMO para detetar se o user está a reclamar da hora.
         Se sim, tenta extrair a hora correta e ajustar o fuso (ou pedir a cidade).
         """
-        content = (msg.content or "").lower()
+        if "/debug_time" in content:
+            try:
+                from zapista.clock_drift import check_clock_drift, get_drift_status
+                from backend.database import SessionLocal
+                from backend.user_store import get_user_timezone
+                
+                # Forçar verificação
+                await check_clock_drift(threshold_s=1.0)
+                status = get_drift_status()
+                
+                db = SessionLocal()
+                tz_user = get_user_timezone(db, msg.chat_id)
+                db.close()
+                
+                from datetime import datetime
+                from zoneinfo import ZoneInfo
+                
+                server_dt = datetime.fromtimestamp(status["server_ts"])
+                effective_dt = datetime.fromtimestamp(status["effective_ts"])
+                user_dt = "N/A"
+                if tz_user:
+                    user_dt = effective_dt.astimezone(ZoneInfo(tz_user)).strftime("%H:%M:%S")
+
+                report = (
+                    f"**Time Debug Report**\n"
+                    f"Server Time (Raw): {server_dt.strftime('%H:%M:%S')} UTC\n"
+                    f"Offset Applied: {status['offset_seconds']:.2f}s\n"
+                    f"Effective Time: {effective_dt.strftime('%H:%M:%S')} UTC\n"
+                    f"User Timezone: {tz_user}\n"
+                    f"User Time: {user_dt}\n"
+                    f"Drift Corrected: {status['is_corrected']}"
+                )
+                return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=report)
+            except Exception as e:
+                return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=f"Debug failed: {e}")
+
         # Keywords que sugerem problemas de hora/fuso
         keywords = ["hora", "time", "fuso", "relógio", "clock", "atrasado", "adiantado", "wrong", "errado", "trouble", "ti is", "timezone"]
         if not any(k in content for k in keywords):
@@ -621,6 +656,10 @@ class AgentLoop:
             return None
             
         try:
+            # FORCE CHECK: Antes de diagnosticar, garantir que nosso relógio não está louco
+            from zapista.clock_drift import check_clock_drift
+            await check_clock_drift(threshold_s=5.0)
+
             from datetime import datetime, timezone
             from zapista.clock_drift import get_effective_time
             
