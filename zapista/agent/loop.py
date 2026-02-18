@@ -606,6 +606,88 @@ class AgentLoop:
         except Exception as e:
             logger.debug(f"Onboarding memory sync failed: {e}")
 
+    async def _handle_time_confusion(self, msg: InboundMessage) -> OutboundMessage | None:
+        """
+        Timezone Doctor: usa MIMO para detetar se o user está a reclamar da hora.
+        Se sim, tenta extrair a hora correta e ajustar o fuso (ou pedir a cidade).
+        """
+        content = (msg.content or "").lower()
+        # Keywords que sugerem problemas de hora/fuso
+        keywords = ["hora", "time", "fuso", "relógio", "clock", "atrasado", "adiantado", "wrong", "errado"]
+        if not any(k in content for k in keywords):
+            return None
+        
+        if not self.scope_provider or not self.scope_model:
+            return None
+            
+        try:
+            from datetime import datetime, timezone
+            from zapista.clock_drift import get_effective_time
+            
+            # UTC agora
+            utc_ts = get_effective_time()
+            utc_now = datetime.fromtimestamp(utc_ts, tz=timezone.utc)
+            utc_str = utc_now.strftime("%H:%M")
+            
+            prompt = (
+                f"User message: \"{msg.content}\"\n"
+                f"Current UTC time: {utc_str}\n"
+                "Task: check if the user is complaining about the time/clock being wrong. "
+                "If they mention a specific time (e.g. 'it is 15:00 here'), try to find the IANA timezone (e.g. Europe/Lisbon, America/Sao_Paulo) "
+                "that matches that time vs UTC. "
+                "Reply format: 'FIX|{iana_timezone}|{reason}' if you are sure about the fix. "
+                "Reply 'ASK_CITY' if they complain but don't say the time or city. "
+                "Reply 'NO' if it's unrelated."
+            )
+            
+            r = await self.scope_provider.chat(
+                messages=[{"role": "user", "content": prompt}],
+                model=self.scope_model,
+                profile="parser",
+            )
+            out = (r.content or "").strip()
+            
+            if out.startswith("FIX|"):
+                parts = out.split("|")
+                if len(parts) >= 2:
+                    new_tz = parts[1].strip()
+                    try:
+                        from zoneinfo import ZoneInfo
+                        ZoneInfo(new_tz) # Valida IANA
+                        
+                        from backend.database import SessionLocal
+                        from backend.user_store import set_user_timezone
+                        db = SessionLocal()
+                        try:
+                            set_user_timezone(db, msg.chat_id, new_tz)
+                            self._write_client_memory_file(db, msg.chat_id)
+                        finally:
+                            db.close()
+                            
+                        # Calcular que horas são nesse novo fuso para confirmar
+                        local_dt = utc_now.astimezone(ZoneInfo(new_tz))
+                        time_str = local_dt.strftime("%H:%M")
+                        
+                        return OutboundMessage(
+                            channel=msg.channel,
+                            chat_id=msg.chat_id,
+                            content=f"Entendido! Ajustei o teu fuso horário para **{new_tz}**. Agora são **{time_str}** aí, certo? 🕒",
+                        )
+                    except Exception as e:
+                        logger.warning(f"Timezone Doctor fix failed for {new_tz}: {e}")
+                        
+            elif out == "ASK_CITY":
+                return OutboundMessage(
+                    channel=msg.channel,
+                    chat_id=msg.chat_id,
+                    content="Parece que o meu relógio está desalinhado contigo. Em que cidade ou país estás? (Assim ajusto o fuso automaticamente) 🌍",
+                )
+                
+        except Exception as e:
+            logger.error(f"Timezone Doctor error: {e}")
+            
+        return None
+
     async def _process_message(self, msg: InboundMessage) -> OutboundMessage | None:
         """
         Process a single inbound message.
@@ -634,6 +716,15 @@ class AgentLoop:
             metadata=msg.metadata,
             trace_id=msg.trace_id,
         )
+
+        # 0. Timezone Doctor (MIMO): verificar se o user está "perdido no tempo"
+        try:
+            tz_fix = await self._handle_time_confusion(msg)
+            if tz_fix:
+                return tz_fix
+        except Exception:
+            pass
+
         # Regista mensagem do cliente para contagem diária (lembrete inteligente só após >= 2 msgs no dia)
         try:
             from backend.database import SessionLocal
