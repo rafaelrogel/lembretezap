@@ -120,7 +120,25 @@ async def handle_admin_command(
     Nunca inclui secrets.
     """
     raw = (command or "").strip()
-    cmd = raw.lstrip("#").strip().lower() if raw.startswith("#") else raw.lower()
+    # Fix: split by space to get cmd, not the whole line
+    # parse_admin_command_arg extracts (cmd, arg) if valid
+    cmd_only, _ = parse_admin_command_arg(raw)
+    
+    # Fallback if parse_admin_command_arg returns None (invalid command)
+    # logic below expects 'cmd' to be the command string or something to check against _VALID_COMMANDS
+    if not cmd_only:
+        # Tenta pegar só a primeira palavra para ver se é um comando conhecido
+        parts = raw.split(None, 1)
+        if parts:
+            possible_cmd = parts[0].lstrip("#").lower()
+            if possible_cmd in _VALID_COMMANDS:
+                cmd = possible_cmd
+            else:
+                cmd = raw.lstrip("#").strip().lower() # keep old behavior for unknowns
+        else:
+             cmd = ""
+    else:
+        cmd = cmd_only
     if not cmd or cmd not in _VALID_COMMANDS:
         return (
             f"Comando desconhecido: #{command or '?'}\n"
