@@ -123,6 +123,26 @@ async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
     return "❌ Erro ao guardar. Usa /quiet 22:00-08:00."
 
 
+def _format_current_time_for_user(chat_id: str, lang: str) -> str:
+    """Hora actual no fuso do utilizador (usa get_effective_time para corrigir relógio do servidor)."""
+    try:
+        from datetime import datetime, timezone
+        from zoneinfo import ZoneInfo
+        from backend.timezone import phone_to_default_timezone
+        try:
+            from zapista.clock_drift import get_effective_time
+            effective_ts = get_effective_time()
+        except Exception:
+            import time
+            effective_ts = time.time()
+        tz_iana = phone_to_default_timezone(chat_id) or "UTC"
+        z = ZoneInfo(tz_iana)
+        dt = datetime.fromtimestamp(effective_ts, tz=timezone.utc).astimezone(z)
+        return dt.strftime("%H:%M (%d/%m/%Y)")
+    except Exception:
+        return ""
+
+
 async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
     """/reset: limpa dados do onboarding. Aceita NL: reiniciar, reset."""
     from backend.command_nl import normalize_nl_to_command
@@ -148,6 +168,16 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
         "es": "Registro borrado y conversación reiniciada. En el próximo mensaje, pregunto de nuevo dónde estás (ciudad u hora) para el huso. /tz o /fuso para cambiar después. RGPD. 😊\n\nSi en el futuro las respuestas parecen raras por el historial, usa /reset o /reiniciar para limpiar la conversa.",
         "en": "Registration cleared and conversation reset. Next message, I'll ask again where you are (city or time) to set your timezone. /tz or /fuso to change later. GDPR. 😊\n\nIf answers ever seem off due to conversation history, use /reset or /reiniciar to clear the chat.",
     }
+    out = msgs.get(lang, msgs["pt-BR"])
+    time_str = _format_current_time_for_user(ctx.chat_id, lang)
+    if time_str:
+        hint_clock = {
+            "pt-PT": "Se a hora estiver errada, no servidor define a variável CLOCK_OFFSET_SECONDS (segundos a somar ao relógio do servidor).",
+            "pt-BR": "Se a hora estiver errada, no servidor defina a variável CLOCK_OFFSET_SECONDS (segundos a somar ao relógio do servidor).",
+            "es": "Si la hora es incorrecta, en el servidor define la variable CLOCK_OFFSET_SECONDS (segundos a sumar al reloj del servidor).",
+            "en": "If the time is wrong, on the server set CLOCK_OFFSET_SECONDS (seconds to add to server clock).",
+        }
+        out = out + "\n\n*Hora atual (no teu fuso):* " + time_str + "\n\n" + hint_clock.get(lang, hint_clock["en"])
     if ctx.session_manager:
         try:
             key = f"{ctx.channel}:{ctx.chat_id}"
@@ -163,4 +193,4 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
             ctx.session_manager.save(session)
         except Exception:
             pass
-    return msgs.get(lang, msgs["pt-BR"])
+    return out
