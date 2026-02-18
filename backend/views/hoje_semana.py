@@ -18,6 +18,7 @@ def _events_in_period(db, user_id: int, today, end_date, tz) -> list:
         Event.data_at.isnot(None),
     ).all()
     out = []
+    seen = set()
     for ev in events:
         if not ev.data_at:
             continue
@@ -27,8 +28,16 @@ def _events_in_period(db, user_id: int, today, end_date, tz) -> list:
         except Exception:
             ev_local = ev_date.date()
         if today <= ev_local <= end_date:
-            nome = (ev.payload or {}).get("nome", "") if isinstance(ev.payload, dict) else str(ev.payload)[:40]
-            out.append((ev_local, ev.data_at, nome or "Evento"))
+            nome = (ev.payload or {}).get("nome", "") if isinstance(ev.payload, dict) else str(ev.payload)
+            nome = (nome or "Evento").strip()
+            
+            # Deduplicação: ignorar se já vimos (data, nome_lower)
+            key = (ev_local, nome.lower())
+            if key in seen:
+                continue
+            seen.add(key)
+            
+            out.append((ev_local, ev.data_at, nome[:40]))
     out.sort(key=lambda x: (x[0], x[1] or datetime.min))
     return out
 

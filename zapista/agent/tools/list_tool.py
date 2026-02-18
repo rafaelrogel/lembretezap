@@ -50,8 +50,8 @@ class ListTool(Tool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["add", "list", "remove", "feito", "habitual", "shuffle"],
-                    "description": "add | list | remove | feito | habitual | shuffle (randomize list order)",
+                    "enum": ["add", "list", "remove", "delete_list", "feito", "habitual", "shuffle"],
+                    "description": "add | list | remove | delete_list (DESTROY LIST) | feito | habitual | shuffle",
                 },
                 "list_name": {"type": "string", "description": "List name (e.g. mercado, pendentes)"},
                 "item_text": {"type": "string", "description": "Item text (for add)"},
@@ -91,6 +91,8 @@ class ListTool(Tool):
                 return self._list(db, user.id, list_name)
             if action == "remove":
                 return self._remove(db, user.id, list_name, item_id)
+            if action == "delete_list":
+                return self._delete_list(db, user.id, list_name)
             if action == "feito":
                 if (not list_name or not list_name.strip()) and item_id is not None:
                     list_name = self._resolve_list_by_item_id(db, user.id, item_id)
@@ -305,6 +307,24 @@ class ListTool(Tool):
         db.add(AuditLog(user_id=user_id, action="list_remove", resource=f"{list_name}#{item_id}", payload_json=payload))
         db.commit()
         return f"Removido item {item_id} de '{list_name}'."
+
+    def _delete_list(self, db, user_id: int, list_name: str) -> str:
+        """Apaga a lista completa e todos os seus itens."""
+        list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
+        if not list_name:
+            return "Indica o nome da lista para apagar."
+        lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
+        if not lst:
+            return f"Lista '{list_name}' não existe."
+        
+        # Log before delete
+        payload = json.dumps({"list_name": list_name, "item_count": len(lst.items)})
+        db.add(AuditLog(user_id=user_id, action="list_delete_full", resource=list_name, payload_json=payload))
+        
+        # Hard delete (cascades to items via SQLAlchemy relationship)
+        db.delete(lst)
+        db.commit()
+        return f"Lista '{list_name}' apagada com sucesso (e todos os itens)."
 
     def _resolve_list_by_item_id(self, db, user_id: int, item_id: int) -> str | None:
         """Encontra o nome da lista que contém o item com este id (do utilizador)."""
