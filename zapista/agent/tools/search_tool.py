@@ -107,22 +107,22 @@ class SearchTool(Tool):
     async def _call_ddg_fallback(self, q: str) -> str | None:
         """Fallback: DuckDuckGo Search (gratuito) quando Perplexity falha."""
         try:
-            from duckduckgo_search import DDGS
-            # Executa em thread separada para não bloquear o loop assíncrono (DDGS é síncrono ou async wrapper)
-            # A lib duckduckgo_search tem suporte a async mas para garantir compatibilidade usamos to_thread se necessário
-            # Mas a versão recente tem aclass AsyncDDGS
+            # Tentar importar DDGS; se falhar, retorna None (não instalado)
             try:
-                from duckduckgo_search import AsyncDDGS
-                client = AsyncDDGS()
-                results = await client.text(q, max_results=MAX_RESULTS)
+                from duckduckgo_search import DDGS
             except ImportError:
-                # Versões antigas ou sync
-                import asyncio
-                loop = asyncio.get_running_loop()
-                def _sync_search():
-                    with DDGS() as ddgs:
-                        return list(ddgs.text(q, max_results=MAX_RESULTS))
-                results = await loop.run_in_executor(None, _sync_search)
+                return None
+
+            # Executa em thread separada para não bloquear o loop assíncrono
+            import asyncio
+            loop = asyncio.get_running_loop()
+            
+            def _sync_search():
+                # max_results=5 é suficiente para um fallback
+                with DDGS() as ddgs:
+                    return list(ddgs.text(q, max_results=MAX_RESULTS))
+            
+            results = await loop.run_in_executor(None, _sync_search)
 
             if results:
                 lines = []
@@ -132,18 +132,19 @@ class SearchTool(Tool):
                     href = hit.get("href") or ""
                     lines.append(f"{i}. **{title}**\n   {body[:200]}...\n   Source: {href}")
                 return "**Resultados da busca (DuckDuckGo):**\n\n" + "\n\n".join(lines)
-        except Exception as e:
-            # Fallback silencioso (retorna None para dizer erro genérico depois)
+        except Exception:
+            # Fallback silencioso
             pass
         return None
 
     async def execute(self, query: str = "", **kwargs: Any) -> str:
+        q = (query or "").strip()
+        # Se não tiver API key, tentar logo DDG
         if not self._api_key:
-             # Tentar logo DDG se não tiver key configurada, em vez de erro
-            ddg_res = await self._call_ddg_fallback(query or "")
+            ddg_res = await self._call_ddg_fallback(q)
             if ddg_res:
                 return ddg_res
-            return "Error: Perplexity API key missing and fallback failed."
+            return "Error: Perplexity API key missing and fallback (DDG) failed."
 
         q = (query or "").strip()
         absurd = is_absurd_search(q)
