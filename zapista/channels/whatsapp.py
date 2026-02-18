@@ -33,7 +33,11 @@ def _is_duplicate_message(msg_id: str) -> bool:
     """True se esta mensagem já foi processada recentemente (evita chamadas LLM duplicadas)."""
     if not msg_id:
         return False
-    now = time.time()
+    try:
+        from zapista.clock_drift import get_effective_time
+        now = get_effective_time()
+    except Exception:
+        now = time.time()
     to_del = [k for k, t in _processed_ids.items() if now - t > _DEDUP_SECONDS]
     for k in to_del:
         del _processed_ids[k]
@@ -47,7 +51,11 @@ def _is_duplicate_by_content(chat_id: str, content: str) -> bool:
     """Fallback quando não há message_id: mesmo chat + mesmo texto na mesma janela = duplicado."""
     if not content and not chat_id:
         return False
-    now = time.time()
+    try:
+        from zapista.clock_drift import get_effective_time
+        now = get_effective_time()
+    except Exception:
+        now = time.time()
     bucket = int(now / _FALLBACK_BUCKET_SECONDS)
     key = (chat_id, content.strip()[:200], bucket)
     to_del = [k for k, t in _processed_fallback.items() if now - t > _DEDUP_SECONDS]

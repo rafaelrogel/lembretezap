@@ -224,7 +224,13 @@ class ListTool(Tool):
                 z = ZoneInfo(tz_iana) if tz_iana else ZoneInfo("UTC")
             except Exception:
                 z = ZoneInfo("UTC")
-            now = datetime.now(z)
+            try:
+                from zapista.clock_drift import get_effective_time
+                _now_ts = get_effective_time()
+            except Exception:
+                import time
+                _now_ts = time.time()
+            now = datetime.fromtimestamp(_now_ts, tz=z)
             weekday = now.strftime("%A")  # Monday, Tuesday...
             date_str = now.strftime("%Y-%m-%d")
             month = now.month

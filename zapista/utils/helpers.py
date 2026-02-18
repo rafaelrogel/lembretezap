@@ -51,12 +51,24 @@ def get_skills_path(workspace: Path | None = None) -> Path:
 
 def today_date() -> str:
     """Get today's date in YYYY-MM-DD format."""
-    return datetime.now().strftime("%Y-%m-%d")
+    try:
+        from zapista.clock_drift import get_effective_time
+        ts = get_effective_time()
+    except Exception:
+        import time
+        ts = time.time()
+    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d")
 
 
 def timestamp() -> str:
     """Get current timestamp in ISO format."""
-    return datetime.now().isoformat()
+    try:
+        from zapista.clock_drift import get_effective_time
+        ts = get_effective_time()
+    except Exception:
+        import time
+        ts = time.time()
+    return datetime.fromtimestamp(ts).isoformat()
 
 
 def truncate_string(s: str, max_len: int = 100, suffix: str = "...") -> str:

@@ -65,7 +65,12 @@ def is_muted(phone: str) -> bool:
     until = entry.get("muted_until_ts")
     if until is None:
         return False
-    return time.time() < until
+    try:
+        from zapista.clock_drift import get_effective_time
+        _now = get_effective_time()
+    except Exception:
+        _now = time.time()
+    return _now < until
 
 
 def apply_mute(phone: str) -> tuple[str, int, str]:
@@ -81,7 +86,11 @@ def apply_mute(phone: str) -> tuple[str, int, str]:
     count = min(entry.get("count", 0) + 1, 6)
     idx = count - 1
     duration_sec, duration_label, user_message = _LEVELS[idx]
-    now = time.time()
+    try:
+        from zapista.clock_drift import get_effective_time
+        now = get_effective_time()
+    except Exception:
+        now = time.time()
     if count >= 6:
         muted_until_ts = None  # permanente
     else:

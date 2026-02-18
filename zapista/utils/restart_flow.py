@@ -19,14 +19,24 @@ def get_restart_stage(channel: str, chat_id: str) -> str | None:
     if not entry:
         return None
     stage, ts = entry
-    if time.time() - ts > _EXPIRY_SECONDS:
+    try:
+        from zapista.clock_drift import get_effective_time
+        _now = get_effective_time()
+    except Exception:
+        _now = time.time()
+    if _now - ts > _EXPIRY_SECONDS:
         del _STATE[key]
         return None
     return stage
 
 
 def set_restart_stage(channel: str, chat_id: str, stage: str) -> None:
-    _STATE[_key(channel, chat_id)] = (stage, time.time())
+    try:
+        from zapista.clock_drift import get_effective_time
+        _now = get_effective_time()
+    except Exception:
+        _now = time.time()
+    _STATE[_key(channel, chat_id)] = (stage, _now)
 
 
 def clear_restart_stage(channel: str, chat_id: str) -> None:

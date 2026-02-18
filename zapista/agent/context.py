@@ -161,7 +161,13 @@ Skills with available="false" need dependencies (apt/brew).
         if now_override:
             now = now_override
         else:
-            now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M (%A) (UTC)")
+            try:
+                from zapista.clock_drift import get_effective_time
+                _now_ts = get_effective_time()
+            except Exception:
+                import time
+                _now_ts = time.time()
+            now = datetime.fromtimestamp(_now_ts, tz=timezone.utc).strftime("%Y-%m-%d %H:%M (%A) (UTC)")
         workspace_path = str(self.workspace.expanduser().resolve())
         system = platform.system()
         runtime = f"{'macOS' if system == 'Darwin' else system} {platform.machine()}, Python {platform.python_version()}"

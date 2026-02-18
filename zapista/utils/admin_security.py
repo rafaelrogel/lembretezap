@@ -30,7 +30,12 @@ class AdminSecurity:
             return False
         input_hash = self._hash_password(password)
         if input_hash == self._password_hash:
-            self._authorized_chats[chat_id] = datetime.now()
+            try:
+                from zapista.clock_drift import get_effective_time
+                _now = datetime.fromtimestamp(get_effective_time())
+            except Exception:
+                _now = datetime.now()
+            self._authorized_chats[chat_id] = _now
             return True
         return False
 
@@ -39,7 +44,12 @@ class AdminSecurity:
         if chat_id not in self._authorized_chats:
             return False
         auth_time = self._authorized_chats[chat_id]
-        if datetime.now() - auth_time > timedelta(hours=self._session_duration_hours):
+        try:
+            from zapista.clock_drift import get_effective_time
+            _now = datetime.fromtimestamp(get_effective_time())
+        except Exception:
+            _now = datetime.now()
+        if _now - auth_time > timedelta(hours=self._session_duration_hours):
             del self._authorized_chats[chat_id]
             return False
         return True

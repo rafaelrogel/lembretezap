@@ -6,7 +6,13 @@ from typing import Optional
 
 def _utc_now() -> datetime:
     """UTC now (timezone-aware). Use for Column default/onupdate."""
-    return datetime.now(timezone.utc)
+    try:
+        from zapista.clock_drift import get_effective_time
+        _now_ts = get_effective_time()
+    except Exception:
+        import time
+        _now_ts = time.time()
+    return datetime.fromtimestamp(_now_ts, tz=timezone.utc).replace(tzinfo=None) # SQLAlchemy DateTime (naive) or aware depending on config. standard is naive UTC.
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON
 from sqlalchemy.orm import relationship, declarative_base

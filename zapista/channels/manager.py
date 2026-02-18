@@ -25,7 +25,11 @@ def _outbound_dedup_key(msg: OutboundMessage) -> tuple[str, str, str]:
 
 def _should_skip_duplicate_outbound(msg: OutboundMessage) -> bool:
     """True se já enviamos esta mesma mensagem (canal + chat + conteúdo) recentemente."""
-    now = time.time()
+    try:
+        from zapista.clock_drift import get_effective_time
+        now = get_effective_time()
+    except Exception:
+        now = time.time()
     key = _outbound_dedup_key(msg)
     # Limpar entradas antigas
     to_del = [k for k, t in _sent_recently.items() if now - t > _OUTBOUND_DEDUP_SECONDS]

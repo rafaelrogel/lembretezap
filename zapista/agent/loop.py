@@ -32,7 +32,11 @@ _RATE_LIMIT_MSG_COOLDOWN = 60.0
 
 def _should_send_rate_limit_message(channel: str, chat_id: str) -> bool:
     """True se podemos enviar a mensagem de rate limit (não enviamos nos últimos 60s para este chat)."""
-    now = time.time()
+    try:
+        from zapista.clock_drift import get_effective_time
+        now = get_effective_time()
+    except Exception:
+        now = time.time()
     key = (channel, str(chat_id))
     to_del = [k for k, t in _RATE_LIMIT_MSG_SENT.items() if now - t > _RATE_LIMIT_MSG_COOLDOWN]
     for k in to_del:
@@ -129,6 +133,26 @@ class AgentLoop:
             self.tools.register(SearchTool(api_key=self._perplexity_api_key))
         # Read file: carregar bootstrap, rules e skills on demand (reduz tokens)
         self.tools.register(ReadFileTool(workspace=self.workspace))
+
+    def _get_now_tz(self, tz: Any) -> datetime:
+        """Helper para obter datetime agora no fuso, usando tempo efectivo."""
+        from datetime import datetime
+        try:
+            from zapista.clock_drift import get_effective_time
+            ts = get_effective_time()
+        except Exception:
+            ts = time.time()
+        return datetime.fromtimestamp(ts, tz=tz)
+
+    def _get_now_iso(self) -> str:
+        """Helper para obter isoformat do agora efectivo."""
+        from datetime import datetime
+        try:
+            from zapista.clock_drift import get_effective_time
+            ts = get_effective_time()
+        except Exception:
+            ts = time.time()
+        return datetime.fromtimestamp(ts).isoformat()
     
     async def run(self) -> None:
         """Run the agent loop, processing messages from the bus."""
@@ -223,7 +247,7 @@ class AgentLoop:
                 "role": "user",
                 "content": f"[Resumo da conversa anterior]\n{summary}",
                 "_type": "summary",
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": self._get_now_iso(),
             }
             session.messages = [summary_msg] + session.messages[25:]
             self.sessions.save(session)
@@ -678,7 +702,8 @@ class AgentLoop:
                     tz = ZoneInfo(tz_iana)
                 except Exception:
                     tz = ZoneInfo("UTC")
-                today_user = date(datetime.now(tz).year, datetime.now(tz).month, datetime.now(tz).day) if tz else date.today()
+                _now = self._get_now_tz(tz)
+                today_user = date(_now.year, _now.month, _now.day) if tz else date.today()
                 if today_user >= RECAP_ACTIVE_FROM:
                     weekly_content, weekly_period_id, monthly_content, monthly_period_id = get_pending_recap_on_first_contact(
                         db, msg.chat_id, tz
@@ -1056,7 +1081,7 @@ class AgentLoop:
                             parsed = parse_local_time_from_message(content_stripped)
                             if parsed:
                                 h, m = parsed
-                                now_utc = datetime.now(ZoneInfo("UTC"))
+                                now_utc = self._get_now_tz(ZoneInfo("UTC"))
                                 utc_minutes = now_utc.hour * 60 + now_utc.minute
                                 user_minutes = h * 60 + m
                                 offset_minutes = user_minutes - utc_minutes
@@ -1068,7 +1093,7 @@ class AgentLoop:
                                 tz_iana = iana_from_offset_minutes(offset_minutes)
                                 if is_valid_iana(tz_iana):
                                     z = ZoneInfo(tz_iana)
-                                    today = datetime.now(z).date()
+                                    today = self._get_now_tz(z).date()
                                     date_str = today.strftime("%d/%m") if hasattr(today, "strftime") else str(today)
                                     time_str = f"{h:02d}:{m:02d}"
                                     confirm_msg = onboarding_time_confirm_message(

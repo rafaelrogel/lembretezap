@@ -40,8 +40,16 @@ class IntentFeedbackCollector:
         else:
             follow_up_serialized = None
 
+        try:
+            from zapista.clock_drift import get_effective_time
+            ts = get_effective_time()
+        except Exception:
+            import time
+            ts = time.time()
+        _now = datetime.fromtimestamp(ts)
+
         entry = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": _now.isoformat(),
             "message": user_message,
             "predicted_type": predicted.task_type.value,
             "confidence": predicted.confidence,
@@ -53,7 +61,7 @@ class IntentFeedbackCollector:
             "correct": actual == predicted.task_type if actual is not None else None,
         }
 
-        filepath = self.feedback_dir / f"predictions_{datetime.now().strftime('%Y%m')}.jsonl"
+        filepath = self.feedback_dir / f"predictions_{_now.strftime('%Y%m')}.jsonl"
         with open(filepath, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 

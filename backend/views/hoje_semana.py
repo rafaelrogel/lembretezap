@@ -62,8 +62,16 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
                 tz = ZoneInfo(tz_iana)
             except Exception:
                 tz = ZoneInfo("UTC")
-            now = datetime.now(tz)
+
+            try:
+                from zapista.clock_drift import get_effective_time
+                _now_ts = get_effective_time()
+            except Exception:
+                import time
+                _now_ts = time.time()
+            now = datetime.fromtimestamp(_now_ts, tz=tz)
             today = now.date()
+
             today_start = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=tz)
             period_end = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=tz)
             today_start_utc_ms = int(today_start.timestamp() * 1000)
@@ -129,7 +137,14 @@ def _visao_agenda_dia(ctx: "HandlerContext") -> str:
                 tz = ZoneInfo(tz_iana)
             except Exception:
                 tz = ZoneInfo("UTC")
-            now = datetime.now(tz)
+
+            try:
+                from zapista.clock_drift import get_effective_time
+                _now_ts = get_effective_time()
+            except Exception:
+                import time
+                _now_ts = time.time()
+            now = datetime.fromtimestamp(_now_ts, tz=tz)
             today = now.date()
 
             lines = ["📆 **Agenda — hoje**"]
@@ -171,7 +186,14 @@ def _visao_semana(ctx: "HandlerContext") -> str:
                 tz = ZoneInfo(tz_iana)
             except Exception:
                 tz = ZoneInfo("UTC")
-            now = datetime.now(tz)
+
+            try:
+                from zapista.clock_drift import get_effective_time
+                _now_ts = get_effective_time()
+            except Exception:
+                import time
+                _now_ts = time.time()
+            now = datetime.fromtimestamp(_now_ts, tz=tz)
             today = now.date()
             end_date = today + timedelta(days=6)  # 7 dias: hoje + 6
 

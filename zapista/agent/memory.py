@@ -76,7 +76,13 @@ class MemoryStore:
         from datetime import timedelta
         
         memories = []
-        today = datetime.now().date()
+        try:
+            from zapista.clock_drift import get_effective_time
+            _now_ts = get_effective_time()
+        except Exception:
+            import time
+            _now_ts = time.time()
+        today = datetime.fromtimestamp(_now_ts).date()
         d = self._dir(session_key)
         
         for i in range(days):

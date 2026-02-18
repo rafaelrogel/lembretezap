@@ -31,7 +31,12 @@ def get_god_mode_password() -> str:
 
 def activate_god_mode(chat_id: str) -> None:
     """Marca este chat como tendo god-mode ativo (por TTL)."""
-    _god_mode_activated[str(chat_id)] = time.time()
+    try:
+        from zapista.clock_drift import get_effective_time
+        _now = get_effective_time()
+    except Exception:
+        _now = time.time()
+    _god_mode_activated[str(chat_id)] = _now
 
 
 def is_god_mode_activated(chat_id: str) -> bool:
@@ -39,7 +44,12 @@ def is_god_mode_activated(chat_id: str) -> bool:
     t = _god_mode_activated.get(str(chat_id))
     if t is None:
         return False
-    if time.time() - t > _GOD_MODE_TTL_SECONDS:
+    try:
+        from zapista.clock_drift import get_effective_time
+        _now = get_effective_time()
+    except Exception:
+        _now = time.time()
+    if _now - t > _GOD_MODE_TTL_SECONDS:
         del _god_mode_activated[str(chat_id)]
         return False
     return True
@@ -100,11 +110,16 @@ def parse_admin_command_arg(text: str) -> tuple[str | None, str]:
 
 def log_unauthorized(from_id: str, command: str) -> None:
     """Log de tentativa não autorizada (sem PII além do identificador do comando)."""
+    try:
+        from zapista.clock_drift import get_effective_time
+        _now = get_effective_time()
+    except Exception:
+        _now = time.time()
     logger.warning(
         "admin_unauthorized from={} cmd={} ts={}",
         from_id[:8] + "***" if len(from_id) > 8 else "***",
         command,
-        int(time.time()),
+        int(_now),
     )
 
 
@@ -321,7 +336,11 @@ def _cmd_cron(cron_store_path: Path | None, arg: str = "") -> str:
         disabled_jobs = [j for j in jobs if not j.get("enabled", True)]
         total = len(jobs)
         enabled = len(enabled_jobs)
-        now_ms = int(time.time() * 1000)
+        try:
+            from zapista.clock_drift import get_effective_time
+            now_ms = int(get_effective_time() * 1000)
+        except Exception:
+            now_ms = int(time.time() * 1000)
         lines = [f"#cron\nJobs: {total} (ativos: {enabled}, desativados: {len(disabled_jobs)})"]
 
         # Jobs por utilizador (payload.to)
@@ -464,7 +483,11 @@ def _cmd_lembretes(cron_store_path: Path | None, user_arg: str) -> str:
         if not user_jobs:
             return f"#lembretes\nUtilizador {_digits(user_arg)[-8:]}***: 0 lembretes ativos."
         lines = [f"#lembretes\nUtilizador ***{_digits(user_arg)[-6:]}: {len(user_jobs)} lembretes"]
-        now_ms = int(time.time() * 1000)
+        try:
+            from zapista.clock_drift import get_effective_time
+            now_ms = int(get_effective_time() * 1000)
+        except Exception:
+            now_ms = int(time.time() * 1000)
         seen_key: dict[str, int] = {}
         for i, j in enumerate(user_jobs, 1):
             payload = j.get("payload") or {}
@@ -517,7 +540,11 @@ async def _cmd_tz(db_session_factory: Any, user_arg: str) -> str:
     digits = _digits(user_arg)
     try:
         from datetime import datetime
-        now_sec = int(time.time())
+        try:
+            from zapista.clock_drift import get_effective_time
+            now_sec = int(get_effective_time())
+        except Exception:
+            now_sec = int(time.time())
         lines = [f"#tz\nUtilizador ***{digits[-6:]}"]
 
         if db_session_factory:

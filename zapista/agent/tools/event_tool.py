@@ -124,7 +124,13 @@ class EventTool(Tool):
             tz = ZoneInfo(tz_iana)
         except Exception:
             tz = ZoneInfo("UTC")
-        today = datetime.now(tz).date()
+        try:
+            from zapista.clock_drift import get_effective_time
+            _now_ts = get_effective_time()
+        except Exception:
+            import time
+            _now_ts = time.time()
+        today = datetime.fromtimestamp(_now_ts, tz=tz).date()
         events = (
             db.query(Event)
             .filter(
