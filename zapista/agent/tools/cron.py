@@ -80,7 +80,8 @@ class CronTool(Tool):
             "Schedule one-time or recurring reminders. Actions: add, list, remove. "
             "message = WHAT to remind (e.g. 'ir à farmácia', 'tomar remédio') — required. Never 'lembrete' or 'alerta'. "
             "If user says 'lembrete amanhã 10h' without event, ask 'De que é o lembrete?' first. "
-            "For add: in_seconds = seconds from NOW (UTC) until the reminder should fire. CRITICAL: The user's time (e.g. '3:25 PM', '11h', 'tomorrow 9am') is always in the prompt's Timezone (user). Convert that local moment to UTC, then in_seconds = (that UTC timestamp - now_utc). Wrong timezone = reminder 1–3 hours late. "
+            "For add: PREFER 'target_at_iso' ('YYYY-MM-DD HH:MM:SS' in user's timezone) for specific times or relative times (e.g. 'tomorrow 9am' -> calculate '2025-02-19 09:00:00'). Use 'in_seconds' only for abstract timers ('timer 10 min'). "
+            "If using in_seconds = seconds from NOW (UTC) until the reminder should fire. CRITICAL: The user's time (e.g. '3:25 PM', '11h', 'tomorrow 9am') is always in the prompt's Timezone (user). Convert that local moment to UTC, then in_seconds = (that UTC timestamp - now_utc). Wrong timezone = reminder 1–3 hours late. "
             "every_seconds = repeat; cron_expr = fixed times (interpreted in user timezone when stored). "
             "Encadeamento: se o utilizador disser em áudio ou texto 'depois de X', 'após terminar Y', 'quando fizer A avisa para B', usa depends_on_job_id com o id do lembrete anterior (2-4 letras, ex.: AL, PIX). "
             "When confirming a reminder to the user, use the EXACT time from this tool's return (e.g. 'Será enviado às HH:MM'); never substitute with the Current Time from the prompt."
@@ -106,7 +107,11 @@ class CronTool(Tool):
                 },
                 "in_seconds": {
                     "type": "integer",
-                    "description": "One-time reminder in N seconds (e.g. 120 = in 2 minutes)"
+                    "description": "One-time reminder in N seconds (e.g. 120 = in 2 minutes). Use for abstract durations."
+                },
+                "target_at_iso": {
+                    "type": "string",
+                    "description": "Exact target time in ISO format 'YYYY-MM-DD HH:MM:SS' (User's Timezone). PREFERRED for 'tomorrow 9am', 'in 30 mins' (calculate Now + 30m). e.g. '2025-02-19 14:30:00'."
                 },
                 "cron_expr": {
                     "type": "string",
@@ -146,6 +151,7 @@ class CronTool(Tool):
         message: str = "",
         every_seconds: int | None = None,
         in_seconds: int | None = None,
+        target_at_iso: str | None = None,
         cron_expr: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
@@ -156,6 +162,8 @@ class CronTool(Tool):
         has_deadline: bool = False,
         **kwargs: Any
     ) -> str:
+        logger.info(f"CronTool.execute inputs: action={action}, msg={message}, target={target_at_iso}, in_seconds={in_seconds}, every={every_seconds}, cron={cron_expr}, chat_id={self._chat_id}, channel={self._channel}")
+
         if action == "add":
             from backend.guardrails import is_absurd_request
             allow_relaxed = allow_relaxed_interval or self._get_allow_relaxed()
@@ -175,6 +183,7 @@ class CronTool(Tool):
                 )
             return await self._add_job(
                 message, every_seconds, in_seconds, cron_expr,
+                target_at_iso=target_at_iso,
                 start_date=start_date,
                 end_date=end_date,
                 suggested_prefix=prefix,
@@ -297,6 +306,7 @@ class CronTool(Tool):
         every_seconds: int | None,
         in_seconds: int | None,
         cron_expr: str | None,
+        target_at_iso: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
         suggested_prefix: str | None = None,
@@ -363,13 +373,48 @@ class CronTool(Tool):
                 except (ValueError, TypeError):
                     pass
         # Pontual (não recorrente): após a entrega o job é removido do cron (esquecido pelo sistema); pode existir histórico noutra camada
-        if in_seconds is not None and in_seconds > 0:
-            now_ms = _effective_now_ms()
-            at_ms = now_ms + in_seconds * 1000
-            if at_ms <= now_ms:
+        if (target_at_iso or (in_seconds is not None and in_seconds > 0)):
+            if target_at_iso:
+                # Interpret ISO string in user's timezone
+                try:
+                    from datetime import datetime
+                    from zoneinfo import ZoneInfo
+                    from backend.database import SessionLocal
+                    from backend.user_store import get_user_timezone
+                    from backend.timezone import phone_to_default_timezone
+                    
+                    db = SessionLocal()
+                    try:
+                        tz_name = get_user_timezone(db, self._chat_id) or phone_to_default_timezone(self._chat_id) or "UTC"
+                    finally:
+                        db.close()
+                    
+                    tz = ZoneInfo(tz_name)
+                    # "2025-02-19 14:30:00" -> naive
+                    dt_naive = datetime.fromisoformat(target_at_iso.replace("Z", ""))
+                    if dt_naive.tzinfo is None:
+                        dt_local = dt_naive.replace(tzinfo=tz)
+                    else:
+                        dt_local = dt_naive.astimezone(tz)
+                    
+                    at_ms = int(dt_local.timestamp() * 1000)
+                    
+                    # Update in_seconds for later logic (deadlines, pre-reminders)
+                    now_ms = _effective_now_ms()
+                    in_seconds = max(1, (at_ms - now_ms) // 1000)
+                except Exception as e:
+                    logger.error(f"Failed to parse target_at_iso '{target_at_iso}': {e}")
+                    return f"Error parsing time: {target_at_iso}. Use format YYYY-MM-DD HH:MM:SS"
+            else:
+                now_ms = _effective_now_ms()
+                at_ms = now_ms + in_seconds * 1000
+
+            if at_ms <= _effective_now_ms():
                 # Relógio ou skew: evitar job no passado (nunca dispararia)
+                now_ms = _effective_now_ms()
                 at_ms = now_ms + 60 * 1000
-                logger.warning("Cron: in_seconds would yield past time; scheduling in 1 min instead")
+                logger.warning("Cron: target time in past; scheduling in 1 min instead")
+            
             schedule = CronSchedule(kind="at", at_ms=at_ms)
             delete_after_run = True
         # Recorrente: mantém-se listado até o utilizador remover ou fim da recorrência
@@ -402,7 +447,7 @@ class CronTool(Tool):
             )
             delete_after_run = False
         else:
-            return "Error: use every_seconds (repeat), in_seconds (once), or cron_expr"
+            return "Error: use every_seconds, cron_expr, or target_at_iso/in_seconds"
 
         # Limites por dia (40 lembretes, 80 total): verificar antes de criar
         at_warning_reminder = False
