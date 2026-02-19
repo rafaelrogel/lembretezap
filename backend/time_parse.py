@@ -140,14 +140,15 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             return {"every_seconds": every, "message": clean_message(message)}
 
     m = re.search(
-        r"hoje\s+(?:às?\s*)?(\d{1,2})\s*h?\b",
+        r"hoje\s+(?:[àa]s?\s*)?(\d{1,2})(?:h|:)?(\d{2})?\b",
         text_lower,
         re.I,
     )
     if m:
         hora = min(23, max(0, int(m.group(1))))
-        message = strip_pattern(text, r"hoje\s+(?:às?\s*)?\d{1,2}\s*h?\s*")
-        today_at = now.replace(hour=hora, minute=0, second=0, microsecond=0)
+        minute = int(m.group(2) or 0)
+        message = strip_pattern(text, r"hoje\s+(?:[àa]s?\s*)?\d{1,2}(?:h|:)?(?:\d{2})?\s*")
+        today_at = now.replace(hour=hora, minute=minute, second=0, microsecond=0)
         delta = (today_at - now).total_seconds()
         if delta > 0 and delta <= 86400:
             return {"in_seconds": int(delta), "message": clean_message(message)}
@@ -155,15 +156,16 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             return {"in_seconds": int(delta), "message": clean_message(message)}
 
     m = re.search(
-        r"amanh[ãa]\s+(?:às?\s*)?(\d{1,2})\s*h?\b",
+        r"amanh[ãa]\s+(?:[àa]s?\s*)?(\d{1,2})(?:h|:)?(\d{2})?\b",
         text_lower,
         re.I,
     )
     if m:
         hora = min(23, max(0, int(m.group(1))))
-        message = strip_pattern(text, r"amanh[ãa]\s+(?:às?\s*)?\d{1,2}\s*h?\s*")
+        minute = int(m.group(2) or 0)
+        message = strip_pattern(text, r"amanh[ãa]\s+(?:[àa]s?\s*)?\d{1,2}(?:h|:)?(?:\d{2})?\s*")
         tomorrow = (now + timedelta(days=1)).replace(
-            hour=hora, minute=0, second=0, microsecond=0
+            hour=hora, minute=minute, second=0, microsecond=0
         )
         delta = (tomorrow - now).total_seconds()
         if delta > 0 and delta <= 86400 * 30:

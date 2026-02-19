@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from zapista.cron.service import CronService
 
 from backend.handler_context import HandlerContext, _reply_confirm_prompt
+from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
 
 
 def _append_tz_hint_if_needed(reply: str, chat_id: str) -> str:
@@ -484,10 +485,8 @@ def _looks_like_reminder_nl(text: str) -> bool:
     t = text.strip().lower()
     if t.startswith("/lembrete"):
         return False
-    # Padrões: "avisar me", "lembra me", "avisa às 10h", "lembrete hoje 10h", "lembrar amanhã"
-    if not (
-        "avisar" in t or "avisa" in t or "lembrar" in t or "lembra" in t or "lembrete" in t
-    ):
+    # Padrões multilinguagem (PT, ES, EN) vindos de reminder_keywords.py
+    if not any(kw in t for kw in ALL_REMINDER_KEYWORDS):
         return False
     time_ref = (
         "hoje" in t or "amanhã" in t or "amanha" in t or "às " in t or "as " in t

@@ -10,6 +10,7 @@ import re
 from typing import Any
 
 from backend.guardrails import is_vague_reminder_message
+from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
 
 # Palavras de data SEM hora explícita (quando sozinhas = tempo vago)
 _DATE_WORDS = {
@@ -23,21 +24,23 @@ _HOUR_PATTERNS = (
     r"\d{1,2}\s*h(?:oras?)?\b",
     r"\d{1,2}:\d{2}",
     r"\d{1,2}h\d{0,2}\b",  # 10h, 10h00
-    r"às?\s*\d{1,2}(?::\d{2})?",
-    r"as\s*\d{1,2}(?::\d{2})?",
+    r"às?\s*\d{1,2}(?:[:h]\d{2})?",
+    r"as\s*\d{1,2}(?:[:h]\d{2})?",
+    r"(?:às?|as)\s*\d{4}\b",
+    r"\b\d{2}h\d{2}?\b", # 12h, 12h00
+    r"\b\d{4}\b",        # 1200
     r"\d{1,2}\s*(?:am|pm)\b",
     r"\d{1,2}:\d{2}\s*(?:am|pm)\b",  # 3:25 PM, 10:30 AM
 )
 
 _HOUR_RE = re.compile("|".join(_HOUR_PATTERNS), re.I)
 
-# Indicadores de pedido de lembrete/evento (conteúdo concreto)
+# Indicadores de pedido de lembrete/evento (conteúdo concreto) vindo de reminder_keywords.py
 _REMINDER_HINTS = (
     "ir ", "tenho ", "preciso ", "consulta", "reunião", "reuniao",
     "médico", "medico", "dentista", "farmacia", "farmácia",
-    "lembrar", "lembrete", "lembre", "agendar", "agenda",
-    "appointment", "meeting", "remind", "reminder",
-)
+    "appointment", "meeting",
+) + tuple(ALL_REMINDER_KEYWORDS)
 
 FLOW_KEY = "pending_reminder_flow"
 STAGE_NEED_TIME = "need_time"
@@ -213,9 +216,10 @@ def _am_pm_to_24(m) -> tuple[int, int]:
 _TIME_RESPONSE_PATTERNS = (
     (r"(\d{1,2}):(\d{2})\s*(am|pm)\b", _am_pm_to_24),  # 3:25 PM, 10:30 AM (antes dos outros)
     (r"(\d{1,2})\s*(am|pm)\b", lambda m: ((int(m.group(1)) % 12) + (12 if m.group(2).lower() == "pm" else 0), 0)),
-    (r"(?:às?|as)\s*(\d{1,2})(?::(\d{2}))?\s*h?", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
+    (r"(?:às?|as)\s*(\d{1,2})(?:[:h])?(\d{2})?\b", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
     (r"(\d{1,2})h(\d{2})\b", lambda m: (int(m.group(1)), int(m.group(2)))),  # 10h00
     (r"(\d{1,2})(?::(\d{2}))?\s*h", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
+    (r"^(\d{4})$", lambda m: (int(m.group(1)[:2]), int(m.group(1)[2:]))),    # 1200
     (r"^(\d{1,2})(?::(\d{2}))?\s*$", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
     (r"^(\d{1,2})\s*$", lambda m: (int(m.group(1)), 0)),
     (r"(\d{1,2})\s*horas?", lambda m: (int(m.group(1)), 0)),
