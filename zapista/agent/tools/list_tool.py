@@ -39,7 +39,8 @@ class ListTool(Tool):
     def description(self) -> str:
         return (
             "Manage user lists. Always use this tool when the user asks to create a list, add items (e.g. books, recipes), or show lists; do not say the system is broken without calling the tool first. "
-            "Actions: add (list_name, item), list (list_name), remove (list_name, item_id), "
+            "Actions: add (list_name, item_text — REQUIRED: never call add without a non-empty item_text, ask the user what to add first), "
+            "list (list_name), remove (list_name, item_id), "
             "feito (list_name, item_id to mark done), habitual (list_name), shuffle (list_name)."
         )
 
@@ -123,8 +124,10 @@ class ListTool(Tool):
     def _add(self, db, user_id: int, list_name: str, item_text: str) -> str:
         list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
         item_text = sanitize_string(item_text or "", MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
-        if not list_name or not item_text:
-            return "Error: list_name and item_text required for add"
+        if not list_name:
+            return "Indica o nome da lista para adicionar o item."
+        if not item_text or not item_text.strip():
+            return f"Para criar ou adicionar à lista '{list_name}', preciso de pelo menos um item! Qual item deseja adicionar?"
         if looks_like_confidential_data(item_text):
             return "Por política de privacidade (RGPD/LGPD), não guardamos dados confidenciais em listas (ex.: CPF, números de cartão). Pode guardar receitas, compras e outros textos sem dados pessoais sensíveis."
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()

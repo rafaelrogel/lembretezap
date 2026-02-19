@@ -207,8 +207,9 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     if m:
         list_name = m.group(1).strip().lower()
         list_name = _CATEGORY_TO_LIST.get(list_name, list_name)
-        item = (m.group(2) or "").strip() or "—"
-        return {"type": "list_add", "list_name": list_name, "item": item}
+        item = (m.group(2) or "").strip()
+        if item:  # Só registra se tiver item concreto; sem item → LLM pergunta o que adicionar
+            return {"type": "list_add", "list_name": list_name, "item": item}
     # NL: "coloca X na lista" → list_add mercado (assumindo compras se não especificar)
     m = RE_NL_POR_LISTA.match(text)
     if m:
