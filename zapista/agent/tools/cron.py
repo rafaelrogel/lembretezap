@@ -85,7 +85,9 @@ class CronTool(Tool):
             "IGNORE 'in_seconds' and 'target_at_iso' unless explicitly constructing a machine-generated timestamp. "
             "System will interpret 'time_input' in the User's Timezone. "
             "every_seconds = repeat; cron_expr = fixed times (interpreted in user timezone when stored). "
-            "Encadeamento: se o utilizador disser em áudio ou texto 'depois de X', 'após terminar Y', 'quando fizer A avisa para B', usa depends_on_job_id com o id do lembrete anterior (2-4 letras, ex.: AL, PIX). "
+            "IMPORTANT: when the user lists multiple reminders in one message (e.g. 'lembre X em 6 min, depois Y em 7 min, depois Z'), "
+            "register each one as a FULLY INDEPENDENT reminder with its own time_input. NEVER chain them with depends_on_job_id. "
+            "depends_on_job_id is ONLY for when the user explicitly says 'só me lembra de B depois de eu confirmar A com 👍' or equivalent. "
             "When confirming a reminder to the user, use the EXACT time from this tool's return (e.g. 'Será enviado às HH:MM'); never substitute with the Current Time from the prompt."
         )
     
@@ -141,7 +143,7 @@ class CronTool(Tool):
                 },
                 "depends_on_job_id": {
                     "type": "string",
-                    "description": "Encadeamento: id do lembrete (2-4 letras, ex. AL, PIX) que tem de estar feito primeiro. Usar quando o utilizador disser em áudio ou texto 'depois de X', 'após terminar Y', 'quando marcar A como feito avisa para B'. O lembrete dependente dispara quando o utilizador reagir 👍 ao anterior."
+                    "description": "ONLY use this when user EXPLICITLY says something like 'só me lembra de B depois de eu marcar A como feito' or 'quando eu confirmar A com 👍, avisa para B'. Do NOT use for multi-reminder messages where user says 'depois' as a time reference (e.g. 'lembra X em 6 min, depois Y em 7 min') — in those cases, create each reminder independently."
                 },
                 "has_deadline": {
                     "type": "boolean",
