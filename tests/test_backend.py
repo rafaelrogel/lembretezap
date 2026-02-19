@@ -195,9 +195,9 @@ def test_command_parser():
 
     # /filme, /livro, /musica, /receita → list_add (tudo dentro de /list)
     i = parse("/filme Matrix")
-    assert i == {"type": "list_add", "list_name": "filme", "item": "Matrix"}
+    assert i == {"type": "event_add", "event_type": "filme", "name": "Matrix"}
     i = parse("/filme O Senhor dos Anéis")
-    assert i is not None and i["type"] == "list_add" and i["list_name"] == "filme" and "Senhor" in i["item"]
+    assert i is not None and i["type"] == "event_add" and i["event_type"] == "filme" and "Senhor" in i["name"]
     i = parse("/list filme Inception")
     assert i == {"type": "list_add", "list_name": "filme", "item": "Inception"}
     i = parse("/list receita Bolo de chocolate")

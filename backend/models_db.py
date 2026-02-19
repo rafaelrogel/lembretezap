@@ -14,7 +14,7 @@ def _utc_now() -> datetime:
         _now_ts = time.time()
     return datetime.fromtimestamp(_now_ts, tz=timezone.utc).replace(tzinfo=None) # SQLAlchemy DateTime (naive) or aware depending on config. standard is naive UTC.
 
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON, Float
 from sqlalchemy.orm import relationship, declarative_base
 
 Base = declarative_base()
@@ -238,3 +238,18 @@ class AuditLog(Base):
     resource = Column(String(128), nullable=True)  # list name, event id
     payload_json = Column(Text, nullable=True)  # JSON com detalhes para recuperação (ex: {"item_text": "pão"})
     created_at = Column(DateTime, default=_utc_now)
+
+
+class TokenUsage(Base):
+    __tablename__ = "token_usage"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider = Column(String, index=True)  # "deepseek", "xiaomi"
+    model = Column(String, index=True)     # "deepseek-chat", "mimo-v2-flash"
+    date = Column(String, index=True)      # "YYYY-MM-DD" (agrupamento diário)
+    input_tokens = Column(Integer, default=0)
+    output_tokens = Column(Integer, default=0)
+    cached_tokens = Column(Integer, default=0)
+    cost_usd = Column(Float, default=0.0)
+    
+    updated_at = Column(DateTime, default=_utc_now, onupdate=_utc_now)

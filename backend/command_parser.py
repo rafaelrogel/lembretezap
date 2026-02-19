@@ -178,15 +178,18 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         return {"type": "list_show", "list_name": name if name != "lista" else None}
 
     # Atalhos: /filme X, /livro X, /musica X, /receita X, /nota X, /site X → list_add (tudo dentro de /list)
+    # Filme, Livro, Musica agora são Eventos (EventTool)
     m = RE_FILME.match(text)
     if m:
-        return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+        return {"type": "event_add", "event_type": "filme", "name": m.group(1).strip()}
     m = RE_LIVRO.match(text)
     if m:
-        return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
+        return {"type": "event_add", "event_type": "livro", "name": m.group(1).strip()}
     m = RE_MUSICA.match(text) or RE_MUSICA_ACCENT.match(text)
     if m:
-        return {"type": "list_add", "list_name": "musica", "item": m.group(1).strip()}
+        return {"type": "event_add", "event_type": "musica", "name": m.group(1).strip()}
+    
+    # Receita continua como lista por enquanto (ou pode mover para event se quiser)
     m = RE_RECEITA.match(text)
     if m:
         return {"type": "list_add", "list_name": "receita", "item": m.group(1).strip()}

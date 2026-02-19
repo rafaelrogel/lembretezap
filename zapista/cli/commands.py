@@ -406,15 +406,20 @@ def gateway(
 
         if job.payload.deliver and job.payload.to and provider and (config.agents.defaults.model or "").strip():
             try:
-                from backend.user_store import is_user_in_quiet_window
-                if is_user_in_quiet_window(job.payload.to):
+                from backend.user_store import get_seconds_until_quiet_end
+                seconds_left = get_seconds_until_quiet_end(job.payload.to)
+                if seconds_left > 0:
+                    # Adiar para o fim do horário silencioso + 60s de margem
+                    delay = seconds_left + 60
+                    cron.snooze_job(job.id, delay_seconds=delay)
+                    job.state.last_status = "snoozed (quiet window)" # Force status update for immediate feedback
                     logger.info(
-                        "Cron deliver skipped (quiet window): to=%s message=%s",
-                        (job.payload.to or "")[:24],
-                        (job.payload.message or "")[:50],
+                        "Cron snooze (quiet window): to=%s job=%s delay=%ds",
+                        (job.payload.to or "")[:24], job.name, delay
                     )
-                    return "skipped (quiet window)"
-            except Exception:
+                    return "snoozed (quiet window)"
+            except Exception as e:
+                logger.warning(f"Quiet mode check failed: {e}")
                 pass
             try:
                 # Idioma do destinatário: preferência na BD; senão inferir pelo número (JID); nunca deixar "en" se tiver número PT/BR/ES

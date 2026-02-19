@@ -4,44 +4,7 @@ Lista de funcionalidades com documento de viabilidade, “em breve” no código
 
 ---
 
-## 1. Visões /hoje e /semana
 
-**Onde:** `backend/handlers.py` — `handle_hoje`, `handle_semana`  
-**Estado:** Comandos existem; devolvem *"Visão /hoje: em breve"* e *"Visão /semana: em breve"*.
-
-**Ideia:**  
-- **/hoje** — visão rápida do dia: lembretes e eventos de hoje (usando timezone do utilizador).  
-- **/semana** — visão da semana: lembretes e eventos dos próximos 7 dias.
-
-**Dependências:** Cron jobs e Event com `data_at`; filtrar por data no timezone do user; texto curto (ex.: lista de eventos + horários).
-
----
-
-## 2. Horário silencioso /quiet
-
-**Onde:** `backend/handlers.py` — `handle_quiet`  
-**Estado:** Comando existe; devolve *"Horário silencioso: em breve. Ex: /quiet 22:00-08:00"*.
-
-**Ideia:**  
-- O utilizador define uma janela (ex.: 22:00–08:00) em que **não** recebe notificações.  
-- O cron (ou a entrega de mensagens) verifica essa janela antes de enviar; se estiver em “silencioso”, adia ou suprime o envio.
-
-**Dependências:** Persistir por user (ex.: `User.quiet_start`, `User.quiet_end` ou tabela equivalente); lógica no gateway/cron para não enviar dentro da janela.
-
----
-
-## 3. Comandos /livro e /musica
-
-**Onde:** `CONFORMIDADE_PEDIDO.md`; `EventTool` já tem `tipo` livros/músicas  
-**Estado:** Só existe **/filme nome** no parser; não há `/livro` nem `/musica`.
-
-**Ideia:**  
-- **/livro Nome** → Event(tipo=livro).  
-- **/musica Nome** (ou **/música**) → Event(tipo=musica).  
-
-**Dependências:** Padrões em `command_parser.py` (ex.: `RE_LIVRO`, `RE_MUSICA`) e rota nos handlers para criar evento com o mesmo fluxo do /filme.
-
----
 
 ## 4. /feito com só o ID (sem nome da lista)
 
@@ -55,18 +18,7 @@ Lista de funcionalidades com documento de viabilidade, “em breve” no código
 
 ---
 
-## 5. Métricas de tokens (#ai) no God Mode
 
-**Onde:** `backend/token_usage.py`; `backend/admin_commands.py` (#ai); README  
-**Estado:** Comando **#ai** existe; `get_usage_summary()` devolve `None`; TODOs no código: “persistir por dia/7d”, “agregar por provedor”.
-
-**Ideia:**  
-- Registar uso (input/output tokens) por chamada ao LLM (DeepSeek, Mimo).  
-- **#ai** mostrar: uso por provedor, por dia e últimos 7 dias; custo estimado (se houver preços).
-
-**Dependências:** `record_usage()` chamado no provider/litellm após cada completion; store (memória/ficheiro/BD) e agregação por dia/provedor; nenhum secret no output.
-
----
 
 ## 6. Pagantes (#paid) e critério “assinatura ativa”
 
@@ -125,7 +77,7 @@ Lista de funcionalidades com documento de viabilidade, “em breve” no código
 | /quiet               | handlers.py “em breve”     | Média                     |
 | /livro, /musica      | CONFORMIDADE_PEDIDO        | Baixa                     |
 | /feito 1 (só id)     | CONFORMIDADE_PEDIDO        | Baixa–média               |
-| #ai tokens           | token_usage.py, README     | Média                     |
+
 | #paid pagantes       | admin_commands.py          | Média (modelo de dados)   |
 | Redis no deploy      | FEASIBILITY, CONFORMIDADE  | Média                     |
 | SQLite cripto        | FEASIBILITY, CONFORMIDADE  | Média (opcional prod)     |
