@@ -45,6 +45,7 @@ class EventTool(Tool):
         tipo: str = "evento",
         nome: str = "",
         payload: dict | None = None,
+        data: str | None = None,
         **kwargs: Any,
     ) -> str:
         if not self._chat_id:
@@ -53,7 +54,7 @@ class EventTool(Tool):
         try:
             user = get_or_create_user(db, self._chat_id)
             if action == "add":
-                return self._add(db, user.id, tipo, nome, payload or {})
+                return self._add(db, user.id, tipo, nome, payload or {}, data_str=data)
             if action == "list":
                 return self._list(db, user.id, tipo)
             if action == "remove":
@@ -62,8 +63,12 @@ class EventTool(Tool):
         finally:
             db.close()
 
-    def _add(self, db, user_id: int, tipo: str, nome: str, payload: dict) -> str:
+    def _add(self, db, user_id: int, tipo: str, nome: str, payload: dict, data_str: str | None = None) -> str:
         from backend.guardrails import is_absurd_request
+        from dateutil.parser import parse as parse_dt
+        from backend.user_store import get_user_timezone
+        from zoneinfo import ZoneInfo
+        
         absurd = is_absurd_request(nome or "")
         if absurd:
             return absurd
@@ -71,13 +76,44 @@ class EventTool(Tool):
         payload = sanitize_payload(payload) if payload else {}
         if not nome and not payload:
             return "Error: nome or payload required for add"
+        
         tipo = tipo if tipo in ("filme", "livro", "musica", "evento") else "evento"
+        
+        # Enforce date for "evento" (agenda)
+        valid_date = None
+        if data_str:
+            try:
+                # Tenta parsear data fornecida
+                # Se for só hora, usa hoje. Se for data, usa 00:00. 
+                # Ideal é que o LLM já mande ISO ou algo parseável.
+                valid_date = parse_dt(data_str, fuzzy=True)
+            except Exception:
+                pass
+        
+        # Se for evento genérico e não tiver data, rejeita.
+        if tipo == "evento" and not valid_date:
+            return "Evento de agenda exige data! Por favor forneça uma data/hora."
+
         data = {"nome": nome, **payload}
-        ev = Event(user_id=user_id, tipo=tipo, payload=data, deleted=False)
+        ev = Event(
+            user_id=user_id, 
+            tipo=tipo, 
+            payload=data, 
+            data_at=valid_date,  # Persiste a data se houver
+            deleted=False
+        )
         db.add(ev)
         db.add(AuditLog(user_id=user_id, action="event_add", resource=tipo))
         db.commit()
-        return f"Anotado: {tipo} '{nome or str(payload)}' (id: {ev.id})"
+        
+        date_msg = ""
+        if  ev.data_at:
+             tz_iana = get_user_timezone(db, str(user_id)) or "UTC" # user_id is int here, might need chat_id for timezone lookup locally? 
+             # Actually _add doesn't receive chat_id to lookup timezone easily unless we pass it. 
+             # But let's just format generic. 
+             date_msg = f" em {ev.data_at.strftime('%d/%m %H:%M')}"
+
+        return f"Anotado: {tipo} '{nome or str(payload)}'{date_msg} (id: {ev.id})"
 
     def _list(self, db, user_id: int, tipo: str) -> str:
         from zoneinfo import ZoneInfo

@@ -191,6 +191,70 @@ def is_user_in_quiet_window(chat_id: str) -> bool:
         db.close()
 
 
+def get_seconds_until_quiet_end(chat_id: str) -> int:
+    """
+    Retorna quantos segundos faltam para o horário silencioso acabar.
+    Se não estiver em horário silencioso, retorna 0.
+    """
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+    from backend.database import SessionLocal
+    
+    db = SessionLocal()
+    try:
+        user = get_or_create_user(db, chat_id)
+        if not user.quiet_start or not user.quiet_end:
+            return 0
+        
+        start = _parse_time_hhmm(user.quiet_start)
+        end = _parse_time_hhmm(user.quiet_end)
+        if not start or not end:
+            return 0
+            
+        tz_iana = user.timezone or phone_to_default_timezone(chat_id)
+        if tz_iana == "UTC" and getattr(user, "language", None) in DEFAULT_TZ_BY_LANG:
+            tz_iana = DEFAULT_TZ_BY_LANG[user.language]
+            
+        try:
+            from zapista.clock_drift import get_effective_time
+            _now_ts = get_effective_time()
+            tz = ZoneInfo(tz_iana)
+            now = datetime.fromtimestamp(_now_ts, tz=tz)
+        except Exception:
+            return 0
+            
+        now_m = now.hour * 60 + now.minute
+        start_m = start[0] * 60 + start[1]
+        end_m = end[0] * 60 + end[1]
+        
+        is_quiet = False
+        if start_m <= end_m:
+            is_quiet = start_m <= now_m < end_m
+        else:
+            is_quiet = now_m >= start_m or now_m < end_m
+            
+        if not is_quiet:
+            return 0
+            
+        # Calcular segundos até end_m
+        # Criar datetime para o horário de fim
+        end_dt = now.replace(hour=end[0], minute=end[1], second=0, microsecond=0)
+        
+        # Se end_dt é hoje mas já passou (caso de overnight window onde agora é antes da meia-noite),
+        # então o fim é amanhã.
+        # Mas aqui sabemos que estamos DENTRO da janela.
+        # Ex: 22h-08h. Agora = 23h. End = 08h (do dia seguinte).
+        # Ex: 22h-08h. Agora = 05h. End = 08h (do dia corrente).
+        
+        if end_dt <= now:
+            end_dt += timedelta(days=1)
+            
+        diff = (end_dt - now).total_seconds()
+        return max(0, int(diff))
+    finally:
+        db.close()
+
+
 def _sanitize_preferred_name(raw: str, max_len: int = 128) -> str | None:
     """Normaliza o nome preferido: trim, limite de caracteres. Retorna None se vazio ou inválido."""
     if not raw or not isinstance(raw, str):

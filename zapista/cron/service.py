@@ -339,12 +339,15 @@ class CronService:
         job.state.last_run_at_ms = start_ms
         job.updated_at_ms = _now_ms()
         
-        # Política: eventos únicos (não recorrentes) = remover do cron após entrega bem-sucedida
         # kind="at" = lembrete pontual (uma vez) → remover após executar com sucesso (lista limpa)
         # has_deadline: main job mantém-se até utilizador confirmar ou 3 lembretes pós-prazo
+        # Se status for "snoozed...", não apagar ainda!
         if job.schedule.kind == "at" and job.state.last_status == "ok":
             if not getattr(job.payload, "has_deadline", False):
                 self._store.jobs = [j for j in self._store.jobs if j.id != job.id]
+        elif job.schedule.kind == "at" and (job.state.last_status or "").startswith("snoozed"):
+            # Foi adiado (ex: quiet mode) → manter ativo para a nova next_run_at_ms (já setada pelo snooze)
+            pass
         elif job.schedule.kind == "at":
             # Falhou: desativar para não repetir indefinidamente; fica no store para debug
             job.enabled = False
