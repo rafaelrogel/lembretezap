@@ -79,6 +79,8 @@ class CronTool(Tool):
         return (
             "Schedule one-time or recurring reminders. Actions: add, list, remove. "
             "message = WHAT to remind (e.g. 'ir à farmácia', 'tomar remédio') — required. Never 'lembrete' or 'alerta'. "
+            "CRITICAL: NEVER invent or assume a time. If the user did not explicitly say a time/date (e.g. '10h', 'amanhã', 'daqui a 5 min'), "
+            "you MUST ask 'Para quando?' BEFORE calling this tool. Do NOT default to '10h', 'amanhã', 'esta tarde' or any arbitrary time. "
             "If user says 'lembrete amanhã 10h' without event, ask 'De que é o lembrete?' first. "
             "For add: CRITICAL: DO NOT CALCULATE TIME. Parsing is done by the system. "
             "ALWAYS pass the exact time text from the user in 'time_input' (e.g. 'daqui a 5 min', 'amanhã 9h'). "
