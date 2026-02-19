@@ -194,3 +194,91 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
         except Exception:
             pass
     return out
+
+
+# ---------------------------------------------------------------------------
+# /nuke, /bomba — apaga TUDO do zero (com confirmação engraçada)
+# ---------------------------------------------------------------------------
+
+_NUKE_CONFIRM_MSGS = {
+    "pt-PT": (
+        "💣 *AQUI É TIRO, PORRADA E BOMBA!* 💥\n\n"
+        "Vais apagar *tudo* — listas, lembretes, eventos, memória da conversa... TUDO.\n"
+        "Esta ação é irreversível, como uma bomba: depois de explodir, não há marcha atrás! 💨\n\n"
+        "Tens mesmo a certeza? Responde *1* para *BOOM 💥* ou *2* para te esquivares."
+    ),
+    "pt-BR": (
+        "💣 *AQUI É TIRO, PORRADA E BOMBA!* 💥\n\n"
+        "Você vai apagar *tudo* — listas, lembretes, eventos, memória da conversa... TUDO.\n"
+        "Esta ação não tem volta, é como uma bomba: detonou, acabou! 💨\n\n"
+        "Tem certeza mesmo? Responda *1* para *BOOM 💥* ou *2* para se esquivar."
+    ),
+    "es": (
+        "💣 *¡AQUÍ ES A LO BESTIA!* 💥\n\n"
+        "Vas a borrar *todo* — listas, recordatorios, eventos, memoria de la conversación... ¡TODO!\n"
+        "Esta acción no tiene vuelta atrás, ¡es como una bomba: bang y se acabó! 💨\n\n"
+        "¿Estás seguro? Responde *1* para *BOOM 💥* o *2* para esquivarte."
+    ),
+    "en": (
+        "💣 *THIS IS A FULL NUKE!* 💥\n\n"
+        "You're about to erase *everything* — lists, reminders, events, conversation memory... ALL of it.\n"
+        "There's no undo. Think of it like a bomb: once it goes off, it's gone! 💨\n\n"
+        "Are you absolutely sure? Reply *1* for *BOOM 💥* or *2* to dodge the blast."
+    ),
+}
+
+_NUKE_CANCELLED_MSGS = {
+    "pt-PT": "💨 Ufa! Bomba desarmada. Nenhum dado foi apagado.",
+    "pt-BR": "💨 Ufa! Bomba desarmada. Nenhum dado foi apagado.",
+    "es": "💨 ¡Uf! Bomba desactivada. No se borró nada.",
+    "en": "💨 Phew! Bomb defused. Nothing was deleted.",
+}
+
+_NUKE_DONE_MSGS = {
+    "pt-PT": (
+        "💥 *BOOM!* Tudo apagado.\n\n"
+        "Listas, lembretes, eventos, memória da conversa — tudo evaporou como fumo de bomba. 💨\n"
+        "Começas do zero! Envia uma mensagem para recomeçar o onboarding. 😊"
+    ),
+    "pt-BR": (
+        "💥 *BOOM!* Tudo apagado.\n\n"
+        "Listas, lembretes, eventos, memória da conversa — tudo evaporou como fumaça de bomba. 💨\n"
+        "Começa do zero! Envie uma mensagem para reiniciar o onboarding. 😊"
+    ),
+    "es": (
+        "💥 *¡BOOM!* Todo borrado.\n\n"
+        "Listas, recordatorios, eventos, memoria de la conversación — todo evaporado. 💨\n"
+        "¡Empezamos de cero! Envía un mensaje para reiniciar. 😊"
+    ),
+    "en": (
+        "💥 *BOOM!* Everything's gone.\n\n"
+        "Lists, reminders, events, conversation memory — all vaporized. 💨\n"
+        "Fresh start! Send a message to restart onboarding. 😊"
+    ),
+}
+
+
+async def handle_nuke(ctx: HandlerContext, content: str) -> str | None:
+    """/nuke, /bomba: apaga TUDO com confirmação engraçada em 4 idiomas."""
+    import re
+    c = content.strip().lower()
+    if not re.match(r"^/(nuke|bomba|bomb)\s*$", c, re.I):
+        return None
+
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import get_user_language
+        from backend.locale import resolve_response_language
+        db = SessionLocal()
+        try:
+            lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            lang = resolve_response_language(lang, ctx.chat_id, None)
+        finally:
+            db.close()
+    except Exception:
+        lang = "pt-BR"
+
+    from backend.confirmations import set_pending
+    set_pending(ctx.channel, ctx.chat_id, "nuke_all", {"lang": lang})
+    return _NUKE_CONFIRM_MSGS.get(lang, _NUKE_CONFIRM_MSGS["pt-BR"])
+

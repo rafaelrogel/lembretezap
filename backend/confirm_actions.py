@@ -234,4 +234,56 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                 return "✅ Marcado como feito!"
             return "Ocorreu um erro. Tenta reagir com 👍 novamente ao lembrete."
         return None
+
+    if action == "nuke_all":
+        lang = (pending.get("payload") or {}).get("lang", "pt-BR")
+        from backend.settings_handlers import _NUKE_CANCELLED_MSGS, _NUKE_DONE_MSGS
+        if is_confirm_no(content):
+            return _NUKE_CANCELLED_MSGS.get(lang, _NUKE_CANCELLED_MSGS["pt-BR"])
+        # Apaga tudo!
+        try:
+            from backend.database import SessionLocal
+            from backend.user_store import get_or_create_user, clear_onboarding_data
+            from backend.models_db import List, ListItem, Event
+
+            db = SessionLocal()
+            try:
+                user = get_or_create_user(db, ctx.chat_id)
+                # 1. Apagar itens e listas
+                for lst in db.query(List).filter(List.user_id == user.id).all():
+                    db.query(ListItem).filter(ListItem.list_id == lst.id).delete()
+                    db.delete(lst)
+                # 2. Apagar eventos
+                db.query(Event).filter(Event.user_id == user.id).delete()
+                # 3. Limpar dados de onboarding (nome, cidade, tz voltará ao padrão)
+                clear_onboarding_data(db, ctx.chat_id)
+                db.commit()
+            finally:
+                db.close()
+        except Exception as exc:
+            return f"Erro ao apagar dados: {exc}"
+
+        # 4. Apagar cron jobs do utilizador
+        if ctx.cron_service:
+            try:
+                jobs = ctx.cron_service.list_jobs(include_disabled=True)
+                for job in jobs:
+                    if getattr(job, "to", None) == ctx.chat_id or getattr(job, "channel", None) and getattr(job, "to", None) == ctx.chat_id:
+                        ctx.cron_service.remove_job(job.id)
+            except Exception:
+                pass
+
+        # 5. Limpar sessão/memória da conversa
+        if ctx.session_manager:
+            try:
+                key = f"{ctx.channel}:{ctx.chat_id}"
+                session = ctx.session_manager.get_or_create(key)
+                # Limpar metadata de onboarding e fluxos
+                session.metadata.clear()
+                ctx.session_manager.save(session)
+            except Exception:
+                pass
+
+        return _NUKE_DONE_MSGS.get(lang, _NUKE_DONE_MSGS["pt-BR"])
+
     return None

@@ -22,6 +22,7 @@ from backend.handlers import (
     handle_stop,
 )
 from backend.handlers import handle_entertainment  # Nova importação
+from backend.settings_handlers import handle_nuke  # /nuke, /bomba
 
 
 # ... (outros imports mantidos)
@@ -73,6 +74,7 @@ HANDLERS = [
     handle_reset,
     handle_exportar,
     handle_deletar_tudo,
+    handle_nuke,
 ]
 
 
