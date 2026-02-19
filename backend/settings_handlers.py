@@ -7,12 +7,28 @@ from backend.handler_context import HandlerContext
 
 async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
     """/tz Cidade ou /tz IANA (ex: /tz Lisboa, /tz Europe/Lisbon)."""
+    from backend.database import SessionLocal
+    from backend.user_store import get_user_language
+    from backend.locale import (
+        SETTINGS_TZ_USAGE, SETTINGS_TZ_NOT_FOUND, SETTINGS_TZ_SET,
+        SETTINGS_TZ_INVALID, SETTINGS_TZ_ERROR,
+    )
+    def _lang():
+        try:
+            db = SessionLocal()
+            try:
+                return get_user_language(db, ctx.chat_id) or "pt-BR"
+            finally:
+                db.close()
+        except Exception:
+            return "pt-BR"
     m = re.match(r"^/tz\s+(.+)$", content.strip(), re.I)
     if not m:
         return None
     raw = m.group(1).strip()
     if not raw:
-        return "🌍 Use: /tz Cidade (ex: /tz Lisboa) ou /tz Europe/Lisbon"
+        lg = _lang()
+        return SETTINGS_TZ_USAGE.get(lg, SETTINGS_TZ_USAGE["en"])
     from backend.timezone import city_to_iana, is_valid_iana
     tz_iana = None
     if "/" in raw:
@@ -22,24 +38,30 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
         if not tz_iana:
             tz_iana = city_to_iana(raw.replace(" ", ""))
     if not tz_iana:
-        return f"🌍 Cidade \"{raw}\" não reconhecida. Tenta: /tz Lisboa, /tz São Paulo ou /tz Europe/Lisbon (IANA)."
+        lg = _lang()
+        return SETTINGS_TZ_NOT_FOUND.get(lg, SETTINGS_TZ_NOT_FOUND["en"]).format(city=raw)
     try:
         from backend.database import SessionLocal
         from backend.user_store import set_user_timezone
         db = SessionLocal()
         try:
+            lg = get_user_language(db, ctx.chat_id) or "pt-BR"
             if set_user_timezone(db, ctx.chat_id, tz_iana):
-                return f"✅ Timezone definido: {tz_iana}. As horas dos lembretes passam a ser mostradas no teu fuso."
-            return "❌ Timezone inválido."
+                return SETTINGS_TZ_SET.get(lg, SETTINGS_TZ_SET["en"]).format(tz=tz_iana)
+            return SETTINGS_TZ_INVALID.get(lg, SETTINGS_TZ_INVALID["en"])
         finally:
             db.close()
     except Exception as e:
-        return f"Erro ao gravar timezone: {e}"
+        lg = _lang()
+        return SETTINGS_TZ_ERROR.get(lg, SETTINGS_TZ_ERROR["en"]).format(error=e)
     return None
 
 
 async def handle_lang(ctx: HandlerContext, content: str) -> str | None:
     """/lang pt-pt | pt-br | es | en."""
+    from backend.database import SessionLocal
+    from backend.user_store import get_user_language
+    from backend.locale import SETTINGS_LANG_USAGE, SETTINGS_LANG_SET, SETTINGS_LANG_ERROR
     m = re.match(r"^/lang\s+(\S+)\s*$", content.strip(), re.I)
     if not m:
         return None
@@ -47,18 +69,34 @@ async def handle_lang(ctx: HandlerContext, content: str) -> str | None:
     mapping = {"pt-pt": "pt-PT", "ptpt": "pt-PT", "ptbr": "pt-BR", "pt-br": "pt-BR", "es": "es", "en": "en"}
     code = mapping.get(lang) or (lang if lang in ("pt-PT", "pt-BR", "es", "en") else None)
     if not code:
-        return "🌐 Idiomas disponíveis: /lang pt-pt | pt-br | es | en"
+        try:
+            db = SessionLocal()
+            try:
+                lg = get_user_language(db, ctx.chat_id) or "pt-BR"
+            finally:
+                db.close()
+        except Exception:
+            lg = "pt-BR"
+        return SETTINGS_LANG_USAGE.get(lg, SETTINGS_LANG_USAGE["en"])
     try:
         from backend.database import SessionLocal
         from backend.user_store import set_user_language
         db = SessionLocal()
         try:
             set_user_language(db, ctx.chat_id, code)
-            return f"✅ Idioma definido: {code}."
+            return SETTINGS_LANG_SET.get(code, SETTINGS_LANG_SET["en"]).format(lang=code)
         finally:
             db.close()
     except Exception:
-        return "❌ Erro ao gravar idioma."
+        try:
+            db2 = SessionLocal()
+            try:
+                lg = get_user_language(db2, ctx.chat_id) or "pt-BR"
+            finally:
+                db2.close()
+        except Exception:
+            lg = "pt-BR"
+        return SETTINGS_LANG_ERROR.get(lg, SETTINGS_LANG_ERROR["en"])
     return None
 
 

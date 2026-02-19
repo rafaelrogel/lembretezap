@@ -3,6 +3,20 @@
 from backend.handler_context import HandlerContext, _reply_confirm_prompt
 
 
+def _get_lang(ctx: HandlerContext) -> str:
+    """Resolve idioma do utilizador com fallback pt-BR."""
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import get_user_language
+        db = SessionLocal()
+        try:
+            return get_user_language(db, ctx.chat_id) or "pt-BR"
+        finally:
+            db.close()
+    except Exception:
+        return "pt-BR"
+
+
 async def handle_exportar(ctx: HandlerContext, content: str) -> str | None:
     """/exportar: confirma? 1=sim 2=não. Aceita NL: exportar, export."""
     from backend.command_nl import normalize_nl_to_command
@@ -88,23 +102,24 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                     ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
                     for it in items:
                         await ctx.list_tool.execute(action="add", list_name="hoje", item_text=it)
-                    return f"✅ Lista *hoje* criada com {len(items)} afazeres. Usa /list hoje para ver."
-                return "Nenhum item para adicionar."
+                    from backend.locale import CONFIRM_LIST_CREATED
+                    _lang = _get_lang(ctx)
+                    return CONFIRM_LIST_CREATED.get(_lang, CONFIRM_LIST_CREATED["en"]).format(count=len(items))
+                from backend.locale import CONFIRM_NO_ITEMS
+                return CONFIRM_NO_ITEMS.get(_get_lang(ctx), CONFIRM_NO_ITEMS["en"])
             if choice == "lembretes":
-                return (
-                    "Para lembretes, podes usar /lembrete para cada atividade com horário. "
-                    "Ex.: /lembrete ir à escola amanhã 8h. Ou diz-me quando queres ser lembrado e eu ajudo."
-                )
+                from backend.locale import CONFIRM_REMINDERS_HINT
+                return CONFIRM_REMINDERS_HINT.get(_get_lang(ctx), CONFIRM_REMINDERS_HINT["en"])
             if choice == "os dois":
                 if items and ctx.list_tool:
                     ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
                     for it in items:
                         await ctx.list_tool.execute(action="add", list_name="hoje", item_text=it)
-                    return (
-                        f"✅ Lista *hoje* criada com {len(items)} itens. "
-                        "Para lembretes: usa /lembrete para cada um (ex.: /lembrete ir à escola amanhã 8h) ou diz quando queres ser lembrado."
-                    )
-                return "Nenhum item para adicionar."
+                    from backend.locale import CONFIRM_LIST_AND_REMINDERS
+                    _lang = _get_lang(ctx)
+                    return CONFIRM_LIST_AND_REMINDERS.get(_lang, CONFIRM_LIST_AND_REMINDERS["en"]).format(count=len(items))
+                from backend.locale import CONFIRM_NO_ITEMS
+                return CONFIRM_NO_ITEMS.get(_get_lang(ctx), CONFIRM_NO_ITEMS["en"])
         return None
 
     if pending and pending.get("action") == "create_shopping_list_from_recipe":
@@ -117,33 +132,26 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                 ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
                 for item in ingredients:
                     await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
-                lines = [f"Lista criada! 🛒 *{list_name}* com {len(ingredients)} itens baseados na receita:"]
+                from backend.locale import CONFIRM_RECIPE_LIST_CREATED
+                _lang = _get_lang(ctx)
+                lines = [CONFIRM_RECIPE_LIST_CREATED.get(_lang, CONFIRM_RECIPE_LIST_CREATED["en"]).format(list_name=list_name, count=len(ingredients))]
                 for i, it in enumerate(ingredients[:15], 1):
                     lines.append(f"{i}. {it}")
                 if len(ingredients) > 15:
                     lines.append(f"  _+{len(ingredients) - 15} mais_")
                 return "\n".join(lines)
-            try:
-                from backend.user_store import get_user_language
-                from backend.database import SessionLocal
-                db = SessionLocal()
-                try:
-                    lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-                    msg = "Não consegui extrair os ingredientes. Tenta de novo com outra receita." if lang in ("pt-BR", "pt-PT", "es") else "Could not extract ingredients. Try again with another recipe."
-                    return msg
-                finally:
-                    db.close()
-            except Exception:
-                pass
-            return "Não consegui extrair os ingredientes. Tenta de novo com outra receita."
+            from backend.locale import CONFIRM_RECIPE_NO_INGREDIENTS
+            return CONFIRM_RECIPE_NO_INGREDIENTS.get(_get_lang(ctx), CONFIRM_RECIPE_NO_INGREDIENTS["en"])
+        from backend.locale import CONFIRM_RECIPE_CANCEL
         if _is_recipe_list_cancel(content) or is_confirm_no(content):
             clear_pending(ctx.channel, ctx.chat_id)
-            return "Ok, lista de compras cancelada."
+            return CONFIRM_RECIPE_CANCEL.get(_get_lang(ctx), CONFIRM_RECIPE_CANCEL["en"])
     # Data no passado: agendar para o ano que vem se confirmar
     if pending and pending.get("action") == "date_past_next_year":
+        from backend.locale import CONFIRM_DATE_PAST_CANCEL, CONFIRM_DATE_PAST_SCHEDULE_ERROR
         if is_confirm_no(content):
             clear_pending(ctx.channel, ctx.chat_id)
-            return "Ok, não agendei. Quando quiseres, diz a data e hora de novo."
+            return CONFIRM_DATE_PAST_CANCEL.get(_get_lang(ctx), CONFIRM_DATE_PAST_CANCEL["en"])
         if is_confirm_yes(content):
             clear_pending(ctx.channel, ctx.chat_id)
             payload = pending.get("payload") or {}
@@ -170,7 +178,7 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                     return f"{scheduled_msg}\n\n{result}" if result else scheduled_msg
                 except Exception:
                     return result or REMINDER_DATE_PAST_SCHEDULED.get("pt-BR", "Registado para o ano que vem. ✨")
-            return "Não consegui agendar. Tenta de novo com a data e hora."
+            return CONFIRM_DATE_PAST_SCHEDULE_ERROR.get(_get_lang(ctx), CONFIRM_DATE_PAST_SCHEDULE_ERROR["en"])
         return None
 
     if not is_confirm_reply(content):
@@ -180,8 +188,10 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
     clear_pending(ctx.channel, ctx.chat_id)
     action = pending.get("action")
     if action == "exportar":
+        from backend.locale import CONFIRM_EXPORT_CANCEL, CONFIRM_EXPORT_EMPTY, CONFIRM_EXPORT_HEADER, CONFIRM_EXPORT_ERROR, CONFIRM_EXPORT_ITEM_DONE
+        _lang = _get_lang(ctx)
         if is_confirm_no(content):
-            return "❌ Exportação cancelada."
+            return CONFIRM_EXPORT_CANCEL.get(_lang, CONFIRM_EXPORT_CANCEL["en"])
         try:
             from backend.database import SessionLocal
             from backend.user_store import get_or_create_user
@@ -191,19 +201,24 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                 user = get_or_create_user(db, ctx.chat_id)
                 lists = db.query(List).filter(List.user_id == user.id).all()
                 lines = []
+                _done = CONFIRM_EXPORT_ITEM_DONE.get(_lang, CONFIRM_EXPORT_ITEM_DONE["en"])
                 for lst in lists:
                     items = db.query(ListItem).filter(ListItem.list_id == lst.id).all()
                     lines.append(f"[{lst.name}]")
                     for i in items:
-                        lines.append(f"  - {i.text}" + (" (feito)" if i.done else ""))
-                return "📤 Exportação:\n" + "\n".join(lines) if lines else "📭 Nada para exportar."
+                        lines.append(f"  - {i.text}" + (_done if i.done else ""))
+                _header = CONFIRM_EXPORT_HEADER.get(_lang, CONFIRM_EXPORT_HEADER["en"])
+                _empty = CONFIRM_EXPORT_EMPTY.get(_lang, CONFIRM_EXPORT_EMPTY["en"])
+                return f"{_header}\n" + "\n".join(lines) if lines else _empty
             finally:
                 db.close()
         except Exception as e:
-            return f"Erro ao exportar: {e}"
+            return CONFIRM_EXPORT_ERROR.get(_lang, CONFIRM_EXPORT_ERROR["en"]).format(error=e)
     if action == "deletar_tudo":
+        from backend.locale import CONFIRM_DELETE_CANCEL, CONFIRM_DELETE_DONE, CONFIRM_DELETE_ERROR
+        _lang = _get_lang(ctx)
         if is_confirm_no(content):
-            return "✅ Cancelado. Nenhum dado foi apagado."
+            return CONFIRM_DELETE_CANCEL.get(_lang, CONFIRM_DELETE_CANCEL["en"])
         try:
             from backend.database import SessionLocal
             from backend.user_store import get_or_create_user
@@ -216,23 +231,25 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                     db.delete(lst)
                 db.query(Event).filter(Event.user_id == user.id).delete()
                 db.commit()
-                return "🗑️ Todos os teus dados foram apagados."
+                return CONFIRM_DELETE_DONE.get(_lang, CONFIRM_DELETE_DONE["en"])
             finally:
                 db.close()
         except Exception as e:
-            return f"Erro ao apagar: {e}"
+            return CONFIRM_DELETE_ERROR.get(_lang, CONFIRM_DELETE_ERROR["en"]).format(error=e)
     if action == "completion_confirmation":
+        from backend.locale import CONFIRM_COMPLETION_KEEP, CONFIRM_COMPLETION_DONE, CONFIRM_COMPLETION_ERROR
+        _lang = _get_lang(ctx)
         payload = pending.get("payload") or {}
         job_id = payload.get("job_id")
         completed_job_id = payload.get("completed_job_id") or job_id
         if is_confirm_no(content):
-            return "Ok, o lembrete mantém-se. Reage com 👍 quando terminares."
+            return CONFIRM_COMPLETION_KEEP.get(_lang, CONFIRM_COMPLETION_KEEP["en"])
         if is_confirm_yes(content):
             if ctx.cron_service and job_id:
                 ctx.cron_service.remove_job_and_deadline_followups(job_id)
                 ctx.cron_service.trigger_dependents(completed_job_id)
-                return "✅ Marcado como feito!"
-            return "Ocorreu um erro. Tenta reagir com 👍 novamente ao lembrete."
+                return CONFIRM_COMPLETION_DONE.get(_lang, CONFIRM_COMPLETION_DONE["en"])
+            return CONFIRM_COMPLETION_ERROR.get(_lang, CONFIRM_COMPLETION_ERROR["en"])
         return None
 
     if action == "nuke_all":

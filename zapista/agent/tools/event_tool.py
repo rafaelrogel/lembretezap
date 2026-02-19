@@ -4,7 +4,7 @@ from typing import Any
 
 from zapista.agent.tools.base import Tool
 from backend.database import SessionLocal
-from backend.user_store import get_or_create_user
+from backend.user_store import get_or_create_user, get_user_language
 from backend.models_db import Event, AuditLog
 from backend.sanitize import sanitize_string, sanitize_payload, MAX_EVENT_NAME_LEN
 
@@ -14,6 +14,16 @@ class EventTool(Tool):
 
     def __init__(self):
         self._chat_id = ""
+
+    def _get_lang(self) -> str:
+        try:
+            db = SessionLocal()
+            try:
+                return get_user_language(db, self._chat_id) or "pt-BR"
+            finally:
+                db.close()
+        except Exception:
+            return "pt-BR"
 
     def set_context(self, channel: str, chat_id: str) -> None:
         self._chat_id = chat_id
@@ -92,7 +102,9 @@ class EventTool(Tool):
         
         # Se for evento genérico e não tiver data, rejeita.
         if tipo == "evento" and not valid_date:
-            return "Evento de agenda exige data! Por favor forneça uma data/hora."
+            from backend.locale import EVENT_REQUIRES_DATE
+            _lang = self._get_lang()
+            return EVENT_REQUIRES_DATE.get(_lang, EVENT_REQUIRES_DATE["en"])
 
         data = {"nome": nome, **payload}
         ev = Event(
@@ -106,14 +118,15 @@ class EventTool(Tool):
         db.add(AuditLog(user_id=user_id, action="event_add", resource=tipo))
         db.commit()
         
+        from backend.locale import EVENT_ADDED, EVENT_CALENDAR_IMPORTED
+        _lang = self._get_lang()
         date_msg = ""
-        if  ev.data_at:
-             tz_iana = get_user_timezone(db, str(user_id)) or "UTC" # user_id is int here, might need chat_id for timezone lookup locally? 
-             # Actually _add doesn't receive chat_id to lookup timezone easily unless we pass it. 
-             # But let's just format generic. 
-             date_msg = f" em {ev.data_at.strftime('%d/%m %H:%M')}"
-
-        return f"Anotado: {tipo} '{nome or str(payload)}'{date_msg} (id: {ev.id})"
+        if ev.data_at:
+            tz_iana = get_user_language(db, str(user_id)) or "UTC"
+            date_msg = f" em {ev.data_at.strftime('%d/%m %H:%M')}"
+        return EVENT_ADDED.get(_lang, EVENT_ADDED["en"]).format(
+            tipo=tipo, name=nome or str(payload), date_msg=date_msg, id=ev.id
+        )
 
     def _list(self, db, user_id: int, tipo: str) -> str:
         from zoneinfo import ZoneInfo
@@ -123,8 +136,11 @@ class EventTool(Tool):
         if tipo:
             q = q.filter(Event.tipo == tipo)
         events = q.order_by(Event.created_at.desc()).limit(50).all()
+        from backend.locale import EVENT_NONE_FOUND, EVENT_CALENDAR_IMPORTED
+        _lang = self._get_lang()
         if not events:
-            return f"Nenhum {tipo or 'evento'}."
+            return EVENT_NONE_FOUND.get(_lang, EVENT_NONE_FOUND["en"]).format(tipo=tipo or "evento")
+        cal_imported = EVENT_CALENDAR_IMPORTED.get(_lang, EVENT_CALENDAR_IMPORTED["en"])
         tz_iana = get_user_timezone(db, self._chat_id) or "UTC"
         try:
             tz = ZoneInfo(tz_iana)
@@ -134,7 +150,7 @@ class EventTool(Tool):
         for e in events:
             pl = e.payload or {}
             nome = pl.get("nome", pl)
-            suf = " (importado do calendário)" if pl.get("source") == "ics" else ""
+            suf = cal_imported if pl.get("source") == "ics" else ""
             time_suf = ""
             if e.data_at:
                 dt = e.data_at if e.data_at.tzinfo else e.data_at.replace(tzinfo=ZoneInfo("UTC"))
@@ -187,16 +203,18 @@ class EventTool(Tool):
                 ev_local = ev_date.date()
             if ev_local == today:
                 today_events.append(ev)
+        from backend.locale import EVENT_REMOVE_NOT_FOUND, EVENT_REMOVE_MULTIPLE, EVENT_REMOVED
+        _lang = self._get_lang()
         ref_lower = nome_ref.lower()
         matched = [e for e in today_events if ref_lower in (e.payload.get("nome", "") or "").lower()]
         if not matched:
-            return f"Nenhum evento de hoje com \"{nome_ref}\" na agenda."
+            return EVENT_REMOVE_NOT_FOUND.get(_lang, EVENT_REMOVE_NOT_FOUND["en"]).format(name=nome_ref)
         if len(matched) > 1:
             names = ", ".join((e.payload.get("nome", "") or "?") for e in matched[:5])
-            return f"Vários eventos coincidem. Especifica: {names}"
+            return EVENT_REMOVE_MULTIPLE.get(_lang, EVENT_REMOVE_MULTIPLE["en"]).format(names=names)
         ev = matched[0]
         ev.deleted = True
         db.add(AuditLog(user_id=user_id, action="event_remove", resource=ev.tipo))
         db.commit()
         nome = ev.payload.get("nome", "") or "evento"
-        return f"Removido da agenda: \"{nome}\"."
+        return EVENT_REMOVED.get(_lang, EVENT_REMOVED["en"]).format(name=nome)

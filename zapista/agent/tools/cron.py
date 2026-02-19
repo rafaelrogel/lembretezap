@@ -689,17 +689,21 @@ class CronTool(Tool):
                 db.close()
         except Exception:
             pass
-        msg = f"Lembrete agendado (id: {job.id})."
+        from backend.locale import (
+            CRON_REMINDER_SCHEDULED, CRON_PRE_REMINDERS_ADDED, CRON_UNCONFIRMED_RETRY,
+            CRON_DEPENDS_ON, CRON_WILL_BE_SENT, CRON_CREATED_BY_CLI,
+            CRON_TZ_LABEL_FROM_PHONE, CRON_TZ_LABEL_UTC_FALLBACK, LIMIT_WARNING_70,
+        )
+        _lang = self._get_user_lang()
+        msg = CRON_REMINDER_SCHEDULED.get(_lang, CRON_REMINDER_SCHEDULED["en"]).format(job_id=job.id)
         if pre_reminder_count > 0:
-            msg += f" + {pre_reminder_count} aviso(s) antes do evento (conforme as tuas preferências)."
+            msg += CRON_PRE_REMINDERS_ADDED.get(_lang, CRON_PRE_REMINDERS_ADDED["en"]).format(count=pre_reminder_count)
         if remind_again_if_unconfirmed_seconds:
             m = remind_again_if_unconfirmed_seconds // 60
-            msg += f" Se não confirmares com 👍, relembro em {m} min."
+            msg += CRON_UNCONFIRMED_RETRY.get(_lang, CRON_UNCONFIRMED_RETRY["en"]).format(minutes=m)
         if depends_on_job_id:
-            msg += f" Dispara depois de marcar \"{depends_on_job_id}\" como feito."
+            msg += CRON_DEPENDS_ON.get(_lang, CRON_DEPENDS_ON["en"]).format(job_id=depends_on_job_id)
         if at_warning_reminder:
-            from backend.locale import LIMIT_WARNING_70
-            _lang = self._get_user_lang()
             msg += "\n\n" + LIMIT_WARNING_70.get(_lang, LIMIT_WARNING_70["pt-BR"])
         # Para lembretes "daqui a X min", mostrar a hora no timezone do utilizador (nunca hora do servidor)
         if in_seconds is not None and in_seconds > 0 and job.state.next_run_at_ms:
@@ -712,17 +716,16 @@ class CronTool(Tool):
                 try:
                     tz = get_user_timezone(db, self._chat_id) or phone_to_default_timezone(self._chat_id) or "UTC"
                     hora_str = format_utc_timestamp_for_user(at_sec, tz)
-                    tz_label = "no teu fuso"
+                    tz_label = CRON_TZ_LABEL_FROM_PHONE.get(_lang, CRON_TZ_LABEL_FROM_PHONE["en"])
                 finally:
                     db.close()
             except Exception:
-                # Nunca usar datetime.fromtimestamp(at_sec) sem tz: seria hora local do servidor (ex. 14:56 em vez de 21:45)
                 from backend.timezone import format_utc_timestamp_for_user
                 hora_str = format_utc_timestamp_for_user(at_sec, "UTC")
-                tz_label = "UTC (configura /tz para ver no teu fuso)"
-            msg += f" Será enviado às {hora_str} ({tz_label}). Mantém o Zapista ligado para receberes a notificação. Se não receberes à hora indicada, verifica em /definições o horário silencioso."
+                tz_label = CRON_TZ_LABEL_UTC_FALLBACK.get(_lang, CRON_TZ_LABEL_UTC_FALLBACK["en"])
+            msg += CRON_WILL_BE_SENT.get(_lang, CRON_WILL_BE_SENT["en"]).format(time=hora_str, tz=tz_label)
         if self._channel == "cli":
-            msg += " (Criado pelo terminal; para receber no WhatsApp, envia o lembrete pelo próprio WhatsApp.)"
+            msg += CRON_CREATED_BY_CLI.get(_lang, CRON_CREATED_BY_CLI["en"])
         return msg
     
     def _list_jobs(self) -> str:
@@ -734,10 +737,12 @@ class CronTool(Tool):
             if getattr(j.payload, "to", None) == self._chat_id
             and not getattr(j.payload, "is_proactive_nudge", False)
         ]
+        from backend.locale import CRON_NO_REMINDERS, CRON_REMINDERS_HEADER
+        _lang = self._get_user_lang()
         if not jobs:
-            return "Nenhum lembrete agendado."
+            return CRON_NO_REMINDERS.get(_lang, CRON_NO_REMINDERS["en"])
         lines = [f"- {j.name} (id: {j.id}, {j.schedule.kind})" for j in jobs]
-        return "Lembretes agendados:\n" + "\n".join(lines)
+        return CRON_REMINDERS_HEADER.get(_lang, CRON_REMINDERS_HEADER["en"]) + "\n" + "\n".join(lines)
     
     def _remove_job(self, job_id: str | None) -> str:
         if not job_id:
@@ -746,13 +751,18 @@ class CronTool(Tool):
         if not job_id:
             return "Error: job_id is required for remove"
         # Só permite remover jobs que pertencem a este chat_id (segurança e isolamento)
+        from backend.locale import (
+            CRON_JOB_NOT_YOURS, CRON_REMOVED, CRON_JOB_NOT_FOUND,
+            CRON_JOB_NOT_FOUND_DELIVERED, CRON_JOB_NOT_FOUND_MAYBE_FIRED,
+        )
+        _lang = self._get_user_lang()
         for j in self._cron.list_jobs():
             if j.id == job_id:
                 if getattr(j.payload, "to", None) != self._chat_id:
-                    return f"Job {job_id} não te pertence."
+                    return CRON_JOB_NOT_YOURS.get(_lang, CRON_JOB_NOT_YOURS["en"]).format(job_id=job_id)
                 if self._cron.remove_job(job_id):
-                    return f"Removido: {job_id}"
-                return f"Job {job_id} não encontrado."
+                    return CRON_REMOVED.get(_lang, CRON_REMOVED["en"]).format(job_id=job_id)
+                return CRON_JOB_NOT_FOUND.get(_lang, CRON_JOB_NOT_FOUND["en"]).format(job_id=job_id)
         # Lembrete único pode já ter sido executado e removido automaticamente
         try:
             from backend.database import SessionLocal
@@ -764,13 +774,12 @@ class CronTool(Tool):
                     last = entries[0]
                     delivered = last.get("delivered_at") or last.get("created_at")
                     if delivered and hasattr(delivered, "strftime"):
-                        return (
-                            f"Job {job_id} não está na lista (lembretes únicos são removidos após disparar). "
-                            f"O último lembrete entregue foi em {delivered.strftime('%d/%m/%Y %H:%M')}. "
-                            "Use 'rever lembretes' para ver o histórico completo."
+                        return CRON_JOB_NOT_FOUND_DELIVERED.get(_lang, CRON_JOB_NOT_FOUND_DELIVERED["en"]).format(
+                            job_id=job_id,
+                            delivered_at=delivered.strftime("%d/%m/%Y %H:%M"),
                         )
             finally:
                 db.close()
         except Exception:
             pass
-        return f"Job {job_id} não encontrado. Se era um lembrete único, pode já ter sido executado. Use 'rever lembretes' para ver o histórico."
+        return CRON_JOB_NOT_FOUND_MAYBE_FIRED.get(_lang, CRON_JOB_NOT_FOUND_MAYBE_FIRED["en"]).format(job_id=job_id)

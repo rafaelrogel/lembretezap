@@ -95,7 +95,9 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
                 for dt, msg in reminders[:15]:
                     lines.append(f"• {dt.strftime('%H:%M')} — {msg[:50]}{'…' if len(msg) > 50 else ''}")
             else:
-                lines.append("• Nenhum lembrete agendado para hoje.")
+                from backend.locale import VIEW_NO_REMINDERS_TODAY
+                _lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                lines.append(VIEW_NO_REMINDERS_TODAY.get(_lang, VIEW_NO_REMINDERS_TODAY["en"]))
 
             # Agenda (eventos) do dia
             event_list = _events_in_period(db, user.id, today, today, tz)
@@ -110,7 +112,9 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
                 lang = resolve_response_language(lang, ctx.chat_id, None)
                 lines.append(AGENDA_OFFER_REMINDER.get(lang, AGENDA_OFFER_REMINDER["en"]))
             else:
-                lines.append("• Nenhum evento hoje.")
+                from backend.locale import VIEW_NO_EVENTS_TODAY
+                _lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                lines.append(VIEW_NO_EVENTS_TODAY.get(_lang, VIEW_NO_EVENTS_TODAY["en"]))
 
             # Segunda vez que vê a agenda no mesmo dia: perguntar se já realizou e se quer remover
             from backend.agenda_view_tracker import record_agenda_view

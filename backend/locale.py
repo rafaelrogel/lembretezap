@@ -916,3 +916,400 @@ def parse_language_switch_request(
                 return "pt-BR"
             return lang
     return None
+
+
+# ---------------------------------------------------------------------------
+# cron.py tool response strings
+# ---------------------------------------------------------------------------
+
+CRON_REMINDER_SCHEDULED: dict[LangCode, str] = {
+    "pt-PT": "Lembrete agendado (id: {job_id}).",
+    "pt-BR": "Lembrete agendado (id: {job_id}).",
+    "es": "Recordatorio programado (id: {job_id}).",
+    "en": "Reminder scheduled (id: {job_id}).",
+}
+
+CRON_PRE_REMINDERS_ADDED: dict[LangCode, str] = {
+    "pt-PT": " + {count} aviso(s) antes do evento (conforme as tuas preferências).",
+    "pt-BR": " + {count} aviso(s) antes do evento (conforme as suas preferências).",
+    "es": " + {count} aviso(s) antes del evento (según tus preferencias).",
+    "en": " + {count} reminder(s) before the event (according to your preferences).",
+}
+
+CRON_UNCONFIRMED_RETRY: dict[LangCode, str] = {
+    "pt-PT": " Se não confirmares com 👍, relembro em {minutes} min.",
+    "pt-BR": " Se não confirmar com 👍, relembro em {minutes} min.",
+    "es": " Si no confirmas con 👍, te recuerdo en {minutes} min.",
+    "en": " If you don't confirm with 👍, I'll remind you again in {minutes} min.",
+}
+
+CRON_DEPENDS_ON: dict[LangCode, str] = {
+    "pt-PT": " Dispara depois de marcares \"{job_id}\" como feito.",
+    "pt-BR": " Dispara depois de você marcar \"{job_id}\" como feito.",
+    "es": " Se activa después de que marques \"{job_id}\" como hecho.",
+    "en": " Triggers after you mark \"{job_id}\" as done.",
+}
+
+CRON_WILL_BE_SENT: dict[LangCode, str] = {
+    "pt-PT": " Será enviado às {time} ({tz}). Mantém o Zapista ligado para receberes a notificação. Se não receberes à hora indicada, verifica em /definições o horário silencioso.",
+    "pt-BR": " Será enviado às {time} ({tz}). Mantenha o Zapista ligado para receber a notificação. Se não receber no horário indicado, verifique em /definições o horário silencioso.",
+    "es": " Se enviará a las {time} ({tz}). Mantén Zapista abierto para recibir la notificación. Si no la recibes, revisa el horario silencioso en /definições.",
+    "en": " Will be sent at {time} ({tz}). Keep Zapista running to receive the notification. If you don't get it, check the quiet hours in /settings.",
+}
+
+CRON_CREATED_BY_CLI: dict[LangCode, str] = {
+    "pt-PT": " (Criado pelo terminal; para receber no WhatsApp, envia o lembrete pelo próprio WhatsApp.)",
+    "pt-BR": " (Criado pelo terminal; para receber no WhatsApp, envie o lembrete pelo próprio WhatsApp.)",
+    "es": " (Creado desde la terminal; para recibirlo en WhatsApp, envía el recordatorio desde el propio WhatsApp.)",
+    "en": " (Created from the terminal; to receive it on WhatsApp, send the reminder through WhatsApp itself.)",
+}
+
+CRON_TZ_LABEL_FROM_PHONE: dict[LangCode, str] = {
+    "pt-PT": "no teu fuso",
+    "pt-BR": "no seu fuso",
+    "es": "en tu zona horaria",
+    "en": "your timezone",
+}
+
+CRON_TZ_LABEL_UTC_FALLBACK: dict[LangCode, str] = {
+    "pt-PT": "UTC (configura /tz para ver no teu fuso)",
+    "pt-BR": "UTC (configure /tz para ver no seu fuso)",
+    "es": "UTC (configura /tz para ver en tu zona horaria)",
+    "en": "UTC (set /tz to see it in your timezone)",
+}
+
+CRON_NO_REMINDERS: dict[LangCode, str] = {
+    "pt-PT": "Nenhum lembrete agendado.",
+    "pt-BR": "Nenhum lembrete agendado.",
+    "es": "No hay recordatorios programados.",
+    "en": "No reminders scheduled.",
+}
+
+CRON_REMINDERS_HEADER: dict[LangCode, str] = {
+    "pt-PT": "Lembretes agendados:",
+    "pt-BR": "Lembretes agendados:",
+    "es": "Recordatorios programados:",
+    "en": "Scheduled reminders:",
+}
+
+CRON_REMOVED: dict[LangCode, str] = {
+    "pt-PT": "Removido: {job_id}",
+    "pt-BR": "Removido: {job_id}",
+    "es": "Eliminado: {job_id}",
+    "en": "Removed: {job_id}",
+}
+
+CRON_JOB_NOT_FOUND: dict[LangCode, str] = {
+    "pt-PT": "Job {job_id} não encontrado.",
+    "pt-BR": "Job {job_id} não encontrado.",
+    "es": "Tarea {job_id} no encontrada.",
+    "en": "Job {job_id} not found.",
+}
+
+CRON_JOB_NOT_FOUND_DELIVERED: dict[LangCode, str] = {
+    "pt-PT": "Job {job_id} não está na lista (lembretes únicos são removidos após disparar). O último lembrete entregue foi em {delivered_at}. Use 'rever lembretes' para ver o histórico completo.",
+    "pt-BR": "Job {job_id} não está na lista (lembretes únicos são removidos após disparar). O último lembrete entregue foi em {delivered_at}. Use 'rever lembretes' para ver o histórico completo.",
+    "es": "La tarea {job_id} no está en la lista (los recordatorios únicos se eliminan al disparar). El último recordatorio entregado fue el {delivered_at}. Usa 'rever lembretes' para ver el historial completo.",
+    "en": "Job {job_id} is not in the list (one-time reminders are removed after firing). The last delivered reminder was at {delivered_at}. Use 'rever lembretes' to see the full history.",
+}
+
+CRON_JOB_NOT_FOUND_MAYBE_FIRED: dict[LangCode, str] = {
+    "pt-PT": "Job {job_id} não encontrado. Se era um lembrete único, pode já ter sido executado. Use 'rever lembretes' para ver o histórico.",
+    "pt-BR": "Job {job_id} não encontrado. Se era um lembrete único, pode já ter sido executado. Use 'rever lembretes' para ver o histórico.",
+    "es": "Tarea {job_id} no encontrada. Si era un recordatorio único, puede que ya se haya ejecutado. Usa 'rever lembretes' para ver el historial.",
+    "en": "Job {job_id} not found. If it was a one-time reminder, it may have already fired. Use 'rever lembretes' to see the history.",
+}
+
+CRON_JOB_NOT_YOURS: dict[LangCode, str] = {
+    "pt-PT": "Job {job_id} não te pertence.",
+    "pt-BR": "Job {job_id} não te pertence.",
+    "es": "La tarea {job_id} no te pertenece.",
+    "en": "Job {job_id} does not belong to you.",
+}
+
+# ---------------------------------------------------------------------------
+# event_tool.py response strings
+# ---------------------------------------------------------------------------
+
+EVENT_ADDED: dict[LangCode, str] = {
+    "pt-PT": "Anotado: {tipo} '{name}'{date_msg} (id: {id})",
+    "pt-BR": "Anotado: {tipo} '{name}'{date_msg} (id: {id})",
+    "es": "Anotado: {tipo} '{name}'{date_msg} (id: {id})",
+    "en": "Noted: {tipo} '{name}'{date_msg} (id: {id})",
+}
+
+EVENT_REQUIRES_DATE: dict[LangCode, str] = {
+    "pt-PT": "Evento de agenda exige data! Por favor fornece uma data/hora.",
+    "pt-BR": "Evento de agenda exige data! Por favor forneça uma data/hora.",
+    "es": "¡El evento de agenda requiere fecha! Por favor proporciona una fecha/hora.",
+    "en": "Agenda event requires a date! Please provide a date/time.",
+}
+
+EVENT_NONE_FOUND: dict[LangCode, str] = {
+    "pt-PT": "Nenhum {tipo}.",
+    "pt-BR": "Nenhum {tipo}.",
+    "es": "Ningún {tipo}.",
+    "en": "No {tipo} found.",
+}
+
+EVENT_CALENDAR_IMPORTED: dict[LangCode, str] = {
+    "pt-PT": " (importado do calendário)",
+    "pt-BR": " (importado do calendário)",
+    "es": " (importado del calendario)",
+    "en": " (imported from calendar)",
+}
+
+EVENT_REMOVE_NOT_FOUND: dict[LangCode, str] = {
+    "pt-PT": "Nenhum evento de hoje com \"{name}\" na agenda.",
+    "pt-BR": "Nenhum evento de hoje com \"{name}\" na agenda.",
+    "es": "Ningún evento de hoy con \"{name}\" en la agenda.",
+    "en": "No event today with \"{name}\" in the agenda.",
+}
+
+EVENT_REMOVE_MULTIPLE: dict[LangCode, str] = {
+    "pt-PT": "Vários eventos coincidem. Especifica: {names}",
+    "pt-BR": "Vários eventos coincidem. Especifica: {names}",
+    "es": "Varios eventos coinciden. Especifica: {names}",
+    "en": "Multiple events match. Specify: {names}",
+}
+
+EVENT_REMOVED: dict[LangCode, str] = {
+    "pt-PT": "Removido da agenda: \"{name}\".",
+    "pt-BR": "Removido da agenda: \"{name}\".",
+    "es": "Eliminado de la agenda: \"{name}\".",
+    "en": "Removed from agenda: \"{name}\".",
+}
+
+# ---------------------------------------------------------------------------
+# list_tool.py response strings
+# ---------------------------------------------------------------------------
+
+LIST_EMPTY_ITEM_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Para criar ou adicionar à lista '{list_name}', preciso de pelo menos um item! Qual item queres adicionar?",
+    "pt-BR": "Para criar ou adicionar à lista '{list_name}', preciso de pelo menos um item! Qual item deseja adicionar?",
+    "es": "Para crear o añadir a la lista '{list_name}', ¡necesito al menos un ítem! ¿Qué ítem quieres añadir?",
+    "en": "To create or add to the list '{list_name}', I need at least one item! What item would you like to add?",
+}
+
+# ---------------------------------------------------------------------------
+# confirm_actions.py response strings
+# ---------------------------------------------------------------------------
+
+CONFIRM_LIST_CREATED: dict[LangCode, str] = {
+    "pt-PT": "✅ Lista *hoje* criada com {count} afazeres. Usa /list hoje para ver.",
+    "pt-BR": "✅ Lista *hoje* criada com {count} afazeres. Use /list hoje para ver.",
+    "es": "✅ Lista *hoy* creada con {count} tareas. Usa /list hoy para verla.",
+    "en": "✅ List *today* created with {count} to-dos. Use /list today to see it.",
+}
+
+CONFIRM_NO_ITEMS: dict[LangCode, str] = {
+    "pt-PT": "Nenhum item para adicionar.",
+    "pt-BR": "Nenhum item para adicionar.",
+    "es": "Ningún ítem para añadir.",
+    "en": "No items to add.",
+}
+
+CONFIRM_REMINDERS_HINT: dict[LangCode, str] = {
+    "pt-PT": "Para lembretes, podes usar /lembrete para cada atividade com horário. Ex.: /lembrete ir à escola amanhã 8h. Ou diz-me quando queres ser lembrado e eu ajudo.",
+    "pt-BR": "Para lembretes, você pode usar /lembrete para cada atividade com horário. Ex.: /lembrete ir à escola amanhã 8h. Ou diga quando quer ser lembrado e eu ajudo.",
+    "es": "Para recordatorios, puedes usar /lembrete para cada actividad con horario. Ej.: /lembrete ir al colegio mañana 8h. O dime cuándo quieres que te recuerde y te ayudo.",
+    "en": "For reminders, you can use /lembrete for each activity with a time. E.g.: /lembrete go to school tomorrow 8am. Or tell me when you want to be reminded and I'll help.",
+}
+
+CONFIRM_LIST_AND_REMINDERS: dict[LangCode, str] = {
+    "pt-PT": "✅ Lista *hoje* criada com {count} itens. Para lembretes: usa /lembrete para cada um (ex.: /lembrete ir à escola amanhã 8h) ou diz quando queres ser lembrado.",
+    "pt-BR": "✅ Lista *hoje* criada com {count} itens. Para lembretes: use /lembrete para cada um (ex.: /lembrete ir à escola amanhã 8h) ou diga quando quer ser lembrado.",
+    "es": "✅ Lista *hoy* creada con {count} ítems. Para recordatorios: usa /lembrete para cada uno (ej.: /lembrete ir al colegio mañana 8h) o di cuándo quieres que te recuerde.",
+    "en": "✅ List *today* created with {count} items. For reminders: use /lembrete for each one (e.g.: /lembrete go to school tomorrow 8am) or say when you'd like to be reminded.",
+}
+
+CONFIRM_RECIPE_LIST_CREATED: dict[LangCode, str] = {
+    "pt-PT": "Lista criada! 🛒 *{list_name}* com {count} itens baseados na receita:",
+    "pt-BR": "Lista criada! 🛒 *{list_name}* com {count} itens baseados na receita:",
+    "es": "¡Lista creada! 🛒 *{list_name}* con {count} ítems basados en la receta:",
+    "en": "List created! 🛒 *{list_name}* with {count} items based on the recipe:",
+}
+
+CONFIRM_RECIPE_NO_INGREDIENTS: dict[LangCode, str] = {
+    "pt-PT": "Não consegui extrair os ingredientes. Tenta de novo com outra receita.",
+    "pt-BR": "Não consegui extrair os ingredientes. Tente de novo com outra receita.",
+    "es": "No pude extraer los ingredientes. Intenta de nuevo con otra receta.",
+    "en": "I couldn't extract the ingredients. Try again with another recipe.",
+}
+
+CONFIRM_RECIPE_CANCEL: dict[LangCode, str] = {
+    "pt-PT": "Ok, lista de compras cancelada.",
+    "pt-BR": "Ok, lista de compras cancelada.",
+    "es": "Ok, lista de compras cancelada.",
+    "en": "Ok, shopping list cancelled.",
+}
+
+CONFIRM_DATE_PAST_CANCEL: dict[LangCode, str] = {
+    "pt-PT": "Ok, não agendei. Quando quiseres, diz a data e hora de novo.",
+    "pt-BR": "Ok, não agendei. Quando quiser, diga a data e hora de novo.",
+    "es": "Ok, no lo programé. Cuando quieras, dime la fecha y hora de nuevo.",
+    "en": "Ok, I didn't schedule it. Whenever you're ready, give me the date and time again.",
+}
+
+CONFIRM_DATE_PAST_SCHEDULE_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Não consegui agendar. Tenta de novo com a data e hora.",
+    "pt-BR": "Não consegui agendar. Tente de novo com a data e hora.",
+    "es": "No pude programarlo. Intenta de nuevo con fecha y hora.",
+    "en": "I couldn't schedule it. Try again with the date and time.",
+}
+
+CONFIRM_EXPORT_CANCEL: dict[LangCode, str] = {
+    "pt-PT": "❌ Exportação cancelada.",
+    "pt-BR": "❌ Exportação cancelada.",
+    "es": "❌ Exportación cancelada.",
+    "en": "❌ Export cancelled.",
+}
+
+CONFIRM_EXPORT_EMPTY: dict[LangCode, str] = {
+    "pt-PT": "📭 Nada para exportar.",
+    "pt-BR": "📭 Nada para exportar.",
+    "es": "📭 Nada para exportar.",
+    "en": "📭 Nothing to export.",
+}
+
+CONFIRM_EXPORT_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📤 Exportação:",
+    "pt-BR": "📤 Exportação:",
+    "es": "📤 Exportación:",
+    "en": "📤 Export:",
+}
+
+CONFIRM_EXPORT_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Erro ao exportar: {error}",
+    "pt-BR": "Erro ao exportar: {error}",
+    "es": "Error al exportar: {error}",
+    "en": "Error exporting: {error}",
+}
+
+CONFIRM_EXPORT_ITEM_DONE: dict[LangCode, str] = {
+    "pt-PT": " (feito)",
+    "pt-BR": " (feito)",
+    "es": " (hecho)",
+    "en": " (done)",
+}
+
+CONFIRM_DELETE_CANCEL: dict[LangCode, str] = {
+    "pt-PT": "✅ Cancelado. Nenhum dado foi apagado.",
+    "pt-BR": "✅ Cancelado. Nenhum dado foi apagado.",
+    "es": "✅ Cancelado. No se eliminó ningún dato.",
+    "en": "✅ Cancelled. No data was deleted.",
+}
+
+CONFIRM_DELETE_DONE: dict[LangCode, str] = {
+    "pt-PT": "🗑️ Todos os teus dados foram apagados.",
+    "pt-BR": "🗑️ Todos os seus dados foram apagados.",
+    "es": "🗑️ Todos tus datos han sido eliminados.",
+    "en": "🗑️ All your data has been deleted.",
+}
+
+CONFIRM_DELETE_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Erro ao apagar: {error}",
+    "pt-BR": "Erro ao apagar: {error}",
+    "es": "Error al eliminar: {error}",
+    "en": "Error deleting: {error}",
+}
+
+CONFIRM_COMPLETION_KEEP: dict[LangCode, str] = {
+    "pt-PT": "Ok, o lembrete mantém-se. Reage com 👍 quando terminares.",
+    "pt-BR": "Ok, o lembrete continua. Reaja com 👍 quando terminar.",
+    "es": "Ok, el recordatorio se mantiene. Reacciona con 👍 cuando termines.",
+    "en": "Ok, the reminder stays. React with 👍 when you're done.",
+}
+
+CONFIRM_COMPLETION_DONE: dict[LangCode, str] = {
+    "pt-PT": "✅ Marcado como feito!",
+    "pt-BR": "✅ Marcado como feito!",
+    "es": "✅ ¡Marcado como hecho!",
+    "en": "✅ Marked as done!",
+}
+
+CONFIRM_COMPLETION_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Ocorreu um erro. Tenta reagir com 👍 novamente ao lembrete.",
+    "pt-BR": "Ocorreu um erro. Tente reagir com 👍 novamente ao lembrete.",
+    "es": "Ocurrió un error. Intenta reaccionar con 👍 al recordatorio de nuevo.",
+    "en": "An error occurred. Try reacting with 👍 to the reminder again.",
+}
+
+# ---------------------------------------------------------------------------
+# settings_handlers.py response strings
+# ---------------------------------------------------------------------------
+
+SETTINGS_TZ_USAGE: dict[LangCode, str] = {
+    "pt-PT": "🌍 Use: /tz Cidade (ex: /tz Lisboa) ou /tz Europe/Lisbon",
+    "pt-BR": "🌍 Use: /tz Cidade (ex: /tz São Paulo) ou /tz America/Sao_Paulo",
+    "es": "🌍 Usa: /tz Ciudad (ej: /tz Madrid) o /tz Europe/Madrid",
+    "en": "🌍 Use: /tz City (e.g. /tz London) or /tz Europe/London",
+}
+
+SETTINGS_TZ_NOT_FOUND: dict[LangCode, str] = {
+    "pt-PT": "🌍 Cidade \"{city}\" não reconhecida. Tenta: /tz Lisboa, /tz São Paulo ou /tz Europe/Lisbon (IANA).",
+    "pt-BR": "🌍 Cidade \"{city}\" não reconhecida. Tente: /tz Lisboa, /tz São Paulo ou /tz America/Sao_Paulo (IANA).",
+    "es": "🌍 Ciudad \"{city}\" no reconocida. Prueba: /tz Madrid, /tz Buenos Aires o /tz Europe/Madrid (IANA).",
+    "en": "🌍 City \"{city}\" not recognised. Try: /tz London, /tz New York or /tz Europe/London (IANA).",
+}
+
+SETTINGS_TZ_SET: dict[LangCode, str] = {
+    "pt-PT": "✅ Timezone definido: {tz}. As horas dos lembretes passam a ser mostradas no teu fuso.",
+    "pt-BR": "✅ Timezone definido: {tz}. As horas dos lembretes passam a ser mostradas no seu fuso.",
+    "es": "✅ Zona horaria definida: {tz}. Las horas de los recordatorios se mostrarán en tu zona horaria.",
+    "en": "✅ Timezone set: {tz}. Reminder times will now be shown in your timezone.",
+}
+
+SETTINGS_TZ_INVALID: dict[LangCode, str] = {
+    "pt-PT": "❌ Timezone inválido.",
+    "pt-BR": "❌ Timezone inválido.",
+    "es": "❌ Zona horaria inválida.",
+    "en": "❌ Invalid timezone.",
+}
+
+SETTINGS_TZ_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Erro ao gravar timezone: {error}",
+    "pt-BR": "Erro ao gravar timezone: {error}",
+    "es": "Error al guardar zona horaria: {error}",
+    "en": "Error saving timezone: {error}",
+}
+
+SETTINGS_LANG_USAGE: dict[LangCode, str] = {
+    "pt-PT": "🌐 Idiomas disponíveis: /lang pt-pt | pt-br | es | en",
+    "pt-BR": "🌐 Idiomas disponíveis: /lang pt-pt | pt-br | es | en",
+    "es": "🌐 Idiomas disponibles: /lang pt-pt | pt-br | es | en",
+    "en": "🌐 Available languages: /lang pt-pt | pt-br | es | en",
+}
+
+SETTINGS_LANG_SET: dict[LangCode, str] = {
+    "pt-PT": "✅ Idioma definido: {lang}.",
+    "pt-BR": "✅ Idioma definido: {lang}.",
+    "es": "✅ Idioma definido: {lang}.",
+    "en": "✅ Language set: {lang}.",
+}
+
+SETTINGS_LANG_ERROR: dict[LangCode, str] = {
+    "pt-PT": "❌ Erro ao gravar idioma.",
+    "pt-BR": "❌ Erro ao gravar idioma.",
+    "es": "❌ Error al guardar el idioma.",
+    "en": "❌ Error saving language.",
+}
+
+# ---------------------------------------------------------------------------
+# hoje_semana.py inline strings
+# ---------------------------------------------------------------------------
+
+VIEW_NO_REMINDERS_TODAY: dict[LangCode, str] = {
+    "pt-PT": "• Nenhum lembrete agendado para hoje.",
+    "pt-BR": "• Nenhum lembrete agendado para hoje.",
+    "es": "• Ningún recordatorio programado para hoy.",
+    "en": "• No reminders scheduled for today.",
+}
+
+VIEW_NO_EVENTS_TODAY: dict[LangCode, str] = {
+    "pt-PT": "• Nenhum evento hoje.",
+    "pt-BR": "• Nenhum evento hoje.",
+    "es": "• Ningún evento hoy.",
+    "en": "• No events today.",
+}
+

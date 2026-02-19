@@ -127,7 +127,18 @@ class ListTool(Tool):
         if not list_name:
             return "Indica o nome da lista para adicionar o item."
         if not item_text or not item_text.strip():
-            return f"Para criar ou adicionar à lista '{list_name}', preciso de pelo menos um item! Qual item deseja adicionar?"
+            from backend.locale import LIST_EMPTY_ITEM_ERROR
+            try:
+                from backend.database import SessionLocal
+                from backend.user_store import get_user_language
+                _db = SessionLocal()
+                try:
+                    _lg = get_user_language(_db, self._chat_id) or "pt-BR"
+                finally:
+                    _db.close()
+            except Exception:
+                _lg = "pt-BR"
+            return LIST_EMPTY_ITEM_ERROR.get(_lg, LIST_EMPTY_ITEM_ERROR["en"]).format(list_name=list_name)
         if looks_like_confidential_data(item_text):
             return "Por política de privacidade (RGPD/LGPD), não guardamos dados confidenciais em listas (ex.: CPF, números de cartão). Pode guardar receitas, compras e outros textos sem dados pessoais sensíveis."
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
