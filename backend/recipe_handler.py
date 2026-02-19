@@ -1,8 +1,9 @@
 """Handler rápido para receitas e listas de ingredientes.
 
 1) Perplexity Chat — busca na web, ideal para receitas atualizadas.
-2) Fallback DeepSeek — se Perplexity falhar, usa main_provider (DeepSeek).
-3) Oferece lista de compras — quando há ingredientes, pergunta se quer criar; "sim"/"faça isso" cria a lista.
+2) Fallback Mimo — se Perplexity falhar, tenta scope_provider (Mimo, mais barato).
+3) Fallback DeepSeek — se Mimo também falhar, usa main_provider (DeepSeek).
+4) Oferece lista de compras — quando há ingredientes, pergunta se quer criar; "sim"/"faça isso" cria a lista.
 """
 
 from __future__ import annotations
@@ -142,10 +143,10 @@ async def _call_perplexity_chat(api_key: str, user_message: str, lang: str = "pt
     return content if content else None
 
 
-async def _call_deepseek_recipe(
+async def _call_llm_recipe(
     provider, model: str, user_message: str, lang: str = "pt-BR"
 ) -> str | None:
-    """Fallback: DeepSeek para receita quando Perplexity falha."""
+    """Chama qualquer LLM (Mimo ou DeepSeek) para gerar receita."""
     if not provider or not (model or "").strip():
         return None
     system = (
@@ -199,15 +200,23 @@ async def handle_recipe(ctx: "HandlerContext", content: str) -> str | None:
     if result:
         return _build_recipe_response(ctx, content.strip(), result, user_lang)
 
-    # Fallback: DeepSeek (main_provider) — bom para receitas mesmo sem busca web
+    # Fallback 1: Mimo (scope_provider) — mais barato
+    if ctx.scope_provider and (ctx.scope_model or "").strip():
+        result = await _call_llm_recipe(
+            ctx.scope_provider, ctx.scope_model, content.strip(), user_lang
+        )
+        if result:
+            return _build_recipe_response(ctx, content.strip(), result, user_lang)
+
+    # Fallback 2: DeepSeek (main_provider)
     if ctx.main_provider and (ctx.main_model or "").strip():
-        result = await _call_deepseek_recipe(
+        result = await _call_llm_recipe(
             ctx.main_provider, ctx.main_model, content.strip(), user_lang
         )
         if result:
             return _build_recipe_response(ctx, content.strip(), result, user_lang)
 
-    return None  # Agent trata (scope_provider/Mimo como último recurso)
+    return None  # Agent trata
 
 
 _RECIPE_OFFER_MSG = {

@@ -578,7 +578,7 @@ class AgentLoop:
         return fallbacks.get(user_lang, fallbacks["en"])
 
     async def _ask_city_question(self, user_lang: str, name: str) -> str:
-        """Pergunta natural em que cidade está (para fuso horário). Xiaomi primeiro (fluxo simples), fallback DeepSeek."""
+        """Pergunta natural em que cidade está (para fuso horário). Mimo primeiro; fallback: texto fixo (sem DeepSeek)."""
         lang_instruction = {
             "pt-PT": "em português de Portugal",
             "pt-BR": "em português do Brasil",
@@ -601,18 +601,8 @@ class AgentLoop:
                 if out and len(out) <= 220:
                     return out
             except Exception as e:
-                logger.debug(f"Ask city (Xiaomi) failed: {e}")
-        try:
-            r = await self.provider.chat(
-                messages=[{"role": "user", "content": prompt}],
-                model=self.model,
-                profile="assistant",
-            )
-            out = (r.content or "").strip()
-            if out and len(out) <= 220:
-                return out
-        except Exception as e:
-            logger.debug(f"Ask city (DeepSeek) failed: {e}")
+                logger.debug(f"Ask city (Mimo) failed: {e}")
+        # Fallback: texto fixo — não precisa de DeepSeek para uma pergunta simples de onboarding
         fallbacks = {
             "pt-PT": "Em que cidade estás? (para acertarmos o fuso dos lembretes) 🌍",
             "pt-BR": "Em que cidade você está? (para acertarmos o fuso dos lembretes) 🌍",
