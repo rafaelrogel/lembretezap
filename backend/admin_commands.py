@@ -19,9 +19,9 @@ from loguru import logger
 # Senha de god-mode (env). Se vazia, god-mode desativado (qualquer # = silêncio).
 GOD_MODE_PASSWORD_ENV = "GOD_MODE_PASSWORD"
 
-# chat_id -> timestamp de ativação (para TTL)
+# chat_id -> timestamp da ÚLTIMA atividade (para TTL de inatividade)
 _god_mode_activated: dict[str, float] = {}
-_GOD_MODE_TTL_SECONDS = 24 * 3600  # 24 horas
+_GOD_MODE_INACTIVITY_TTL_SECONDS = int(os.environ.get("GOD_MODE_INACTIVITY_MINUTES", "240")) * 60  # default 4h
 
 
 def get_god_mode_password() -> str:
@@ -30,7 +30,7 @@ def get_god_mode_password() -> str:
 
 
 def activate_god_mode(chat_id: str) -> None:
-    """Marca este chat como tendo god-mode ativo (por TTL)."""
+    """Marca este chat como tendo god-mode ativo; guarda timestamp de atividade."""
     try:
         from zapista.clock_drift import get_effective_time
         _now = get_effective_time()
@@ -39,8 +39,20 @@ def activate_god_mode(chat_id: str) -> None:
     _god_mode_activated[str(chat_id)] = _now
 
 
+def bump_god_mode_activity(chat_id: str) -> None:
+    """Atualiza timestamp de última atividade (reset do inactivity TTL)."""
+    cid = str(chat_id)
+    if cid not in _god_mode_activated:
+        return
+    try:
+        from zapista.clock_drift import get_effective_time
+        _god_mode_activated[cid] = get_effective_time()
+    except Exception:
+        _god_mode_activated[cid] = time.time()
+
+
 def is_god_mode_activated(chat_id: str) -> bool:
-    """True se este chat ativou god-mode com a senha e ainda está dentro do TTL."""
+    """True se este chat ativou god-mode e ainda está dentro do TTL de inatividade."""
     t = _god_mode_activated.get(str(chat_id))
     if t is None:
         return False
@@ -49,8 +61,9 @@ def is_god_mode_activated(chat_id: str) -> bool:
         _now = get_effective_time()
     except Exception:
         _now = time.time()
-    if _now - t > _GOD_MODE_TTL_SECONDS:
+    if _now - t > _GOD_MODE_INACTIVITY_TTL_SECONDS:
         del _god_mode_activated[str(chat_id)]
+        log_god_mode_audit(chat_id, "session_expired")
         return False
     return True
 
@@ -68,11 +81,44 @@ def is_god_mode_password(content_after_hash: str) -> bool:
     return (content_after_hash or "").strip() == pwd
 
 
+# ---------------------------------------------------------------------------
+# Audit log — tentativas de acesso ao God Mode (sucesso, falha, logout)
+# ---------------------------------------------------------------------------
+_AUDIT_LOG_PATH = Path(
+    os.environ.get("ZAPISTA_DATA", "").strip() or str(Path.home() / ".zapista")
+) / "security" / "god_mode_audit.log"
+
+
+def log_god_mode_audit(
+    chat_id: str,
+    event: str,  # "login_ok" | "login_fail" | "logout" | "session_expired" | "command"
+    command: str | None = None,
+) -> None:
+    """Regista eventos de acesso ao God Mode num log de auditoria persistente."""
+    try:
+        _now = time.time()
+        mask = (chat_id[:8] + "***" + chat_id[-4:]) if len(chat_id) > 12 else chat_id[:8] + "***"
+        entry = {
+            "ts": int(_now),
+            "event": event,
+            "chat_id": mask,
+        }
+        if command:
+            entry["cmd"] = command[:40]
+        line = json.dumps(entry, ensure_ascii=False)
+        logger.info("god_mode_audit event={} chat={} cmd={}", event, mask, command or "")
+        _AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with _AUDIT_LOG_PATH.open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass  # never crash the main flow
+
+
 # Comandos aceites: #cmd ou #cmd <arg> (case-insensitive)
 _ADMIN_CMD_RE = re.compile(r"^\s*#(\w+)(?:\s+(.*))?\s*$", re.I)
 _VALID_COMMANDS = frozenset({
     "status", "users", "paid", "cron", "server", "system", "ai", "painpoints",
-    "injection", "blocked", "lockout", "add", "remove", "mute", "quit", "msgs", "lembretes", "tz",
+    "injection", "blocked", "lockout", "auditlog", "add", "remove", "mute", "quit", "msgs", "lembretes", "tz",
     "cleanup", "history",
     "hora", "time", "ativos", "erros", "diagnostico", "diag", "help", "comandos", "clientes", "jobs",
     "redis", "whatsapp", "debug_time",
@@ -210,6 +256,9 @@ async def handle_admin_command(
 
     if cmd == "lockout":
         return _cmd_lockout()
+
+    if cmd == "auditlog":
+        return _cmd_auditlog()
 
     if cmd == "cleanup":
         return await _cmd_cleanup(db_session_factory, cron_store_path)
@@ -936,6 +985,37 @@ def _cmd_lockout() -> str:
     except Exception as e:
         logger.debug(f"admin #lockout failed: {e}")
         return "#lockout\nErro ao obter estatísticas."
+
+
+def _cmd_auditlog() -> str:
+    """Últimas 30 entradas do log de auditoria do God Mode (login_ok, login_fail, logout, etc.)."""
+    try:
+        from backend.admin_commands import _AUDIT_LOG_PATH
+        if not _AUDIT_LOG_PATH.exists():
+            return "#auditlog\nNenhum evento registado ainda."
+        lines_raw = _AUDIT_LOG_PATH.read_text(encoding="utf-8").strip().splitlines()
+        # Last 30 entries
+        lines_raw = lines_raw[-30:]
+        from datetime import datetime, timezone
+        rows = ["#auditlog — últimos acessos God Mode"]
+        for line in reversed(lines_raw):
+            try:
+                entry = json.loads(line)
+                ts = int(entry.get("ts", 0))
+                dt = datetime.fromtimestamp(ts, tz=timezone.utc).strftime("%d/%m %H:%M:%S")
+                event = entry.get("event", "?")
+                chat = entry.get("chat_id", "?")
+                cmd = entry.get("cmd", "")
+                row = f"  {dt} | {event:20s} | {chat}"
+                if cmd:
+                    row += f" | /{cmd}"
+                rows.append(row)
+            except Exception:
+                continue
+        return "\n".join(rows) if len(rows) > 1 else "#auditlog\nNenhum evento registado."
+    except Exception as e:
+        logger.debug(f"admin #auditlog failed: {e}")
+        return "#auditlog\nErro ao ler log de auditoria."
 
 
 async def _cmd_cleanup(

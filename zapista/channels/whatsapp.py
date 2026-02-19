@@ -468,6 +468,8 @@ class WhatsAppChannel(BaseChannel):
                     is_god_mode_activated,
                     activate_god_mode,
                     deactivate_god_mode,
+                    bump_god_mode_activity,
+                    log_god_mode_audit,
                     parse_admin_command_arg,
                     handle_admin_command,
                 )
@@ -481,10 +483,12 @@ class WhatsAppChannel(BaseChannel):
                 raw = (content or "").strip()
                 rest = raw[1:].strip()  # texto após #
                 if is_locked_out(sender):
+                    log_god_mode_audit(sender, "login_blocked")
                     return  # bloqueado por tentativas erradas; silêncio
                 if is_god_mode_password(rest):
                     clear_failed_attempts(sender)
                     activate_god_mode(sender)
+                    log_god_mode_audit(sender, "login_ok")
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=sender,
@@ -495,10 +499,14 @@ class WhatsAppChannel(BaseChannel):
                 if not cmd or not is_god_mode_activated(sender):
                     if not cmd and rest:
                         record_failed_attempt(sender)
+                        log_god_mode_audit(sender, "login_fail")
                     return  # silêncio
+                # Sessão válida: resetar inatividade
+                bump_god_mode_activity(sender)
                 # #quit: desativar god-mode
                 if cmd == "quit":
                     deactivate_god_mode(sender)
+                    log_god_mode_audit(sender, "logout")
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=sender,
