@@ -22,9 +22,11 @@ async def handle_atendimento_request(ctx: HandlerContext, content: str) -> str |
             db.close()
     except Exception:
         pass
-    provider = ctx.scope_provider or ctx.main_provider
-    model = (ctx.scope_model or ctx.main_model or "").strip()
-    if not provider or not model:
-        from backend.atendimento_contact import ATENDIMENTO_PHONE, ATENDIMENTO_EMAIL
-        return f"Entendemos. Nossa equipe de atendimento está disponível:\n\n📞 {ATENDIMENTO_PHONE}\n📧 {ATENDIMENTO_EMAIL}"
-    return await build_atendimento_response(user_lang, provider, model)
+    return await build_atendimento_response(
+        user_lang,
+        provider=ctx.main_provider,
+        model=ctx.main_model or "",
+        scope_provider=ctx.scope_provider,
+        scope_model=ctx.scope_model,
+    )
+

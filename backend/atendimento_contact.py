@@ -30,9 +30,11 @@ async def build_atendimento_response(
     user_lang: str,
     provider,
     model: str,
+    scope_provider=None,
+    scope_model: str | None = None,
 ) -> str:
     """
-    Usa DeepSeek para criar mensagem empática + dados de contacto.
+    Mimo primeiro (barato, mensagem curta) → fallback DeepSeek → fallback hardcoded.
     """
     contact = f"📞 {ATENDIMENTO_PHONE}\n📧 {ATENDIMENTO_EMAIL}"
     lang_instruction = {
@@ -49,6 +51,22 @@ async def build_atendimento_response(
 
 Escreve {lang_instruction}. Seja CONCISO: máximo 1-2 frases + contactos. Sem bullet points, texto fluido mas breve."""
 
+    # 1) Mimo (mais barato — mensagem curta)
+    if scope_provider and (scope_model or "").strip():
+        try:
+            r = await scope_provider.chat(
+                messages=[{"role": "user", "content": prompt}],
+                model=scope_model,
+                max_tokens=130,
+                temperature=0.6,
+            )
+            out = (r.content or "").strip()
+            if out:
+                return out
+        except Exception:
+            pass  # fallback para DeepSeek
+
+    # 2) DeepSeek (fallback)
     try:
         r = await provider.chat(
             messages=[{"role": "user", "content": prompt}],
@@ -61,7 +79,8 @@ Escreve {lang_instruction}. Seja CONCISO: máximo 1-2 frases + contactos. Sem bu
             return out
     except Exception:
         pass
-    # Fallback simples (conciso)
+
+    # 3) Fallback hardcoded (sem LLM)
     fallbacks = {
         "pt-PT": f"Entendo. A nossa equipa vai contactar-te. 📞 {ATENDIMENTO_PHONE} | 📧 {ATENDIMENTO_EMAIL}",
         "pt-BR": f"Entendo. Nossa equipe vai entrar em contato com você. 📞 {ATENDIMENTO_PHONE} | 📧 {ATENDIMENTO_EMAIL}",
@@ -69,3 +88,4 @@ Escreve {lang_instruction}. Seja CONCISO: máximo 1-2 frases + contactos. Sem bu
         "en": f"I understand. Our team will reach out. 📞 {ATENDIMENTO_PHONE} | 📧 {ATENDIMENTO_EMAIL}",
     }
     return fallbacks.get(user_lang, fallbacks["pt-BR"])
+
