@@ -640,10 +640,26 @@ class AgentLoop:
         if "/debug_time" in content:
              return None # Moved to God Mode (#debug_time)
 
+        # Padrões de perguntas simples sobre hora/data que NÃO devem acionar o Timezone Doctor.
+        # Ex.: "que horas são?", "que dia é hoje?", "what time is it?" — o LLM responde usando
+        # o Current Time do system prompt; não há reclamação de fuso errado.
+        _simple_time_queries = [
+            "que hora", "que horas", "que dia", "que data", "qual a hora", "qual o dia",
+            "what time", "what day", "what date", "qué hora", "qué día", "que día",
+            "que dia é", "que horas são", "horas são", "hora é",
+        ]
+        _content_lower = content.lower()
+        if any(q in _content_lower for q in _simple_time_queries):
+            return None
 
-        # Keywords que sugerem problemas de hora/fuso
-        keywords = ["hora", "time", "fuso", "relógio", "clock", "atrasado", "adiantado", "wrong", "errado", "trouble", "ti is", "timezone"]
-        if not any(k in content for k in keywords):
+        # Keywords que sugerem RECLAMAÇÃO de hora/fuso errado (mais específicos que antes)
+        # Removidos "hora" e "time" sozinhos — demasiado genéricos, causavam falsos positivos.
+        keywords = [
+            "fuso", "relógio", "clock", "atrasado", "adiantado", "wrong", "errado",
+            "trouble", "it is ", "são ", "timezone", "horário errado", "hora errada",
+            "hora wrong", "time wrong", "it is now", "agora são", "agora é",
+        ]
+        if not any(k in _content_lower for k in keywords):
             return None
         
         if not self.scope_provider or not self.scope_model:
