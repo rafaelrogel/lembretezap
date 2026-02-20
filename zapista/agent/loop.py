@@ -1652,9 +1652,41 @@ class AgentLoop:
 
         # Build initial messages (use get_history for LLM-formatted messages)
         # user_lang já definido acima: 1.º número, 2.º config, 3.º mensagem (se pt-PT/pt-BR/es/en)
+
+        # Injetar data/hora atual como prefixo da mensagem do user → garante que o LLM vê
+        # sempre a data correta, mesmo que o histórico comprimido da sessão tenha referências
+        # a datas antigas. O prefixo NÃO é guardado no histórico (session.add_message usa
+        # msg.content original), por isso não contamina conversas futuras.
+        _llm_current_message = msg.content
+        try:
+            from zapista.clock_drift import get_effective_time as _get_eff_time
+            from datetime import datetime as _dt_cls, timezone as _tz_cls
+            _eff_ts = _get_eff_time()
+            _dt_utc = _dt_cls.fromtimestamp(_eff_ts, tz=_tz_cls.utc)
+            _date_tz_label = "UTC"
+            _dt_local = _dt_utc
+            try:
+                from backend.database import SessionLocal as _DateDB
+                from backend.user_store import get_user_timezone as _get_user_tz
+                from zoneinfo import ZoneInfo as _ZI
+                _ddb = _DateDB()
+                try:
+                    _tz_iana_date = _get_user_tz(_ddb, msg.chat_id) or "UTC"
+                finally:
+                    _ddb.close()
+                if _tz_iana_date and _tz_iana_date != "UTC":
+                    _dt_local = _dt_utc.astimezone(_ZI(_tz_iana_date))
+                    _date_tz_label = _tz_iana_date
+            except Exception:
+                pass
+            _date_prefix = f"[📅 {_dt_local.strftime('%Y-%m-%d %H:%M (%A)')} | {_date_tz_label}]\n"
+            _llm_current_message = _date_prefix + msg.content
+        except Exception:
+            pass  # Se falhar, usar msg.content original sem prefixo
+
         messages = self.context.build_messages(
             history=session.get_history(),
-            current_message=msg.content,
+            current_message=_llm_current_message,
             media=msg.media if msg.media else None,
             channel=msg.channel,
             chat_id=msg.chat_id,
