@@ -708,6 +708,10 @@ class CronTool(Tool):
         # Para lembretes "daqui a X min", mostrar a hora no timezone do utilizador (nunca hora do servidor)
         if in_seconds is not None and in_seconds > 0 and job.state.next_run_at_ms:
             at_sec = job.state.next_run_at_ms // 1000
+            # Arredondar para o minuto mais próximo (só para exibição — o agendamento
+            # real mantém a precisão original). Evita mostrar "14:59" para um evento
+            # que efectivamente dispara às 14:59:49 (= 15:00 do ponto de vista do utilizador).
+            at_sec_display = ((at_sec + 30) // 60) * 60
             try:
                 from backend.database import SessionLocal
                 from backend.user_store import get_user_timezone
@@ -715,7 +719,7 @@ class CronTool(Tool):
                 db = SessionLocal()
                 try:
                     tz = get_user_timezone(db, self._chat_id) or phone_to_default_timezone(self._chat_id) or "UTC"
-                    hora_str = format_utc_timestamp_for_user(at_sec, tz)
+                    hora_str = format_utc_timestamp_for_user(at_sec_display, tz)
                     tz_label = CRON_TZ_LABEL_FROM_PHONE.get(_lang, CRON_TZ_LABEL_FROM_PHONE["en"])
                 finally:
                     db.close()
