@@ -573,8 +573,8 @@ class CronTool(Tool):
             return dup_result
 
         if remind_again_if_unconfirmed_seconds is not None:
-            if remind_again_if_unconfirmed_seconds < 60 or remind_again_if_unconfirmed_seconds > 3600:
-                return "O adiamento 'lembra de novo se não confirmar' deve estar entre 1 e 60 minutos."
+            if remind_again_if_unconfirmed_seconds < 900 or remind_again_if_unconfirmed_seconds > 86400:
+                return "O adiamento 'lembra de novo se não confirmar' deve estar entre 15 minutos e 24 horas."
         if depends_on_job_id:
             dep = self._cron.get_job(depends_on_job_id.strip().upper()[:16])
             if not dep or getattr(dep.payload, "to", None) != self._chat_id:

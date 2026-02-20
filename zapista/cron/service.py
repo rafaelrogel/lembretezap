@@ -341,10 +341,29 @@ class CronService:
         
         # kind="at" = lembrete pontual (uma vez) → remover após executar com sucesso (lista limpa)
         # has_deadline: main job mantém-se até utilizador confirmar ou 3 lembretes pós-prazo
-        # Se status for "snoozed...", não apagar ainda!
+        # ATENÇÃO: após disparar, DEVE actualizar next_run_at_ms — caso contrário fica no passado
+        # e o timer dispara imediatamente a cada tick (loop infinito de mensagens). 
         if job.schedule.kind == "at" and job.state.last_status == "ok":
             if not getattr(job.payload, "has_deadline", False):
+                # Job pontual normal: remove da lista após executar
                 self._store.jobs = [j for j in self._store.jobs if j.id != job.id]
+            else:
+                # Deadline job: só volta a disparar se remind_again_if_unconfirmed_seconds estiver definido
+                # (e com mínimo de 900s = 15 min para evitar spam)
+                remind_again_secs = getattr(job.payload, "remind_again_if_unconfirmed_seconds", None)
+                if remind_again_secs and remind_again_secs >= 900:
+                    job.state.next_run_at_ms = _now_ms() + remind_again_secs * 1000
+                    logger.info(
+                        f"Cron: deadline job '{job.name}' rescheduled in {remind_again_secs}s"
+                    )
+                else:
+                    # Sem intervalo válido: desactivar após o disparo inicial.
+                    # O deadline_check job (+ 5 min) trata de enviar alertas (1/3, 2/3, 3/3).
+                    job.state.next_run_at_ms = None
+                    job.enabled = False
+                    logger.info(
+                        f"Cron: deadline job '{job.name}' fired once, disabled (deadline checker handles alerts)"
+                    )
         elif job.schedule.kind == "at" and (job.state.last_status or "").startswith("snoozed"):
             # Foi adiado (ex: quiet mode) → manter ativo para a nova next_run_at_ms (já setada pelo snooze)
             pass
