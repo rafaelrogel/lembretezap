@@ -201,10 +201,11 @@ def phone_to_default_timezone(chat_id: str) -> str:
     return "UTC"
 
 
-def format_utc_timestamp_for_user(utc_timestamp_seconds: int, tz_name: str) -> str:
-    """Formata timestamp UTC como HH:MM no timezone do utilizador.
+def format_utc_timestamp_for_user(utc_timestamp_seconds: int, tz_name: str, show_seconds: bool = False) -> str:
+    """Formata timestamp UTC como HH:MM (ou HH:MM:SS) no timezone do utilizador.
     Horário de verão (DST): tratado automaticamente pela base IANA (zoneinfo).
     Portugal (Europe/Lisbon): UTC+0 inverno, UTC+1 verão. Brasil: sem DST desde 2019.
+    show_seconds=True: inclui segundos (para lembretes curtos 'daqui a X min').
     """
     try:
         tz = ZoneInfo(tz_name)
@@ -212,7 +213,8 @@ def format_utc_timestamp_for_user(utc_timestamp_seconds: int, tz_name: str) -> s
         tz = ZoneInfo("UTC")
     from datetime import datetime
     dt = datetime.fromtimestamp(utc_timestamp_seconds, tz=tz)
-    return dt.strftime("%H:%M")
+    fmt = "%H:%M:%S" if show_seconds else "%H:%M"
+    return dt.strftime(fmt)
 
 
 def is_valid_iana(tz_name: str) -> bool:
