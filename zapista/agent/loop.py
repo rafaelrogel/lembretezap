@@ -777,8 +777,20 @@ class AgentLoop:
         if not self.scope_provider or not self.scope_model:
             return None
 
-        # Se for mensagem muito curta ou trivial, ignorar
+        # Mensagens triviais ou simples → ignorar imediatamente sem chamar MIMO
         if len(current_msg) < 5:
+            return None
+
+        # Perguntas simples sobre hora/data: o system prompt já fornece a hora correta.
+        # Não enviar ao MIMO — evita que o MIMO produza resumos de sessão em inglês
+        # que o DeepSeek acaba a repetir na resposta (bug "It is currently 13:46 UTC...").
+        _simple_q_lower = current_msg.lower().strip()
+        _simple_time_patterns = [
+            "que hora", "que horas", "que dia", "que data", "qual a hora", "qual o dia",
+            "what time", "what day", "what date", "qué hora", "qué día",
+            "horas são", "hora é", "dia é hoje", "data de hoje",
+        ]
+        if any(p in _simple_q_lower for p in _simple_time_patterns):
             return None
 
         # Verificar se search tool está disponível
@@ -787,11 +799,16 @@ class AgentLoop:
 
         prompt = (
             "Analyze the user's request. Does it involve:\n"
-            "1. Math/Logic/Sorting/Checking?\n"
+            "1. Math/Logic/Sorting/Checking? (e.g. calculating totals, sorting lists, conflict checking)\n"
             "2. Searching for lists, facts, recipes, or books (organizational context)?\n\n"
-            "If YES to math/logic: Provide the solution step-by-step.\n"
+            "SKIP the following — the main system handles them directly:\n"
+            "- Questions about current time, date, day of week, or calendar\n"
+            "- Simple greetings or conversational messages\n"
+            "- Reminder creation or listing\n\n"
+            "If YES to math/logic: Provide ONLY the step-by-step reasoning (numbers and logic only).\n"
             "If YES to search: Call the 'search' tool with a specific query.\n"
-            "If NO (simple chat/creative): Return 'SKIP'.\n"
+            "If NO or SKIP case: Return exactly 'SKIP'.\n"
+            "IMPORTANT: NEVER include session statistics, message counts, or reminder counts in your output.\n"
             "Output ONLY the reasoning, the tool call, or 'SKIP'."
         )
         
