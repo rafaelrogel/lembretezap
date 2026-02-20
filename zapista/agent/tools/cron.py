@@ -78,6 +78,12 @@ class CronTool(Tool):
     def description(self) -> str:
         return (
             "Schedule one-time or recurring reminders. Actions: add, list, remove. "
+            "CRITICAL — CALENDAR QUERIES: Whenever the user asks about their reminders, calendar, agenda, tasks, "
+            "'lembretes', 'compromissos', 'o que tenho hoje/amanhã', 'minha agenda', 'quais lembretes', or ANY similar phrasing "
+            "in ANY language, you MUST call this tool with action='list'. "
+            "NEVER answer calendar/reminder questions from session history, memory, or conversation context. "
+            "Session history may contain DELIVERED (already sent and deleted) reminders that no longer exist. "
+            "Only the tool response reflects the true current state. "
             "message = WHAT to remind (e.g. 'ir à farmácia', 'tomar remédio') — required. Never 'lembrete' or 'alerta'. "
             "CRITICAL: NEVER invent or assume a time. If the user did not explicitly say a time/date (e.g. '10h', 'amanhã', 'daqui a 5 min'), "
             "you MUST ask 'Para quando?' BEFORE calling this tool. Do NOT default to '10h', 'amanhã', 'esta tarde' or any arbitrary time. "
