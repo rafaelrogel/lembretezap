@@ -484,12 +484,13 @@ class CronTool(Tool):
                 now_ms = _effective_now_ms()
                 delta_past_ms = now_ms - at_ms
                 if delta_past_ms > 120_000:  # mais de 2 minutos no passado → rejeitar
+                    logger.warning(f"Cron: rejecting reminder {delta_past_ms/1000}s in the past")
                     from backend.locale import REMINDER_TIME_PAST_TODAY
                     _lang = self._get_user_lang()
                     return REMINDER_TIME_PAST_TODAY.get(_lang, REMINDER_TIME_PAST_TODAY["pt-BR"])
-                # Dentro de 2 min de atraso (processamento do LLM): agendar para +30s
-                at_ms = now_ms + 30_000
-                logger.warning(f"Cron: target time {delta_past_ms}ms in past (processing delay); scheduling +30s instead")
+                # Dentro de 2 min de atraso (processamento do LLM ou drift pequeno): agendar para o próximo segundo disponível
+                at_ms = now_ms + 1000  # agendar para daqui a 1s
+                logger.info(f"Cron: target time {delta_past_ms}ms in past (processing delay); scheduling +1s instead")
             
             schedule = CronSchedule(kind="at", at_ms=at_ms)
             delete_after_run = True

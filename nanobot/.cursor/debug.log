@@ -4858,3 +4858,163 @@
 {"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/help caf\u00e9", "changed": true}, "timestamp": 1771259752435.516, "hypothesisId": "H1"}
 {"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/est xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"}, "timestamp": 1771259752436.5166, "hypothesisId": "H1"}
 {"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/stats xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "changed": true}, "timestamp": 1771259752436.5166, "hypothesisId": "H1"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/nuke"}, "timestamp": 1771636734249.3496, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/nuke"}, "timestamp": 1771636734250.3494, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": false}, "timestamp": 1771636734251.858, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636734251.858, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636734461.1963, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/bomba"}, "timestamp": 1771636734481.3381, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/bomba"}, "timestamp": 1771636734483.338, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": true}, "timestamp": 1771636734483.338, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636734483.338, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636734490.9465, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/bomb"}, "timestamp": 1771636734517.793, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/bomb"}, "timestamp": 1771636734517.793, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": true}, "timestamp": 1771636734518.7944, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636734518.7944, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636734522.2988, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "apaga tudo"}, "timestamp": 1771636734525.357, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "apaga tudo"}, "timestamp": 1771636734526.8735, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "apaga tudo"}, "timestamp": 1771636734527.7856, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_deletar_tudo", "out_preview": "\u26a0\ufe0f Apagar TODOS os dados? (listas, lembretes, eventos) \u2014 Esta a\u00e7\u00e3o n\u00e3o tem volta"}, "timestamp": 1771636734543.9475, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "reset total"}, "timestamp": 1771636734545.4546, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "reset total"}, "timestamp": 1771636734546.9724, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "reset total"}, "timestamp": 1771636734546.9724, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_reset", "out_preview": "Cadastro apagado e conversa reiniciada. Na pr\u00f3xima mensagem, pergunto de novo on"}, "timestamp": 1771636734592.3274, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/reset"}, "timestamp": 1771636734597.3452, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/reset"}, "timestamp": 1771636734597.3452, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/reset", "changed": false}, "timestamp": 1771636734598.3545, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/reset"}, "timestamp": 1771636734598.3545, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_reset", "out_preview": "Cadastro apagado e conversa reiniciada. Na pr\u00f3xima mensagem, pergunto de novo on"}, "timestamp": 1771636734604.6292, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/stats"}, "timestamp": 1771636734637.9736, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/stats"}, "timestamp": 1771636734638.973, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/stats", "changed": false}, "timestamp": 1771636734639.9739, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/stats"}, "timestamp": 1771636734640.9756, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_stats", "out_preview": "Erro ao carregar estat\u00edsticas: (sqlite3.OperationalError) no such column: users."}, "timestamp": 1771636734645.4856, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/nuke"}, "timestamp": 1771636750846.1814, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/nuke"}, "timestamp": 1771636750847.1917, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": false}, "timestamp": 1771636750848.1992, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636750848.1992, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636751038.126, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/bomba"}, "timestamp": 1771636751041.1282, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/bomba"}, "timestamp": 1771636751042.1277, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": true}, "timestamp": 1771636751043.1287, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636751043.1287, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636751047.1807, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/bomb"}, "timestamp": 1771636751048.1865, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/bomb"}, "timestamp": 1771636751049.1902, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": true}, "timestamp": 1771636751049.1902, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636751049.1902, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636751052.7026, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "apaga tudo"}, "timestamp": 1771636751053.702, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "apaga tudo"}, "timestamp": 1771636751053.702, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "apaga tudo"}, "timestamp": 1771636751053.702, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_deletar_tudo", "out_preview": "\u26a0\ufe0f Apagar TODOS os dados? (listas, lembretes, eventos) \u2014 Esta a\u00e7\u00e3o n\u00e3o tem volta"}, "timestamp": 1771636751075.442, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "reset total"}, "timestamp": 1771636751075.442, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "reset total"}, "timestamp": 1771636751076.449, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "reset total"}, "timestamp": 1771636751076.9536, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_reset", "out_preview": "Cadastro apagado e conversa reiniciada. Na pr\u00f3xima mensagem, pergunto de novo on"}, "timestamp": 1771636751123.988, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/reset"}, "timestamp": 1771636751123.988, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/reset"}, "timestamp": 1771636751123.988, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/reset", "changed": false}, "timestamp": 1771636751125.5178, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/reset"}, "timestamp": 1771636751125.5178, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_reset", "out_preview": "Cadastro apagado e conversa reiniciada. Na pr\u00f3xima mensagem, pergunto de novo on"}, "timestamp": 1771636751129.7366, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/stats"}, "timestamp": 1771636751130.7473, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/stats"}, "timestamp": 1771636751131.2546, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/stats", "changed": false}, "timestamp": 1771636751131.2546, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/stats"}, "timestamp": 1771636751132.264, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_stats", "out_preview": "Erro ao carregar estat\u00edsticas: (sqlite3.OperationalError) no such column: users."}, "timestamp": 1771636751135.442, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/nuke"}, "timestamp": 1771636800946.3374, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/nuke"}, "timestamp": 1771636800946.3374, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": false}, "timestamp": 1771636800947.3486, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636800949.3567, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636801138.3943, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/bomba"}, "timestamp": 1771636801152.5544, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/bomba"}, "timestamp": 1771636801153.061, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": true}, "timestamp": 1771636801153.061, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636801154.0708, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636801159.118, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/bomb"}, "timestamp": 1771636801178.7036, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/bomb"}, "timestamp": 1771636801181.2192, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": true}, "timestamp": 1771636801181.2192, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636801182.2188, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636801186.2332, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "apaga tudo"}, "timestamp": 1771636801191.749, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "apaga tudo"}, "timestamp": 1771636801192.7485, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "apaga tudo"}, "timestamp": 1771636801193.7495, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_deletar_tudo", "out_preview": "\u26a0\ufe0f Apagar TODOS os dados? (listas, lembretes, eventos) \u2014 Esta a\u00e7\u00e3o n\u00e3o tem volta"}, "timestamp": 1771636801224.2788, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "reset total"}, "timestamp": 1771636801231.3267, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "reset total"}, "timestamp": 1771636801232.6328, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "reset total"}, "timestamp": 1771636801233.3276, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_reset", "out_preview": "Cadastro apagado e conversa reiniciada. Na pr\u00f3xima mensagem, pergunto de novo on"}, "timestamp": 1771636801267.496, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/reset"}, "timestamp": 1771636801274.0146, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/reset"}, "timestamp": 1771636801275.5713, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/reset", "changed": false}, "timestamp": 1771636801276.107, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/reset"}, "timestamp": 1771636801276.107, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_reset", "out_preview": "Cadastro apagado e conversa reiniciada. Na pr\u00f3xima mensagem, pergunto de novo on"}, "timestamp": 1771636801280.4124, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/stats"}, "timestamp": 1771636801280.9263, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/stats"}, "timestamp": 1771636801281.9355, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/stats", "changed": false}, "timestamp": 1771636801281.9355, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/stats"}, "timestamp": 1771636801282.935, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_stats", "out_preview": "Erro ao carregar estat\u00edsticas: (sqlite3.OperationalError) no such column: users."}, "timestamp": 1771636801287.3196, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/nuke"}, "timestamp": 1771636844518.2805, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/nuke"}, "timestamp": 1771636844518.2805, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": false}, "timestamp": 1771636844519.2888, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636844520.2878, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636844691.8857, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/bomba"}, "timestamp": 1771636844696.4548, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/bomba"}, "timestamp": 1771636844697.7385, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": true}, "timestamp": 1771636844697.7385, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636844697.7385, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636844702.8638, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "apaga tudo"}, "timestamp": 1771636844717.0117, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "apaga tudo"}, "timestamp": 1771636844717.0117, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "apaga tudo"}, "timestamp": 1771636844717.9485, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_deletar_tudo", "out_preview": "\u26a0\ufe0f Apagar TODOS os dados? (listas, lembretes, eventos) \u2014 Esta a\u00e7\u00e3o n\u00e3o tem volta"}, "timestamp": 1771636844743.3223, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "reset total"}, "timestamp": 1771636844746.358, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "reset total"}, "timestamp": 1771636844746.882, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "reset total"}, "timestamp": 1771636844746.882, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_reset", "out_preview": "Cadastro apagado e conversa reiniciada. Na pr\u00f3xima mensagem, pergunto de novo on"}, "timestamp": 1771636844823.178, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/reset"}, "timestamp": 1771636844827.4287, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/reset"}, "timestamp": 1771636844828.057, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/reset", "changed": false}, "timestamp": 1771636844828.5947, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/reset"}, "timestamp": 1771636844829.6055, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_reset", "out_preview": "Cadastro apagado e conversa reiniciada. Na pr\u00f3xima mensagem, pergunto de novo on"}, "timestamp": 1771636844835.3076, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/stats"}, "timestamp": 1771636844838.5342, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/stats"}, "timestamp": 1771636844839.5466, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/stats", "changed": false}, "timestamp": 1771636844840.86, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/stats"}, "timestamp": 1771636844841.8674, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_stats", "out_preview": "Erro ao carregar estat\u00edsticas: (sqlite3.OperationalError) no such column: users."}, "timestamp": 1771636844847.8953, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/nuke"}, "timestamp": 1771636860532.283, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/nuke"}, "timestamp": 1771636860533.2852, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": false}, "timestamp": 1771636860534.2837, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636860534.7888, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636860708.3652, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/bomba"}, "timestamp": 1771636860717.9236, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/bomba"}, "timestamp": 1771636860717.9236, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": true}, "timestamp": 1771636860718.9248, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771636860719.9243, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771636860727.8855, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "apaga tudo"}, "timestamp": 1771636860734.4375, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "apaga tudo"}, "timestamp": 1771636860735.4492, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "apaga tudo"}, "timestamp": 1771636860735.9563, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_deletar_tudo", "out_preview": "\u26a0\ufe0f Apagar TODOS os dados? (listas, lembretes, eventos) \u2014 Esta a\u00e7\u00e3o n\u00e3o tem volta"}, "timestamp": 1771636860768.1743, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "reset total"}, "timestamp": 1771636860778.7627, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "reset total"}, "timestamp": 1771636860779.771, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "reset total"}, "timestamp": 1771636860780.278, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_reset", "out_preview": "Cadastro apagado e conversa reiniciada. Na pr\u00f3xima mensagem, pergunto de novo on"}, "timestamp": 1771636860832.9807, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/reset"}, "timestamp": 1771636860835.499, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/reset"}, "timestamp": 1771636860836.5105, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/reset", "changed": false}, "timestamp": 1771636860836.5105, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/reset"}, "timestamp": 1771636860837.8538, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_reset", "out_preview": "Cadastro apagado e conversa reiniciada. Na pr\u00f3xima mensagem, pergunto de novo on"}, "timestamp": 1771636860842.528, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/stats"}, "timestamp": 1771636860842.528, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/stats"}, "timestamp": 1771636860843.5273, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/stats", "changed": false}, "timestamp": 1771636860844.5273, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/stats"}, "timestamp": 1771636860844.5273, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_stats", "out_preview": "Erro ao carregar estat\u00edsticas: (sqlite3.OperationalError) no such column: users."}, "timestamp": 1771636860848.0522, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "/nuke"}, "timestamp": 1771637318340.0083, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/nuke"}, "timestamp": 1771637318341.6162, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": false}, "timestamp": 1771637318341.6162, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771637318342.6267, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771637318510.5823, "hypothesisId": "H3"}

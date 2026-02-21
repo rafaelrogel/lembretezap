@@ -140,20 +140,38 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             return {"every_seconds": every, "message": clean_message(message)}
 
     m = re.search(
-        r"hoje\s+(?:[àa]s?\s*)?(\d{1,2})(?:h|:)?(\d{2})?\b",
+        r"(?:(?:[àa]s?\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*(da\s+manh[ãa]|da\s+tarde|da\s+noite)?\s*(?:de\s+)?hoje|hoje\s+(?:[àa]s?\s*)?(\d{1,2})(?:h|:)?(\d{2})?)",
         text_lower,
         re.I,
     )
     if m:
-        hora = min(23, max(0, int(m.group(1))))
-        minute = int(m.group(2) or 0)
-        message = strip_pattern(text, r"hoje\s+(?:[àa]s?\s*)?\d{1,2}(?:h|:)?(?:\d{2})?\s*")
+        # m.group(1)/(2)/(3) se tempo vier ANTES de hoje
+        # m.group(4)/(5) se tempo vier DEPOIS de hoje
+        if m.group(1):
+            hora = int(m.group(1))
+            minute = int(m.group(2) or 0)
+            period = m.group(3)
+        else:
+            hora = int(m.group(4))
+            minute = int(m.group(5) or 0)
+            period = None
+        
+        if period:
+             if "manh" in period.lower() and hora > 12: hora -= 12
+             if ("tarde" in period.lower() or "noite" in period.lower()) and hora < 12: hora += 12
+        elif hora < 12 and "h" in text_lower and not ("manh" in text_lower or "tarde" in text_lower):
+             # Heurística: se o user diz "às 8h" e agora são 10h, provavelmente quer amanhã ou é ambíguo, 
+             # mas se diz "às 8h de hoje" e são 10h, é passado.
+             pass
+
+        hora = min(23, max(0, hora))
+        message = strip_pattern(text, m.group(0))
         today_at = now.replace(hour=hora, minute=minute, second=0, microsecond=0)
         delta = (today_at - now).total_seconds()
-        if delta > 0 and delta <= 86400:
-            return {"in_seconds": int(delta), "message": clean_message(message)}
-        if delta <= 0 and delta >= -86400:
-            return {"in_seconds": int(delta), "message": clean_message(message)}
+        
+        # Se for no passado hoje (ex.: 01:20 vindo às 01:31), retornar delta negativo
+        # O CronTool irá validar e recusar se for > 2 min.
+        return {"in_seconds": int(delta), "message": clean_message(message)}
 
     m = re.search(
         r"amanh[ãa]\s+(?:[àa]s?\s*)?(\d{1,2})(?:h|:)?(\d{2})?\b",
