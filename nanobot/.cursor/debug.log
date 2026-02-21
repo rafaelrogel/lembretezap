@@ -5018,3 +5018,8 @@
 {"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/nuke", "changed": false}, "timestamp": 1771637318341.6162, "hypothesisId": "H1"}
 {"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/nuke"}, "timestamp": 1771637318342.6267, "hypothesisId": "H2"}
 {"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_nuke", "out_preview": "\ud83d\udca3 *AQUI \u00c9 TIRO, PORRADA E BOMBA!* \ud83d\udca5\n\nVoc\u00ea vai apagar *tudo* \u2014 listas, lembretes,"}, "timestamp": 1771637318510.5823, "hypothesisId": "H3"}
+{"location": "router.route.entry", "message": "route", "data": {"content_preview": "ver minhas estat\u00edsticas"}, "timestamp": 1771680470033.6636, "hypothesisId": "H2"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/stats"}, "timestamp": 1771680470044.2715, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/stats", "changed": false}, "timestamp": 1771680470044.2715, "hypothesisId": "H1"}
+{"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/stats"}, "timestamp": 1771680470044.2715, "hypothesisId": "H2"}
+{"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_stats", "out_preview": "Erro ao carregar estat\u00edsticas: (sqlite3.OperationalError) no such column: users."}, "timestamp": 1771680470116.0693, "hypothesisId": "H3"}

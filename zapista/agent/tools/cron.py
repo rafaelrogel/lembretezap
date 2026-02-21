@@ -54,7 +54,7 @@ class CronTool(Tool):
         return explicit if explicit is not None else getattr(self, "_allow_relaxed_interval", False)
 
     def _get_user_lang(self) -> str:
-        """Idioma do utilizador para mensagens (pt-PT, pt-BR, es, en). Usa preferência guardada; senão infere pelo número."""
+        """Idioma do usuário para mensagens (pt-PT, pt-BR, es, en). Usa preferência guardada; senão infere pelo número."""
         if not self._chat_id:
             return "pt-BR"
         try:
@@ -353,7 +353,7 @@ class CronTool(Tool):
             try:
                 prompt = (
                     f"Conversa recente:\n{history_text[-2000:]}\n\n"
-                    f"Utilizador quer criar lembrete: «{message[:200]}»\n"
+                    f"Usuário quer criar lembrete: «{message[:200]}»\n"
                     f"Já existe lembrete: «{existing_msg[:200]}»\n\n"
                     "O novo lembrete é o MESMO que o existente? (ex: mesmo remédio, mesma tarefa, mesmo compromisso)\n"
                     "Responde APENAS: SIM ou NAO"
@@ -391,7 +391,7 @@ class CronTool(Tool):
         message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
             return "Error: message is required for add"
-        # Mensagem vaga (ex.: "lembrete amanhã 10h" sem dizer o quê) → pedir clarificação
+        # Mensagem vaga (ex.: "lembrete amanhã 10h" sem dizer o quê) → pedir esclarecimento
         from backend.guardrails import is_vague_reminder_message
         from backend.locale import REMINDER_ASK_WHAT
         if is_vague_reminder_message(message):
@@ -717,7 +717,7 @@ class CronTool(Tool):
             msg += CRON_DEPENDS_ON.get(_lang, CRON_DEPENDS_ON["en"]).format(job_id=depends_on_job_id)
         if at_warning_reminder:
             msg += "\n\n" + LIMIT_WARNING_70.get(_lang, LIMIT_WARNING_70["pt-BR"])
-        # Para lembretes "daqui a X min", mostrar a hora no timezone do utilizador (nunca hora do servidor)
+        # Para lembretes "daqui a X min", mostrar a hora no timezone do usuário (nunca hora do servidor)
         if in_seconds is not None and in_seconds > 0 and job.state.next_run_at_ms:
             at_sec = job.state.next_run_at_ms // 1000
             # Precisão da confirmação:
@@ -749,7 +749,7 @@ class CronTool(Tool):
         return msg
     
     def _list_jobs(self) -> str:
-        """Lista apenas os lembretes do utilizador atual (payload.to == chat_id). Isolamento por conversa.
+        """Lista apenas os lembretes do usuário atual (payload.to == chat_id). Isolamento por conversa.
         Nudge proativo (is_proactive_nudge) não aparece — é surpresa 12h antes."""
         all_jobs = self._cron.list_jobs()
         jobs = [

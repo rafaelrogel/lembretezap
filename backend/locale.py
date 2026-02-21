@@ -1,4 +1,4 @@
-"""Idioma por utilizador: inferência por prefixo telefónico e pedidos explícitos (pt-PT, pt-BR, es, en)."""
+"""Idioma por usuário: inferência por prefixo telefônico e pedidos explícitos (pt-PT, pt-BR, es, en)."""
 
 import re
 import unicodedata
@@ -8,7 +8,7 @@ from typing import Literal
 LangCode = Literal["pt-PT", "pt-BR", "es", "en"]
 SUPPORTED_LANGS: list[LangCode] = ["pt-PT", "pt-BR", "es", "en"]
 
-# Prefixos de país → idioma por defeito (apenas dígitos; sem +)
+# Prefixos de país → idioma padrão (apenas dígitos; sem +)
 # Brasil
 _DEFAULT_PT_BR = {"55"}
 # Portugal
@@ -35,7 +35,7 @@ _DEFAULT_ES = {
     "53",   # Cuba
     # 592 Guiana = inglês; 594 Guiana Francesa = francês → não incluídos; resto = en
 }
-# Resto → inglês por defeito
+# Resto → inglês padrão
 
 
 def _digits_from_chat_id(chat_id: str) -> str:
@@ -47,7 +47,7 @@ def _digits_from_chat_id(chat_id: str) -> str:
 
 def phone_to_default_language(chat_id: str) -> LangCode:
     """
-    Infere o idioma por defeito a partir do número (prefixo do país).
+    Infere o idioma padrão a partir do número (prefixo do país).
     BR → pt-BR, PT → pt-PT, hispânicos → es, resto → en.
     """
     digits = _digits_from_chat_id(chat_id)
@@ -72,7 +72,7 @@ def resolve_response_language(
 ) -> LangCode:
     """
     Retorna o idioma a usar nas respostas.
-    Regra: o idioma guardado na DB (escolha explícita do utilizador) tem sempre prioridade.
+    Regra: o idioma guardado na DB (escolha explícita do usuário) tem sempre prioridade.
     Número e timezone não sobrescrevem a escolha; só entram quando não há idioma guardado
     (get_user_language usa phone_for_locale para inferir nesse caso).
     """
@@ -114,7 +114,7 @@ _LANG_SWITCH_PATTERNS: list[tuple[re.Pattern, LangCode]] = [
 
 
 def language_switch_confirmation_message(lang: LangCode) -> str:
-    """Mensagem curta de confirmação quando o utilizador pede mudança de idioma."""
+    """Mensagem curta de confirmação quando o usuário pede mudança de idioma."""
     msgs = {
         "pt-PT": "Combinado, daqui em diante falo em português de Portugal. 📋",
         "pt-BR": "Beleza! A partir de agora falo em português do Brasil. 📋",
@@ -124,7 +124,7 @@ def language_switch_confirmation_message(lang: LangCode) -> str:
     return msgs.get(lang, msgs["en"])
 
 
-# Quando o utilizador pede idioma que já está ativo (ex.: "falar em português do brasil" e já está pt-BR)
+# Quando o usuário pede idioma que já está ativo (ex.: "falar em português do brasil" e já está pt-BR)
 LANGUAGE_ALREADY_MSG: dict[LangCode, str] = {
     "pt-PT": "Já estamos em português de Portugal! 😊",
     "pt-BR": "Já estamos em português do Brasil! 😊",
@@ -143,7 +143,7 @@ PREFERRED_NAME_QUESTION: dict[LangCode, str] = {
 
 
 def preferred_name_confirmation(lang: LangCode, name: str) -> str:
-    """Mensagem de confirmação após gravar o nome preferido do utilizador."""
+    """Mensagem de confirmação após gravar o nome preferido do usuário."""
     msgs = {
         "pt-PT": f"Obrigado! A partir de agora vou chamar-te {name}. 📋",
         "pt-BR": f"Valeu! A partir de agora vou te chamar de {name}. 📋",
@@ -445,7 +445,7 @@ HELP_FULL: dict[LangCode, str] = {
         '• Se as respostas parecerem estranhas por causa do histórico, use {{/reset}} ou /reiniciar para limpar a conversa.'
     ),
     "es": (
-        "Podes digitar:\n\n"
+        "Puedes escribir:\n\n"
         "*/ajuda* – ver esta lista completa  \n"
         "*/lembrete* – criar lembrete (ex: \"lembrete amanhã 10h ir ao banco\")  \n"
         "*/agenda* – ver lembretes agendados  \n"
