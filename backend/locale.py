@@ -445,26 +445,24 @@ HELP_FULL: dict[LangCode, str] = {
         '• Se as respostas parecerem estranhas por causa do histórico, use {{/reset}} ou /reiniciar para limpar a conversa.'
     ),
     "es": (
-        "📋 *Todos los comandos:*\n\n"
-        "*Comandos*\n"
-        "• {{/lembrete}} — programar (ej.: mañana 9h; en 30 min)\n"
-        "• {{/list}} — listas (compras, recetas, libros, música, notas, sitios, cosas por hacer). Ej.: {{/list}} mercado add leche\n"
-        "• {{/hoje}} — agenda y recordatorios del día  |  {{/semana}} — agenda de la semana (solo eventos)\n"
-        "• {{/timeline}} — historial (recordatorios, tareas, eventos)\n"
-        "• {{/stats}} — estadísticas; {{/stats}} dia o {{/stats}} semana\n"
-        "• {{/resumo}} — resumen de la semana; {{/resumo}} mes — resumen del mes\n"
-        "• {{/recorrente}} — recordatorios recurrentes (ej.: {{/recorrente}} beber agua cada día 8h)\n"
-        "• {{/meta}} add Nombre hasta DD/MM — metas con plazo; {{/metas}} para listar\n"
-        "• {{/pomodoro}} — temporizador 25 min foco; {{/pomodoro}} stop para cancelar\n\n"
-        "*Configuración*\n"
-        "• {{/tz}} Ciudad — definir huso (ej.: {{/tz}} Madrid)\n"
-        "• {{/lang}} — idioma: pt-pt, pt-br, es, en\n"
-        "• {{/reset}} — rehacer registro (nombre, ciudad)\n"
-        "• {{/quiet}} 22:00-08:00 — horario silencioso\n\n"
-        "*Consejos*\n"
-        '• Marcar ítem como hecho: puedes decir por audio ("listo", "ya está"), escribir o usar emoji ("✓", "👍") — no hace falta comando.\n'
-        '• Conversa por mensaje o audio; si quieres respuesta en audio, pide "responde en audio", "manda audio" o "háblame". 😊\n'
-        '• Si las respuestas parecen raras por el historial, usa {{/reset}} o /reiniciar para limpiar la conversa.'
+        "Podes digitar:\n\n"
+        "*/ajuda* – ver esta lista completa  \n"
+        "*/lembrete* – criar lembrete (ex: \"lembrete amanhã 10h ir ao banco\")  \n"
+        "*/agenda* – ver lembretes agendados  \n"
+        "*/listas* – ver todas as listas  \n"
+        "*/list* – ver itens de uma lista (ex: \"/list compras\")  \n"
+        "*/add* – adicionar item a lista (ex: \"/add compras pão\")  \n"
+        "*/feito* – marcar item como feito (ex: \"/feito compras 1\")  \n"
+        "*/remove* – remover item da lista (ex: \"/remove compras 2\")  \n"
+        "*/delete_list* – apagar lista inteira  \n"
+        "*/evento* – adicionar evento (filme, livro, música, evento)  \n"
+        "*/eventos* – ver eventos  \n"
+        "*/remover_evento* – remover evento de hoje  \n"
+        "*/horas* – que horas são  \n"
+        "*/data* – que dia é hoje  \n"
+        "*/fuso* – ver fuso horário  \n"
+        "*/cidade* – alterar cidade  \n"
+        "*/idioma* – alterar idioma (pt-PT, pt-BR, es, en)"
     ),
     "en": (
         "📋 *All commands:*\n\n"

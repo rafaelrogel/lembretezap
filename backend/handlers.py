@@ -764,6 +764,8 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | list[str] | No
         user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
         user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
         main = build_help(user_lang)
+        if user_lang == "es":
+            return main
         commands_msg = build_help_commands_list(user_lang)
         return [main, commands_msg]
     finally:
