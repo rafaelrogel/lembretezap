@@ -19,6 +19,7 @@ RE_LIST_CATEGORY_ADD = re.compile(
 )
 RE_LIST_SHOW = re.compile(r"^/list\s+(\S+)\s*$", re.I)
 RE_LIST_ALL = re.compile(r"^/list\s*$", re.I)
+RE_FEITO_LIST_ID = re.compile(r"^/feito\s+(\S+)\s+(\d+)\s*$", re.I)
 RE_FEITO_ID_ONLY = re.compile(r"^/feito\s+(\d+)\s*$", re.I)
 # /remove
 RE_REMOVE_LIST_ID = re.compile(r"^/remove\s+(\S+)\s+(\d+)\s*$", re.I)
