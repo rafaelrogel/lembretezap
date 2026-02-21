@@ -472,7 +472,7 @@ class CronTool(Tool):
                     
                     # Update in_seconds for later logic (deadlines, pre-reminders)
                     now_ms = _effective_now_ms()
-                    in_seconds = max(1, (at_ms - now_ms) // 1000)
+                    in_seconds = (at_ms - now_ms) // 1000
                 except Exception as e:
                     logger.error(f"Failed to parse target_at_iso '{target_at_iso}': {e}")
                     return f"Error parsing time: {target_at_iso}. Use format YYYY-MM-DD HH:MM:SS"
@@ -483,14 +483,14 @@ class CronTool(Tool):
             if at_ms <= _effective_now_ms():
                 now_ms = _effective_now_ms()
                 delta_past_ms = now_ms - at_ms
-                if delta_past_ms > 120_000:  # mais de 2 minutos no passado → rejeitar
+                if delta_past_ms > 300_000:  # Aumentado para 5 minutos para maior robustez
                     logger.warning(f"Cron: rejecting reminder {delta_past_ms/1000}s in the past")
                     from backend.locale import REMINDER_TIME_PAST_TODAY
                     _lang = self._get_user_lang()
                     return REMINDER_TIME_PAST_TODAY.get(_lang, REMINDER_TIME_PAST_TODAY["pt-BR"])
-                # Dentro de 2 min de atraso (processamento do LLM ou drift pequeno): agendar para o próximo segundo disponível
-                at_ms = now_ms + 1000  # agendar para daqui a 1s
-                logger.info(f"Cron: target time {delta_past_ms}ms in past (processing delay); scheduling +1s instead")
+                # Se for apenas um pequeno atraso (até 5 min), agendar para o "agora" (daqui a 1s)
+                at_ms = now_ms + 1000 
+                logger.info(f"Cron: target time {delta_past_ms}ms in past; scheduling +1s instead")
             
             schedule = CronSchedule(kind="at", at_ms=at_ms)
             delete_after_run = True
@@ -721,13 +721,13 @@ class CronTool(Tool):
         if in_seconds is not None and in_seconds > 0 and job.state.next_run_at_ms:
             at_sec = job.state.next_run_at_ms // 1000
             # Precisão da confirmação:
-            # ≤ 30 min → mostrar HH:MM:SS (acurado, o utilizador quer saber o segundo exato)
-            # > 30 min → arredondar ao minuto mais próximo (HH:MM) para não confundir
-            _show_secs = in_seconds <= 1800  # 30 min
+            # ≤ 5 min → mostrar HH:MM:SS (muito perto, o utilizador quer saber o segundo)
+            # > 5 min → arredondar ao minuto mais próximo (HH:MM)
+            _show_secs = in_seconds <= 300
             if _show_secs:
-                at_sec_display = at_sec  # sem arredondar
+                at_sec_display = at_sec
             else:
-                at_sec_display = ((at_sec + 30) // 60) * 60  # arredondar ao minuto
+                at_sec_display = ((at_sec + 30) // 60) * 60
             try:
                 from backend.database import SessionLocal
                 from backend.user_store import get_user_timezone

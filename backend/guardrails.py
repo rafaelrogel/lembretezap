@@ -86,8 +86,9 @@ _TIME_WORDS = {
     "sexta", "sábado", "sabado", "domingo", "dia", "semana", "mês", "mes",
     "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out",
     "nov", "dez", "em", "de", "para", "por", "favor", "pf", "obrigado",
+    "daqui", "dentro", "vão", "ser", "pode", "será", "seria", "vou",
     "tomorrow", "today", "monday", "tuesday", "wednesday", "thursday", "friday",
-    "saturday", "sunday", "at", "for", "am", "pm",
+    "saturday", "sunday", "at", "for", "am", "pm", "in", "within",
 }
 
 

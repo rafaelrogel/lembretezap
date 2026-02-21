@@ -38,6 +38,8 @@ EXTERNAL_TIME_URL = "https://worldtimeapi.org/api/timezone/Etc/UTC"
 # Google e Apple são altamente confiáveis e raramente bloqueadas.
 FALLBACK_TIME_URLS = [
     "https://www.google.com",
+    "https://www.cloudflare.com",
+    "https://www.microsoft.com",
     "https://www.apple.com",
     "https://1.1.1.1",
 ]
@@ -50,6 +52,7 @@ CLOCK_DRIFT_CORRECTED_TAG = "CLOCK_DRIFT_CORRECTED"
 _clock_offset_s: float = 0.0
 _lock = threading.Lock()
 _env_offset_applied = False
+_last_manual_offset_at: float = 0.0
 
 
 def _apply_env_offset() -> None:
@@ -101,18 +104,29 @@ def _clear_offset_if_set() -> None:
     with _lock:
         if _clock_offset_s != 0:
             _clock_offset_s = 0.0
-            logger.info("Clock drift: offset removido (relógio dentro do limiar).")
+            _persist_offset(0.0)
+            logger.info("Clock drift: offset removido (relógio dentro do limiar) e persistido.")
 
 
-CLOCK_STATE_FILE = "clock_state.json"
+def _get_state_file_path():
+    try:
+        from zapista.config.loader import get_data_dir
+        return get_data_dir() / "clock_state.json"
+    except Exception:
+        from pathlib import Path
+        return Path.home() / ".zapista" / "clock_state.json"
+
+CLOCK_STATE_FILE = _get_state_file_path()
 
 def _load_persisted_offset() -> float:
     """Carrega offset salvo em disco (se existir)."""
     try:
-        if os.path.exists(CLOCK_STATE_FILE):
+        if CLOCK_STATE_FILE.exists():
             import json
             with open(CLOCK_STATE_FILE, "r") as f:
                 data = json.load(f)
+                global _last_manual_offset_at
+                _last_manual_offset_at = data.get("updated_at", 0.0)
                 return data.get("offset_seconds", 0.0)
     except Exception as e:
         logger.warning(f"Clock drift: failed to load persisted offset: {e}")
@@ -129,11 +143,13 @@ def _persist_offset(offset_s: float) -> None:
 
 def set_manual_offset(offset_s: float) -> None:
     """Aplica um offset manual (usado quando o utilizador corrige a hora via chat) e salva em disco."""
-    global _clock_offset_s
+    global _clock_offset_s, _last_manual_offset_at
+    now = time.time()
     with _lock:
         _clock_offset_s = offset_s
+        _last_manual_offset_at = now
     _persist_offset(offset_s)
-    logger.info("Clock drift: offset MANUAL aplicado e salvo: %.1fs", offset_s)
+    logger.info("Clock drift: offset MANUAL aplicado e salvo: %.1fs (priority for 24h)", offset_s)
 
 # Carregar offset ao iniciar (logo após imports/definições)
 _clock_offset_s = _load_persisted_offset()
@@ -229,6 +245,13 @@ async def check_clock_drift(
             external_ts,
         )
         # Correção automática: aplicar offset (limitado a ±24h). Não sobrescrever se o utilizador definiu CLOCK_OFFSET_SECONDS.
+        # Também não sobrescrever se houve correção manual recente (últimas 24h).
+        manual_priority = (time.time() - _last_manual_offset_at) < (24 * 3600)
+        
+        if manual_priority:
+            logger.info("Clock drift: ignoring auto-correction because manual offset was recently set (last 24h).")
+            return (True, drift_s)
+
         if abs_drift >= CLOCK_DRIFT_AUTO_CORRECT_THRESHOLD_S and not _env_offset_applied:
             offset_s = external_ts - server_ts
             # Aumentado de 12h para 24h pois o VPS do utilizador está >12h desviado
@@ -240,6 +263,7 @@ async def check_clock_drift(
                     offset_s
                 )
             _apply_offset(capped)
+            _persist_offset(capped)
             logger.warning(
                 "{} | offset aplicado={:.1f}s | Correção automática: agendamentos usam hora externa até próximo check.",
                 CLOCK_DRIFT_CORRECTED_TAG,

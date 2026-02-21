@@ -19,4 +19,5 @@ poetry.lock
 .pytest_cache/
 bridge/node_modules/
 *.db
+clock_state.json
 .nanobot/

@@ -102,6 +102,7 @@ HANDLERS = [
     handle_exportar,
     handle_deletar_tudo,
     handle_nuke,
+    handle_nuke,
 ]
 
 
@@ -113,6 +114,7 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
     try: open(_log_path, "a", encoding="utf-8").write(_json.dumps({"location": "router.route.entry", "message": "route", "data": {"content_preview": (content or "")[:120]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H2"}) + "\n"); pass
     except Exception: pass
     # #endregion
+    from backend.command_nl import normalize_nl_to_command
     if not content or not content.strip():
         return None
     # Se o utilizador usou /ayuda, reforçar idioma espanhol para lembretes e respostas seguintes
@@ -128,6 +130,8 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
                 db.close()
         except Exception as e:
             logger.debug(f"Set language from /ayuda: {e}")
+
+    content = normalize_nl_to_command(content)
     content = normalize_command(content.strip())
     text = content
     # #region agent log

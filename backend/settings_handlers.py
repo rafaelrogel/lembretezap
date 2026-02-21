@@ -8,7 +8,7 @@ from backend.handler_context import HandlerContext
 async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
     """/tz Cidade ou /tz IANA (ex: /tz Lisboa, /tz Europe/Lisbon)."""
     from backend.database import SessionLocal
-    from backend.user_store import get_user_language
+    from backend.user_store import get_user_language, get_user_timezone
     from backend.locale import (
         SETTINGS_TZ_USAGE, SETTINGS_TZ_NOT_FOUND, SETTINGS_TZ_SET,
         SETTINGS_TZ_INVALID, SETTINGS_TZ_ERROR,
@@ -22,7 +22,28 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
                 db.close()
         except Exception:
             return "pt-BR"
-    m = re.match(r"^/tz\s+(.+)$", content.strip(), re.I)
+    
+    # Se for apenas /tz ou /fuso, mostrar o atual
+    if re.match(r"^/(tz|fuso)\s*$", content.strip(), re.I):
+        try:
+            db = SessionLocal()
+            try:
+                lg = get_user_language(db, ctx.chat_id) or "pt-BR"
+                tz_current = get_user_timezone(db, ctx.chat_id)
+                if tz_current:
+                    from backend.timezone import phone_to_default_timezone
+                    def_tz = phone_to_default_timezone(ctx.chat_id)
+                    res = f"📍 Fuso atual: *{tz_current}*"
+                    if def_tz and def_tz != tz_current:
+                        res += f" (padrão do número: {def_tz})"
+                    return res + "\n\nPara mudar: `/tz Cidade` ou `/tz Europe/Lisbon`"
+            finally:
+                db.close()
+        except Exception:
+            pass
+        return None
+
+    m = re.match(r"^/(tz|fuso)\s+(.+)$", content.strip(), re.I)
     if not m:
         return None
     raw = m.group(1).strip()
@@ -232,6 +253,11 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
         except Exception:
             pass
     return out
+
+    if abs(offset) > 60:
+        res.append("\n⚠️ *Aviso:* Relógio do servidor está muito desalinhado. O bot está a compensar automaticamente, mas recomenda-se acertar o NTP do VPS.")
+    
+    return "\n".join(res)
 
 
 # ---------------------------------------------------------------------------

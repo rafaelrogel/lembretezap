@@ -203,12 +203,14 @@ def get_calling_phrases() -> set[str]:
 # Palavras que indicam pedido concreto — não tratar como "chamada"; encaminhar ao LLM
 _TASK_KEYWORDS = frozenset([
     "lembrete", "lembretes", "recordatorio", "recordatorios", "reminder", "reminders",
+    "lembrar", "lembra", "lembre", "recordar", "recorda", "recorde", "avisar", "avisa", "avise",
     "próximo", "proximo", "próximos", "next", "agenda", "evento", "eventos", "event",
     "lista", "listas", "list", "hoje", "amanhã", "amanha", "tomorrow", "today",
     "horário", "horario", "schedule", "que horas", "qual é o", "qual e o", "what is my",
     "qual é o meu", "qual e o meu", "meu nome", "my name", "mi nombre",
     "quero", "preciso", "preciso de", "need", "want", "adiciona", "add", "remover",
     "criar", "criar um", "create", "marcar", "agendar", "schedule",
+    "ajuda", "help", "comandos", "stats", "estatísticas", "estatisticas",
 ])
 
 

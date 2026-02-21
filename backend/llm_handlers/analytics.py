@@ -24,7 +24,6 @@ def _is_analytics_intent(content: str) -> bool:
         r"este\s+m[eê]s",
         r"resumo\s+(da\s+)?(semana|conversa|lembretes?)",
         r"an[aá]lise\s+(dos?\s+)?(lembretes?|hist[oó]rico)",
-        r"estat[íi]sticas?",
         r"horas?\s+mais\s+comuns?",
         r"resumir\s+(a\s+)?conversa",
         r"analisar\s+(os\s+)?lembretes?",
@@ -72,14 +71,17 @@ async def handle_analytics(ctx: "HandlerContext", content: str) -> str | None:
         lines = []
         for e in ents:
             k = "agendado" if e["kind"] == "scheduled" else "entregue"
-            created = e.get("created_at")
-            if created and hasattr(created, "strftime"):
+            # Se for agendado, mostrar a hora do agendamento (schedule_at)
+            # Se for entregue, mostrar a hora de entrega (delivered_at ou created_at)
+            ts_obj = e.get("schedule_at") if e["kind"] == "scheduled" else (e.get("delivered_at") or e.get("created_at"))
+            
+            if ts_obj and hasattr(ts_obj, "strftime"):
                 # Mostrar no fuso do utilizador na análise
                 try:
-                    ts_local = created.replace(tzinfo=timezone.utc).astimezone(z)
+                    ts_local = ts_obj.replace(tzinfo=timezone.utc).astimezone(z)
                     ts = ts_local.strftime("%Y-%m-%d %H:%M")
                 except Exception:
-                    ts = created.strftime("%Y-%m-%d %H:%M")
+                    ts = ts_obj.strftime("%Y-%m-%d %H:%M")
             else:
                 ts = ""
             lines.append(f"{k}\t{ts}\t{e.get('message', '')}")

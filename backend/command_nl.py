@@ -108,6 +108,17 @@ def normalize_nl_to_command(content: str) -> str:
     # Stats / Estatísticas
     if lower in ("stats", "estatísticas", "estatisticas", "estadísticas", "est"):
         return "/stats"
+    if re.search(r"\b(estat[íi]sticas?|estat[íi]stica|stats)\b", lower):
+        # Diferenciar de analise (LLM) vs stats (view)
+        # Mais flexível com prefixos: "ver", "minhas", "quero ver minhas", etc.
+        patterns = [
+            r"^(ver|mostrar|minhas|as|me\s+d[eá]|quero\s+ver|quero\s+ver\s+minhas)\s+",
+            r"^(estat[íi]sticas?|stats)$"
+        ]
+        if any(re.match(p, lower) for p in patterns) or lower.endswith(("estatisticas", "estatísticas", "stats")):
+            # Se for uma frase curta ( < 30 chars) contendo as keywords, assumir comando
+            if len(lower) < 35:
+                return "/stats"
 
     # Resumo / Revisão
     if lower in ("resumo", "resumen", "summary", "revisão", "revisao", "revisión"):

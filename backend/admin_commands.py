@@ -175,6 +175,7 @@ async def handle_admin_command(
     cron_store_path: Path | None = None,
     db_session_factory: Any = None,
     wa_channel: Any = None,
+    chat_id: str | None = None,
 ) -> str:
     """
     Executa o comando admin e retorna texto curto (1–2 telas).
@@ -318,7 +319,7 @@ async def handle_admin_command(
         return _cmd_whatsapp(wa_channel)
 
     if cmd == "debug_time":
-        return await _cmd_debug_time()
+        return await _cmd_debug_time(raw, chat_id, db_session_factory)
 
     # quit e mute são tratados no canal (WhatsApp) para enviar mensagem ao utilizador muted
     if cmd == "quit":
@@ -1491,13 +1492,14 @@ def _cmd_whatsapp(wa_channel: Any) -> str:
     return "\n".join(lines)
 
 
-async def _cmd_debug_time() -> str:
+async def _cmd_debug_time(user_content: str | None = None, chat_id: str | None = None, db_session_factory: Any = None) -> str:
     """Diagnóstico avançado de relógio e timezone."""
     try:
-        from zapista.clock_drift import check_clock_drift, get_drift_status
+        from zapista.clock_drift import check_clock_drift, get_drift_status, set_manual_offset
         from datetime import datetime, timezone
+        import re
         
-        # Forçar verificação
+        # Forçar verificação rápida
         await check_clock_drift(threshold_s=1.0)
         status = get_drift_status()
         
@@ -1507,15 +1509,73 @@ async def _cmd_debug_time() -> str:
         server_dt = datetime.fromtimestamp(server_ts, tz=timezone.utc)
         effective_dt = datetime.fromtimestamp(effective_ts, tz=timezone.utc)
         
-        lines = [
-            "#debug_time",
-            f"Server Time (Raw): {server_dt.strftime('%H:%M:%S')} UTC",
-            f"Offset Applied: {status['offset_seconds']:.2f}s",
-            f"Effective Time: {effective_dt.strftime('%H:%M:%S')} UTC",
-            f"Drift Corrected: {status['is_corrected']}",
-            "",
-            "Para corrigir manualmente, use 'It is HH:MM here' no chat."
+        res = [
+            "🔍 *Diagnóstico de Tempo*",
+            f"• Server Time (UTC): {server_dt.strftime('%H:%M:%S')}",
+            f"• Drift Offset: {status['offset_seconds']:+.1f}s",
+            f"• Effective Time (UTC): {effective_dt.strftime('%H:%M:%S')}"
         ]
-        return "\n".join(lines)
+
+        # Tentativa de sincronismo em tempo real para diagnóstico
+        res.append("\n📡 *Teste de Sincronismo Externo:*")
+        try:
+            ok, drift = await check_clock_drift()
+            if drift is not None:
+                res.append(f"• Drift atual detectado: {drift:+.1f}s")
+                res.append(f"• Status: {'✅ Alinhado' if ok else '❌ Desalinhado (compensando)'}")
+            else:
+                res.append("• Status: ❌ Falha ao contactar APIs de tempo")
+        except Exception as e:
+            res.append(f"• Status: ❌ Erro: {str(e)[:40]}")
+
+        # Timezone do utilizador
+        tz_iana = "UTC"
+        if chat_id and db_session_factory:
+            try:
+                from backend.user_store import get_user_timezone
+                from backend.timezone import phone_to_default_timezone
+                db = db_session_factory()
+                try:
+                    tz_iana = get_user_timezone(db, chat_id) or phone_to_default_timezone(chat_id) or "UTC"
+                finally:
+                    db.close()
+            except Exception:
+                pass
+        
+        from zoneinfo import ZoneInfo
+        z = ZoneInfo(tz_iana)
+        user_dt = datetime.fromtimestamp(effective_ts, tz=z)
+        res.append(f"\n🌍 *User Time ({tz_iana}):*")
+        res.append(f"• *{user_dt.strftime('%H:%M:%S (%d/%m)')}*")
+
+        # Comando de sincronismo: #debug_time sync 10:50 ou #debug_time clear
+        if user_content:
+            t = user_content.strip().lower()
+            if "#debug_time clear" in t:
+                from zapista.clock_drift import set_manual_offset
+                set_manual_offset(0.0)
+                res.append("\n✅ *Offset MANUAL removido (resetado para 0s).*")
+            else:
+                m_sync = re.match(r"^#debug_time\s+sync\s+(\d{1,2})[:h](\d{1,2})", user_content.strip(), re.I)
+                if m_sync:
+                    try:
+                        h, m = int(m_sync.group(1)), int(m_sync.group(2))
+                        # 1. Pegar a hora actual do sistema no fuso do user
+                        now_local = datetime.fromtimestamp(server_ts, tz=z)
+                        # 2. Criar a hora target hoje no mesmo fuso
+                        target_dt = now_local.replace(hour=h, minute=m, second=0, microsecond=0)
+                        # 3. Calcular offset
+                        new_offset = target_dt.timestamp() - server_ts
+                        
+                        set_manual_offset(new_offset)
+                        res.append(f"\n✅ *Offset MANUAL aplicado:* {new_offset:+.1f}s")
+                        res.append(f"• Nova hora: *{target_dt.strftime('%H:%M')}*")
+                    except Exception as e:
+                        res.append(f"\n❌ Erro no sync manual: {e}")
+
+        if abs(status['offset_seconds']) > 60:
+            res.append("\n⚠️ *Aviso:* Relógio do servidor desalinhado. Compensação ativa.")
+            
+        return "\n".join(res)
     except Exception as e:
         return f"#debug_time\nFalha no diagnóstico: {e}"

@@ -548,6 +548,7 @@ class WhatsAppChannel(BaseChannel):
                         db_session_factory=SessionLocal,
                         cron_store_path=cron_store_path,
                         wa_channel=self,
+                        chat_id=sender,
                     )
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,

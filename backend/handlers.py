@@ -480,20 +480,32 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
 
 def _looks_like_reminder_nl(text: str) -> bool:
     """True se parece pedido de lembrete em linguagem natural (avisar/lembrar + tempo)."""
-    if not text or len(text.strip()) < 10:
+    if not text:
         return False
     t = text.strip().lower()
-    if t.startswith("/lembrete"):
+    if t.startswith("/"):
         return False
-    # Padrões multilinguagem (PT, ES, EN) vindos de reminder_keywords.py
-    if not any(kw in t for kw in ALL_REMINDER_KEYWORDS):
-        return False
+    
+    # Import tardio para evitar circular dependancy
+    from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
+    
+    # Se contém keyword de lembrete E algo que pareça tempo
+    has_kw = any(kw in t for kw in ALL_REMINDER_KEYWORDS)
+    
+    # Padrões de tempo: "hoje", "amanhã", "daqui a", "em 2 min", "as 10h", etc.
     time_ref = (
         "hoje" in t or "amanhã" in t or "amanha" in t or "às " in t or "as " in t
-        or "dia " in t or "daqui" in t or re.search(r"\d{1,2}\s*/\s*\d", t) is not None
-        or re.search(r"\d{1,2}\s*h", t, re.I) is not None
+        or "dia " in t or "daqui" in t or " em " in t 
+        or re.search(r"\d{1,2}\s*(min|h|seg|dia|mes|ano)", t, re.I) is not None
+        or re.search(r"\d{1,2}\s*/\s*\d", t) is not None
+        or re.search(r"\d{1,2}[:h]\d{2}", t, re.I) is not None
     )
-    return time_ref
+    
+    # Se for muito curto (ex: "Lembre-me"), não é suficiente sem tempo
+    if len(t) < 7:
+        return False
+        
+    return has_kw and time_ref
 
 
 def _normalize_nl_to_command(content: str) -> str:
@@ -555,6 +567,12 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     in_sec = intent.get("in_seconds")
     every_sec = intent.get("every_seconds")
     cron_expr = intent.get("cron_expr")
+
+    # Verificação rigorosa de tempo passado: se for > 60s no passado, rejeitar imediatamente.
+    # O cron_tool também valida, mas aqui damos resposta directa sem tentar agendar.
+    if in_sec is not None and in_sec < -60:
+        from backend.locale import REMINDER_TIME_PAST_TODAY
+        return REMINDER_TIME_PAST_TODAY.get(user_lang, REMINDER_TIME_PAST_TODAY["pt-BR"])
     start_date = intent.get("start_date")
     depends_on = intent.get("depends_on_job_id")
     date_in_past = intent.get("date_in_past")
