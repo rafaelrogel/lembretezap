@@ -741,7 +741,7 @@ class AgentLoop:
                         db = SessionLocal()
                         try:
                             set_user_timezone(db, msg.chat_id, new_tz)
-                            self._write_client_memory_file(db, msg.chat_id)
+                            self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
                         finally:
                             db.close()
                             
@@ -1041,7 +1041,7 @@ class AgentLoop:
                 if requested_lang is not None:
                     if requested_lang != user_lang:
                         set_user_language(db, msg.chat_id, requested_lang)
-                        self._write_client_memory_file(db, msg.chat_id)
+                        self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
                         return OutboundMessage(
                             channel=msg.channel,
                             chat_id=msg.chat_id,
@@ -1409,7 +1409,7 @@ class AgentLoop:
                             from backend.database import SessionLocal as _DB
                             _db = _DB()
                             try:
-                                self._write_client_memory_file(_db, msg.chat_id)
+                                self._sync_onboarding_to_memory(_db, msg.chat_id, msg.session_key)
                             finally:
                                 _db.close()
                         except Exception:
@@ -1473,7 +1473,7 @@ class AgentLoop:
                                 from backend.database import SessionLocal as _DB
                                 _db = _DB()
                                 try:
-                                    self._write_client_memory_file(_db, msg.chat_id)
+                                    self._sync_onboarding_to_memory(_db, msg.chat_id, msg.session_key)
                                 finally:
                                     _db.close()
                             except Exception:
@@ -1522,7 +1522,7 @@ class AgentLoop:
                     from backend.database import SessionLocal as _DB
                     _db = _DB()
                     try:
-                        self._write_client_memory_file(_db, msg.chat_id)
+                        self._sync_onboarding_to_memory(_db, msg.chat_id, msg.session_key)
                     finally:
                         _db.close()
                 except Exception:
