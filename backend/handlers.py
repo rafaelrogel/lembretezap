@@ -732,6 +732,100 @@ async def handle_add(ctx: HandlerContext, content: str) -> str | None:
     return await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
 
 
+async def handle_feito(ctx: HandlerContext, content: str) -> str | None:
+    """/feito [lista] [id]. Aceita NL: concluído, feito, pronto, ok."""
+    from backend.command_parser import parse
+    intent = parse(content)
+    if not intent or intent.get("type") != "feito":
+        return None
+    if not ctx.list_tool:
+        return None
+    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+    return await ctx.list_tool.execute(
+        action="feito",
+        list_name=intent.get("list_name") or "",
+        item_id=intent.get("item_id"),
+    )
+
+
+async def handle_remove(ctx: HandlerContext, content: str) -> str | None:
+    """/remove [lista] [id]. Aceita NL: remover, apagar, deletar, tirar."""
+    from backend.command_parser import parse
+    intent = parse(content)
+    if not intent or intent.get("type") != "remove":
+        return None
+    if not ctx.list_tool:
+        return None
+    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+    return await ctx.list_tool.execute(
+        action="remove",
+        list_name=intent.get("list_name") or "",
+        item_id=intent.get("item_id"),
+    )
+
+
+async def handle_hora_data(ctx: HandlerContext, content: str) -> str | None:
+    """/hora ou /data. Mostra data/hora atual no timezone do usuário."""
+    from backend.command_parser import parse
+    from backend.database import SessionLocal
+    from backend.user_store import get_user_timezone, get_user_language
+    from zoneinfo import ZoneInfo
+    from datetime import datetime
+    intent = parse(content)
+    if not intent or intent.get("type") not in ("hora", "data"):
+        return None
+    
+    tz_iana = "UTC"
+    lang = "pt-BR"
+    try:
+        db = SessionLocal()
+        try:
+            tz_iana = get_user_timezone(db, ctx.chat_id) or "UTC"
+            lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+        finally:
+            db.close()
+    except Exception:
+        pass
+    
+    try:
+        tz = ZoneInfo(tz_iana)
+    except Exception:
+        tz = ZoneInfo("UTC")
+        
+    try:
+        from zapista.clock_drift import get_effective_time
+        _now_ts = get_effective_time()
+    except Exception:
+        import time
+        _now_ts = time.time()
+        
+    now = datetime.fromtimestamp(_now_ts, tz=tz)
+    
+    if intent["type"] == "hora":
+        msg = {
+            "pt-PT": f"Agora são {now.strftime('%H:%M')}. 🕒",
+            "pt-BR": f"Agora são {now.strftime('%H:%M')}. 🕒",
+            "es": f"Ahora son las {now.strftime('%H:%M')}. 🕒",
+            "en": f"It is currently {now.strftime('%H:%M')}. 🕒",
+        }
+    else:
+        # data
+        from backend.locale import resolve_response_language
+        lang = resolve_response_language(lang, ctx.chat_id, None)
+        # Formato d/m/y para todos menos EN
+        if lang == "en":
+            fmt = "%Y-%m-%d"
+        else:
+            fmt = "%d/%m/%Y"
+        msg = {
+            "pt-PT": f"Hoje é dia {now.strftime(fmt)}. 📅",
+            "pt-BR": f"Hoje é dia {now.strftime(fmt)}. 📅",
+            "es": f"Hoy es {now.strftime(fmt)}. 📅",
+            "en": f"Today is {now.strftime(fmt)}. 📅",
+        }
+    return msg.get(lang, msg["en"])
+
+
 # ---------------------------------------------------------------------------
 # /start, /recorrente, /pendente, /stop (tz/lang/quiet/reset em settings_handlers)
 # ---------------------------------------------------------------------------
@@ -764,8 +858,6 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | list[str] | No
         user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
         user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
         main = build_help(user_lang)
-        if user_lang == "es":
-            return main
         commands_msg = build_help_commands_list(user_lang)
         return [main, commands_msg]
     finally:

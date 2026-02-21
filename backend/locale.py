@@ -342,6 +342,11 @@ COMMAND_DISPLAY_NAME: dict[LangCode, dict[str, str]] = {
         "/lang": "/idioma",
         "/reset": "/reset",
         "/quiet": "/silêncio",
+        "/feito": "/visto",
+        "/remove": "/remover",
+        "/hora": "/horas",
+        "/data": "/data",
+        "/evento": "/compromisso",
     },
     "pt-BR": {
         "/lembrete": "/lembrete",
@@ -360,12 +365,18 @@ COMMAND_DISPLAY_NAME: dict[LangCode, dict[str, str]] = {
         "/lang": "/idioma",
         "/reset": "/reset",
         "/quiet": "/silêncio",
+        "/feito": "/visto",
+        "/remove": "/remover",
+        "/hora": "/horas",
+        "/data": "/data",
+        "/evento": "/compromisso",
     },
     "es": {
         "/lembrete": "/recordatorio",
         "/list": "/lista",
         "/hoje": "/hoy",
         "/semana": "/semana",
+        "/agenda": "/agenda",
         "/timeline": "/cronología",
         "/stats": "/estadísticas",
         "/resumo": "/resumen",
@@ -377,6 +388,12 @@ COMMAND_DISPLAY_NAME: dict[LangCode, dict[str, str]] = {
         "/lang": "/idioma",
         "/reset": "/reiniciar",
         "/quiet": "/silencio",
+        "/pendente": "/pendiente",
+        "/feito": "/hecho",
+        "/remove": "/borrar",
+        "/hora": "/hora",
+        "/data": "/fecha",
+        "/evento": "/evento",
     },
     "en": {
         "/lembrete": "/remind",
@@ -394,6 +411,11 @@ COMMAND_DISPLAY_NAME: dict[LangCode, dict[str, str]] = {
         "/lang": "/language",
         "/reset": "/reset",
         "/quiet": "/silent",
+        "/feito": "/done",
+        "/remove": "/remove",
+        "/hora": "/time",
+        "/data": "/date",
+        "/evento": "/event",
     },
 }
 
@@ -445,24 +467,26 @@ HELP_FULL: dict[LangCode, str] = {
         '• Se as respostas parecerem estranhas por causa do histórico, use {{/reset}} ou /reiniciar para limpar a conversa.'
     ),
     "es": (
-        "Puedes escribir:\n\n"
-        "*/ajuda* – ver esta lista completa  \n"
-        "*/lembrete* – criar lembrete (ex: \"lembrete amanhã 10h ir ao banco\")  \n"
-        "*/agenda* – ver lembretes agendados  \n"
-        "*/listas* – ver todas as listas  \n"
-        "*/list* – ver itens de uma lista (ex: \"/list compras\")  \n"
-        "*/add* – adicionar item a lista (ex: \"/add compras pão\")  \n"
-        "*/feito* – marcar item como feito (ex: \"/feito compras 1\")  \n"
-        "*/remove* – remover item da lista (ex: \"/remove compras 2\")  \n"
-        "*/delete_list* – apagar lista inteira  \n"
-        "*/evento* – adicionar evento (filme, livro, música, evento)  \n"
-        "*/eventos* – ver eventos  \n"
-        "*/remover_evento* – remover evento de hoje  \n"
-        "*/horas* – que horas são  \n"
-        "*/data* – que dia é hoje  \n"
-        "*/fuso* – ver fuso horário  \n"
-        "*/cidade* – alterar cidade  \n"
-        "*/idioma* – alterar idioma (pt-PT, pt-BR, es, en)"
+        "📋 *Todos los comandos:*\n\n"
+        "*Comandos*\n"
+        "• {{/lembrete}} — programar (ej.: mañana 9h; en 30 min)\n"
+        "• {{/list}} — listas (compras, recetas, libros, música, notas, sitios, pendientes). Ej.: {{/list}} mercado add leche\n"
+        "• {{/hoje}} — agenda y recordatorios del día  |  {{/semana}} — agenda de la semana (solo eventos)\n"
+        "• {{/timeline}} — historial (recordatorios, tareas, eventos)\n"
+        "• {{/stats}} — estadísticas; {{/stats}} día o {{/stats}} semana\n"
+        "• {{/resumo}} — resumen de la semana; {{/resumo}} mes — resumen del mes\n"
+        "• {{/recorrente}} — recordatorios recurrentes (ej.: {{/recorrente}} beber agua todo día 8h)\n"
+        "• {{/meta}} add Nombre hasta DD/MM — objetivos con plazo; {{/metas}} para listar\n"
+        "• {{/pomodoro}} — temporizador 25 min foco; {{/pomodoro}} stop para cancelar\n\n"
+        "*Configuración*\n"
+        "• {{/tz}} Ciudad — definir zona horaria (ej.: {{/tz}} Madrid)\n"
+        "• {{/lang}} — idioma: pt-pt, pt-br, es, en\n"
+        "• {{/reset}} — reiniciar registro (nombre, ciudad)\n"
+        "• {{/quiet}} 22:00-08:00 — horario silencioso\n\n"
+        "*Consejos*\n"
+        '• Marcar ítem como hecho: puedes decir por audio ("listo", "ya está"), escribir texto o usar emoji ("✓", "👍") — no necesitas comando.\n'
+        '• Conversa por mensaje o audio; si quieres respuesta en audio, pide "responde en audio", "manda audio" ou "habla conmigo". 😊\n'
+        '• Si las respuestas parecen extrañas debido al historial, usa {{/reset}} o /reiniciar para limpiar el chat.'
     ),
     "en": (
         "📋 *All commands:*\n\n"
@@ -501,7 +525,7 @@ HELP_COMMANDS_HEADER: dict[LangCode, str] = {
 _HELP_COMMANDS_ORDER = (
     "/help", "/start", "/lembrete", "/list", "/hoje", "/semana", "/agenda", "/timeline",
     "/stats", "/resumo", "/recorrente", "/meta", "/metas", "/pomodoro",
-    "/tz", "/lang", "/reset", "/quiet", "/pendente",
+    "/tz", "/lang", "/reset", "/quiet", "/pendente", "/feito", "/remove", "/hora", "/data", "/evento",
 )
 
 

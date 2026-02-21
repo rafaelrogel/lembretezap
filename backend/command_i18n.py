@@ -21,39 +21,51 @@ COMMAND_ALIASES: Sequence[tuple[str, Sequence[str]]] = (
     # Hoje / Semana / Timeline
     ("/hoje", ("/hoje", "/hoy", "/today")),
     ("/semana", ("/semana", "/week")),
-    ("/agenda", ("/agenda",)),
-    ("/timeline", ("/timeline", "/cronologia", "/cronología", "/linha")),
+    ("/agenda", ("/agenda", "/schedule", "/programação", "/programacion")),
+    ("/timeline", ("/timeline", "/cronologia", "/cronología", "/linha", "/histórico", "/historico", "/history")),
     ("/mes", ("/mes", "/mês", "/month")),
     # Estatísticas
-    ("/stats", ("/stats", "/estatísticas", "/estatisticas", "/est", "/estadísticas", "/estadisticas", "/estd")),
+    ("/stats", ("/stats", "/estatísticas", "/estatisticas", "/est", "/estadísticas", "/estadisticas", "/estd", "/statistics")),
     # Resumo
-    ("/resumo", ("/resumo", "/resumen", "/summary", "/revisao", "/revisão", "/revisión")),
+    ("/resumo", ("/resumo", "/resumen", "/summary", "/revisao", "/revisão", "/revisión", "/review")),
     # Recorrente
-    ("/recorrente", ("/recorrente", "/recurrente", "/recurring")),
+    ("/recorrente", ("/recorrente", "/recurrente", "/recurring", "/repetir")),
     # Meta(s)
-    ("/meta", ("/meta", "/goal", "/objetivo", "/objetivo")),
+    ("/meta", ("/meta", "/goal", "/objetivo")),
     ("/metas", ("/metas", "/goals", "/objetivos")),
     # Pomodoro
-    ("/pomodoro", ("/pomodoro",)),
+    ("/pomodoro", ("/pomodoro", "/foco", "/focus", "/timer")),
     # Configuração: tz, lang, reset, quiet
-    ("/tz", ("/tz", "/cidade", "/ciudad", "/city", "/fuso", "/timezone")),
+    ("/tz", ("/tz", "/cidade", "/ciudad", "/city", "/fuso", "/timezone", "/zona")),
     ("/lang", ("/lang", "/idioma", "/language", "/língua", "/lingua")),
-    ("/reset", ("/reset", "/reiniciar", "/reinicio", "/restart", "/reboot")),
-    ("/quiet", ("/quiet", "/silêncio", "/silencio", "/silent")),
+    ("/reset", ("/reset", "/reiniciar", "/reinicio", "/restart", "/reboot", "/limpar")),
+    ("/quiet", ("/quiet", "/silêncio", "/silencio", "/silent", "/mudo", "/mute")),
     # Ações
-    ("/add", ("/add", "/adicionar", "/añadir", "/adiciona")),
-    ("/pendente", ("/pendente", "/pendiente", "/pending", "/pendentes")),
-    ("/stop", ("/stop", "/parar", "/stop")),
-    ("/exportar", ("/exportar", "/export", "/exporta")),
+    ("/add", ("/add", "/adicionar", "/añadir", "/adiciona", "/agregar")),
+    ("/remove", ("/remove", "/remover", "/quitar", "/delete", "/del", "/borrar")),
+    ("/feito", ("/feito", "/done", "/hecho", "/ok", "/listo", "/visto", "/terminado")),
+    ("/pendente", ("/pendente", "/pendiente", "/pending", "/pendentes", "/pendientes")),
+    ("/stop", ("/stop", "/parar", "/detener", "/quit")),
+    ("/exportar", ("/exportar", "/export", "/exporta", "/enviar")),
     ("/deletar_tudo", ("/deletar_tudo", "/apagar_tudo", "/borrar_todo", "/delete_all")),
+    # Tempo
+    ("/hora", ("/hora", "/horas", "/time", "/qué hora", "/que hora")),
+    ("/data", ("/data", "/date", "/fecha", "/que dia", "/qué día")),
+    # Evento
+    ("/evento", ("/evento", "/event", "/compromisso", "/cita")),
     # Limpeza / Organização
-    ("/limpeza", ("/limpeza", "/limpieza", "/cleaning")),
+    ("/limpeza", ("/limpeza", "/limpieza", "/cleaning", "/clean")),
     ("/projeto", ("/projeto", "/proyecto", "/project")),
     ("/projetos", ("/projetos", "/proyectos", "/projects")),
     ("/template", ("/template", "/modelo", "/plantilla")),
     ("/templates", ("/templates", "/modelos", "/plantillas")),
     ("/produtividade", ("/produtividade", "/productividad", "/productivity")),
     ("/nuke", ("/nuke", "/bomba", "/bomb", "/detonar")),
+    # Integrações
+    ("/crypto", ("/crypto", "/cripto", "/bitcoin", "/btc")),
+    ("/atendimento", ("/atendimento", "/suporte", "/support", "/ayuda_humana")),
+    ("/biblia", ("/biblia", "/bíblia", "/bible", "/versiculo", "/versículo")),
+    ("/alcorao", ("/alcorao", "/alcorão", "/quran", "/sura")),
 )
 
 # Construir set de todos os aliases em minúsculas para match rápido

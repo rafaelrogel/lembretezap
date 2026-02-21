@@ -19,9 +19,14 @@ RE_LIST_CATEGORY_ADD = re.compile(
 )
 RE_LIST_SHOW = re.compile(r"^/list\s+(\S+)\s*$", re.I)
 RE_LIST_ALL = re.compile(r"^/list\s*$", re.I)
-# /feito [list_name] item_id — marcar item como feito
-RE_FEITO_LIST_ID = re.compile(r"^/feito\s+(\S+)\s+(\d+)\s*$", re.I)
 RE_FEITO_ID_ONLY = re.compile(r"^/feito\s+(\d+)\s*$", re.I)
+# /remove
+RE_REMOVE_LIST_ID = re.compile(r"^/remove\s+(\S+)\s+(\d+)\s*$", re.I)
+RE_REMOVE_ID_ONLY = re.compile(r"^/remove\s+(\d+)\s*$", re.I)
+
+RE_HORA = re.compile(r"^/hora\s*$", re.I)
+RE_DATA = re.compile(r"^/data\s*$", re.I)
+RE_EVENTO = re.compile(r"^/evento\s+(.+)$", re.I)
 # Linguagem natural: mostre lista X, lista de X, minha lista X, qual lista, mercado, compras
 RE_NL_MOSTRE_LISTA = re.compile(
     r"^(?:mostr(?:e|ar)|ver|listar|mostra)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?(\w+)\s*$", re.I
@@ -162,6 +167,20 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     if m:
         return {"type": "feito", "list_name": None, "item_id": int(m.group(1))}
 
+    # /remove
+    m = RE_REMOVE_LIST_ID.match(text)
+    if m:
+        return {"type": "remove", "list_name": m.group(1).strip(), "item_id": int(m.group(2))}
+    m = RE_REMOVE_ID_ONLY.match(text)
+    if m:
+        return {"type": "remove", "list_name": None, "item_id": int(m.group(1))}
+
+    # /hora e /data
+    if RE_HORA.match(text):
+        return {"type": "hora"}
+    if RE_DATA.match(text):
+        return {"type": "data"}
+
     # Linguagem natural: mostre lista mercado, lista de mercado, qual minha lista, mercado
     m = RE_NL_MOSTRE_LISTA.match(text)
     if m:
@@ -179,6 +198,9 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
 
     # Atalhos: /filme X, /livro X, /musica X, /receita X, /nota X, /site X → list_add (tudo dentro de /list)
     # Filme, Livro, Musica agora são Eventos (EventTool)
+    m = RE_EVENTO.match(text)
+    if m:
+        return {"type": "event_add", "event_type": "evento", "name": m.group(1).strip()}
     m = RE_FILME.match(text)
     if m:
         return {"type": "event_add", "event_type": "filme", "name": m.group(1).strip()}
