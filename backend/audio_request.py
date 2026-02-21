@@ -21,6 +21,9 @@ _AUDIO_REQUEST_PATTERNS = [
     r"\bfala\s+(comigo|pra\s+mim|com\s+mim)\b",
     r"\b(mensagem|resposta)\s+em\s+[a\xe1\xe0\xe2\u00e3]?udio\b",
     r"\b(voice\s+note|nota\s+de\s+voz)\s*(por\s+favor)?\b",
+    r"\bmande\s+por\s+voz\b",
+    r"\benvia\s+por\s+voz\b",
+    r"\bfale\s+o\s+resultado\b",
     # Espanhol
     r"\b(responde?|responda)\s+(en|por)\s+audio\b",
     r"\b(manda|env[ií]a)\s+(me\s+)?audio\b",

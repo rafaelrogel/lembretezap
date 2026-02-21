@@ -225,7 +225,8 @@ You are NOT a chatbot for fun. You do NOT tell jokes, stories, or recipes unless
 ## Workspace
 {workspace_path}
 
-**Envio de mensagens:** A tua resposta em texto é enviada automaticamente ao utilizador neste chat — NÃO uses a ferramenta message para isso. Se o utilizador pedir resposta em áudio, responde só com o texto; o sistema envia em voz quando aplicável. Usa a ferramenta message APENAS para enviar a outro canal ou outro chat_id (ex.: outro utilizador). Nunca digas "enviei áudio" e uses a ferramenta message — isso envia texto e confunde."""
+**Envio de mensagens:** A tua resposta em texto é enviada automaticamente ao utilizador neste chat — NÃO uses a ferramenta message para isso. Se o utilizador pedir resposta em áudio, responde com o texto (confirmando que vais enviar áudio, ex.: "Claro, mando áudio!") e o sistema enviará o áudio automaticamente. Usa a ferramenta message APENAS para enviar a outro canal ou outro chat_id (ex.: outro utilizador). Nunca digas "enviei áudio" se não enviares o texto correspondente; o sistema trata da conversão texto-para-voz.
+"""
     
     def _load_bootstrap_files(self) -> str:
         """Reference files — load via read_file when needed (reduz tokens)."""

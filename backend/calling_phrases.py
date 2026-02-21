@@ -211,6 +211,8 @@ _TASK_KEYWORDS = frozenset([
     "quero", "preciso", "preciso de", "need", "want", "adiciona", "add", "remover",
     "criar", "criar um", "create", "marcar", "agendar", "schedule",
     "ajuda", "help", "comandos", "stats", "estatísticas", "estatisticas",
+    "áudio", "audio", "voz", "falou", "fala", "faler", "quem", "sou", "estou", "onde", "onde estou",
+    "responde", "responda", "manda", "envia", "diz", "fala",
 ])
 
 
@@ -232,7 +234,17 @@ def is_calling_message(content: str | None, max_length: int = 42) -> bool:
     if any(kw in lower for kw in _TASK_KEYWORDS):
         return False
     phrases = get_calling_phrases()
-    return any(p in lower for p in phrases)
+    # Usar regex para garantir match de palavra inteira (whole word matching)
+    # Evita que "respond" (English base) capture "responda".
+    import re
+    for p in phrases:
+        if not p:
+            continue
+        # Escapar p e verificar se existe como palavra inteira no lower
+        pattern = r"\b" + re.escape(p) + r"\b"
+        if re.search(pattern, lower):
+            return True
+    return False
 
 
 def count_phrases_per_lang() -> dict[str, int]:
