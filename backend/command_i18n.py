@@ -53,6 +53,7 @@ COMMAND_ALIASES: Sequence[tuple[str, Sequence[str]]] = (
     ("/template", ("/template", "/modelo", "/plantilla")),
     ("/templates", ("/templates", "/modelos", "/plantillas")),
     ("/produtividade", ("/produtividade", "/productividad", "/productivity")),
+    ("/nuke", ("/nuke", "/bomba", "/bomb", "/detonar")),
 )
 
 # Construir set de todos os aliases em minúsculas para match rápido

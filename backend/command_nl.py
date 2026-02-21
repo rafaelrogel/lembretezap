@@ -122,7 +122,7 @@ def normalize_nl_to_command(content: str) -> str:
         return "/produtividade"
 
     # Reset
-    if lower in ("reiniciar", "reinicio", "reset", "restart", "reboot"):
+    if lower in ("reiniciar", "reinicio", "reset", "restart", "reboot", "reset total"):
         return "/reset"
 
     # Exportar
@@ -134,7 +134,7 @@ def normalize_nl_to_command(content: str) -> str:
         return "/quiet"
 
     # Deletar tudo
-    if lower in ("deletar tudo", "apagar tudo", "borrar todo", "delete all"):
+    if lower in ("deletar tudo", "apagar tudo", "apaga tudo", "borrar todo", "delete all"):
         return "/deletar_tudo"
 
     # Limpeza
