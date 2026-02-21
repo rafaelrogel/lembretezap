@@ -12,7 +12,8 @@ SCOPE_KEYWORDS = re.compile(
     r"diariamente|recorrente|mensalmente|a cada \d+ (min|hora|dia)|"
     r"preciso\s+ir|tenho\s+(consulta|reunião|reuniao)|ir\s+ao\s+(m[eé]dico|dentista)|"
     r"m[eé]dico|medico|consulta|dentista|reunião|reuniao|"
-    r"/lembrete|/list|/filme|/recorrente)\b",
+    r"/lembrete|/list|/filme|/recorrente|/nuke|/reset|/bomba|/agenda|/stats|/fuso|/tz|/lang|/help|/ajuda|"
+    r"apaga tudo|reset total)\b",
     re.I,
 )
 
@@ -38,7 +39,11 @@ def is_in_scope_fast(text: str) -> bool:
     """Quick regex/keyword check. Use for MVP without LLM call."""
     if not text or not text.strip():
         return False
-    return bool(SCOPE_KEYWORDS.search(text.strip()))
+    t = text.strip()
+    # Qualquer comando slash é considerado in-scope por definição
+    if t.startswith("/"):
+        return True
+    return bool(SCOPE_KEYWORDS.search(t))
 
 
 async def is_in_scope_llm(text: str, provider=None, model: str | None = None) -> bool:

@@ -3,11 +3,10 @@
 import re
 from backend.handler_context import HandlerContext
 from backend.database import SessionLocal
-from backend.user_store import get_or_create_user, get_user_timezone
+from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
 from backend.models_db import Event
 from backend.locale import (
     LangCode,
-    get_user_language,
     resolve_response_language,
 )
 from zoneinfo import ZoneInfo
