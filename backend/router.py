@@ -17,16 +17,43 @@ from backend.handlers import (
     handle_help,
     handle_recorrente,
     handle_pendente,
-    handle_recorrente,
-    handle_pendente,
     handle_stop,
 )
-from backend.handlers import handle_entertainment  # Nova importação
-from backend.settings_handlers import handle_nuke  # /nuke, /bomba
+from backend.handlers import handle_entertainment
+from backend.integrations import handle_atendimento_request, handle_crypto, handle_sacred_text
+from backend.confirm_actions import handle_exportar, handle_deletar_tudo, resolve_confirm
+from backend.settings_handlers import handle_tz, handle_lang, handle_quiet, handle_reset, handle_nuke
+from backend.llm_handlers import handle_resumo_conversa, handle_analytics, handle_rever
+from backend.handlers_organizacao import (
+    handle_metas,
+    handle_meta,
+    handle_projetos,
+    handle_projeto,
+    handle_templates,
+    handle_template,
+)
+from backend.handlers_limpeza import handle_limpeza
+from backend.handlers_agenda_remove import handle_agenda_remove
+from backend.handlers_pomodoro import handle_pomodoro
+from backend.recipe_handler import handle_recipe
+from backend.command_i18n import normalize_command
+from backend.views import (
+    handle_eventos_unificado,
+    handle_hoje,
+    handle_semana,
+    handle_agenda,
+    handle_agenda_nl,
+    handle_mes,
+    handle_timeline,
+    handle_stats,
+    handle_produtividade,
+    handle_revisao,
+)
 
 
-# ... (outros imports mantidos)
-
+# ---------------------------------------------------------------------------
+# Lista mestre de Handlers (por ordem de prioridade)
+# ---------------------------------------------------------------------------
 HANDLERS = [
     handle_atendimento_request,
     handle_pending_confirmation,
