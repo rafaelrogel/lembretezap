@@ -351,7 +351,8 @@ fi
 _esc() { echo "$1" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g'; }
 
 # TTS: ativar se Piper instalado (múltiplas vozes em models/piper/)
-# PIPER_BIN e TTS_MODELS_BASE usam DATA_DIR para coincidir com o volume no gateway (montado em $DATA_DIR no vps override)
+# IMPORTANTE: PIPER_BIN e TTS_MODELS_BASE devem ser caminhos absolutos no HOST.
+# O container gateway monta o volume ZAPISTA_data no mesmo caminho ($DATA_DIR), garantindo sincronia.
 TTS_ENV=""
 if [ -f "$DATA_DIR/bin/piper" ] && [ -d "$DATA_DIR/models/piper" ]; then
   TTS_ENV="
@@ -449,4 +450,13 @@ if [ -n "$DO_BACKUP_RESTORE" ] && [ -d "${BACKUP_TEMP:-}" ]; then
   echo "Backup restaurado com sucesso. A pasta $BACKUP_TEMP contém a cópia de segurança."
   echo "Podes eliminá-la após verificar que tudo está a funcionar: rm -rf $BACKUP_TEMP"
 fi
+echo ""
+
+# Sanity check para TTS
+if [ -n "$TTS_ENV" ]; then
+  if [ ! -f "${DATA_DIR}/bin/piper" ]; then
+    echo "Aviso: TTS_ENABLED=1 mas binário do Piper não encontrado em ${DATA_DIR}/bin/piper"
+  fi
+fi
+
 echo ""
