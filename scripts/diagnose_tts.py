@@ -2,7 +2,6 @@ import os
 import sys
 import subprocess
 from pathlib import Path
-import re
 
 def load_env(env_path):
     """Simple parser for .env files."""
@@ -19,103 +18,102 @@ def load_env(env_path):
                 env[key.strip()] = val.strip().strip('"').strip("'")
     return env
 
+PIPER_VOICES = {
+    "pt-BR": {
+        "model": "pt/pt_BR/cadu/medium/pt_BR-cadu-medium.onnx",
+        "config": "pt/pt_BR/cadu/medium/pt_BR-cadu-medium.onnx.json",
+    },
+    "pt-PT": {
+        "model": "pt/pt_PT/tug%C3%A3o/medium/pt_PT-tug%C3%A3o-medium.onnx",
+        "config": "pt/pt_PT/tug%C3%A3o/medium/pt_PT-tug%C3%A3o-medium.onnx.json",
+        "model_alt": "pt/pt_PT/tugão/medium/pt_PT-tugão-medium.onnx",
+        "config_alt": "pt/pt_PT/tugão/medium/pt_PT-tugão-medium.onnx.json",
+    },
+    "es": {
+        "model": "es/es_ES/davefx/medium/es_ES-davefx-medium.onnx",
+        "config": "es/es_ES/davefx/medium/es_ES-davefx-medium.onnx.json",
+    },
+    "en": {
+        "model": "en/en_US/amy/medium/en_US-amy-medium.onnx",
+        "config": "en/en_US/amy/medium/en_US-amy-medium.onnx.json",
+    },
+}
+
 def diagnose():
-    print("=== Zapista TTS Diagnostic (Standalone) ===")
+    print("=== Zapista TTS Diagnostic (Enhanced) ===")
     
-    # 1. Load context
     root = Path(__file__).parent.parent
     env_path = root / ".env"
     env = load_env(env_path)
     
-    print(f"Project root: {root}")
-    print(f"Found .env: {'✅' if env_path.exists() else '❌'}")
-    
-    # 2. Environment Variables (priority: OS env > .env file)
-    enabled = os.environ.get("TTS_ENABLED") or env.get("TTS_ENABLED", "Not Set")
     pbin = os.environ.get("PIPER_BIN") or env.get("PIPER_BIN", "Not Set")
     mbase = os.environ.get("TTS_MODELS_BASE") or env.get("TTS_MODELS_BASE", "Not Set")
     
-    print(f"\nConfiguration:")
-    print(f"  TTS_ENABLED: {enabled}")
+    print(f"Configuration:")
     print(f"  PIPER_BIN: {pbin}")
     print(f"  TTS_MODELS_BASE: {mbase}")
     
-    # 3. File System Checks
-    print(f"\nFile System:")
+    # Check binary
     bin_ok = False
     if pbin != "Not Set":
         p = Path(pbin)
-        if p.exists():
-            print(f"  ✅ Piper binary found: {pbin}")
-            if os.access(pbin, os.X_OK):
-                bin_ok = True
-                print(f"  ✅ Piper binary is executable.")
-            else:
-                print(f"  ❌ Piper binary is NOT executable! Try: chmod +x {pbin}")
+        if p.exists() and os.access(pbin, os.X_OK):
+            bin_ok = True
+            print(f"  ✅ Piper binary ok.")
         else:
-            print(f"  ❌ Piper binary NOT found at {pbin}")
-    else:
-        print(f"  ❌ PIPER_BIN is not configured.")
-        
-    models_ok = False
+            print(f"  ❌ Piper binary missing or not executable.")
+    
+    # Check all models
+    print(f"\nModel Files (relative to {mbase}):")
+    available_locales = []
     if mbase != "Not Set":
-        p = Path(mbase)
-        if p.exists() and p.is_dir():
-            print(f"  ✅ Models directory found: {mbase}")
-            onnx_files = list(p.glob("**/*.onnx"))
-            print(f"  Found {len(onnx_files)} .onnx models.")
-            if len(onnx_files) > 0:
-                models_ok = True
-        else:
-            print(f"  ❌ Models directory NOT found or not a directory: {mbase}")
-    
-    # 4. Attempt Test Synthesis using SUBPROCESS directly
-    is_active = str(enabled).lower() in ("1", "true", "yes")
-    
-    if bin_ok and models_ok:
-        print(f"\nAttempting test synthesis via subprocess...")
-        test_text = "Teste de diagnóstico do sistema Zapista."
-        output_wav = root / "test_synthesis.wav"
-        
-        # Try to find a model to use
-        onnx_files = list(Path(mbase).glob("**/*.onnx"))
-        model_path = str(onnx_files[0])
-        config_path = model_path + ".json"
-        
-        print(f"  Using model: {model_path}")
-        
-        try:
-            cmd = [
-                pbin,
-                "--model", model_path,
-                "--config", config_path,
-                "--output_file", str(output_wav)
-            ]
-            print(f"  Running: {' '.join(cmd)}")
+        base = Path(mbase)
+        for locale, voice in PIPER_VOICES.items():
+            m_path = base / voice["model"]
+            c_path = base / voice["config"]
             
-            proc = subprocess.Popen(
-                cmd,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-            )
-            stdout, stderr = proc.communicate(input=test_text, timeout=10)
+            exists = m_path.exists() and c_path.exists()
             
-            if proc.returncode == 0 and output_wav.exists():
-                print(f"  ✅ Success! Generated: {output_wav}")
-                print(f"  Size: {output_wav.stat().st_size} bytes")
-                # output_wav.unlink() # Cleanup
+            if not exists and "model_alt" in voice:
+                m_path = base / voice["model_alt"]
+                c_path = base / voice["config_alt"]
+                exists = m_path.exists() and c_path.exists()
+            
+            if exists:
+                print(f"  ✅ {locale}: Found")
+                available_locales.append(locale)
             else:
-                print(f"  ❌ Failed (code {proc.returncode})")
-                if stderr:
-                    print(f"  Error: {stderr[:500]}")
-        except Exception as e:
-            print(f"  ❌ Exception during synthesis: {e}")
-    else:
-        print(f"\n⚠️ Skipping test synthesis because prerequisites are not met.")
-        if not is_active:
-            print("  Note: TTS_ENABLED is not set to 1.")
+                print(f"  ❌ {locale}: MISSING")
+                print(f"     Expected at: {voice['model']}")
+    
+    # Attempt synthesis for PT-BR and PT-PT if possible
+    if bin_ok:
+        for locale in available_locales:
+            if locale not in ("pt-BR", "pt-PT"): continue
+            
+            print(f"\nTesting synthesis for {locale}...")
+            voice = PIPER_VOICES[locale]
+            m_path = Path(mbase) / voice["model"]
+            c_path = Path(mbase) / voice["config"]
+            if not m_path.exists() and "model_alt" in voice:
+                m_path = Path(mbase) / voice["model_alt"]
+                c_path = Path(mbase) / voice["config_alt"]
+            
+            output_wav = root / f"test_{locale.lower()}.wav"
+            try:
+                test_text = f"Teste de voz para o idioma {locale}."
+                cmd = [pbin, "--model", str(m_path), "--config", str(c_path), "--output_file", str(output_wav)]
+                proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                stdout, stderr = proc.communicate(input=test_text, timeout=10)
+                
+                if proc.returncode == 0 and output_wav.exists():
+                    print(f"  ✅ {locale} synthesis success! ({output_wav.stat().st_size} bytes)")
+                    output_wav.unlink()
+                else:
+                    print(f"  ❌ {locale} synthesis failed (code {proc.returncode})")
+                    if stderr: print(f"     Error: {stderr[:200]}")
+            except Exception as e:
+                print(f"  ❌ {locale} error: {e}")
 
     print("\n=== End of Diagnostic ===")
 
