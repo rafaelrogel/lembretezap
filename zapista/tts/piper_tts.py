@@ -37,15 +37,22 @@ def piper_synthesize(
         logger.warning(f"Piper config not found: {cfg}")
         return False
 
+    # Detect espeak-ng-data folder relative to piper binary (essential for VPS/Docker)
+    cmd = [
+        bin_path,
+        "--model", str(model_path),
+        "--config", str(cfg),
+        "--output_file", str(output_wav),
+    ]
+    espeak_data = Path(bin_path).parent / "espeak-ng-data"
+    if espeak_data.exists() and espeak_data.is_dir():
+        cmd.extend(["--espeak_data", str(espeak_data)])
+        logger.debug(f"Piper: using local espeak_data at {espeak_data}")
+
     timeout = tts_piper_timeout_seconds()
     try:
         proc = subprocess.Popen(
-            [
-                bin_path,
-                "--model", model_path,
-                "--config_file", cfg,
-                "--output_file", str(output_wav),
-            ],
+            cmd,
             stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,

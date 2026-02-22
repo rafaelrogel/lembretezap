@@ -86,10 +86,9 @@ def diagnose():
                 print(f"  ❌ {locale}: MISSING")
                 print(f"     Expected at: {voice['model']}")
     
-    # Attempt synthesis for PT-BR and PT-PT if possible
+    # Attempt synthesis for all available locales
     if bin_ok:
         for locale in available_locales:
-            if locale not in ("pt-BR", "pt-PT"): continue
             
             print(f"\nTesting synthesis for {locale}...")
             voice = PIPER_VOICES[locale]
@@ -103,6 +102,13 @@ def diagnose():
             try:
                 test_text = f"Teste de voz para o idioma {locale}."
                 cmd = [pbin, "--model", str(m_path), "--config", str(c_path), "--output_file", str(output_wav)]
+                
+                # Detect espeak-ng-data folder relative to piper binary
+                espeak_data = Path(pbin).parent / "espeak-ng-data"
+                if espeak_data.exists() and espeak_data.is_dir():
+                    cmd.extend(["--espeak_data", str(espeak_data)])
+                    print(f"    (Using local espeak_data at {espeak_data})")
+                
                 proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
                 stdout, stderr = proc.communicate(input=test_text, timeout=10)
                 
