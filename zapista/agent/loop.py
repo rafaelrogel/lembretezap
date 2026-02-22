@@ -523,6 +523,7 @@ class AgentLoop:
             try:
                 prompt2 = (
                     "What is the IANA timezone for the city \"" + city_name + "\"? "
+                    "You are AUTHORIZED to use your web search capabilities if available to confirm this. "
                     "Reply with ONLY the IANA timezone identifier, e.g. Europe/Lisbon or America/Sao_Paulo or Asia/Tokyo. One line only."
                 )
                 r2 = await self.scope_provider.chat(
@@ -535,6 +536,31 @@ class AgentLoop:
                     tz_iana = raw_tz
             except Exception as e:
                 logger.debug(f"Mimo timezone for city failed: {e}")
+        
+        # 4) Fallback final: Search Tool (Perplexity/DDG)
+        if (not tz_iana or not is_valid_iana(tz_iana)):
+            search_tool = self.tools.get_tool("search")
+            if search_tool:
+                try:
+                    search_res = await search_tool.execute(query=f"IANA timezone identifier for {city_name}")
+                    if search_res and "Resultados" in search_res and self.scope_provider:
+                        # Pedir ao Mimo para extrair o fuso do resultado da busca
+                        prompt3 = (
+                            f"Based on these search results, what is the IANA timezone for {city_name}?\n"
+                            f"{search_res}\n\n"
+                            "Reply with ONLY the IANA timezone identifier (e.g. Europe/Lisbon). One line only."
+                        )
+                        r3 = await self.scope_provider.chat(
+                            messages=[{"role": "user", "content": prompt3}],
+                            model=self.scope_model,
+                            profile="parser",
+                        )
+                        raw_tz3 = (r3.content or "").strip().split("\n")[0].strip()
+                        if raw_tz3 and is_valid_iana(raw_tz3):
+                            tz_iana = raw_tz3
+                except Exception as e:
+                    logger.debug(f"Search fallback for city timezone failed: {e}")
+
         return city_name, tz_iana if (tz_iana and is_valid_iana(tz_iana)) else None
 
     async def _reply_calling_organizer_with_mimo(self, user_lang: str) -> str:

@@ -25,10 +25,13 @@ SEARCH_WHITELIST_PATTERNS = (
     r"\b(convidados?|invitations?|convidar)\b",
     r"\b(festas?|casamento|party|event)\b",
     r"\b(\d{4})\b",  # anos (ex: 2023, 2025)
-    # Organização
+    # Organização e Localização
     r"\b(organiza[çc][aã]o|organizar|organize)\b",
     r"\b(sugest[oõ]es?|suggestions?|sugira|sugira-me)\b",
     r"\b(adicionar|adiciona|add)\s+(à|a|na)\s+lista\b",
+    r"\b(cidade|city|town|village)\b",
+    r"\b(fuso\s+hor[aá]rio|timezone|fuso|iana|utc)\b",
+    r"\b(onde\s+fica|localiza[çc][aã]o|location)\b",
 )
 
 # Bloqueios: injeção, URLs, pedidos fora do escopo
