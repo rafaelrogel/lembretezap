@@ -407,7 +407,7 @@ class AgentLoop:
                     model=self.scope_model,
                     profile="parser",
                 )
-                out = (r.content or "").strip()
+                out = (r.content or "").strip().strip('"\'')
                 if out and len(out) <= 245:
                     return out
             except Exception as e:
@@ -478,7 +478,7 @@ class AgentLoop:
                     model=self.scope_model,
                     profile="parser",
                 )
-                out = (r.content or "").strip()
+                out = (r.content or "").strip().strip('"\'')
                 if out and len(out) <= 200:
                     return out
             except Exception as e:
@@ -623,7 +623,7 @@ class AgentLoop:
                     model=self.scope_model,
                     profile="parser",
                 )
-                out = (r.content or "").strip()
+                out = (r.content or "").strip().strip('"\'')
                 if out and len(out) <= 220:
                     return out
             except Exception as e:
