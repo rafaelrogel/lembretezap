@@ -113,7 +113,7 @@ class ContextBuilder:
             now_for_prompt = _dt_utc.strftime("%Y-%m-%d %H:%M (%A) (UTC)")
             tz_for_prompt = "UTC"
         # Core identity (Current Time + Timezone para o LLM interpretar "11h" no fuso do utilizador)
-        parts.append(self._get_identity(now_override=now_for_prompt, tz_iana=tz_for_prompt))
+        parts.append(self._get_identity(now_override=now_for_prompt, tz_iana=tz_for_prompt, ts_override=effective_ts))
         
         # Bootstrap files
         bootstrap = self._load_bootstrap_files()
@@ -174,9 +174,10 @@ Skills with available="false" need dependencies (apt/brew).
         
         return "\n\n---\n\n".join(parts)
     
-    def _get_identity(self, now_override: str | None = None, tz_iana: str | None = None) -> str:
+    def _get_identity(self, now_override: str | None = None, tz_iana: str | None = None, ts_override: float | None = None) -> str:
         """Core identity — compact. Details in RULES_*.md (load via read_file when needed).
-        now_override: when set, use as Current Time (in user TZ or UTC). tz_iana: fuso do user para interpretar "11h" etc."""
+        now_override: when set, use as Current Time (in user TZ or UTC). tz_iana: fuso do user para interpretar "11h" etc.
+        ts_override: timestamp efectivo para cálculos de exemplo."""
         from datetime import datetime, timezone
         if now_override:
             now = now_override
@@ -193,7 +194,10 @@ Skills with available="false" need dependencies (apt/brew).
         runtime = f"{'macOS' if system == 'Darwin' else system} {platform.machine()}, Python {platform.python_version()}"
         time_block = f"## Current Time\n{now}"
         if tz_iana:
-            time_block += f'\n## Timezone (user)\n{tz_iana}\n\nTodas as horas que o user disser (ex.: 11h, amanhã 9h) são **neste** fuso. Calcula in_seconds para que o lembrete dispare nessa hora local. Quando o user perguntar que horas são, responde com esta hora e indica o fuso (ex.: "São {datetime.fromtimestamp(effective_ts, tz=ZoneInfo(tz_iana)).strftime("%H:%M")}, fuso {tz_iana}").'
+            from zoneinfo import ZoneInfo
+            _ts = ts_override or _now_ts
+            _time_str = datetime.fromtimestamp(_ts, tz=ZoneInfo(tz_iana)).strftime("%H:%M")
+            time_block += f'\n## Timezone (user)\n{tz_iana}\n\nTodas as horas que o user disser (ex.: 11h, amanhã 9h) são **neste** fuso. Calcula in_seconds para que o lembrete dispare nessa hora local. Quando o user perguntar que horas são, responde com esta hora e indica o fuso (ex.: "São {_time_str}, fuso {tz_iana}").'
         else:
             time_block += "\nQuando o user perguntar que horas são, responde com a Current Time acima e indica que é UTC."
         
