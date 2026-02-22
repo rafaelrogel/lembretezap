@@ -96,7 +96,27 @@ fi
 echo "    Serviços em execução."
 echo ""
 
-echo "[3/3] Concluído."
+echo "[3/3] Verificação de saúde do sistema (TTS)..."
+DATA_DIR="${INSTALL_DIR}/data"
+if [ -f ".env" ]; then
+  CUR_PIPER=$(grep "PIPER_BIN=" .env | cut -d'=' -f2)
+  if [ -n "$CUR_PIPER" ] && [ ! -f "$CUR_PIPER" ]; then
+    echo "    ⚠️ Aviso: PIPER_BIN no .env aponta para um caminho inexistente: $CUR_PIPER"
+    NEW_PIPER="${DATA_DIR}/bin/piper"
+    if [ -f "$NEW_PIPER" ]; then
+      echo "    ✅ Encontrado Piper em: $NEW_PIPER"
+      echo "    A atualizar .env com o caminho correto..."
+      sed -i "s|PIPER_BIN=.*|PIPER_BIN=$NEW_PIPER|" .env
+      sed -i "s|TTS_MODELS_BASE=.*|TTS_MODELS_BASE=${DATA_DIR}/models/piper|" .env
+      echo "    Caminhos de TTS atualizados no .env."
+    fi
+  else
+    echo "    ✅ Configuração de TTS parece correta ou não configurada."
+  fi
+fi
+echo ""
+
+echo "Concluído."
 echo ""
 echo "Serviços reiniciados. O bridge reconecta automaticamente ao WhatsApp."
 echo ""
