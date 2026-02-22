@@ -145,15 +145,25 @@ class AgentLoop:
             ts = time.time()
         return datetime.fromtimestamp(ts, tz=tz)
 
-    def _get_now_iso(self) -> str:
-        """Helper para obter isoformat do agora efectivo."""
-        from datetime import datetime
-        try:
-            from zapista.clock_drift import get_effective_time
-            ts = get_effective_time()
-        except Exception:
-            ts = time.time()
         return datetime.fromtimestamp(ts).isoformat()
+
+    def _clean_llm_response(self, text: str) -> str:
+        """
+        Robustly strips all kinds of surrounding quotes and whitespace from LLM output.
+        Handles ASCII quotes, smart quotes, guillemets, etc.
+        """
+        if not text:
+            return ""
+        # 1. Strip whitespace
+        res = text.strip()
+        # 2. Strip all common quote types (ASCII, smart, guillemets)
+        # We loop to handle nested quotes if any
+        while True:
+            prev = res
+            res = res.strip(" '\"“”‘’«»„‟")
+            if res == prev:
+                break
+        return res
     
     async def run(self) -> None:
         """Run the agent loop, processing messages from the bus."""
@@ -400,6 +410,7 @@ class AgentLoop:
                     + (user_content[:150] if user_content else "")
                     + "\". Reply in 1 SHORT sentence. Say you help with reminders and lists. "
                     "Tell them they can type the command /help to see the full list of commands, and that they can also send a message or audio. 1 emoji. "
+                    "Do NOT wrap the response in any quotes. "
                     "Use only normal quotes in your reply, never guillemets. Reply ONLY the message, " + lang_instruction + ". No preamble."
                 )
                 r = await self.scope_provider.chat(
@@ -407,7 +418,7 @@ class AgentLoop:
                     model=self.scope_model,
                     profile="parser",
                 )
-                out = (r.content or "").strip().strip('"\'')
+                out = self._clean_llm_response(r.content)
                 if out and len(out) <= 245:
                     return out
             except Exception as e:
@@ -425,6 +436,7 @@ class AgentLoop:
         prompt = (
             "AI org assistant. First contact. One SHORT paragraph (2-3 sentences): intro, what you do (lists, reminders, events). "
             "End with 'Let\\'s get started!' or equivalent. 1 emoji. Do NOT ask for their name yet. "
+            "Do NOT wrap the response in any quotes. "
             f"Reply ONLY the message, {lang_instruction}. No preamble."
         )
         if self.scope_provider and self.scope_model:
@@ -434,7 +446,7 @@ class AgentLoop:
                     model=self.scope_model,
                     profile="parser",
                 )
-                out = (r.content or "").strip().strip('"\'')
+                out = self._clean_llm_response(r.content)
                 if out and len(out) <= 385:
                     return out
             except Exception as e:
@@ -445,7 +457,7 @@ class AgentLoop:
                 model=self.model,
                 profile="assistant",
             )
-            out = (r.content or "").strip().strip('"\'')
+            out = self._clean_llm_response(r.content)
             if out and len(out) <= 385:
                 return out
         except Exception as e:
@@ -471,6 +483,7 @@ class AgentLoop:
             try:
                 prompt = (
                     "You are a friendly assistant. Ask the user in ONE short sentence how they would like to be called. "
+                    "Do NOT wrap the response in any quotes. "
                     f"Reply only with that question, {lang_instruction}. Use only normal quotes, never guillemets (« »). No other text."
                 )
                 r = await self.scope_provider.chat(
@@ -478,7 +491,7 @@ class AgentLoop:
                     model=self.scope_model,
                     profile="parser",
                 )
-                out = (r.content or "").strip().strip('"\'')
+                out = self._clean_llm_response(r.content)
                 if out and len(out) <= 200:
                     return out
             except Exception as e:
@@ -583,6 +596,7 @@ class AgentLoop:
             prompt = (
                 "The user just called the assistant (short call like 'Organizador?', 'Tá aí?', 'Are you there?', 'Rapaz?'). "
                 f"Reply with ONE very short, friendly, proactive phrase {lang_instruction}. "
+                "Do NOT wrap the response in any quotes. "
                 "Output ONLY that phrase, nothing else. No quotes."
             )
             r = await self.scope_provider.chat(
@@ -590,7 +604,7 @@ class AgentLoop:
                 model=self.scope_model,
                 profile="parser",
             )
-            out = (r.content or "").strip().strip('"\'')
+            out = self._clean_llm_response(r.content)
             if out and len(out) <= 120:
                 return out
         except Exception as e:
@@ -614,6 +628,7 @@ class AgentLoop:
         prompt = (
             f"The user is {name}. We are onboarding: we need to ask which city they are in (to set their timezone for reminders). "
             "Accept any city in the world. Write ONE short, friendly question. Use 1 emoji (e.g. 🌍). "
+            "Do NOT wrap the response in any quotes. "
             "Reply only with the question, no preamble. " + lang_instruction + "."
         )
         if self.scope_provider and self.scope_model:
@@ -623,7 +638,7 @@ class AgentLoop:
                     model=self.scope_model,
                     profile="parser",
                 )
-                out = (r.content or "").strip().strip('"\'')
+                out = self._clean_llm_response(r.content)
                 if out and len(out) <= 220:
                     return out
             except Exception as e:
@@ -1852,7 +1867,7 @@ class AgentLoop:
                     )
             else:
                 # No tool calls, we're done
-                final_content = response.content
+                final_content = self._clean_llm_response(response.content)
                 break
         
         if not (final_content or "").strip():
