@@ -86,8 +86,8 @@ if [ -d "$INSTALL_DIR" ] && [ -d "$DATA_DIR" ]; then
   echo "          Existe instalação em $INSTALL_DIR"
   echo "          Desejas fazer backup (organizer.db, whatsapp-auth, sessões) para restaurar no final?"
   echo ""
-  echo "  [b] Backup — guarda e restaura no final"
-  echo "  [z] Zero   — apaga tudo sem backup"
+  echo "  [b] Backup — guarda e restaura no final (organizer.db, whatsapp-auth, Piper TTS)"
+  echo "  [z] Zero   — apaga tudo sem backup (incluindo o motor de áudio)"
   echo ""
   while true; do
     read -r -p "  Escolhe (b/z): " choice
