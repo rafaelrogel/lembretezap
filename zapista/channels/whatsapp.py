@@ -344,7 +344,7 @@ class WhatsAppChannel(BaseChannel):
             user_id = pn if pn else sender
             sender_id = user_id.split("@")[0] if "@" in user_id else user_id
             # Se um tester não receber resposta, ver nos logs este valor e adiciona-o a allow_from no config
-            logger.info(f"WhatsApp from sender={sender!r} → sender_id={sender_id!r} (use na allow_from se bloqueado)")
+            logger.info(f"WhatsApp from sender={sender!r} pn={pn!r} → chat_id={user_id!r} (sender_id={sender_id!r})")
 
             # Handle voice transcription if it's a voice message (option A: base64 no payload)
             from backend.database import SessionLocal
@@ -369,7 +369,7 @@ class WhatsAppChannel(BaseChannel):
                 db = SessionLocal()
                 try:
                     user_lang: LangCode = (
-                        get_user_language(db, sender, phone_for_locale) or phone_to_default_language(phone_for_locale)
+                        get_user_language(db, user_id, phone_for_locale) or phone_to_default_language(phone_for_locale)
                     )
                 finally:
                     db.close()
@@ -377,7 +377,7 @@ class WhatsAppChannel(BaseChannel):
                 if audio_too_large:
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content=AUDIO_TOO_LARGE.get(user_lang, AUDIO_TOO_LARGE["en"]),
                     ))
                     return
@@ -385,14 +385,14 @@ class WhatsAppChannel(BaseChannel):
                 if audio_forwarded:
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content=AUDIO_FORWARDED.get(user_lang, AUDIO_FORWARDED["en"]),
                     ))
                     return
                 if not self.is_allowed_audio(sender_id):
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content=AUDIO_NOT_ALLOWED.get(user_lang, AUDIO_NOT_ALLOWED["en"]),
                     ))
                     return
@@ -404,7 +404,7 @@ class WhatsAppChannel(BaseChannel):
                     if duration_error_key == "AUDIO_TOO_LONG":
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
-                            chat_id=sender,
+                            chat_id=user_id,
                             content=AUDIO_TOO_LONG.get(user_lang, AUDIO_TOO_LONG["en"]),
                         ))
                         return
@@ -415,7 +415,7 @@ class WhatsAppChannel(BaseChannel):
                     else:
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
-                            chat_id=sender,
+                            chat_id=user_id,
                             content=AUDIO_TRANSCRIBE_FAILED.get(
                                 user_lang, AUDIO_TRANSCRIBE_FAILED["en"]
                             ),
@@ -424,7 +424,7 @@ class WhatsAppChannel(BaseChannel):
                 else:
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content=AUDIO_NOT_RECEIVED.get(user_lang, AUDIO_NOT_RECEIVED["en"]),
                     ))
                     return
@@ -437,7 +437,7 @@ class WhatsAppChannel(BaseChannel):
                     from backend.ics_handler import handle_ics_payload
                     from backend.database import SessionLocal
                     response = await handle_ics_payload(
-                        chat_id=sender,
+                        chat_id=user_id,
                         sender_id=sender_id,
                         ics_content=attachment_ics.strip(),
                         db_session_factory=SessionLocal,
@@ -446,7 +446,7 @@ class WhatsAppChannel(BaseChannel):
                     )
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content=response or "—",
                     ))
                 except Exception as e:
@@ -456,7 +456,7 @@ class WhatsAppChannel(BaseChannel):
                     )
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content=ics_err,
                     ))
                 return
@@ -482,34 +482,34 @@ class WhatsAppChannel(BaseChannel):
                 from zapista.utils.muted_store import apply_mute
                 raw = (content or "").strip()
                 rest = raw[1:].strip()  # texto após #
-                if is_locked_out(sender):
-                    log_god_mode_audit(sender, "login_blocked")
+                if is_locked_out(user_id):
+                    log_god_mode_audit(user_id, "login_blocked")
                     return  # bloqueado por tentativas erradas; silêncio
                 if is_god_mode_password(rest):
-                    clear_failed_attempts(sender)
-                    activate_god_mode(sender)
-                    log_god_mode_audit(sender, "login_ok")
+                    clear_failed_attempts(user_id)
+                    activate_god_mode(user_id)
+                    log_god_mode_audit(user_id, "login_ok")
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content="God-mode ativo. Comandos: #hora #ativos #erros #diagnostico #help #clientes #jobs #redis #whatsapp | #status #users #cron #server #system #add #remove #mute #quit",
                     ))
                     return
                 cmd, arg = parse_admin_command_arg(raw)
-                if not cmd or not is_god_mode_activated(sender):
+                if not cmd or not is_god_mode_activated(user_id):
                     if not cmd and rest:
-                        record_failed_attempt(sender)
-                        log_god_mode_audit(sender, "login_fail")
+                        record_failed_attempt(user_id)
+                        log_god_mode_audit(user_id, "login_fail")
                     return  # silêncio
                 # Sessão válida: resetar inatividade
-                bump_god_mode_activity(sender)
+                bump_god_mode_activity(user_id)
                 # #quit: desativar god-mode
                 if cmd == "quit":
-                    deactivate_god_mode(sender)
-                    log_god_mode_audit(sender, "logout")
+                    deactivate_god_mode(user_id)
+                    log_god_mode_audit(user_id, "logout")
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content="God-mode desativado.",
                     ))
                     return
@@ -518,7 +518,7 @@ class WhatsAppChannel(BaseChannel):
                     if not arg.strip():
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
-                            chat_id=sender,
+                            chat_id=user_id,
                             content="#mute\nUso: #mute <número de telefone>",
                         ))
                         return
@@ -534,7 +534,7 @@ class WhatsAppChannel(BaseChannel):
                         ))
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content=admin_msg,
                     ))
                     return
@@ -548,18 +548,18 @@ class WhatsAppChannel(BaseChannel):
                         db_session_factory=SessionLocal,
                         cron_store_path=cron_store_path,
                         wa_channel=self,
-                        chat_id=sender,
+                        chat_id=user_id,
                     )
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content=response or "—",
                     ))
                 except Exception as e:
                     logger.exception(f"Admin command failed: {e}")
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content="Erro ao executar comando admin.",
                     ))
                 return
@@ -579,48 +579,48 @@ class WhatsAppChannel(BaseChannel):
             )
             raw_content = (content or "").strip()
             is_restart_cmd = raw_content.lower() in ("/restart", "restart")
-            stage = get_restart_stage(self.name, sender)
+            stage = get_restart_stage(self.name, user_id)
             if is_restart_cmd and not stage:
-                set_restart_stage(self.name, sender, "1")
+                set_restart_stage(self.name, user_id, "1")
                 await self.bus.publish_outbound(OutboundMessage(
                     channel=self.name,
-                    chat_id=sender,
+                    chat_id=user_id,
                     content=MSG_FIRST,
                 ))
                 return
             if stage and is_confirm_reply(raw_content):
                 if is_confirm_no(raw_content):
-                    clear_restart_stage(self.name, sender)
+                    clear_restart_stage(self.name, user_id)
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content=MSG_CANCELLED,
                     ))
                     return
                 if stage == "1":
-                    set_restart_stage(self.name, sender, "2")
+                    set_restart_stage(self.name, user_id, "2")
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content=MSG_SECOND,
                     ))
                     return
                 if stage == "2":
-                    clear_restart_stage(self.name, sender)
+                    clear_restart_stage(self.name, user_id)
                     if self._restart_executor:
                         try:
-                            await self._restart_executor(self.name, sender)
+                            await self._restart_executor(self.name, user_id)
                         except Exception as e:
                             logger.exception(f"Restart executor failed: {e}")
                             await self.bus.publish_outbound(OutboundMessage(
                                 channel=self.name,
-                                chat_id=sender,
+                                chat_id=user_id,
                                 content="Erro ao reiniciar. Tenta de novo ou contacta o suporte.",
                             ))
                             return
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
-                        chat_id=sender,
+                        chat_id=user_id,
                         content=MSG_DONE,
                     ))
                     return
@@ -632,7 +632,7 @@ class WhatsAppChannel(BaseChannel):
             try:
                 from backend.user_store import is_user_in_quiet_window
                 from backend.settings_handlers import _is_nl_quiet_off
-                if is_user_in_quiet_window(sender):
+                if is_user_in_quiet_window(user_id):
                     raw = (content or "").strip()
                     if not raw.lower().startswith("/quiet") and not _is_nl_quiet_off(raw):
                         return  # não responder durante horário silencioso
@@ -670,10 +670,11 @@ class WhatsAppChannel(BaseChannel):
                     meta["audio_locale_override"] = audio_locale_override
             await self._handle_message(
                 sender_id=sender_id,
-                chat_id=sender,  # Use full JID/LID for replies
+                chat_id=user_id,  # Use stable chat_id (prioritizes JID over LID)
                 content=content,
                 metadata=meta,
             )
+
         
         elif msg_type == "status":
             # Connection status update
