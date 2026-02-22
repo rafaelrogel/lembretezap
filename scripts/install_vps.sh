@@ -302,8 +302,10 @@ if [ -n "$PIPER_TGZ" ]; then
   _piper_needs_install=0
   _piper_needs_libs=0
   [ ! -f "$DATA_DIR/bin/piper" ] && _piper_needs_install=1
-  if [ -f "$DATA_DIR/bin/piper" ] && [ ! -f "$DATA_DIR/bin/libpiper_phonemize.so.1" ]; then
-    _piper_needs_libs=1
+  if [ -f "$DATA_DIR/bin/piper" ]; then
+    if [ ! -f "$DATA_DIR/bin/libpiper_phonemize.so.1" ] || [ ! -d "$DATA_DIR/bin/espeak-ng-data" ]; then
+      _piper_needs_libs=1
+    fi
   fi
   if [ "$_piper_needs_install" = "1" ] || [ "$_piper_needs_libs" = "1" ]; then
     _piper_tmp=$(mktemp -d)
@@ -317,6 +319,12 @@ if [ -n "$PIPER_TGZ" ]; then
         for _so in "$_piper_dir"/*.so*; do
           [ -e "$_so" ] && cp "$_so" "$DATA_DIR/bin/" && chmod 755 "$DATA_DIR/bin/$(basename "$_so")"
         done
+        # espeak-ng-data: ESSENCIAL para o Piper (falha sem isto em VPSs sem espeak-ng instalado)
+        _espeak_data=$(find "$_piper_tmp" -name "espeak-ng-data" -type d 2>/dev/null | head -1)
+        if [ -n "$_espeak_data" ]; then
+          cp -a "$_espeak_data" "$DATA_DIR/bin/"
+          echo "    Piper: pasta espeak-ng-data copiada."
+        fi
         [ "$_piper_needs_libs" = "1" ] && echo "    Piper: bibliotecas .so copiadas (reparação)."
       fi
     else

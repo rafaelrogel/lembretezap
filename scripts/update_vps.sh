@@ -111,7 +111,36 @@ if [ -f ".env" ]; then
       echo "    Caminhos de TTS atualizados no .env."
     fi
   else
-    echo "    ✅ Configuração de TTS parece correta ou não configurada."
+    # Validar se falta o espeak-ng-data (causa erro de síntese)
+    _espeak_path="${DATA_DIR}/bin/espeak-ng-data"
+    if [ ! -d "$_espeak_path" ] && [ -f "${DATA_DIR}/bin/piper" ]; then
+      echo "    ⚠️ Aviso: Pasta espeak-ng-data não encontrada em: $_espeak_path"
+      echo "    A tentar reparação automática do motor de áudio..."
+      
+      PIPER_RELEASE="2023.11.14-2"
+      PIPER_ARCH=$(uname -m)
+      case "$PIPER_ARCH" in
+        x86_64)   PIPER_TGZ="piper_linux_x86_64.tar.gz" ;;
+        aarch64)  PIPER_TGZ="piper_linux_aarch64.tar.gz" ;;
+        armv7l)   PIPER_TGZ="piper_linux_armv7l.tar.gz" ;;
+        *)        PIPER_TGZ="" ;;
+      esac
+      
+      if [ -n "$PIPER_TGZ" ]; then
+        _piper_tmp=$(mktemp -d)
+        PIPER_URL="https://github.com/rhasspy/piper/releases/download/${PIPER_RELEASE}/${PIPER_TGZ}"
+        if curl -fsSL "$PIPER_URL" -o "$_piper_tmp/piper.tar.gz"; then
+          tar -xzf "$_piper_tmp/piper.tar.gz" -C "$_piper_tmp"
+          _espeak_src=$(find "$_piper_tmp" -name "espeak-ng-data" -type d 2>/dev/null | head -1)
+          if [ -n "$_espeak_src" ]; then
+            cp -a "$_espeak_src" "${DATA_DIR}/bin/"
+            echo "    ✅ Pasta espeak-ng-data restaurada com sucesso."
+          fi
+        fi
+        rm -rf "$_piper_tmp"
+      fi
+    fi
+    echo "    ✅ Configuração de TTS parece correta."
   fi
 fi
 echo ""

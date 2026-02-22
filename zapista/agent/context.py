@@ -197,7 +197,15 @@ Skills with available="false" need dependencies (apt/brew).
             from zoneinfo import ZoneInfo
             _ts = ts_override or _now_ts
             _time_str = datetime.fromtimestamp(_ts, tz=ZoneInfo(tz_iana)).strftime("%H:%M")
-            time_block += f'\n## Timezone (user)\n{tz_iana}\n\nTodas as horas que o user disser (ex.: 11h, amanhã 9h) são **neste** fuso. Calcula in_seconds para que o lembrete dispare nessa hora local. Quando o user perguntar que horas são, responde com esta hora e indica o fuso (ex.: "São {_time_str}, fuso {tz_iana}").'
+            time_block += f'''
+## Timezone (user)
+{tz_iana}
+
+Sempre que confirmares um lembrete ou compromisso, indica explicitamente o horário E o fuso utilizado (ex.: "Marcado para as 19:00, fuso do Amapá").
+Se o utilizador pedir algo noutro fuso (ex.: "19h no Amapá") e tu estiveres em Lisboa, deves confirmar que percebeste a diferença se houver ambiguidade.
+Quando o user perguntar que horas são, responde com esta hora e indica o fuso (ex.: "São {_time_str}, fuso {tz_iana}").
+NUNCA inventes ou assumas fusos diferentes do indicado acima, salvo se o utilizador o disser explicitamente.
+'''
         else:
             time_block += "\nQuando o user perguntar que horas são, responde com a Current Time acima e indica que é UTC."
         

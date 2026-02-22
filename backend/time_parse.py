@@ -110,6 +110,22 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
     except Exception:
         now = datetime.fromtimestamp(_now_ts)
 
+    # Detect explicit timezone mention (e.g. "no fuso do Amapá", "no fuso de Lisboa")
+    original_tz_iana = tz_iana
+    m_tz = re.search(r"(?:no\s+fuso\s+d[eoa]|em)\s+([^,.\s?]+(?:\s+[^,.\s?]+)?)", text_lower)
+    if m_tz:
+        try:
+            from backend.timezone import city_to_iana
+            possible_city = m_tz.group(1).strip()
+            found_tz = city_to_iana(possible_city)
+            if found_tz:
+                tz_iana = found_tz
+                z = ZoneInfo(tz_iana)
+                now = datetime.fromtimestamp(_now_ts, tz=z)
+                logger.info(f"parse_lembrete_time: overriding tz '{original_tz_iana}' with '{found_tz}' from '{possible_city}'")
+        except Exception:
+            pass
+
     for pattern in (RE_LEMBRETE_DAQUI, RE_LEMBRETE_EM):
         m = pattern.search(text)
         if m:

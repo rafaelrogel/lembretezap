@@ -5023,3 +5023,59 @@
 {"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/stats", "changed": false}, "timestamp": 1771680470044.2715, "hypothesisId": "H1"}
 {"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": "/stats"}, "timestamp": 1771680470044.2715, "hypothesisId": "H2"}
 {"location": "router.route.handler_return", "message": "route", "data": {"handler": "handle_stats", "out_preview": "Erro ao carregar estat\u00edsticas: (sqlite3.OperationalError) no such column: users."}, "timestamp": 1771680470116.0693, "hypothesisId": "H3"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/ajuda"}, "timestamp": 1771713847840.0955, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/help", "changed": true}, "timestamp": 1771713847840.0955, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/ayuda"}, "timestamp": 1771713847841.1003, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/help", "changed": true}, "timestamp": 1771713847841.1003, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/remind caf\u00e9 em 5 min"}, "timestamp": 1771713847841.1003, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/lembrete caf\u00e9 em 5 min", "changed": true}, "timestamp": 1771713847841.1003, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/recordatorio caf\u00e9 ma\u00f1ana"}, "timestamp": 1771713847841.1003, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/lembrete caf\u00e9 ma\u00f1ana", "changed": true}, "timestamp": 1771713847842.1006, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/done 456"}, "timestamp": 1771713847842.1006, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/feito 456", "changed": true}, "timestamp": 1771713847842.1006, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/hecho mercado 123"}, "timestamp": 1771713847842.1006, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/feito mercado 123", "changed": true}, "timestamp": 1771713847842.1006, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/remove compras 1"}, "timestamp": 1771713847843.0999, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/remove compras 1", "changed": false}, "timestamp": 1771713847843.0999, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/borrar 789"}, "timestamp": 1771713847843.0999, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/remove 789", "changed": true}, "timestamp": 1771713847843.0999, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/time"}, "timestamp": 1771713847843.0999, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/hora", "changed": true}, "timestamp": 1771713847843.0999, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/hora"}, "timestamp": 1771713847844.1, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/hora", "changed": false}, "timestamp": 1771713847844.1, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/date"}, "timestamp": 1771713847844.1, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/data", "changed": true}, "timestamp": 1771713847844.1, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/fecha"}, "timestamp": 1771713847845.0994, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/data", "changed": true}, "timestamp": 1771713847845.0994, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/event festa"}, "timestamp": 1771713847845.662, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/evento festa", "changed": true}, "timestamp": 1771713847845.662, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/compromisso m\u00e9dico"}, "timestamp": 1771713847845.662, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/evento m\u00e9dico", "changed": true}, "timestamp": 1771713847845.662, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/ajuda"}, "timestamp": 1771713871603.5298, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/help", "changed": true}, "timestamp": 1771713871603.5298, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/ayuda"}, "timestamp": 1771713871604.5278, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/help", "changed": true}, "timestamp": 1771713871604.5278, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/remind caf\u00e9 em 5 min"}, "timestamp": 1771713871605.5325, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/lembrete caf\u00e9 em 5 min", "changed": true}, "timestamp": 1771713871605.5325, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/recordatorio caf\u00e9 ma\u00f1ana"}, "timestamp": 1771713871605.5325, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/lembrete caf\u00e9 ma\u00f1ana", "changed": true}, "timestamp": 1771713871605.5325, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/done 456"}, "timestamp": 1771713871606.5273, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/feito 456", "changed": true}, "timestamp": 1771713871606.5273, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/hecho mercado 123"}, "timestamp": 1771713871606.5273, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/feito mercado 123", "changed": true}, "timestamp": 1771713871606.5273, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/remove compras 1"}, "timestamp": 1771713871607.5273, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/remove compras 1", "changed": false}, "timestamp": 1771713871607.5273, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/borrar 789"}, "timestamp": 1771713871607.5273, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/remove 789", "changed": true}, "timestamp": 1771713871607.5273, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/time"}, "timestamp": 1771713871607.5273, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/hora", "changed": true}, "timestamp": 1771713871607.5273, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/hora"}, "timestamp": 1771713871609.0315, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/hora", "changed": false}, "timestamp": 1771713871609.0315, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/date"}, "timestamp": 1771713871609.0315, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/data", "changed": true}, "timestamp": 1771713871609.0315, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/fecha"}, "timestamp": 1771713871610.0364, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/data", "changed": true}, "timestamp": 1771713871610.0364, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/event festa"}, "timestamp": 1771713871610.0364, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/evento festa", "changed": true}, "timestamp": 1771713871610.0364, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": "/compromisso m\u00e9dico"}, "timestamp": 1771713871611.0996, "hypothesisId": "H1"}
+{"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": "/evento m\u00e9dico", "changed": true}, "timestamp": 1771713871611.0996, "hypothesisId": "H1"}
