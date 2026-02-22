@@ -616,6 +616,7 @@ class CronTool(Tool):
                 delete_after_run=True,
                 payload_kind="deadline_check",
                 deadline_check_for_job_id=job.id,
+                parent_job_id=job.id,
             )
         # Avisos antes do evento: só quando o tipo de lembrete exige (reunião, voo, consulta...) ou evento muito longo (24h automático)
         pre_reminder_count = 0
@@ -641,6 +642,7 @@ class CronTool(Tool):
                                 to=self._chat_id,
                                 phone_for_locale=getattr(self, "_phone_for_locale", None),
                                 delete_after_run=True,
+                                parent_job_id=job.id,
                             )
                             pre_reminder_count = 1
                     else:
@@ -673,6 +675,7 @@ class CronTool(Tool):
                                 to=self._chat_id,
                                 phone_for_locale=getattr(self, "_phone_for_locale", None),
                                 delete_after_run=True,
+                                parent_job_id=job.id,
                             )
                             pre_reminder_count += 1
                 finally:
@@ -750,18 +753,21 @@ class CronTool(Tool):
     
     def _list_jobs(self) -> str:
         """Lista apenas os lembretes do usuário atual (payload.to == chat_id). Isolamento por conversa.
-        Nudge proativo (is_proactive_nudge) não aparece — é surpresa 12h antes."""
+        Nudge proativo, avisos e prazos internos não aparecem — apenas lembretes principais."""
         all_jobs = self._cron.list_jobs()
         jobs = [
             j for j in all_jobs
             if getattr(j.payload, "to", None) == self._chat_id
             and not getattr(j.payload, "is_proactive_nudge", False)
+            and not getattr(j.payload, "parent_job_id", None)
+            and not getattr(j.payload, "deadline_check_for_job_id", None)
+            and not getattr(j.payload, "deadline_main_job_id", None)
         ]
         from backend.locale import CRON_NO_REMINDERS, CRON_REMINDERS_HEADER
         _lang = self._get_user_lang()
         if not jobs:
             return CRON_NO_REMINDERS.get(_lang, CRON_NO_REMINDERS["en"])
-        lines = [f"- {j.name} (id: {j.id}, {j.schedule.kind})" for j in jobs]
+        lines = [f"• {j.name} ({j.schedule.kind})" for j in jobs]
         return CRON_REMINDERS_HEADER.get(_lang, CRON_REMINDERS_HEADER["en"]) + "\n" + "\n".join(lines)
     
     def _remove_job(self, job_id: str | None) -> str:
@@ -780,7 +786,9 @@ class CronTool(Tool):
             if j.id == job_id:
                 if getattr(j.payload, "to", None) != self._chat_id:
                     return CRON_JOB_NOT_YOURS.get(_lang, CRON_JOB_NOT_YOURS["en"]).format(job_id=job_id)
-                if self._cron.remove_job(job_id):
+                # Remove o job e todos os seus sub-jobs (avisos, prazos, etc)
+                removed_count = self._cron.remove_job_and_deadline_followups(job_id)
+                if removed_count > 0:
                     return CRON_REMOVED.get(_lang, CRON_REMOVED["en"]).format(job_id=job_id)
                 return CRON_JOB_NOT_FOUND.get(_lang, CRON_JOB_NOT_FOUND["en"]).format(job_id=job_id)
         # Lembrete único pode já ter sido executado e removido automaticamente

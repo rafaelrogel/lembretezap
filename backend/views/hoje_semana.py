@@ -11,11 +11,16 @@ if TYPE_CHECKING:
 def _events_in_period(db, user_id: int, today, end_date, tz) -> list:
     """Eventos (agenda) do user no intervalo [today, end_date]."""
     from backend.models_db import Event
+    from datetime import datetime, time
+
+    # Define the range in UTC
+    start_dt = datetime.combine(today, time.min).replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    end_dt = datetime.combine(end_date, time.max).replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
 
     events = db.query(Event).filter(
         Event.user_id == user_id,
         Event.deleted == False,
-        Event.data_at.isnot(None),
+        Event.data_at.between(start_dt, end_dt)
     ).all()
     out = []
     seen = set()

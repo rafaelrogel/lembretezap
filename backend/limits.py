@@ -41,7 +41,9 @@ def count_events_on_date(db, user_id: int, target_date: date, tz_iana: str = "UT
 
 
 def count_reminders_on_date(cron_service, chat_id: str, target_date: date, tz_iana: str = "UTC") -> int:
-    """Conta lembretes (jobs cron) do chat_id cujo next_run cai nessa data (no fuso do user)."""
+    """Conta lembretes (jobs cron) do chat_id cujo next_run cai nessa data (no fuso do user).
+    Ignora sub-jobs internos (avisos prévios, prazos) para não estourar o limite prematuramente.
+    """
     try:
         z = ZoneInfo(tz_iana)
     except Exception:
@@ -51,11 +53,23 @@ def count_reminders_on_date(cron_service, chat_id: str, target_date: date, tz_ia
     start_ms = int(start.timestamp() * 1000)
     end_ms = int(end.timestamp() * 1000)
 
-    jobs = cron_service.list_jobs() if hasattr(cron_service, "list_jobs") else []
+    jobs = cron_service.list_jobs(include_disabled=True) if hasattr(cron_service, "list_jobs") else []
     count = 0
     for j in jobs:
+        # Pular se não for deste utilizador
         if getattr(j.payload, "to", None) != chat_id:
             continue
+        
+        # Pular sub-jobs e automatismos (não contam para o limite de 40 lembretes do user)
+        if getattr(j.payload, "parent_job_id", None):
+            continue
+        if getattr(j.payload, "deadline_check_for_job_id", None):
+            continue
+        if getattr(j.payload, "deadline_main_job_id", None):
+            continue
+        if getattr(j.payload, "is_proactive_nudge", False):
+            continue
+
         nr = getattr(j.state, "next_run_at_ms", None)
         if nr is not None and start_ms <= nr <= end_ms:
             count += 1

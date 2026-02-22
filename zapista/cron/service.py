@@ -615,13 +615,15 @@ class CronService:
         return removed
 
     def remove_job_and_deadline_followups(self, job_id: str) -> int:
-        """Remove job + deadline_check + post-deadline 1/2/3. Retorna total removidos."""
+        """Remove job + deadline_check + pre-reminders + post-deadline 1/2/3. Retorna total removidos."""
         store = self._load_store()
         to_remove = {job_id}
         for j in store.jobs:
             if getattr(j.payload, "deadline_check_for_job_id", None) == job_id:
                 to_remove.add(j.id)
             if getattr(j.payload, "deadline_main_job_id", None) == job_id:
+                to_remove.add(j.id)
+            if getattr(j.payload, "parent_job_id", None) == job_id:
                 to_remove.add(j.id)
         before = len(store.jobs)
         store.jobs = [j for j in store.jobs if j.id not in to_remove]

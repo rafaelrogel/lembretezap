@@ -159,7 +159,7 @@ class EventTool(Tool):
                     time_suf = f" — {local.strftime('%H:%M %d/%m')}"
                 except Exception:
                     time_suf = f" — {e.data_at.strftime('%H:%M %d/%m')}"
-            lines.append(f"{e.id}. [{e.tipo}] {nome}{time_suf}{suf}")
+            lines.append(f"• [{e.tipo}] {nome}{time_suf}{suf}")
         return "\n".join(lines)
 
     def _remove(self, db, user_id: int, nome_ref: str) -> str:
@@ -182,27 +182,23 @@ class EventTool(Tool):
         except Exception:
             import time
             _now_ts = time.time()
+        from datetime import datetime, time as py_time
         today = datetime.fromtimestamp(_now_ts, tz=tz).date()
-        events = (
+
+        # Otimização: Filtrar por data diretamente no SQL
+        from zoneinfo import ZoneInfo
+        start_dt = datetime.combine(today, py_time.min).replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+        end_dt = datetime.combine(today, py_time.max).replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+
+        today_events = (
             db.query(Event)
             .filter(
                 Event.user_id == user_id,
                 Event.deleted == False,
-                Event.data_at.isnot(None),
+                Event.data_at.between(start_dt, end_dt)
             )
             .all()
         )
-        today_events = []
-        for ev in events:
-            if not ev.data_at:
-                continue
-            ev_date = ev.data_at if ev.data_at.tzinfo else ev.data_at.replace(tzinfo=ZoneInfo("UTC"))
-            try:
-                ev_local = ev_date.astimezone(tz).date()
-            except Exception:
-                ev_local = ev_date.date()
-            if ev_local == today:
-                today_events.append(ev)
         from backend.locale import EVENT_REMOVE_NOT_FOUND, EVENT_REMOVE_MULTIPLE, EVENT_REMOVED
         _lang = self._get_lang()
         ref_lower = nome_ref.lower()

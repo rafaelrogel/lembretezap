@@ -302,7 +302,7 @@ class ListTool(Tool):
         )
         if not items:
             return f"Lista '{list_name}' vazia."
-        lines = [f"{i.id}. {i.text}" for i in items]
+        lines = [f"{idx}. {i.text}" for idx, i in enumerate(items, 1)]
         return f"Lista **{list_name}**:\n" + "\n".join(lines)
 
     def _remove(self, db, user_id: int, list_name: str, item_id: int | None) -> str:
