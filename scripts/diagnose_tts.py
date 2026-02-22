@@ -1,77 +1,121 @@
 import os
 import sys
+import subprocess
 from pathlib import Path
+import re
 
-# Add project root to sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-try:
-    from zapista.tts.config import tts_enabled, piper_bin
-    from zapista.tts.service import synthesize_voice_note
-    from loguru import logger
-except ImportError as e:
-    print(f"❌ Error: Could not import zapista modules. Run this from the project root. {e}")
-    sys.exit(1)
+def load_env(env_path):
+    """Simple parser for .env files."""
+    env = {}
+    if not env_path.exists():
+        return env
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, val = line.split("=", 1)
+                env[key.strip()] = val.strip().strip('"').strip("'")
+    return env
 
 def diagnose():
-    print("=== Zapista TTS Diagnostic ===")
+    print("=== Zapista TTS Diagnostic (Standalone) ===")
     
-    # 1. Environment Variables
-    enabled = os.environ.get("TTS_ENABLED", "Not Set")
-    pbin = os.environ.get("PIPER_BIN", "Not Set")
-    mbase = os.environ.get("TTS_MODELS_BASE", "Not Set")
+    # 1. Load context
+    root = Path(__file__).parent.parent
+    env_path = root / ".env"
+    env = load_env(env_path)
     
-    print(f"Environment:")
+    print(f"Project root: {root}")
+    print(f"Found .env: {'✅' if env_path.exists() else '❌'}")
+    
+    # 2. Environment Variables (priority: OS env > .env file)
+    enabled = os.environ.get("TTS_ENABLED") or env.get("TTS_ENABLED", "Not Set")
+    pbin = os.environ.get("PIPER_BIN") or env.get("PIPER_BIN", "Not Set")
+    mbase = os.environ.get("TTS_MODELS_BASE") or env.get("TTS_MODELS_BASE", "Not Set")
+    
+    print(f"\nConfiguration:")
     print(f"  TTS_ENABLED: {enabled}")
     print(f"  PIPER_BIN: {pbin}")
     print(f"  TTS_MODELS_BASE: {mbase}")
     
-    # 2. config.py Logic
-    is_active = tts_enabled()
-    bin_path = piper_bin()
-    print(f"\nLogic (config.py):")
-    print(f"  tts_enabled(): {is_active}")
-    print(f"  piper_bin(): {bin_path}")
-    
     # 3. File System Checks
     print(f"\nFile System:")
-    if bin_path:
-        p = Path(bin_path)
+    bin_ok = False
+    if pbin != "Not Set":
+        p = Path(pbin)
         if p.exists():
-            print(f"  ✅ Piper binary found: {bin_path}")
-            if not os.access(bin_path, os.X_OK):
-                print(f"  ❌ Piper binary is NOT executable!")
+            print(f"  ✅ Piper binary found: {pbin}")
+            if os.access(pbin, os.X_OK):
+                bin_ok = True
+                print(f"  ✅ Piper binary is executable.")
+            else:
+                print(f"  ❌ Piper binary is NOT executable! Try: chmod +x {pbin}")
         else:
-            print(f"  ❌ Piper binary NOT found at {bin_path}")
+            print(f"  ❌ Piper binary NOT found at {pbin}")
     else:
-        print(f"  ❌ PIPER_BIN is empty.")
+        print(f"  ❌ PIPER_BIN is not configured.")
         
+    models_ok = False
     if mbase != "Not Set":
         p = Path(mbase)
         if p.exists() and p.is_dir():
             print(f"  ✅ Models directory found: {mbase}")
             onnx_files = list(p.glob("**/*.onnx"))
             print(f"  Found {len(onnx_files)} .onnx models.")
+            if len(onnx_files) > 0:
+                models_ok = True
         else:
             print(f"  ❌ Models directory NOT found or not a directory: {mbase}")
     
-    # 4. Attempt Test Synthesis
-    if is_active and bin_path and Path(bin_path).exists():
-        print(f"\nAttempting test synthesis...")
+    # 4. Attempt Test Synthesis using SUBPROCESS directly
+    is_active = str(enabled).lower() in ("1", "true", "yes")
+    
+    if bin_ok and models_ok:
+        print(f"\nAttempting test synthesis via subprocess...")
         test_text = "Teste de diagnóstico do sistema Zapista."
-        # Use a dummy chat_id
+        output_wav = root / "test_synthesis.wav"
+        
+        # Try to find a model to use
+        onnx_files = list(Path(mbase).glob("**/*.onnx"))
+        model_path = str(onnx_files[0])
+        config_path = model_path + ".json"
+        
+        print(f"  Using model: {model_path}")
+        
         try:
-            res = synthesize_voice_note(test_text, "diagnostic_test")
-            if res and res.exists():
-                print(f"  ✅ Success! Generated: {res}")
-                print(f"  Size: {res.stat().st_size} bytes")
-                # res.unlink() # Keep it for manual check if needed
+            cmd = [
+                pbin,
+                "--model", model_path,
+                "--config", config_path,
+                "--output_file", str(output_wav)
+            ]
+            print(f"  Running: {' '.join(cmd)}")
+            
+            proc = subprocess.Popen(
+                cmd,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+            stdout, stderr = proc.communicate(input=test_text, timeout=10)
+            
+            if proc.returncode == 0 and output_wav.exists():
+                print(f"  ✅ Success! Generated: {output_wav}")
+                print(f"  Size: {output_wav.stat().st_size} bytes")
+                # output_wav.unlink() # Cleanup
             else:
-                print(f"  ❌ Failed: synthesize_voice_note returned None or file doesn't exist.")
+                print(f"  ❌ Failed (code {proc.returncode})")
+                if stderr:
+                    print(f"  Error: {stderr[:500]}")
         except Exception as e:
             print(f"  ❌ Exception during synthesis: {e}")
     else:
-        print(f"\n⚠️ Skipping test synthesis because TTS is not fully configured.")
+        print(f"\n⚠️ Skipping test synthesis because prerequisites are not met.")
+        if not is_active:
+            print("  Note: TTS_ENABLED is not set to 1.")
 
     print("\n=== End of Diagnostic ===")
 
