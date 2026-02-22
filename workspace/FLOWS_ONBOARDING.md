@@ -29,13 +29,13 @@ B: Olá! Sou a tua assistente de organização — listas, lembretes e agenda. �
 
 ---
 
-U: Lisboa
+U: Manaus
 
 B: Tudo certo! ✨ Já podes pedir lembretes, listas e eventos...
     💡 Quando receberes um lembrete, reage à mensagem...
     /reset para refazer o cadastro quando quiseres.
 
-[db: city=Lisboa, timezone=Europe/Lisbon]
+[db: city=Manaus, timezone=America/Manaus]
 [session: pending_timezone removido]
 ```
 
@@ -186,7 +186,7 @@ B: Que horas são aí agora? (Assim acerto o fuso dos teus lembretes.)
 ## Fluxo 8: Já tem fuso (onboarding concluído ou /tz) — zero bloqueio
 
 ```
-[db: user.timezone=Europe/Lisbon]
+[db: user.timezone=America/Manaus]
 
 U: (qualquer mensagem)
 

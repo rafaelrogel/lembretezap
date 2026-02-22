@@ -552,7 +552,7 @@ def build_help_commands_list(lang: LangCode) -> str:
 # Segunda vez que o cliente vê a agenda no mesmo dia: perguntar se já realizou e se quer remover
 AGENDA_SECOND_VIEW_PROMPT: dict[LangCode, str] = {
     "pt-PT": "\n\nJá realizaste ou concluíste algum destes eventos? Queres que eu remova algum da agenda? Podes dizer qual (quais) para eu remover.",
-    "pt-BR": "\n\nJá realizou ou concluiu algum destes eventos? Quer que eu remova algum da agenda? Pode dizer qual (quais) para eu remover.",
+    "pt-BR": "\n\nJá realizou ou concluiu algum desses eventos? Quer que eu remova algum da agenda? Pode dizer qual (quais) para eu remover.",
     "es": "\n\n¿Ya realizaste o concluiste alguno de estos eventos? ¿Quieres que quite alguno de la agenda? Puedes decir cuál (cuáles) para que lo quite.",
     "en": "\n\nHave you already done or completed any of these events? Do you want me to remove any from the agenda? You can say which one(s) for me to remove.",
 }
@@ -635,7 +635,7 @@ REMINDER_DATE_PAST_SCHEDULED: dict[LangCode, str] = {
 # Lembretes removidos por estarem no passado (bug/API): desculpa e compromisso
 STALE_REMOVAL_APOLOGY: dict[LangCode, str] = {
     "pt-PT": "Peço desculpa: removi {count} lembrete(s) que estavam no passado e não deviam estar na lista: {removed_list}. Já aprendi com isto e o erro não se vai repetir. 🙏",
-    "pt-BR": "Peço desculpa: removi {count} lembrete(s) que estavam no passado e não deviam estar na lista: {removed_list}. Já aprendi com isso e o erro não vai se repetir. 🙏",
+    "pt-BR": "Sinto muito: removi {count} lembrete(s) que estavam no passado e não deveriam estar na lista: {removed_list}. Já aprendi com isso e o erro não vai se repetir. 🙏",
     "es": "Lo siento: he eliminado {count} recordatorio(s) que estaban en el pasado y no deberían estar en la lista: {removed_list}. Ya he aprendido y el error no se repetirá. 🙏",
     "en": "I'm sorry: I removed {count} reminder(s) that were in the past and shouldn't have been in the list: {removed_list}. I've learned from this and the error won't happen again. 🙏",
 }
@@ -1328,10 +1328,25 @@ VIEW_NO_REMINDERS_TODAY: dict[LangCode, str] = {
     "en": "• No reminders scheduled for today.",
 }
 
+
 VIEW_NO_EVENTS_TODAY: dict[LangCode, str] = {
     "pt-PT": "• Nenhum evento hoje.",
     "pt-BR": "• Nenhum evento hoje.",
     "es": "• Ningún evento hoy.",
     "en": "• No events today.",
+}
+
+UNIFICADO_EMPTY: dict[LangCode, str] = {
+    "pt-PT": "Não tens lembretes nem listas. Queres adicionar algum? 😊",
+    "pt-BR": "Você não tem lembretes nem listas. Quer adicionar algum? 😊",
+    "es": "No tienes recordatorios ni listas. ¿Quieres añadir algo? 😊",
+    "en": "You don't have any reminders or lists. Would you like to add one? 😊",
+}
+
+VIEW_LABEL_HOJE: dict[LangCode, str] = {
+    "pt-PT": "📅 **Hoje**",
+    "pt-BR": "📅 **Hoje**",
+    "es": "📅 **Hoy**",
+    "en": "📅 **Today**",
 }
 

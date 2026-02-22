@@ -42,10 +42,10 @@ Obrigado, Marta! 📋
 Próximo passo: em que cidade estás? (Assim acertamos o fuso para as horas dos lembretes.)
 
 **Utilizador:**  
-Lisboa.
+Manaus.
 
 **Sistema:**  
-Perfeito, Lisboa está registada. 🌍  
+Perfeito, Manaus está registada. 🌍  
 Agora os avisos: quando agendas um evento (ex.: médico às 15h do dia 1 de outubro), enviamos-te **um lembrete na hora** (15h do dia 1) e **outro X tempo antes**. Quanto tempo antes queres esse primeiro aviso? (Ex.: 1 dia, 2 horas ou 30 minutos.)
 
 **Utilizador:**  

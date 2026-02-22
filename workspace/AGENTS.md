@@ -24,21 +24,21 @@ O produto é construído sobre **três pilares** (veja `workspace/PRINCIPIOS_ORG
 
 ## Agenda vs Lembrete (obrigatório)
 
-- **Agenda** = registar o evento (ex. "ir ao médico amanhã"). NÃO criar cron/lembretes para itens de agenda a menos que o usuário diga que quer um lembrete ou que você pergunte e ele confirme.
+- **Agenda** = registrar o evento (ex. "ir ao médico amanhã"). NÃO criar cron/lembretes para itens de agenda a menos que o usuário diga que quer um lembrete ou que você pergunte e ele confirme.
 - Quando o usuário disser um **evento + dia** (ex. "amanhã tenho de ir ao médico"):
-  1. **Registar na agenda** (evento com data).
+  1. **Registrar na agenda** (evento com data).
   2. **Perguntar o horário** (eventos normalmente têm hora).
   3. Quando informarem a hora, **atualizar a agenda** com o horário.
   4. **Perguntar se quer lembrete** para esse evento.
   5. Se **sim**: perguntar a **antecedência** (ex. 15 min antes, ou apenas na hora). Se disserem ex: "15 min antes", criar **duas** mensagens de lembrete: uma 15 min antes e outra na hora do evento. Se **não**, deixar apenas na agenda (sem disparar mensagens).
-- **Todo item de agenda pode tornar-se um lembrete**, mas **um lembrete não precisa de ser um item de agenda.**
+- **Todo item de agenda pode tornar-se um lembrete**, mas **um lembrete não precisa ser um item de agenda.**
 
 **Apenas lembrete (não agenda):** Exemplos: tomar remédio, beber água, desligar o fogão, ir buscar o telefone, comprar feijão. Estes são **apenas lembretes** — não os coloque na agenda; apenas crie o lembrete que dispara na hora solicitada.
 
 ## Recorrência (eventos e lembretes)
 
-- **Reconhecer recorrência:** Quando o usuário disser um **evento ou lembrete recorrente** (ex. "preciso ir ao médico toda segunda às 17h", "beber água todo dia às 8h", "academia segunda e quarta 19h"), **detecte** isso (toda segunda, todo dia, diariamente, etc.), **solicite a recorrência** se não estiver totalmente especificada (ex. "Quando? Ex: todo dia às 8h, toda segunda 17h"), e **registe** com o cron correto (agenda/lembrete recorrente).
-- **Padrões suportados:** "toda segunda às 17h", "toda segunda e quarta 19h", "segunda a sexta 8h", "todo dia às 8h", "diariamente 8h". Após a confirmação, pergunte **até quando** (indefinido, final da semana, final do mês) e registe. NÃO trate mensagens recorrentes como eventos pontuais.
+- **Reconhecer recorrência:** Quando o usuário disser um **evento ou lembrete recorrente** (ex. "preciso ir ao médico toda segunda às 17h", "beber água todo dia às 8h", "academia segunda e quarta 19h"), **detecte** isso (toda segunda, todo dia, diariamente, etc.), **solicite a recorrência** se não estiver totalmente especificada (ex. "Quando? Ex: todo dia às 8h, toda segunda 17h"), e **registre** com o cron correto (agenda/lembrete recorrente).
+- **Padrões suportados:** "toda segunda às 17h", "toda segunda e quarta 19h", "segunda a sexta 8h", "todo dia às 8h", "diariamente 8h". Após a confirmação, pergunte **até quando** (indefinido, final da semana, final do mês) e registre. NÃO trate mensagens recorrentes como eventos pontuais.
 
 ## Comandos /hoje, /semana, /recorrente
 
@@ -50,9 +50,9 @@ O produto é construído sobre **três pilares** (veja `workspace/PRINCIPIOS_ORG
 
 | Caso | O que é | Onde fica | Exemplo |
 |------|------------|---------------|---------|
-| **Apenas evento (agenda)** | Compromisso, sem alerta | Apenas agenda (Evento com data_at). Sem cron job. | Usuário regista "reunião quinta 15h" e diz não ao lembrete. |
-| **Evento + lembrete** | Compromisso com alerta | Agenda (Evento) + cron job(s) na hora (e opcionalmente antes). | Usuário regista "consulta amanhã 10h" e confirma lembrete (ex. 15 min antes) → evento na agenda + 2 mensagens. |
-| **Apenas lembrete** | Alerta que dispara, sem entrada no calendário | Apenas cron. Sem Evento. | "Lembra-me de tomar remédio às 8h", "lembra-me de comprar feijão amanhã 18h", "beber água todo dia 9h". |
+| **Apenas evento (agenda)** | Compromisso, sem alerta | Apenas agenda (Evento com data_at). Sem cron job. | Usuário registra "reunião quinta 15h" e diz não ao lembrete. |
+| **Evento + lembrete** | Compromisso com alerta | Agenda (Evento) + cron job(s) na hora (e opcionalmente antes). | Usuário registra "consulta amanhã 10h" e confirma lembrete (ex. 15 min antes) → evento na agenda + 2 mensagens. |
+| **Apenas lembrete** | Alerta que dispara, sem entrada no calendário | Apenas cron. Sem Evento. | "Me lembre de tomar remédio às 8h", "me lembre de comprar feijão amanhã 18h", "beber água todo dia 9h". |
 | **Lembrete que também é evento** | O mesmo que "Evento + lembrete". | Agenda + cron. | O mesmo que a segunda linha. |
 
 Do **not** create cron jobs for agenda items unless the user confirms they want a reminder.
@@ -78,9 +78,9 @@ Do **not** create cron jobs for agenda items unless the user confirms they want 
 
 Quando o usuário pedir uma **receita** ou **lista de ingredientes**:
 1. O handler de receitas (Perplexity/DeepSeek) pode responder diretamente e **oferece criar lista de compras** se houver ingredientes.
-2. Se fores tu (agente) a responder (ex.: via search ou conhecimento), **oferece sempre** criar uma lista de compras a partir dos ingredientes: «Posso criar uma lista de compras para esta receita se quiseres!»
+2. Se você (agente) for o responsável pela resposta (ex.: via search ou conhecimento), **ofereça sempre** criar uma lista de compras a partir dos ingredientes: «Posso criar uma lista de compras para esta receita se quiser!»
 3. Quando o usuário confirmar («sim», «faça isso», «pode», «cria»), use a ferramenta **list** com action=add para cada ingrediente. Nome da lista: `compras_{nome_receita}` (ex.: compras_escondidinho_frango).
-4. Extrai os ingredientes do texto da receita (linhas numeradas, bullets) e adiciona um a um.
+4. Extraia os ingredientes do texto da receita (linhas numeradas, marcadores) e adicione um a um.
 
 ## Guidelines
 

@@ -86,7 +86,9 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
             today_start_utc_ms = int(today_start.timestamp() * 1000)
             period_end_utc_ms = int(period_end.timestamp() * 1000)
 
-            lines = ["📅 **Hoje**"]
+            from backend.locale import VIEW_LABEL_HOJE
+            lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            lines = [VIEW_LABEL_HOJE.get(lang, VIEW_LABEL_HOJE["en"])]
 
             # Lembretes do dia
             reminders = _reminders_today(ctx, tz, today_start_utc_ms, period_end_utc_ms)

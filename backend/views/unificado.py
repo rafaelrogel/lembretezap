@@ -49,5 +49,8 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
             parts.append("📋 **Listas:** Nenhum registado.")
 
     if not parts:
-        return "Não tens lembretes nem listas. Queres adicionar algum?"
+        from backend.locale import UNIFICADO_EMPTY
+        from backend.user_store import get_user_language
+        lang = get_user_language(ctx.db if hasattr(ctx, "db") else None, ctx.chat_id) or "pt-BR"
+        return UNIFICADO_EMPTY.get(lang, UNIFICADO_EMPTY["en"])
     return "\n\n".join(parts)
