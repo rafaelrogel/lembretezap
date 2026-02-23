@@ -122,7 +122,18 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
         getattr(j.payload, "to", None) == ctx.chat_id and _is_pomodoro_job(j)
         for j in jobs
     ):
-        return "🍅 Já tens um Pomodoro ativo. /pomodoro stop para cancelar e iniciar outro. 🍅"
+        from backend.user_store import get_user_language
+        from backend.database import SessionLocal
+        from backend.locale import POMODORO_ALREADY_ACTIVE
+        lang = "pt-BR"
+        try:
+            db = SessionLocal()
+            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+            db.close()
+        except Exception:
+            pass
+        msg = POMODORO_ALREADY_ACTIVE.get(lang, POMODORO_ALREADY_ACTIVE["pt-BR"])
+        return f"🍅 {msg} 🍅"
 
     try:
         result = await ctx.cron_tool.execute(

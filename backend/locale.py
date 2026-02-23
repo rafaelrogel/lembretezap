@@ -144,6 +144,22 @@ PREFERRED_NAME_QUESTION: dict[LangCode, str] = {
 }
 
 
+AMBIGUOUS_CHOICE_MSG: dict[LangCode, str] = {
+    "pt-PT": "Queres que eu crie uma *lista de afazeres* (to-do) com estes itens ou preferes registar cada um como *lembrete* com horário? Também posso fazer *os dois*. Responde: *lista*, *lembretes* ou *os dois*.",
+    "pt-BR": "Você quer que eu crie uma *lista de tarefas* (to-do) com estes itens ou prefere registrar cada um como *lembrete* com horário? Também posso fazer *os dois*. Responda: *lista*, *lembretes* ou *os dois*.",
+    "es": "¿Quieres que cree una *lista de tareas* (to-do) con estos elementos o prefieres registrar cada uno como *recordatorio* con horario? También puedo hacer *ambos*. Responde: *lista*, *recordatorios* o *ambos*.",
+    "en": "Do you want me to create a *to-do list* with these items or would you rather register each one as a *reminder* with a time? I can also do *both*. Reply: *list*, *reminders*, or *both*.",
+}
+
+
+POMODORO_ALREADY_ACTIVE: dict[LangCode, str] = {
+    "pt-PT": "Já tens um Pomodoro ativo. /pomodoro stop para cancelar e iniciar outro.",
+    "pt-BR": "Você já tem um Pomodoro ativo. /pomodoro stop para cancelar e iniciar outro.",
+    "es": "Ya tienes un Pomodoro activo. /pomodoro stop para cancelar e iniciar otro.",
+    "en": "You already have a Pomodoro active. /pomodoro stop to cancel and start another.",
+}
+
+
 def preferred_name_confirmation(lang: LangCode, name: str) -> str:
     """Mensagem de confirmação após gravar o nome preferido do usuário."""
     msgs = {

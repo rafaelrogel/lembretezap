@@ -641,10 +641,19 @@ async def handle_list_or_events_ambiguous(ctx: HandlerContext, content: str) -> 
     if len(items) < 2:
         return None
     set_pending(ctx.channel, ctx.chat_id, "list_or_events_choice", {"items": items})
-    return (
-        "Queres que eu crie uma *lista de afazeres* (to-do) com estes itens ou prefires registar cada um como *lembrete* com horário? "
-        "Também posso fazer *os dois*. Responde: *lista*, *lembretes* ou *os dois*."
-    )
+    from backend.user_store import get_user_language
+    from backend.database import SessionLocal
+    from backend.locale import AMBIGUOUS_CHOICE_MSG
+    lang = "pt-BR"
+    try:
+        db = SessionLocal()
+        lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+        db.close()
+    except Exception:
+        pass
+    
+    msg = AMBIGUOUS_CHOICE_MSG.get(lang, AMBIGUOUS_CHOICE_MSG["pt-BR"])
+    return msg
 
 
 async def handle_list(ctx: HandlerContext, content: str) -> str | None:
