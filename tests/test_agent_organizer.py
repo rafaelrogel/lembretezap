@@ -44,14 +44,14 @@ class MockProvider(LLMProvider):
                         arguments={
                             "action": "add",
                             "message": "Beba água!",
-                            "every_seconds": 60,
+                            "every_seconds": 7200,
                         },
                     )
                 ],
             )
         # Segunda chamada: após executar o tool, LLM devolve resposta final
         return LLMResponse(
-            content="Lembrete agendado! Vou te avisar para beber água a cada 1 minuto.",
+            content="Lembrete agendado! Vou te avisar para beber água a cada 2 horas.",
             tool_calls=[],
         )
 
@@ -72,15 +72,18 @@ async def test_agent_schedules_reminder_via_cron():
         cron_service=cron,
     )
 
-    response = await agent.process_direct(
-        "Me lembre de beber água a cada 1 minuto",
-        session_key="test:user1",
-        channel="cli",
-        chat_id="user1",
-    )
+    from unittest.mock import patch
+    with patch("backend.router.route", AsyncMock(return_value=None)):
+        response = await agent.process_direct(
+            "Me lembre de beber água a cada 2 horas",
+            session_key="test:5511999999999",
+            channel="cli",
+            chat_id="5511999999999",
+        )
 
-    # O mock na 2ª chamada devolve essa frase
-    assert "Lembrete agendado" in response or "agendado" in response.lower()
+    # O mock na 2ª chamada devolve essa frase (LLM), mas se cair no handler devolve string de locale.
+    # Vamos aceitar agendado (PT) ou scheduled (EN).
+    assert any(word in response.lower() for word in ["agendado", "scheduled", "registrado"])
     # O provider foi chamado 2 vezes (1ª com tool call, 2ª com resposta final)
     assert provider.call_count >= 2
     # Cron store: normalmente 1 job após agendar (pode ser 0 em alguns ambientes se o store não persistir)

@@ -158,6 +158,12 @@ def is_vague_time_reminder(text: str) -> tuple[bool, str, str]:
         return False, "", ""
     if not has_reminder_intent(text):
         return False, "", ""
+    try:
+        from backend.recurring_event_flow import has_recurrence_indicator
+        if has_recurrence_indicator(text):
+            return False, "", ""
+    except Exception:
+        pass
     content, date_label = extract_content_and_date(text)
     if not content or len(content.strip()) < 2:
         return False, "", ""
@@ -178,6 +184,12 @@ def is_vague_date_reminder(text: str) -> tuple[bool, str, int, int]:
         return False, "", 0, 0
     if not has_reminder_intent(text):
         return False, "", 0, 0
+    try:
+        from backend.recurring_event_flow import has_recurrence_indicator
+        if has_recurrence_indicator(text):
+            return False, "", 0, 0
+    except Exception:
+        pass
     content, hour, minute = extract_content_and_hour(text)
     if not content or len(content.strip()) < 2:
         return False, "", 0, 0

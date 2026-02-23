@@ -68,36 +68,35 @@ COMMAND_ALIASES: Sequence[tuple[str, Sequence[str]]] = (
     ("/alcorao", ("/alcorao", "/alcorão", "/quran", "/sura")),
 )
 
-# Construir set de todos os aliases em minúsculas para match rápido
-_CANONICAL_BY_ALIAS: dict[str, str] = {}
-for canonical, aliases in COMMAND_ALIASES:
-    for a in aliases:
-        _CANONICAL_BY_ALIAS[a.lower().strip()] = canonical
-
+# Lista de todos os aliases ordenada pelo tamanho (descrescente) para match de prefixo mais longo
+_SORTED_ALIASES: list[tuple[str, str]] = sorted(
+    [(a.lower().strip(), canonical) for canonical, aliases in COMMAND_ALIASES for a in aliases],
+    key=lambda x: len(x[0]),
+    reverse=True
+)
 
 def normalize_command(content: str) -> str:
-    """Substitui o primeiro token (comando) pela forma canónica se for um alias conhecido."""
+    """Substitui o comando inicial pela forma canónica se for um alias conhecido (suporta multi-word)."""
     import json as _j, os as _os
     _log_path = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", "nanobot", ".cursor", "debug.log"))
-    # #region agent log
-    try: open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "command_i18n.normalize_command.entry", "message": "normalize_command", "data": {"content_in": content[:200] if content else None}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n"); pass
-    except Exception: pass
-    # #endregion
+    
     if not content or not isinstance(content, str):
         return content
     t = content.strip()
     if not t:
         return content
-    m = re.match(r"^(\S+)(?:\s+(.*))?$", t, re.DOTALL)
-    if not m:
-        return content
-    first, rest = m.group(1), (m.group(2) or "").strip()
-    canonical = _CANONICAL_BY_ALIAS.get(first.lower())
-    if canonical is None:
-        return content
-    out = f"{canonical} {rest}" if rest else canonical
-    # #region agent log
-    try: open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "command_i18n.normalize_command.exit", "message": "normalize_command", "data": {"content_out": out[:200], "changed": out != content}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n"); pass
-    except Exception: pass
-    # #endregion
-    return out
+    
+    tl = t.lower()
+    for alias, canonical in _SORTED_ALIASES:
+        # Se começa por alias + espaço ou é exatamente o alias
+        if tl == alias or tl.startswith(alias + " "):
+            rest = t[len(alias):].strip()
+            out = f"{canonical} {rest}" if rest else canonical
+            
+            # #region agent log
+            try: open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "command_i18n.normalize_command", "message": "normalized", "data": {"in": content[:100], "out": out, "alias": alias}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n"); pass
+            except Exception: pass
+            # #endregion
+            return out
+            
+    return content

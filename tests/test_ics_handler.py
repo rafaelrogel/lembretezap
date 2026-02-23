@@ -35,8 +35,15 @@ async def test_handle_ics_payload_empty():
 @pytest.mark.asyncio
 async def test_handle_ics_payload_invalid():
     from backend.ics_handler import handle_ics_payload
+    import unicodedata
     out = await handle_ics_payload("351912345678", "351912345678", "not ics content", db_session_factory=None)
-    assert "inválido" in out.lower() or "invalid" in out.lower() or "Calendário" in out
+    print(f"DEBUG: out={out}")
+    
+    def strip_accents(s):
+        return "".join(c for c in unicodedata.normalize('NFKD', s) if not unicodedata.combining(c)).lower()
+        
+    normalized_out = strip_accents(out)
+    assert "invalido" in normalized_out or "invalid" in normalized_out or "calendario" in normalized_out
 
 
 @pytest.mark.asyncio

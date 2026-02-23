@@ -66,7 +66,7 @@ _RE_DIARIAMENTE = re.compile(
 RECURRENCE_INDICATORS = re.compile(
     r"\b(toda?\s+(?:segunda|terça|terca|quarta|quinta|sexta|sábado|sabado|domingo|semana)|"
     r"todo\s+dia|diariamente|semanalmente|mensalmente|toda\s+semana|"
-    r"every\s+day|daily|weekly|monthly)\b",
+    r"a\s+cada|cada|at\s+every|every\s+day|daily|weekly|monthly)\b",
     re.I,
 )
 

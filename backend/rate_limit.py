@@ -3,7 +3,7 @@
 Uses token bucket (capacity + refill rate) instead of fixed/sliding window:
 allows short bursts up to capacity, then steady refill. Thread-safe, O(1) state per user.
 
-Configurável via RATE_LIMIT_MAX_PER_MINUTE (ex.: 60 para testes com vários utilizadores).
+Configurável via RATE_LIMIT_MAX_PER_MINUTE (ex.: 60-120 para testes com vários utilizadores ou stress tests).
 """
 
 import os

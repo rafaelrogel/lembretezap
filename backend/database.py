@@ -76,6 +76,19 @@ def _is_using_sqlcipher() -> bool:
 
 
 ENGINE = _make_engine()
+
+# Configurações globais de performance (SQLite)
+from sqlalchemy import event
+
+@event.listens_for(ENGINE, "connect")
+def _set_sqlite_pragmas(dbapi_conn, connection_record):
+    cursor = dbapi_conn.cursor()
+    # WAL mode permite leituras e escritas concorrentes (essencial para stress test)
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")  # Balanço entre performance e segurança
+    cursor.close()
+
+
 _using_sqlcipher = _DB_PASSPHRASE and _is_using_sqlcipher()
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=ENGINE)
 
