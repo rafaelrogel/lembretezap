@@ -39,8 +39,10 @@ _DEFAULT_ES = {
 
 
 def _digits_from_chat_id(chat_id: str) -> str:
-    """Extrai só os dígitos do chat_id (ex.: 5511999999999@s.whatsapp.net → 5511999999999)."""
-    if not chat_id:
+    """Extrai só os dígitos do chat_id (ex.: 5511999999999@s.whatsapp.net → 5511999999999).
+    Ignora IDs @lid pois não são números de telefone reais.
+    """
+    if not chat_id or "@lid" in chat_id:
         return ""
     return "".join(c for c in str(chat_id).split("@")[0] if c.isdigit())
 

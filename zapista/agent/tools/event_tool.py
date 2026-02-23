@@ -7,26 +7,31 @@ from backend.database import SessionLocal
 from backend.user_store import get_or_create_user, get_user_language
 from backend.models_db import Event, AuditLog
 from backend.sanitize import sanitize_string, sanitize_payload, MAX_EVENT_NAME_LEN
+from backend.timezone import phone_to_default_timezone
 
 
 class EventTool(Tool):
     """Add or list events (filme, livro, musica, generic evento)."""
 
     def __init__(self):
+        self._channel = ""
         self._chat_id = ""
+        self._phone_for_locale = None
 
     def _get_lang(self) -> str:
         try:
             db = SessionLocal()
             try:
-                return get_user_language(db, self._chat_id) or "pt-BR"
+                return get_user_language(db, self._chat_id, self._phone_for_locale) or "pt-BR"
             finally:
                 db.close()
         except Exception:
             return "pt-BR"
 
-    def set_context(self, channel: str, chat_id: str) -> None:
+    def set_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
+        self._channel = channel
         self._chat_id = chat_id
+        self._phone_for_locale = phone_for_locale
 
     @property
     def name(self) -> str:

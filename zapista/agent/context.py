@@ -31,6 +31,7 @@ class ContextBuilder:
         self,
         skill_names: list[str] | None = None,
         session_key: str | None = None,
+        phone_for_locale: str | None = None,
     ) -> str:
         """
         Build the system prompt from bootstrap files, memory, and skills.
@@ -38,6 +39,7 @@ class ContextBuilder:
         Args:
             skill_names: Optional list of skills to include.
             session_key: Optional session key (channel:chat_id) to scope memory per user and avoid data leakage.
+            phone_for_locale: Optional phone number for timezone/language inference when chat_id is LID.
         
         Returns:
             Complete system prompt.
@@ -65,7 +67,7 @@ class ContextBuilder:
                 from zoneinfo import ZoneInfo
                 _db = SessionLocal()
                 try:
-                    _tz_iana = get_user_timezone(_db, _chat_id)
+                    _tz_iana = get_user_timezone(_db, _chat_id, phone_for_locale)
                     if _tz_iana:
                         _z = ZoneInfo(_tz_iana)
                         _dt_local = _dt_utc.astimezone(_z)
@@ -76,11 +78,11 @@ class ContextBuilder:
             except Exception as e:
                 logger.debug("context: get_user_timezone failed (chat_id prefix: {}): {}", (session_key or "").split(":", 1)[-1][:24] if session_key else "", e)
             # Se não tem timezone na BD, inferir pelo número (ex.: 351... → Europe/Lisbon)
-            if now_for_prompt is None and session_key and ":" in session_key:
+            if now_for_prompt is None and (phone_for_locale or (session_key and ":" in session_key)):
                 try:
                     from backend.timezone import phone_to_default_timezone
-                    _chat_id = session_key.split(":", 1)[1]
-                    _tz_iana = phone_to_default_timezone(_chat_id)
+                    _chat_id_to_infer = phone_for_locale or session_key.split(":", 1)[1]
+                    _tz_iana = phone_to_default_timezone(_chat_id_to_infer)
                     if _tz_iana and _tz_iana != "UTC":
                         from zoneinfo import ZoneInfo
                         _z = ZoneInfo(_tz_iana)
@@ -98,7 +100,7 @@ class ContextBuilder:
                     _chat_id = session_key.split(":", 1)[1]
                     _db = SessionLocal()
                     try:
-                        _lang = get_user_language(_db, _chat_id)
+                        _lang = get_user_language(_db, _chat_id, phone_for_locale)
                         if _lang and _lang in DEFAULT_TZ_BY_LANG:
                             _tz_iana = DEFAULT_TZ_BY_LANG[_lang]
                             _z = ZoneInfo(_tz_iana)
@@ -265,6 +267,7 @@ You are NOT a chatbot for fun. You do NOT tell jokes, stories, or recipes unless
         channel: str | None = None,
         chat_id: str | None = None,
         user_lang: str | None = None,
+        phone_for_locale: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Build the complete message list for an LLM call.
@@ -276,6 +279,8 @@ You are NOT a chatbot for fun. You do NOT tell jokes, stories, or recipes unless
             media: Optional list of local file paths for images/media.
             channel: Current channel (e.g. whatsapp).
             chat_id: Current chat/user ID.
+            user_lang: Current user language.
+            phone_for_locale: Optional phone number for inference.
 
         Returns:
             List of messages including system prompt.
@@ -284,7 +289,7 @@ You are NOT a chatbot for fun. You do NOT tell jokes, stories, or recipes unless
 
         # System prompt (memory scoped by session so users don't see each other's data)
         session_key = f"{channel}:{chat_id}" if (channel and chat_id) else None
-        system_prompt = self.build_system_prompt(skill_names, session_key=session_key)
+        system_prompt = self.build_system_prompt(skill_names, session_key=session_key, phone_for_locale=phone_for_locale)
         if channel and chat_id:
             system_prompt += f"\n\n## Current Session\nChannel: {channel}\nChat ID: {chat_id}"
         if user_lang:

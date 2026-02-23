@@ -193,7 +193,7 @@ class CronTool(Tool):
                     tz_iana = "UTC"
                     db = SessionLocal()
                     try:
-                        tz_iana = get_user_timezone(db, self._chat_id) or phone_to_default_timezone(self._chat_id) or "UTC"
+                        tz_iana = get_user_timezone(db, self._chat_id, self._phone_for_locale) or phone_to_default_timezone(self._phone_for_locale or self._chat_id) or "UTC"
                     finally:
                         db.close()
                     
@@ -456,7 +456,7 @@ class CronTool(Tool):
                     
                     db = SessionLocal()
                     try:
-                        tz_name = get_user_timezone(db, self._chat_id) or phone_to_default_timezone(self._chat_id) or "UTC"
+                        tz_name = get_user_timezone(db, self._chat_id, self._phone_for_locale) or phone_to_default_timezone(self._phone_for_locale or self._chat_id) or "UTC"
                     finally:
                         db.close()
                     
@@ -510,7 +510,7 @@ class CronTool(Tool):
                 from backend.user_store import get_user_timezone
                 db = SessionLocal()
                 try:
-                    tz_iana = get_user_timezone(db, self._chat_id)
+                    tz_iana = get_user_timezone(db, self._chat_id, self._phone_for_locale)
                 finally:
                     db.close()
             except Exception:
@@ -737,7 +737,7 @@ class CronTool(Tool):
                 from backend.timezone import format_utc_timestamp_for_user, phone_to_default_timezone
                 db = SessionLocal()
                 try:
-                    tz = get_user_timezone(db, self._chat_id) or phone_to_default_timezone(self._chat_id) or "UTC"
+                    tz = get_user_timezone(db, self._chat_id, self._phone_for_locale) or phone_to_default_timezone(self._phone_for_locale or self._chat_id) or "UTC"
                     hora_str = format_utc_timestamp_for_user(at_sec_display, tz, show_seconds=_show_secs)
                     tz_label = CRON_TZ_LABEL_FROM_PHONE.get(_lang, CRON_TZ_LABEL_FROM_PHONE["en"])
                 finally:

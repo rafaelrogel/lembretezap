@@ -82,20 +82,20 @@ def set_user_language(db: Session, chat_id: str, lang: LangCode) -> None:
     db.commit()
 
 
-def get_user_timezone(db: Session, chat_id: str) -> str:
+def get_user_timezone(db: Session, chat_id: str, phone_for_locale: str | None = None) -> str:
     """Timezone do utilizador. Prioridade: (1) timezone/cidade informada pelo cliente (/tz ou onboarding),
     (2) inferido do número de telefone, (3) padrão do idioma. Assim o horário fica sempre ligado ao que
     o cliente informou quando possível."""
-    return _get_user_timezone_impl(db, chat_id)[0]
+    return _get_user_timezone_impl(db, chat_id, phone_for_locale)[0]
 
 
-def get_user_timezone_and_source(db: Session, chat_id: str) -> tuple[str, str]:
+def get_user_timezone_and_source(db: Session, chat_id: str, phone_for_locale: str | None = None) -> tuple[str, str]:
     """Mesmo que get_user_timezone, mas retorna (tz_iana, source) com source em 'db'|'phone'|'language'.
     Útil para mostrar dica '/tz Cidade' quando source != 'db'."""
-    return _get_user_timezone_impl(db, chat_id)
+    return _get_user_timezone_impl(db, chat_id, phone_for_locale)
 
 
-def _get_user_timezone_impl(db: Session, chat_id: str) -> tuple[str, str]:
+def _get_user_timezone_impl(db: Session, chat_id: str, phone_for_locale: str | None = None) -> tuple[str, str]:
     user = get_or_create_user(db, chat_id)
     # 1) Timezone/cidade informada pelo cliente (/tz ou onboarding com cidade)
     if user.timezone:
@@ -114,7 +114,7 @@ def _get_user_timezone_impl(db: Session, chat_id: str) -> tuple[str, str]:
         except Exception:
             pass
     # 2) Inferido do número de telefone
-    fallback = phone_to_default_timezone(chat_id)
+    fallback = phone_to_default_timezone(phone_for_locale or chat_id)
     # 3) Se ficou UTC, usar fuso padrão do idioma (chat_id pode ser LID sem dígitos)
     if fallback == "UTC" and getattr(user, "language", None) in DEFAULT_TZ_BY_LANG:
         fallback = DEFAULT_TZ_BY_LANG[user.language]

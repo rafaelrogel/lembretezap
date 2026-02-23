@@ -333,14 +333,11 @@ class AgentLoop:
             logger.debug(f"Sentiment check failed: {e}")
 
     def _set_tool_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
-        """Define canal/chat (e phone_for_locale para cron) em todas as tools que suportam."""
+        """Define canal/chat (e phone_for_locale para agendamento) em todas as tools que suportam."""
         for name, tool in (("message", MessageTool), ("cron", CronTool), ("list", ListTool), ("event", EventTool)):
             t = self.tools.get(name)
             if t and isinstance(t, tool):
-                if isinstance(t, CronTool):
-                    t.set_context(channel, chat_id, phone_for_locale)
-                else:
-                    t.set_context(channel, chat_id)
+                t.set_context(channel, chat_id, phone_for_locale)
 
     async def _execute_parsed_intent(self, intent: dict, msg: InboundMessage) -> str | None:
         """Executa intent do parser (cron, list, event). Retorna texto da resposta ou None para seguir ao LLM."""
@@ -934,7 +931,7 @@ class AgentLoop:
             from backend.smart_reminder import record_user_message_sent
             _db = SessionLocal()
             try:
-                _tz = get_user_timezone(_db, msg.chat_id) or "UTC"
+                _tz = get_user_timezone(_db, msg.chat_id, msg.metadata.get("phone_for_locale") if msg.metadata else None) or "UTC"
                 record_user_message_sent(msg.chat_id, _tz)
             finally:
                 _db.close()
@@ -997,7 +994,7 @@ class AgentLoop:
             db = SessionLocal()
             try:
                 user = get_or_create_user(db, msg.chat_id)
-                tz_iana = get_user_timezone(db, msg.chat_id) or "UTC"
+                tz_iana = get_user_timezone(db, msg.chat_id, msg.metadata.get("phone_for_locale") if msg.metadata else None) or "UTC"
                 try:
                     tz = ZoneInfo(tz_iana)
                 except Exception:
@@ -1751,7 +1748,8 @@ class AgentLoop:
                 from zoneinfo import ZoneInfo as _ZI
                 _ddb = _DateDB()
                 try:
-                    _tz_iana_date = _get_user_tz(_ddb, msg.chat_id) or "UTC"
+                    _phone_for_tz = msg.metadata.get("phone_for_locale") if msg.metadata else None
+                    _tz_iana_date = _get_user_tz(_ddb, msg.chat_id, _phone_for_tz) or "UTC"
                 finally:
                     _ddb.close()
                 if _tz_iana_date and _tz_iana_date != "UTC":
@@ -1771,6 +1769,7 @@ class AgentLoop:
             channel=msg.channel,
             chat_id=msg.chat_id,
             user_lang=user_lang,
+            phone_for_locale=msg.metadata.get("phone_for_locale") if msg.metadata else None,
         )
         
         # Agent loop

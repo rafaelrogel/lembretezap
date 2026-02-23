@@ -24,12 +24,16 @@ class ListTool(Tool):
     """Manage lists per user: add item, list items, remove, mark done (feito)."""
 
     def __init__(self, scope_provider=None, scope_model: str = ""):
+        self._channel = ""
         self._chat_id = ""
+        self._phone_for_locale = None
         self._scope_provider = scope_provider
         self._scope_model = (scope_model or "").strip()
 
-    def set_context(self, channel: str, chat_id: str) -> None:
+    def set_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
+        self._channel = channel
         self._chat_id = chat_id
+        self._phone_for_locale = phone_for_locale
 
     @property
     def name(self) -> str:
@@ -236,7 +240,8 @@ class ListTool(Tool):
             return []
         try:
             try:
-                tz_iana = get_user_timezone(db, self._chat_id)
+                from backend.timezone import phone_to_default_timezone
+                tz_iana = get_user_timezone(db, self._chat_id, self._phone_for_locale) or phone_to_default_timezone(self._phone_for_locale or self._chat_id) or "UTC"
                 z = ZoneInfo(tz_iana) if tz_iana else ZoneInfo("UTC")
             except Exception:
                 z = ZoneInfo("UTC")
