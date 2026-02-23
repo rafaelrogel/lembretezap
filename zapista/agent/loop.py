@@ -966,6 +966,12 @@ class AgentLoop:
         try:
             from backend.stale_removal_notifications import consume as consume_stale_removal
             send_apology, apology_text = consume_stale_removal(msg.channel, msg.chat_id)
+            # Fallback para transição LID/JID: se não encontrou no chat_id estabilizado, tenta o ID cru (raw_sender)
+            if not send_apology and msg.metadata and msg.metadata.get("raw_sender"):
+                raw_sender = msg.metadata.get("raw_sender")
+                if raw_sender != msg.chat_id:
+                    send_apology, apology_text = consume_stale_removal(msg.channel, raw_sender)
+
             if send_apology and apology_text:
                 await self.bus.publish_outbound(OutboundMessage(
                     channel=msg.channel,

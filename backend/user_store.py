@@ -27,6 +27,39 @@ def get_or_create_user(db: Session, phone: str) -> User:
     return user
 
 
+def migrate_user_identity(db: Session, lid_id: str, jid_id: str) -> bool:
+    """
+    Se o utilizador era conhecido por LID e agora temos o JID (pn),
+    migramos o registo LID para o JID para manter histórico e persona.
+    Retorna True se houve migração. O chat_id (baseado no pn) passa a ser o novo hash.
+    """
+    if not lid_id or not jid_id or lid_id == jid_id:
+        return False
+    if "@lid" not in lid_id or "@s.whatsapp.net" not in jid_id:
+        return False
+
+    h_lid = phone_hash(lid_id)
+    h_jid = phone_hash(jid_id)
+
+    # 1. Verificar se o JID já existe (se sim, já houve migração ou foi criado do zero)
+    user_jid = db.query(User).filter(User.phone_hash == h_jid).first()
+    if user_jid:
+        return False
+
+    # 2. Verificar se o LID existe para migrar
+    user_lid = db.query(User).filter(User.phone_hash == h_lid).first()
+    if user_lid:
+        from loguru import logger
+        logger.info(f"Identity Migration: Migrating LID {lid_id} -> JID {jid_id}")
+        user_lid.phone_hash = h_jid
+        # phone_truncated não precisa mudar se for só estatístico, mas podemos atualizar
+        user_lid.phone_truncated = _truncate_phone(jid_id)
+        db.commit()
+        return True
+
+    return False
+
+
 def get_user_language(db: Session, chat_id: str, phone_for_locale: str | None = None) -> LangCode:
     """Idioma do utilizador. Prioridade: 1) preferência guardada (set_user_language); 2) inferência pelo número.
     O valor guardado nunca é sobrescrito pelo número; timezone é independente.

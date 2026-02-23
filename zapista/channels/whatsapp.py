@@ -335,16 +335,31 @@ class WhatsAppChannel(BaseChannel):
             sender = data.get("sender", "")
             content = data.get("content", "")
 
-            # Fallback dedup quando o bridge não envia id: mesmo chat + mesmo texto em 30s = ignorar
-            if not msg_id and _is_duplicate_by_content(sender, content or ""):
-                logger.debug(f"Ignoring duplicate by content from {sender[:20]}...")
-                return
-
             # Extract just the phone number or lid as chat_id
             user_id = pn if pn else sender
             sender_id = user_id.split("@")[0] if "@" in user_id else user_id
+
+            # Fallback dedup (APÓS estabilização): mesmo chat + mesmo texto em 30s = ignorar
+            # Isto evita que a mesma msg (ex: "oi") enviada via LID e depois JID passe 2x.
+            if not msg_id and _is_duplicate_by_content(user_id, content or ""):
+                logger.debug(f"Ignoring duplicate by content from {user_id[:20]}...")
+                return
+
             # Se um tester não receber resposta, ver nos logs este valor e adiciona-o a allow_from no config
             logger.info(f"WhatsApp from sender={sender!r} pn={pn!r} → chat_id={user_id!r} (sender_id={sender_id!r})")
+
+            # Migração de identidade (LID -> JID) se detetarmos ambos no mesmo evento
+            if pn and sender and pn != sender and "@s.whatsapp.net" in pn and "@lid" in sender:
+                try:
+                    from backend.database import SessionLocal
+                    from backend.user_store import migrate_user_identity
+                    db = SessionLocal()
+                    try:
+                        migrate_user_identity(db, sender, pn)
+                    finally:
+                        db.close()
+                except Exception as e:
+                    logger.debug(f"Identity migration failed: {e}")
 
             # Handle voice transcription if it's a voice message (option A: base64 no payload)
             from backend.database import SessionLocal
@@ -659,6 +674,7 @@ class WhatsAppChannel(BaseChannel):
                 "is_group": False,
                 "trace_id": trace_id,
                 "phone_for_locale": pn or sender,
+                "raw_sender": sender,
             }
             # Nome do perfil WhatsApp (Baileys pushName) — usado no onboarding como fallback
             push_name = (data.get("pushName") or data.get("push_name") or "").strip()
@@ -719,6 +735,9 @@ class WhatsAppChannel(BaseChannel):
             db = SessionLocal()
             try:
                 job_id = lookup_job_by_message(db, user_id, message_id)
+                # Fallback para transição: se enviamos o lembrete para o LID, mas o user reagiu como JID
+                if not job_id and pn and chat_id and user_id != chat_id:
+                    job_id = lookup_job_by_message(db, chat_id, message_id)
             finally:
                 db.close()
             if not job_id:
