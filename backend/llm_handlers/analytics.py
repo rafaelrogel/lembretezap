@@ -54,7 +54,7 @@ async def handle_analytics(ctx: "HandlerContext", content: str) -> str | None:
         from zoneinfo import ZoneInfo
         from zapista.clock_drift import get_effective_time
         
-        tz_iana = get_user_timezone(db, ctx.chat_id) or phone_to_default_timezone(ctx.chat_id) or "UTC"
+        tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale) or phone_to_default_timezone(ctx.phone_for_locale or ctx.chat_id) or "UTC"
         z = ZoneInfo(tz_iana)
         now_ts = get_effective_time()
         now_local = datetime.fromtimestamp(now_ts, tz=z)

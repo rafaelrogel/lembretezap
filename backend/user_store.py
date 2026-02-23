@@ -188,7 +188,7 @@ def set_user_quiet(db: Session, chat_id: str, start_hhmm: str | None, end_hhmm: 
     return True
 
 
-def is_user_in_quiet_window(chat_id: str) -> bool:
+def is_user_in_quiet_window(chat_id: str, phone_for_locale: str | None = None) -> bool:
     """
     True se o utilizador está no horário silencioso (não enviar notificações).
     Usa timezone do user e hora atual nesse fuso.
@@ -198,16 +198,14 @@ def is_user_in_quiet_window(chat_id: str) -> bool:
     from backend.database import SessionLocal
     db = SessionLocal()
     try:
-        user = get_or_create_user(db, chat_id)
-        if not user.quiet_start or not user.quiet_end:
+        start_str, end_str = get_user_quiet(db, chat_id)
+        if not start_str or not end_str:
             return False
-        start = _parse_time_hhmm(user.quiet_start)
-        end = _parse_time_hhmm(user.quiet_end)
+        start = _parse_time_hhmm(start_str)
+        end = _parse_time_hhmm(end_str)
         if not start or not end:
             return False
-        tz_iana = user.timezone or phone_to_default_timezone(chat_id)
-        if tz_iana == "UTC" and getattr(user, "language", None) in DEFAULT_TZ_BY_LANG:
-            tz_iana = DEFAULT_TZ_BY_LANG[user.language]
+        tz_iana = get_user_timezone(db, chat_id, phone_for_locale)
         try:
             from zapista.clock_drift import get_effective_time
             _now_ts = get_effective_time()
@@ -224,7 +222,7 @@ def is_user_in_quiet_window(chat_id: str) -> bool:
         db.close()
 
 
-def get_seconds_until_quiet_end(chat_id: str) -> int:
+def get_seconds_until_quiet_end(chat_id: str, phone_for_locale: str | None = None) -> int:
     """
     Retorna quantos segundos faltam para o horário silencioso acabar.
     Se não estiver em horário silencioso, retorna 0.
@@ -235,19 +233,16 @@ def get_seconds_until_quiet_end(chat_id: str) -> int:
     
     db = SessionLocal()
     try:
-        user = get_or_create_user(db, chat_id)
-        if not user.quiet_start or not user.quiet_end:
+        start_str, end_str = get_user_quiet(db, chat_id)
+        if not start_str or not end_str:
             return 0
         
-        start = _parse_time_hhmm(user.quiet_start)
-        end = _parse_time_hhmm(user.quiet_end)
+        start = _parse_time_hhmm(start_str)
+        end = _parse_time_hhmm(end_str)
         if not start or not end:
             return 0
             
-        tz_iana = user.timezone or phone_to_default_timezone(chat_id)
-        if tz_iana == "UTC" and getattr(user, "language", None) in DEFAULT_TZ_BY_LANG:
-            tz_iana = DEFAULT_TZ_BY_LANG[user.language]
-            
+        tz_iana = get_user_timezone(db, chat_id, phone_for_locale)
         try:
             from zapista.clock_drift import get_effective_time
             _now_ts = get_effective_time()
@@ -270,15 +265,7 @@ def get_seconds_until_quiet_end(chat_id: str) -> int:
             return 0
             
         # Calcular segundos até end_m
-        # Criar datetime para o horário de fim
         end_dt = now.replace(hour=end[0], minute=end[1], second=0, microsecond=0)
-        
-        # Se end_dt é hoje mas já passou (caso de overnight window onde agora é antes da meia-noite),
-        # então o fim é amanhã.
-        # Mas aqui sabemos que estamos DENTRO da janela.
-        # Ex: 22h-08h. Agora = 23h. End = 08h (do dia seguinte).
-        # Ex: 22h-08h. Agora = 05h. End = 08h (do dia corrente).
-        
         if end_dt <= now:
             end_dt += timedelta(days=1)
             

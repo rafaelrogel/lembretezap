@@ -126,17 +126,18 @@ async def handle_agenda_remove(ctx: HandlerContext, content: str) -> str | None:
     db = SessionLocal()
     try:
         user = get_or_create_user(db, ctx.chat_id)
-        tz_iana = get_user_timezone(db, ctx.chat_id)
+        tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
         try:
-            tz = ZoneInfo(tz_iana)
+            ZoneInfo(tz_iana)
         except Exception:
-            tz = ZoneInfo("UTC")
+            tz_iana = "UTC"
+        tz = ZoneInfo(tz_iana)
 
         events_today = _events_today_for_user(db, user.id, tz)
         matched = _match_events(ref, events_today)
 
-        lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-        lang = resolve_response_language(lang, ctx.chat_id, None)
+        lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+        lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
         if lang not in _MSG_REMOVED:
             lang = "en"
 

@@ -18,14 +18,14 @@ def _visao_resumo_semana(ctx: "HandlerContext") -> str:
         db = SessionLocal()
         try:
             user = get_or_create_user(db, ctx.chat_id)
-            tz_iana = get_user_timezone(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
             try:
                 tz = ZoneInfo(tz_iana)
             except Exception:
                 tz = ZoneInfo("UTC")
             today = datetime.now(tz).date()
             stats = get_week_stats(db, ctx.chat_id, today, tz)
-            user_lang = get_user_language(db, ctx.chat_id)
+            user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale)
             preferred_name = get_user_preferred_name(db, ctx.chat_id)
             return build_weekly_recap_text(
                 stats=stats,
@@ -48,14 +48,14 @@ def _visao_resumo_mes(ctx: "HandlerContext") -> str:
         db = SessionLocal()
         try:
             get_or_create_user(db, ctx.chat_id)
-            tz_iana = get_user_timezone(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
             try:
                 tz = ZoneInfo(tz_iana)
             except Exception:
                 tz = ZoneInfo("UTC")
             today = datetime.now(tz).date()
             stats = get_month_stats(db, ctx.chat_id, today, tz, up_to_today=today)
-            user_lang = get_user_language(db, ctx.chat_id)
+            user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale)
             preferred_name = get_user_preferred_name(db, ctx.chat_id)
             return build_monthly_recap_text(
                 stats=stats,

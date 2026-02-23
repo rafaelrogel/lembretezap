@@ -21,7 +21,7 @@ from backend.handler_context import HandlerContext, _reply_confirm_prompt
 from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
 
 
-def _append_tz_hint_if_needed(reply: str, chat_id: str) -> str:
+def _append_tz_hint_if_needed(reply: str, chat_id: str, phone_for_locale: str | None = None) -> str:
     """Se o timezone não foi informado pelo cliente, acrescenta dica para /tz Cidade."""
     if not reply or not reply.strip():
         return reply
@@ -31,11 +31,11 @@ def _append_tz_hint_if_needed(reply: str, chat_id: str) -> str:
         from backend.locale import TZ_HINT_SET_CITY, resolve_response_language
         db = SessionLocal()
         try:
-            _, source = get_user_timezone_and_source(db, chat_id)
+            _, source = get_user_timezone_and_source(db, chat_id, phone_for_locale)
             if source == "db":
                 return reply
-            lang = get_user_language(db, chat_id) or "en"
-            lang = resolve_response_language(lang, chat_id, None)
+            lang = get_user_language(db, chat_id, phone_for_locale) or "en"
+            lang = resolve_response_language(lang, chat_id, phone_for_locale)
             hint = TZ_HINT_SET_CITY.get(lang, TZ_HINT_SET_CITY["en"])
             return f"{reply.strip()}\n\n{hint}"
         finally:
@@ -91,7 +91,7 @@ async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str 
     if not params:
         return None
 
-    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
     msg_text = (params.get("message") or "").strip()
     if not msg_text:
         return None
@@ -105,7 +105,7 @@ async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str 
         in_seconds=in_sec,
         cron_expr=cron_expr,
     )
-    return _append_tz_hint_if_needed(result, ctx.chat_id)
+    return _append_tz_hint_if_needed(result, ctx.chat_id, ctx.phone_for_locale)
 
 
 # ---------------------------------------------------------------------------
@@ -173,15 +173,15 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
     try:
         db = SessionLocal()
         try:
-            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-            user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
-            tz_iana = get_user_timezone(db, ctx.chat_id) or "UTC"
+            user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+            user_lang = resolve_response_language(user_lang, ctx.chat_id, ctx.phone_for_locale)
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale) or "UTC"
             try:
                 from zoneinfo import ZoneInfo
                 ZoneInfo(tz_iana)
             except Exception:
                 from backend.timezone import phone_to_default_timezone
-                tz_iana = phone_to_default_timezone(ctx.chat_id)
+                tz_iana = phone_to_default_timezone(ctx.phone_for_locale or ctx.chat_id)
         finally:
             db.close()
     except Exception:
@@ -308,13 +308,13 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                 if in_sec and in_sec > 0:
                     session.metadata.pop(FLOW_KEY, None)
                     ctx.session_manager.save(session)
-                    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+                    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                     result = await ctx.cron_tool.execute(
                         action="add",
                         message=msg_content,
                         in_seconds=in_sec,
                     )
-                    return _append_tz_hint_if_needed(result, ctx.chat_id)
+                    return _append_tz_hint_if_needed(result, ctx.chat_id, ctx.phone_for_locale)
 
             if looks_like_advance_preference_yes(text):
                 session.metadata[FLOW_KEY] = {
@@ -331,7 +331,7 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                 if in_sec and in_sec > 0:
                     session.metadata.pop(FLOW_KEY, None)
                     ctx.session_manager.save(session)
-                    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+                    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                     # 2 lembretes: aviso (in_sec - advance_sec) e na hora (in_sec)
                     advance_in_sec = max(60, in_sec - advance_sec)
                     r1 = await ctx.cron_tool.execute(
@@ -357,7 +357,7 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                 if in_sec and in_sec > 0:
                     session.metadata.pop(FLOW_KEY, None)
                     ctx.session_manager.save(session)
-                    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+                    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                     advance_in_sec = max(60, in_sec - advance_sec)
                     r1 = await ctx.cron_tool.execute(
                         action="add",
@@ -532,15 +532,15 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     try:
         db = SessionLocal()
         try:
-            tz_iana = get_user_timezone(db, ctx.chat_id) or "UTC"
-            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-            user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale) or "UTC"
+            user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+            user_lang = resolve_response_language(user_lang, ctx.chat_id, ctx.phone_for_locale)
             try:
                 from zoneinfo import ZoneInfo
                 ZoneInfo(tz_iana)
             except Exception:
                 from backend.timezone import phone_to_default_timezone
-                tz_iana = phone_to_default_timezone(ctx.chat_id)
+                tz_iana = phone_to_default_timezone(ctx.phone_for_locale or ctx.chat_id)
         finally:
             db.close()
     except Exception:
@@ -604,8 +604,8 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
             try:
                 db = SessionLocal()
                 try:
-                    user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-                    user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
+                    user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+                    user_lang = resolve_response_language(user_lang, ctx.chat_id, ctx.phone_for_locale)
                 finally:
                     db.close()
             except Exception:
@@ -616,7 +616,7 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
             if ask_msg:
                 return ask_msg
             return None
-    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
     result = await ctx.cron_tool.execute(
         action="add",
         message=msg_text,
@@ -672,7 +672,7 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
                         return r
         elif list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(item_text):
             return is_absurd_request(item_text)
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
     if intent.get("type") == "list_add":
         items_to_add = intent.get("items") or ([intent.get("item")] if intent.get("item") else [])
         if not items_to_add:
@@ -702,7 +702,7 @@ async def handle_entertainment(ctx: HandlerContext, content: str) -> str | None:
     if not ctx.event_tool:
         return None
     
-    ctx.event_tool.set_context(ctx.channel, ctx.chat_id)
+    ctx.event_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
     return await ctx.event_tool.execute(
         action="add",
         tipo=intent.get("event_type", "evento"),
@@ -728,7 +728,7 @@ async def handle_add(ctx: HandlerContext, content: str) -> str | None:
         list_name, item = parts[0], parts[1]
     if not ctx.list_tool:
         return None
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
     return await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
 
 
@@ -740,7 +740,7 @@ async def handle_feito(ctx: HandlerContext, content: str) -> str | None:
         return None
     if not ctx.list_tool:
         return None
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
     return await ctx.list_tool.execute(
         action="feito",
         list_name=intent.get("list_name") or "",
@@ -756,7 +756,7 @@ async def handle_remove(ctx: HandlerContext, content: str) -> str | None:
         return None
     if not ctx.list_tool:
         return None
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
     return await ctx.list_tool.execute(
         action="remove",
         list_name=intent.get("list_name") or "",
@@ -780,8 +780,8 @@ async def handle_hora_data(ctx: HandlerContext, content: str) -> str | None:
     try:
         db = SessionLocal()
         try:
-            tz_iana = get_user_timezone(db, ctx.chat_id) or "UTC"
-            lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale) or "UTC"
+            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
         finally:
             db.close()
     except Exception:
@@ -811,7 +811,7 @@ async def handle_hora_data(ctx: HandlerContext, content: str) -> str | None:
     else:
         # data
         from backend.locale import resolve_response_language
-        lang = resolve_response_language(lang, ctx.chat_id, None)
+        lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
         # Formato d/m/y para todos menos EN
         if lang == "en":
             fmt = "%Y-%m-%d"
@@ -855,8 +855,8 @@ async def handle_help(ctx: HandlerContext, content: str) -> str | list[str] | No
 
     db = SessionLocal()
     try:
-        user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-        user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
+        user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+        user_lang = resolve_response_language(user_lang, ctx.chat_id, ctx.phone_for_locale)
         main = build_help(user_lang)
         commands_msg = build_help_commands_list(user_lang)
         return [main, commands_msg]
@@ -878,7 +878,7 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
     try:
         db = SessionLocal()
         try:
-            tz_iana = get_user_timezone(db, ctx.chat_id) or "UTC"
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale) or "UTC"
         finally:
             db.close()
     except Exception:
@@ -895,7 +895,7 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
     if not (every_sec or cron_expr):
         return "📅 Usa algo como: /recorrente academia segunda 7h  ou  /recorrente beber água a cada 1 hora"
     depends_on = intent.get("depends_on_job_id")
-    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
     result = await ctx.cron_tool.execute(
         action="add",
         message=msg_text,
@@ -914,7 +914,7 @@ async def handle_pendente(ctx: HandlerContext, content: str) -> str | None:
         return None
     if not ctx.list_tool:
         return None
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
     return await ctx.list_tool.execute(action="list", list_name="")
 
 
@@ -1015,8 +1015,8 @@ async def handle_recurring_prompt(ctx: HandlerContext, content: str) -> str | No
     try:
         db = SessionLocal()
         try:
-            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-            user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
+            user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+            user_lang = resolve_response_language(user_lang, ctx.chat_id, ctx.phone_for_locale)
         finally:
             db.close()
     except Exception:
@@ -1079,15 +1079,15 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
     try:
         db = SessionLocal()
         try:
-            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-            user_lang = resolve_response_language(user_lang, ctx.chat_id, None)
-            tz_iana = get_user_timezone(db, ctx.chat_id) or "UTC"
+            user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+            user_lang = resolve_response_language(user_lang, ctx.chat_id, ctx.phone_for_locale)
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale) or "UTC"
             try:
                 from zoneinfo import ZoneInfo
                 ZoneInfo(tz_iana)
             except Exception:
                 from backend.timezone import phone_to_default_timezone
-                tz_iana = phone_to_default_timezone(ctx.chat_id)
+                tz_iana = phone_to_default_timezone(ctx.phone_for_locale or ctx.chat_id)
         finally:
             db.close()
     except Exception:
@@ -1139,7 +1139,7 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
                 if not_after_ms:
                     end_display = datetime.fromtimestamp(not_after_ms / 1000, tz=ZoneInfo(tz_iana)).strftime("%d/%m/%Y")
 
-            ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+            ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
             end_param = not_after_ms if not_after_ms else None
             result = await ctx.cron_tool.execute(
                 action="add",
@@ -1156,7 +1156,7 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
                     out = RECURRING_REGISTERED.get(user_lang, RECURRING_REGISTERED["en"]).format(
                         event=event, schedule=schedule_display
                     )
-                return _append_tz_hint_if_needed(out, ctx.chat_id)
+                return _append_tz_hint_if_needed(out, ctx.chat_id, ctx.phone_for_locale)
             return result
 
     # --- Novo pedido: detectar evento recorrente com horário ---

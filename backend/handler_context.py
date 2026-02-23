@@ -24,6 +24,7 @@ class HandlerContext:
     scope_model: str | None = None  # modelo a usar (ex. xiaomi_mimo/mimo-v2-flash)
     main_provider: Any = None  # LLMProvider (DeepSeek) para mensagens empáticas (ex.: atendimento)
     main_model: str | None = None  # modelo principal do agente
+    phone_for_locale: str | None = None  # número real para inferir fuso/idioma em sessões LID
 
 
 def _reply_confirm_prompt(msg: str) -> str:

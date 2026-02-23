@@ -190,7 +190,7 @@ async def handle_recipe(ctx: "HandlerContext", content: str) -> str | None:
         from backend.database import SessionLocal
         db = SessionLocal()
         try:
-            user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
         finally:
             db.close()
     except Exception:

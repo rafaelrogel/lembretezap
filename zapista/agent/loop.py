@@ -1425,6 +1425,7 @@ class AgentLoop:
             from backend.router import route as handlers_route
             from backend.handlers import handle_list as handle_list_fn
             from backend.command_parser import parse as parse_cmd
+            _p_for_l = msg.metadata.get("phone_for_locale") if msg.metadata else None
             ctx = HandlerContext(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
@@ -1437,6 +1438,7 @@ class AgentLoop:
                 scope_model=self.scope_model,
                 main_provider=self.provider,
                 main_model=self.model,
+                phone_for_locale=_p_for_l,
             )
             # Listas: tratar primeiro para não cair no LLM (evita "sistema de listas com erro" por histórico)
             intent = None
@@ -1509,7 +1511,8 @@ class AgentLoop:
                     _norm = {"livros": "livro", "filmes": "filme", "receitas": "receita", "musicas": "musica", "compras": "mercado", "books": "livro", "movies": "filme", "recipes": "receita"}
                     list_name = _norm.get(list_name, list_name)
                     try:
-                        ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+                        _p_for_l = msg.metadata.get("phone_for_locale") if msg.metadata else None
+                        ctx.list_tool.set_context(ctx.channel, ctx.chat_id, _p_for_l)
                         result = await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
                         if result:
                             logger.info("List intent handled via fallback regex: list_name=%s", list_name)
@@ -1540,7 +1543,8 @@ class AgentLoop:
                                         if _s.metadata.get("onboarding_intro_sent") and _s.metadata.get("nudge_append_done") != True:
                                             _s.metadata["nudge_append_done"] = True
                                             self.sessions.save(_s)
-                                            _lang = _get_lang(_db, msg.chat_id) or "en"
+                                            _p_for_l = msg.metadata.get("phone_for_locale") if msg.metadata else None
+                                            _lang = _get_lang(_db, msg.chat_id, _p_for_l) or "en"
                                             result = result + "\n\n" + NUDGE_TZ_WHEN_MISSING.get(_lang, NUDGE_TZ_WHEN_MISSING["en"])
                                 finally:
                                     _db.close()
@@ -1593,7 +1597,8 @@ class AgentLoop:
                             if _s.metadata.get("onboarding_intro_sent") and _s.metadata.get("nudge_append_done") != True:
                                 _s.metadata["nudge_append_done"] = True
                                 self.sessions.save(_s)
-                                _lang = _get_lang(_db, msg.chat_id) or "en"
+                                _p_for_l = msg.metadata.get("phone_for_locale") if msg.metadata else None
+                                _lang = _get_lang(_db, msg.chat_id, _p_for_l) or "en"
                                 result = result + "\n\n" + NUDGE_TZ_WHEN_MISSING.get(_lang, NUDGE_TZ_WHEN_MISSING["en"])
                     finally:
                         _db.close()

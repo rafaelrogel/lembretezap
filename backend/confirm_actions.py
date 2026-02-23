@@ -10,7 +10,7 @@ def _get_lang(ctx: HandlerContext) -> str:
         from backend.user_store import get_user_language
         db = SessionLocal()
         try:
-            return get_user_language(db, ctx.chat_id) or "pt-BR"
+            return get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
         finally:
             db.close()
     except Exception:
@@ -99,7 +99,7 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
             items = (pending.get("payload") or {}).get("items") or []
             if choice == "lista":
                 if items and ctx.list_tool:
-                    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+                    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                     for it in items:
                         await ctx.list_tool.execute(action="add", list_name="hoje", item_text=it)
                     from backend.locale import CONFIRM_LIST_CREATED
@@ -112,7 +112,7 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                 return CONFIRM_REMINDERS_HINT.get(_get_lang(ctx), CONFIRM_REMINDERS_HINT["en"])
             if choice == "os dois":
                 if items and ctx.list_tool:
-                    ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+                    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                     for it in items:
                         await ctx.list_tool.execute(action="add", list_name="hoje", item_text=it)
                     from backend.locale import CONFIRM_LIST_AND_REMINDERS
@@ -129,7 +129,7 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
             ingredients = payload.get("ingredients") or []
             list_name = payload.get("list_name") or "compras_receita"
             if ingredients and ctx.list_tool:
-                ctx.list_tool.set_context(ctx.channel, ctx.chat_id)
+                ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                 for item in ingredients:
                     await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
                 from backend.locale import CONFIRM_RECIPE_LIST_CREATED
@@ -158,7 +158,7 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
             in_sec = payload.get("in_seconds")
             msg_text = (payload.get("message") or "").strip()
             if in_sec and in_sec > 0 and msg_text and ctx.cron_tool:
-                ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+                ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                 result = await ctx.cron_tool.execute(
                     action="add",
                     message=msg_text,
@@ -171,7 +171,7 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                     from backend.database import SessionLocal
                     db = SessionLocal()
                     try:
-                        lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                        lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
                         scheduled_msg = REMINDER_DATE_PAST_SCHEDULED.get(lang, REMINDER_DATE_PAST_SCHEDULED["pt-BR"])
                     finally:
                         db.close()

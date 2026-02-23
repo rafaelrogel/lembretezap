@@ -17,7 +17,7 @@ async def handle_atendimento_request(ctx: HandlerContext, content: str) -> str |
         from backend.user_store import get_user_language
         db = SessionLocal()
         try:
-            user_lang = get_user_language(db, ctx.chat_id)
+            user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale)
         finally:
             db.close()
     except Exception:

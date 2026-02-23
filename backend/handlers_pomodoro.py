@@ -73,7 +73,7 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
     if not ctx.cron_service or not ctx.cron_tool:
         return "🍅 Pomodoro: o cron não está disponível neste canal. 🍅"
 
-    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
 
     # /pomodoro stop
     if sub == "stop":
@@ -140,7 +140,7 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
             from backend.timezone import format_utc_timestamp_for_user
             db = SessionLocal()
             try:
-                tz = get_user_timezone(db, ctx.chat_id)
+                tz = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
                 end_sec = int(time.time()) + POMODORO_WORK_SEC
                 end_str = format_utc_timestamp_for_user(end_sec, tz)
             finally:
@@ -159,7 +159,7 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
             from backend.database import SessionLocal
             try:
                 db = SessionLocal()
-                lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
                 db.close()
             except Exception:
                 lang = "pt-BR"

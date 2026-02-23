@@ -18,7 +18,7 @@ def _visao_produtividade(ctx: "HandlerContext", mode: str = "semana") -> str:
         db = SessionLocal()
         try:
             user = get_or_create_user(db, ctx.chat_id)
-            tz_iana = get_user_timezone(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
             try:
                 tz = ZoneInfo(tz_iana)
             except Exception:

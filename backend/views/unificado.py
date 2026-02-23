@@ -30,7 +30,7 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
     parts = []
 
     if ctx.cron_tool:
-        ctx.cron_tool.set_context(ctx.channel, ctx.chat_id)
+        ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
         cron_out = await ctx.cron_tool.execute(action="list")
         if "Nenhum lembrete" not in cron_out:
             parts.append(cron_out)
@@ -38,7 +38,7 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
             parts.append("📅 **Lembretes:** Nenhum agendado.")
 
     if ctx.event_tool:
-        ctx.event_tool.set_context(ctx.channel, ctx.chat_id)
+        ctx.event_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
         try:
             event_out = await ctx.event_tool.execute(action="list", tipo="")
         except Exception:
@@ -51,6 +51,6 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
     if not parts:
         from backend.locale import UNIFICADO_EMPTY
         from backend.user_store import get_user_language
-        lang = get_user_language(ctx.db if hasattr(ctx, "db") else None, ctx.chat_id) or "pt-BR"
+        lang = get_user_language(ctx.db if hasattr(ctx, "db") else None, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
         return UNIFICADO_EMPTY.get(lang, UNIFICADO_EMPTY["en"])
     return "\n\n".join(parts)

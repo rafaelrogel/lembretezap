@@ -17,7 +17,7 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
         try:
             db = SessionLocal()
             try:
-                return get_user_language(db, ctx.chat_id) or "pt-BR"
+                return get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             finally:
                 db.close()
         except Exception:
@@ -28,8 +28,8 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
         try:
             db = SessionLocal()
             try:
-                lg = get_user_language(db, ctx.chat_id) or "pt-BR"
-                tz_current = get_user_timezone(db, ctx.chat_id)
+                lg = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+                tz_current = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
                 if tz_current:
                     from backend.timezone import phone_to_default_timezone
                     def_tz = phone_to_default_timezone(ctx.chat_id)
@@ -66,7 +66,7 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
         from backend.user_store import set_user_timezone
         db = SessionLocal()
         try:
-            lg = get_user_language(db, ctx.chat_id) or "pt-BR"
+            lg = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             if set_user_timezone(db, ctx.chat_id, tz_iana):
                 return SETTINGS_TZ_SET.get(lg, SETTINGS_TZ_SET["en"]).format(tz=tz_iana)
             return SETTINGS_TZ_INVALID.get(lg, SETTINGS_TZ_INVALID["en"])
@@ -93,7 +93,7 @@ async def handle_lang(ctx: HandlerContext, content: str) -> str | None:
         try:
             db = SessionLocal()
             try:
-                lg = get_user_language(db, ctx.chat_id) or "pt-BR"
+                lg = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             finally:
                 db.close()
         except Exception:
@@ -112,7 +112,7 @@ async def handle_lang(ctx: HandlerContext, content: str) -> str | None:
         try:
             db2 = SessionLocal()
             try:
-                lg = get_user_language(db2, ctx.chat_id) or "pt-BR"
+                lg = get_user_language(db2, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             finally:
                 db2.close()
         except Exception:
@@ -216,7 +216,7 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
         db = SessionLocal()
         try:
             clear_onboarding_data(db, ctx.chat_id)
-            lang: LangCode = get_user_language(db, ctx.chat_id) or "pt-BR"
+            lang: LangCode = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
         finally:
             db.close()
     except Exception:
@@ -335,8 +335,8 @@ async def handle_nuke(ctx: HandlerContext, content: str) -> str | None:
         from backend.locale import resolve_response_language
         db = SessionLocal()
         try:
-            lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-            lang = resolve_response_language(lang, ctx.chat_id, None)
+            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+            lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
         finally:
             db.close()
     except Exception:

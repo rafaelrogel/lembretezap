@@ -71,7 +71,7 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
         db = SessionLocal()
         try:
             user = get_or_create_user(db, ctx.chat_id)
-            tz_iana = get_user_timezone(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
             try:
                 tz = ZoneInfo(tz_iana)
             except Exception:
@@ -92,7 +92,7 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
             period_end_utc_ms = int(period_end.timestamp() * 1000)
 
             from backend.locale import VIEW_LABEL_HOJE
-            lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             lines = [VIEW_LABEL_HOJE.get(lang, VIEW_LABEL_HOJE["en"])]
 
             # Lembretes do dia
@@ -103,7 +103,7 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
                     lines.append(f"• {dt.strftime('%H:%M')} — {msg[:50]}{'…' if len(msg) > 50 else ''}")
             else:
                 from backend.locale import VIEW_NO_REMINDERS_TODAY
-                _lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                _lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
                 lines.append(VIEW_NO_REMINDERS_TODAY.get(_lang, VIEW_NO_REMINDERS_TODAY["en"]))
 
             # Agenda (eventos) do dia
@@ -115,12 +115,12 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
                 # Oferecer criar lembrete antes do evento (ex.: 15 min antes)
                 from backend.user_store import get_user_language
                 from backend.locale import AGENDA_OFFER_REMINDER, resolve_response_language
-                lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-                lang = resolve_response_language(lang, ctx.chat_id, None)
+                lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+                lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
                 lines.append(AGENDA_OFFER_REMINDER.get(lang, AGENDA_OFFER_REMINDER["en"]))
             else:
                 from backend.locale import VIEW_NO_EVENTS_TODAY
-                _lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                _lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
                 lines.append(VIEW_NO_EVENTS_TODAY.get(_lang, VIEW_NO_EVENTS_TODAY["en"]))
 
             # Segunda vez que vê a agenda no mesmo dia: perguntar se já realizou e se quer remover
@@ -130,8 +130,8 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
 
             count = record_agenda_view(ctx.chat_id, today.isoformat())
             if count >= 2:
-                lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-                lang = resolve_response_language(lang, ctx.chat_id, None)
+                lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+                lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
                 lines.append(AGENDA_SECOND_VIEW_PROMPT.get(lang, AGENDA_SECOND_VIEW_PROMPT["en"]))
 
             return "\n".join(lines)
@@ -152,7 +152,7 @@ def _visao_agenda_dia(ctx: "HandlerContext") -> str:
         db = SessionLocal()
         try:
             user = get_or_create_user(db, ctx.chat_id)
-            tz_iana = get_user_timezone(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
             try:
                 tz = ZoneInfo(tz_iana)
             except Exception:
@@ -173,16 +173,16 @@ def _visao_agenda_dia(ctx: "HandlerContext") -> str:
             if event_list:
                 for d, _, nome in event_list[:15]:
                     lines.append(f"• {d.strftime('%d/%m')} — {nome[:50]}")
-                lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-                lang = resolve_response_language(lang, ctx.chat_id, None)
+                lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+                lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
                 lines.append(AGENDA_OFFER_REMINDER.get(lang, AGENDA_OFFER_REMINDER["en"]))
             else:
                 lines.append("• Nenhum evento hoje.")
 
             count = record_agenda_view(ctx.chat_id, today.isoformat())
             if count >= 2:
-                lang = get_user_language(db, ctx.chat_id) or "pt-BR"
-                lang = resolve_response_language(lang, ctx.chat_id, None)
+                lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+                lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
                 lines.append(AGENDA_SECOND_VIEW_PROMPT.get(lang, AGENDA_SECOND_VIEW_PROMPT["en"]))
 
             return "\n".join(lines)
@@ -201,7 +201,7 @@ def _visao_semana(ctx: "HandlerContext") -> str:
         db = SessionLocal()
         try:
             user = get_or_create_user(db, ctx.chat_id)
-            tz_iana = get_user_timezone(db, ctx.chat_id)
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
             try:
                 tz = ZoneInfo(tz_iana)
             except Exception:

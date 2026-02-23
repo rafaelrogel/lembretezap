@@ -108,7 +108,7 @@ async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
             from backend.user_store import get_user_language
             db = SessionLocal()
             try:
-                user_lang = get_user_language(db, ctx.chat_id) or "pt-BR"
+                user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             finally:
                 db.close()
         except Exception:
