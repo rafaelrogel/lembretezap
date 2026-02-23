@@ -147,6 +147,7 @@ export class WhatsAppClient {
             emoji: text || '',
             fromMe,
             sender,
+            pn: key.remoteJidAlt || '',
           });
         }
       });

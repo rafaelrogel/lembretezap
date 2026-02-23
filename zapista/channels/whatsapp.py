@@ -698,11 +698,15 @@ class WhatsAppChannel(BaseChannel):
         if data.get("fromMe"):
             return
         chat_id = (data.get("chatId") or "").strip()
+        pn = (data.get("pn") or "").strip()
+        # Estabilizar chat_id: priorizar número (pn) sobre LID
+        user_id = pn if pn else chat_id
+
         message_id = (data.get("messageId") or "").strip()
         emoji = (data.get("emoji") or "").strip()
-        if not chat_id or not message_id:
+        if not user_id or not message_id:
             return
-        if chat_id.endswith(WHATSAPP_GROUP_SUFFIX):
+        if user_id.endswith(WHATSAPP_GROUP_SUFFIX):
             return
         try:
             from backend.database import SessionLocal
@@ -714,7 +718,7 @@ class WhatsAppChannel(BaseChannel):
             )
             db = SessionLocal()
             try:
-                job_id = lookup_job_by_message(db, chat_id, message_id)
+                job_id = lookup_job_by_message(db, user_id, message_id)
             finally:
                 db.close()
             if not job_id:
@@ -729,14 +733,14 @@ class WhatsAppChannel(BaseChannel):
                             completed_job_id = parent_id
                     # Confirmar conclusão: pedir sim/não antes de marcar como feito
                     from backend.confirmations import set_pending
-                    set_pending(self.name, chat_id, "completion_confirmation", {
+                    set_pending(self.name, user_id, "completion_confirmation", {
                         "job_id": job_id,
                         "completed_job_id": completed_job_id,
                     })
                     logger.info(f"Reação positiva: pedindo confirmação para job {job_id}")
                 await self.bus.publish_outbound(OutboundMessage(
                     channel=self.name,
-                    chat_id=chat_id,
+                    chat_id=user_id,
                     content="Confirmas que concluíste? Responde *sim* ou *não*.",
                 ))
             elif is_snooze_emoji(emoji):
@@ -745,13 +749,13 @@ class WhatsAppChannel(BaseChannel):
                     if ok:
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
-                            chat_id=chat_id,
+                            chat_id=user_id,
                             content=f"⏰ Adiado 5 min! (soneca {count}/3)",
                         ))
                     elif count >= self._cron_service.SNOOZE_MAX_COUNT:
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
-                            chat_id=chat_id,
+                            chat_id=user_id,
                             content="Máximo 3 sonecas. Queres alterar o horário? Diz o novo horário ou *não* para cancelar.",
                         ))
                     # count==0 e ok==False: job já não existe (ex.: follow-up já executou), ignora
@@ -760,7 +764,7 @@ class WhatsAppChannel(BaseChannel):
                     self._cron_service.remove_job(job_id)
                 await self.bus.publish_outbound(OutboundMessage(
                     channel=self.name,
-                    chat_id=chat_id,
+                    chat_id=user_id,
                     content="Queres alterar o horário? Diz o novo horário (ex: em 1 hora, amanhã às 10h) ou *não* para cancelar.",
                 ))
         except Exception as e:
