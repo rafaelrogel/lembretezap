@@ -6,7 +6,6 @@ from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from zapista.agent.tools.cron import CronTool
     from zapista.agent.tools.list_tool import ListTool
-    from zapista.agent.tools.event_tool import EventTool
     from zapista.cron.service import CronService
 
 
@@ -18,7 +17,7 @@ class HandlerContext:
     cron_service: "CronService | None"
     cron_tool: "CronTool | None"
     list_tool: "ListTool | None"
-    event_tool: "EventTool | None"
+    event_tool: Any = None
     session_manager: Any = None  # SessionManager: para «rever conversa»
     scope_provider: Any = None  # LLMProvider (Xiaomi Mimo) para rever histórico e perguntas analíticas
     scope_model: str | None = None  # modelo a usar (ex. xiaomi_mimo/mimo-v2-flash)

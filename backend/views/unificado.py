@@ -37,17 +37,10 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
         else:
             parts.append("📅 **Lembretes:** Nenhum agendado.")
 
-    if ctx.event_tool:
-        ctx.event_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
-        try:
-            event_out = await ctx.event_tool.execute(action="list", tipo="")
-        except Exception:
-            event_out = "Nenhum item."
-        if isinstance(event_out, str) and "Nenhum" not in event_out:
-            parts.append("📋 **Listas (filmes, livros, músicas, etc.):**\n" + event_out)
-        else:
-            parts.append("📋 **Listas:** Nenhum registado.")
-
+    # As listas (filme, livro, música, agenda) agora são tratadas pelo ListTool
+    # e já aparecem na listagem de listas se o utilizador pedir para listar ou se
+    # o LLM decidir mostrar as listas.
+    
     if not parts:
         from backend.locale import UNIFICADO_EMPTY
         from backend.user_store import get_user_language

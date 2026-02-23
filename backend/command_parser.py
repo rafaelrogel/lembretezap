@@ -27,7 +27,7 @@ RE_REMOVE_ID_ONLY = re.compile(r"^/remove\s+(\d+)\s*$", re.I)
 
 RE_HORA = re.compile(r"^/hora\s*$", re.I)
 RE_DATA = re.compile(r"^/data\s*$", re.I)
-RE_EVENTO = re.compile(r"^/evento\s+(.+)$", re.I)
+RE_EVENTO = re.compile(r"^/(?:evento|agenda)\s+(.+)$", re.I)
 # Linguagem natural: mostre lista X, lista de X, minha lista X, qual lista, mercado, compras
 RE_NL_MOSTRE_LISTA = re.compile(
     r"^(?:mostr(?:e|ar)|ver|listar|mostra)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?(\w+)\s*$", re.I
@@ -38,10 +38,9 @@ RE_NL_QUAL_LISTA = re.compile(
 )
 RE_NL_LISTA_SOZINHA = re.compile(r"^(lista|mercado|compras|pendentes)\s*$", re.I)
 # Atalhos: /filme, /livro, /musica, /receita, /nota, /site → equivalente a /list <categoria> <item>
-RE_FILME = re.compile(r"^/filme\s+(.+)$", re.I)
-RE_LIVRO = re.compile(r"^/livro\s+(.+)$", re.I)
-RE_MUSICA = re.compile(r"^/musica\s+(.+)$", re.I)
-RE_MUSICA_ACCENT = re.compile(r"^/música\s+(.+)$", re.I)
+RE_FILME = re.compile(r"^/filmes?\s+(.+)$", re.I)
+RE_LIVRO = re.compile(r"^/livros?\s+(.+)$", re.I)
+RE_MUSICA = re.compile(r"^/(?:musica|m[uú]sica)s?\s+(.+)$", re.I)
 RE_RECEITA = re.compile(r"^/receita\s+(.+)$", re.I)
 # NL: "adicione ovos bacon e queijos a listas" → list_add mercado
 RE_NL_ADICIONE_LISTA = re.compile(
@@ -197,20 +196,19 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         name = m.group(1).strip()
         return {"type": "list_show", "list_name": name if name != "lista" else None}
 
-    # Atalhos: /filme X, /livro X, /musica X, /receita X, /nota X, /site X → list_add (tudo dentro de /list)
-    # Filme, Livro, Musica agora são Eventos (EventTool)
+    # Atalhos: /filme X, /livro X, /musica X → list_add (dentro de /list)
     m = RE_EVENTO.match(text)
     if m:
-        return {"type": "event_add", "event_type": "evento", "name": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "agenda", "item": m.group(1).strip()}
     m = RE_FILME.match(text)
     if m:
-        return {"type": "event_add", "event_type": "filme", "name": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
     m = RE_LIVRO.match(text)
     if m:
-        return {"type": "event_add", "event_type": "livro", "name": m.group(1).strip()}
-    m = RE_MUSICA.match(text) or RE_MUSICA_ACCENT.match(text)
+        return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
+    m = RE_MUSICA.match(text)
     if m:
-        return {"type": "event_add", "event_type": "musica", "name": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "musica", "item": m.group(1).strip()}
     
     # Receita continua como lista por enquanto (ou pode mover para event se quiser)
     m = RE_RECEITA.match(text)

@@ -14,7 +14,6 @@ from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from zapista.agent.tools.cron import CronTool
     from zapista.agent.tools.list_tool import ListTool
-    from zapista.agent.tools.event_tool import EventTool
     from zapista.cron.service import CronService
 
 from backend.handler_context import HandlerContext, _reply_confirm_prompt
@@ -649,7 +648,7 @@ async def handle_list_or_events_ambiguous(ctx: HandlerContext, content: str) -> 
 
 
 async def handle_list(ctx: HandlerContext, content: str) -> str | None:
-    """/list nome add item, /list filme|livro|musica|receita item, ou /list [nome]. Filme/livro/musica/receita são listas dentro de /list."""
+    """/list nome add item, /list filme|livro|musica item, ou /list [nome]."""
     from backend.command_parser import parse
     from backend.guardrails import is_absurd_request
     from loguru import logger
@@ -690,23 +689,6 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
     return await ctx.list_tool.execute(
         action="list",
         list_name=intent.get("list_name") or "",
-    )
-
-
-async def handle_entertainment(ctx: HandlerContext, content: str) -> str | None:
-    """/filme, /livro, /musica: cria evento correspondente via EventTool."""
-    from backend.command_parser import parse
-    intent = parse(content)
-    if not intent or intent.get("type") != "event_add":
-        return None
-    if not ctx.event_tool:
-        return None
-    
-    ctx.event_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
-    return await ctx.event_tool.execute(
-        action="add",
-        tipo=intent.get("event_type", "evento"),
-        nome=intent.get("name", ""),
     )
 
 

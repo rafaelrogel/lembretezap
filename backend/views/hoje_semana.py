@@ -9,40 +9,46 @@ if TYPE_CHECKING:
 
 
 def _events_in_period(db, user_id: int, today, end_date, tz) -> list:
-    """Eventos (agenda) do user no intervalo [today, end_date]."""
-    from backend.models_db import Event
+    """Eventos (agenda) do user no intervalo [today, end_date]. Agora lê da lista 'agenda'."""
+    from backend.models_db import List, ListItem
     from datetime import datetime, time
 
-    # Define the range in UTC
+    # Define the range in UTC for created_at (since list items don't have separate data_at)
+    # NOTA: Como ListItem não herda data_at do Event, vamos usar created_at como proxy para 'hoje'.
+    # No entanto, se o user quiser agendar para o futuro, o ListItem padrão não guarda data.
+    # Para o refactor 'simples', vamos mostrar itens criados no período.
     start_dt = datetime.combine(today, time.min).replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
     end_dt = datetime.combine(end_date, time.max).replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
 
-    events = db.query(Event).filter(
-        Event.user_id == user_id,
-        Event.deleted == False,
-        Event.data_at.between(start_dt, end_dt)
+    # Encontrar a lista 'agenda' do user
+    lst = db.query(List).filter(List.user_id == user_id, List.name == "agenda").first()
+    if not lst:
+        return []
+
+    items = db.query(ListItem).filter(
+        ListItem.list_id == lst.id,
+        ListItem.done == False,
+        ListItem.created_at.between(start_dt, end_dt)
     ).all()
+    
     out = []
     seen = set()
-    for ev in events:
-        if not ev.data_at:
-            continue
-        ev_date = ev.data_at if ev.data_at.tzinfo else ev.data_at.replace(tzinfo=ZoneInfo("UTC"))
+    for it in items:
+        # Usamos created_at como data do evento
+        ev_date = it.created_at.replace(tzinfo=ZoneInfo("UTC"))
         try:
             ev_local = ev_date.astimezone(tz).date()
         except Exception:
             ev_local = ev_date.date()
-        if today <= ev_local <= end_date:
-            nome = (ev.payload or {}).get("nome", "") if isinstance(ev.payload, dict) else str(ev.payload)
-            nome = (nome or "Evento").strip()
             
-            # Deduplicação: ignorar se já vimos (data, nome_lower)
-            key = (ev_local, nome.lower())
-            if key in seen:
-                continue
-            seen.add(key)
-            
-            out.append((ev_local, ev.data_at, nome[:40]))
+        nome = it.text.strip()
+        # Deduplicação: ignorar se já vimos (data, nome_lower)
+        key = (ev_local, nome.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        
+        out.append((ev_local, it.created_at, nome[:40]))
     out.sort(key=lambda x: (x[0], x[1] or datetime.min))
     return out
 

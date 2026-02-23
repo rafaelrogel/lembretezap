@@ -21,7 +21,6 @@ from zapista.agent.tools.registry import ToolRegistry
 from zapista.agent.tools.message import MessageTool
 from zapista.agent.tools.cron import CronTool
 from zapista.agent.tools.list_tool import ListTool
-from zapista.agent.tools.event_tool import EventTool
 from zapista.agent.tools.read_file import ReadFileTool
 from zapista.session.manager import Session, SessionManager
 from zapista.utils.circuit_breaker import CircuitBreaker
@@ -109,7 +108,7 @@ class AgentLoop:
             finally:
                 _db.close()
         except Exception as e:
-            logger.exception("Listas: verificação de BD ao arranque falhou (listas/eventos vão dar erro): {}", e)
+            logger.exception("Listas: verificação de BD ao arranque falhou: {}", e)
         # Message tool
         message_tool = MessageTool(send_callback=self.bus.publish_outbound)
         self.tools.register(message_tool)
@@ -122,12 +121,11 @@ class AgentLoop:
                 scope_model=self.scope_model or "",
                 session_manager=self.sessions,
             ))
-        # List and event tools (per-user DB)
+        # List tool (per-user DB)
         self.tools.register(ListTool(
             scope_provider=self.scope_provider,
             scope_model=self.scope_model or "",
         ))
-        self.tools.register(EventTool())
         # Search tool (Perplexity) — só quando API key disponível
         if self._perplexity_api_key:
             from zapista.agent.tools.search_tool import SearchTool
@@ -334,7 +332,7 @@ class AgentLoop:
 
     def _set_tool_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
         """Define canal/chat (e phone_for_locale para agendamento) em todas as tools que suportam."""
-        for name, tool in (("message", MessageTool), ("cron", CronTool), ("list", ListTool), ("event", EventTool)):
+        for name, tool in (("message", MessageTool), ("cron", CronTool), ("list", ListTool)):
             t = self.tools.get(name)
             if t and isinstance(t, tool):
                 t.set_context(channel, chat_id, phone_for_locale)

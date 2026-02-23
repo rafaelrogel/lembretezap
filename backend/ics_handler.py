@@ -229,15 +229,23 @@ async def handle_ics_payload(
                     "url": url,
                     "source": "ics",  # evento importado do calendário (.ics); user pode não ter partilhado de propósito
                 }
-                ev = Event(
-                    user_id=user_id,
-                    tipo="evento",
-                    payload=payload,
-                    data_at=dtstart,
-                    deleted=False,
+                from backend.models_db import List, ListItem
+                lst = db.query(List).filter(List.user_id == user_id, List.name == "agenda").first()
+                if not lst:
+                    lst = List(user_id=user_id, name="agenda")
+                    db.add(lst)
+                    db.flush()
+
+                # Para o item da lista, incluímos data/hora no texto para não perder a informação
+                # já que ListItem não tem data_at.
+                item_text = f"{summary} ({dtstart.strftime('%d/%m %H:%M')})"
+                it = ListItem(
+                    list_id=lst.id,
+                    text=item_text,
+                    done=False,
                 )
-                db.add(ev)
-                db.add(AuditLog(user_id=user_id, action="event_add", resource="ics"))
+                db.add(it)
+                db.add(AuditLog(user_id=user_id, action="list_add", resource="agenda"))
                 db.flush()
                 events_created.append({"nome": summary, "data_at": dtstart})
                 count += 1
