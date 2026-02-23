@@ -1478,7 +1478,7 @@ class AgentLoop:
                                     if _s.metadata.get("onboarding_intro_sent") and _s.metadata.get("nudge_append_done") != True:
                                         _s.metadata["nudge_append_done"] = True
                                         self.sessions.save(_s)
-                                        _lang = _get_lang(_db, msg.chat_id) or "en"
+                                        _lang = _get_lang(_db, msg.chat_id, _p_for_l) or "en"
                                         result = result + "\n\n" + NUDGE_TZ_WHEN_MISSING.get(_lang, NUDGE_TZ_WHEN_MISSING["en"])
                             finally:
                                 _db.close()
