@@ -23,7 +23,7 @@ const VERSION = '0.1.0';
 export interface InboundMessage {
   id: string;
   sender: string;
-  pn: string;
+  pn?: string;
   content: string;
   timestamp: number;
   isGroup: boolean;
@@ -45,6 +45,7 @@ export interface ReactionEvent {
   emoji: string;
   fromMe: boolean;
   sender?: string;
+  pn?: string;
 }
 
 export interface WhatsAppClientOptions {
