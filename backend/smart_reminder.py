@@ -178,15 +178,19 @@ def gather_user_context(
         if not data_at:
             continue
         try:
+            # Converter para UTC ingênuo para comparação com 'now' ingênuo
             ev_naive = data_at.astimezone(timezone.utc).replace(tzinfo=None) if data_at.tzinfo else data_at
             if not (week_ago <= ev_naive <= week_ahead):
                 continue
         except Exception:
             continue
+        
+        # Guardar ISO completo para extrair hora depois
+        item = {"nome": nome, "data": ev_naive.isoformat(), "tipo": ev.tipo or "evento"}
         if ev_naive >= now:
-            events_upcoming.append({"nome": nome, "data": str(ev_naive)[:10], "tipo": ev.tipo or "evento"})
+            events_upcoming.append(item)
         else:
-            events_recent.append({"nome": nome, "data": str(ev_naive)[:10], "tipo": ev.tipo or "evento"})
+            events_recent.append(item)
 
     # Listas com itens pendentes
     lists_with_pending = []
@@ -209,12 +213,17 @@ def gather_user_context(
     # Cron jobs do utilizador
     cron_summary = []
     if cron_jobs:
-        for j in cron_jobs:
+        for j in cron_service.list_jobs():
             if getattr(j.payload, "to", None) != chat_id:
                 continue
             msg = (getattr(j.payload, "message", None) or j.name or "")[:50]
             nr = getattr(j.state, "next_run_at_ms", None)
-            cron_summary.append({"message": msg, "next_run": nr})
+            cron_summary.append({
+                "message": msg, 
+                "next_run": nr,
+                "id": j.id,
+                "expr": j.schedule.expr
+            })
 
     return {
         "reminders_7d": reminders_summary,
@@ -290,9 +299,10 @@ async def build_smart_reminder_analysis(
 
     prompt = (
         f"You are analyzing a user's organization data ({name}). Local time: {local_time_str}. "
+        "This is a MORNING SUMMARY (Morning Briefing). "
         "Based ONLY on the data below, identify:\n"
         "1. Things they may have FORGOTTEN (e.g. reminder delivered days ago with no follow-up, list items long pending, past event with no clear completion)\n"
-        "2. SMART CONNECTIONS (e.g. event tomorrow + list 'mercado' has items → suggest buying before the event; recurring reminder + similar past reminder)\n"
+        "2. SMART CONNECTIONS for TODAY (e.g. event tomorrow + list 'mercado' has items → suggest buying before the event; recurring reminder + similar past reminder)\n"
         "3. 1-3 SHORT action-oriented suggestions (what to do next, what to check)\n\n"
         "Output a brief analysis (2-4 bullets). Be specific and useful. No generic advice. "
         f"Language: {lang_instruction}. Reply only with the analysis, no preamble.\n\n"
@@ -320,6 +330,7 @@ async def build_smart_reminder_message(
     mimo_analysis: str = "",
     user_lang: str = "en",
     preferred_name: str | None = None,
+    context: dict[str, Any] | None = None,
 ) -> str:
     """
     Mimo primeiro (mais barato) para criar mensagem curta; fallback DeepSeek.
@@ -333,15 +344,60 @@ async def build_smart_reminder_message(
     }.get(user_lang, "in the user's language")
 
     if not mimo_analysis:
-        return f"Olá {name}! ☀️ Tens algo pendente? Diz-me e organizo. 😊"
+        return {
+            "pt-BR": f"Olá {name}! ☀️ Alguma pendência para hoje? Me avise e eu organizo tudo. 😊",
+            "pt-PT": f"Olá {name}! ☀️ Tens algo pendente? Diz-me e organizo. 😊",
+        }.get(user_lang, f"Hello {name}! ☀️ Anything pending for today? Let me know and I'll organize it. 😊")
+
+    preamble = {
+        "pt-BR": f"Bom dia, {name}! ☀️ Aqui está o seu resumo de hoje:\n\n",
+        "pt-PT": f"Bom dia, {name}! ☀️ Aqui está o teu resumo de hoje:\n\n",
+        "es": f"¡Buen día, {name}! ☀️ Aquí está tu resumen de hoy:\n\n",
+        "en": f"Morning, {name}! ☀️ Here's your summary for today:\n\n",
+    }.get(user_lang, f"Morning, {name}! ☀️ Here's your summary for today:\n\n")
 
     prompt = (
-        f"Write ONE short, friendly message (1-2 sentences, max 180 chars) to {name} "
-        "with smart reminder insights. Use the analysis below. "
+        f"Analyze the personal summary below and write ONE short, friendly insightful message (1-2 sentences, max 180 chars) to {name}. "
+        "IMPORTANT: There's already a 'Today's Agenda' list sent before this message, so DO NOT list everything again. "
+        "Instead, highlight 1 or 2 high-priority things, or make a smart connection. "
         "Be warm, helpful and specific. Include 1 emoji. No bullet points. "
         f"Language: {lang_instruction}. Reply only with the message.\n\n"
         f"Analysis:\n{mimo_analysis}"
     )
+
+    # Gerar Agenda do Dia programática
+    agenda_lines = []
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(context.get("tz_iana") or "UTC")
+        now_local = datetime.now(tz)
+        today_str = now_local.strftime("%Y-%m-%d")
+        
+        # 1. Eventos de hoje
+        for ev in context.get("events_upcoming", []):
+            ev_dt = datetime.fromisoformat(ev["data"])
+            # Ajustar para local se necessário (context traz ISO em UTC se ev_naive foi UTC)
+            # Mas aqui o ev_naive foi o DB (UTC) - 10h drift (ops, drift já foi corrigido).
+            # No gather_user_context usamos data_at.astimezone(UTC).
+            ev_local = ev_dt.replace(tzinfo=timezone.utc).astimezone(tz)
+            if ev_local.strftime("%Y-%m-%d") == today_str:
+                time_str = ev_local.strftime("%H:%M")
+                agenda_lines.append(f"* {ev['nome']} às {time_str}")
+        
+        # 2. Lembretes agendados para hoje (cron)
+        for c in context.get("cron_jobs", []):
+            if c.get("next_run"):
+                c_local = datetime.fromtimestamp(c["next_run"]/1000, tz=tz)
+                if c_local.strftime("%Y-%m-%d") == today_str:
+                    time_str = c_local.strftime("%H:%M")
+                    agenda_lines.append(f"* {c['message']} às {time_str}")
+    except Exception as e:
+        logger.debug(f"Failed to generate agenda lines: {e}")
+
+    final_preamble = preamble
+    if agenda_lines:
+        agenda_text = "\n".join(agenda_lines)
+        final_preamble += f"{agenda_text}\n\n"
 
     # Mimo primeiro (economiza tokens)
     if mimo_provider and (mimo_model or "").strip():
@@ -353,8 +409,8 @@ async def build_smart_reminder_message(
                 temperature=0.6,
             )
             out = (r.content or "").strip().strip('"\'')
-            if out and len(out) <= 300:
-                return out[:250]
+            if out and len(out) <= 400:
+                return final_preamble + out[:300]
         except Exception as e:
             logger.debug(f"Smart reminder Mimo message failed: {e}")
 
@@ -367,10 +423,17 @@ async def build_smart_reminder_message(
             temperature=0.6,
         )
         out = (r.content or "").strip().strip('"\'')
-        return out[:250] if out else f"Olá {name}! ☀️ Aqui está o teu lembrete inteligente do dia. 😊"
+        fallback_msg = {
+            "pt-BR": f"Dê uma olhada nos seus itens acima. 😊",
+            "pt-PT": f"Vê os teus itens acima. 😊",
+        }.get(user_lang, f"Check your items above. 😊")
+        return final_preamble + (out[:300] if out else fallback_msg)
     except Exception as e:
         logger.debug(f"Smart reminder DeepSeek message failed: {e}")
-        return f"Olá {name}! ☀️ Tens algo pendente? Diz-me e organizo. 😊"
+        return final_preamble + {
+            "pt-BR": "Estou aqui se precisar de algo! 😊",
+            "pt-PT": "Estou aqui se precisares de algo! 😊",
+        }.get(user_lang, "I'm here if you need anything! 😊")
 
 
 async def run_smart_reminder_daily(
@@ -429,6 +492,7 @@ async def run_smart_reminder_daily(
                 user_lang = get_user_language(db, chat_id)
                 preferred_name = get_user_preferred_name(db, chat_id)
                 context = gather_user_context(db, chat_id, cron_jobs=cron_jobs_by_chat.get(chat_id, []))
+                context["tz_iana"] = tz_iana # para build_smart_reminder_message
                 now_local = datetime.now()
                 try:
                     from zoneinfo import ZoneInfo
@@ -457,6 +521,7 @@ async def run_smart_reminder_daily(
                 mimo_analysis=mimo_analysis,
                 user_lang=user_lang,
                 preferred_name=preferred_name,
+                context=context,
             )
 
             await bus.publish_outbound(OutboundMessage(
