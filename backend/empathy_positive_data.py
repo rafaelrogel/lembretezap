@@ -30,7 +30,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["funeral", "burial", "wake", "cremation", "memorial service", "going to the funeral", "funeral of", "saying goodbye"],
         },
         "messages": {
-            "pt-BR": "💙 Os meus sentimentos. Cuida de ti.",
+            "pt-BR": "💙 Meus sentimentos. Se cuide.",
             "pt-PT": "💙 Os meus sentimentos. Cuida de ti.",
             "es": "💙 Mis condolencias. Cuídate.",
             "en": "💙 My condolences. Take care of yourself.",
@@ -45,7 +45,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["doctor appointment", "doctor's appointment", "medical appointment", "clinic", "hospital", "check-up", "health check", "see the doctor"],
         },
         "messages": {
-            "pt-BR": "💙 Espero que esteja tudo bem. Cuida-te.",
+            "pt-BR": "💙 Espero que esteja tudo bem. Se cuide.",
             "pt-PT": "💙 Espero que esteja tudo bem. Cuida-te.",
             "es": "💙 Espero que todo esté bien. Cuídate.",
             "en": "💙 Hope everything goes well. Take care.",
@@ -60,7 +60,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["oncology", "oncologist", "chemotherapy", "chemo", "radiation", "cancer treatment", "cancer", "tumor", "biopsy", "infusion"],
         },
         "messages": {
-            "pt-BR": "💙 Força. Estou contigo. Cuida-te.",
+            "pt-BR": "💙 Muita força. Estou com você. Se cuide.",
             "pt-PT": "💙 Força. Estou contigo. Cuida-te.",
             "es": "💙 Fuerza. Estoy contigo. Cuídate.",
             "en": "💙 Sending strength. Take care of yourself.",
@@ -75,7 +75,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["therapist", "therapy", "therapy session", "psychiatrist", "mental health", "anxiety", "depression", "counseling"],
         },
         "messages": {
-            "pt-BR": "💙 Espero que a sessão te ajude. Cuida de ti.",
+            "pt-BR": "💙 Espero que a sessão te ajude. Se cuide.",
             "pt-PT": "💙 Espero que a sessão te ajude. Cuida de ti.",
             "es": "💙 Espero que la sesión te ayude. Cuídate.",
             "en": "💙 Hope the session helps. Take care of yourself.",
@@ -90,7 +90,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["surgery", "operation", "surgical", "pre-op", "post-op", "operating room", "admission"],
         },
         "messages": {
-            "pt-BR": "💙 Tudo a correr bem. Cuida-te e boa recuperação.",
+            "pt-BR": "💙 Vai dar tudo certo. Se cuide e boa recuperação.",
             "pt-PT": "💙 Tudo a correr bem. Cuida-te e boa recuperação.",
             "es": "💙 Que todo salga bien. Cuídate y buena recuperación.",
             "en": "💙 Hope all goes well. Take care and a good recovery.",
@@ -120,7 +120,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["lawyer", "attorney", "court", "hearing", "divorce", "custody", "lawsuit", "judge", "legal"],
         },
         "messages": {
-            "pt-BR": "💙 Força para este dia. Cuida de ti.",
+            "pt-BR": "💙 Muita força para este dia. Se cuide.",
             "pt-PT": "💙 Força para este dia. Cuida de ti.",
             "es": "💙 Fuerza para este día. Cuídate.",
             "en": "💙 Sending strength for today. Take care.",
@@ -135,7 +135,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["death", "passing", "loss", "bereavement", "grieving", "lost someone", "mourning"],
         },
         "messages": {
-            "pt-BR": "💙 Os meus sentimentos. Se precisares de algo, estou aqui.",
+            "pt-BR": "💙 Meus sentimentos. Se precisar de algo, estou aqui.",
             "pt-PT": "💙 Os meus sentimentos. Se precisares de algo, estou aqui.",
             "es": "💙 Mis condolencias. Si necesitas algo, aquí estoy.",
             "en": "💙 My condolences. If you need anything, I'm here.",
@@ -150,7 +150,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["test results", "diagnosis", "lab results", "MRI", "CT scan", "mammogram", "biopsy result"],
         },
         "messages": {
-            "pt-BR": "💙 Espero que os resultados tragam boas notícias. Cuida-te.",
+            "pt-BR": "💙 Espero que os resultados tragam boas notícias. Se cuide.",
             "pt-PT": "💙 Espero que os resultados tragam boas notícias. Cuida-te.",
             "es": "💙 Espero que los resultados traigan buenas noticias. Cuídate.",
             "en": "💙 Hope the results bring good news. Take care.",
@@ -165,7 +165,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["dentist", "dental", "extraction", "root canal", "implant", "dental appointment"],
         },
         "messages": {
-            "pt-BR": "💙 Espero que corra tudo bem. Cuida-te.",
+            "pt-BR": "💙 Espero que corra tudo bem. Se cuide.",
             "pt-PT": "💙 Espero que corra tudo bem. Cuida-te.",
             "es": "💙 Espero que todo salga bien. Cuídate.",
             "en": "💙 Hope it goes well. Take care.",
@@ -180,7 +180,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["physiotherapy", "physio", "rehabilitation", "recovery", "physical therapy", "PT session"],
         },
         "messages": {
-            "pt-BR": "💙 Boa sessão. Cuida de ti.",
+            "pt-BR": "💙 Boa sessão. Se cuide.",
             "pt-PT": "💙 Boa sessão. Cuida de ti.",
             "es": "💙 Buena sesión. Cuídate.",
             "en": "💙 Hope the session goes well. Take care.",
@@ -195,7 +195,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["veterinarian", "vet", "euthanasia", "put down", "sick pet", "saying goodbye to pet", "loss of dog", "loss of cat"],
         },
         "messages": {
-            "pt-BR": "💙 Os meus sentimentos pelo teu animal. Cuida de ti.",
+            "pt-BR": "💙 Meus sentimentos pelo seu animal. Se cuide.",
             "pt-PT": "💙 Os meus sentimentos pelo teu animal. Cuida de ti.",
             "es": "💙 Mis condolencias por tu mascota. Cuídate.",
             "en": "💙 So sorry about your pet. Take care.",
@@ -210,7 +210,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["hospice", "palliative care", "end of life", "visiting sick", "care home visit"],
         },
         "messages": {
-            "pt-BR": "💙 Força. Cuida de ti e de quem amas.",
+            "pt-BR": "💙 Muita força. Se cuide e cuide de quem você ama.",
             "pt-PT": "💙 Força. Cuida de ti e de quem amas.",
             "es": "💙 Fuerza. Cuídate y a quien quieres.",
             "en": "💙 Sending strength. Take care of yourself and your loved ones.",
@@ -225,7 +225,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["laid off", "fired", "unemployment", "lost my job", "termination", "interview after being let go"],
         },
         "messages": {
-            "pt-BR": "💙 Força. Acredito em ti.",
+            "pt-BR": "💙 Muita força. Acredito em você.",
             "pt-PT": "💙 Força. Acredito em ti.",
             "es": "💙 Fuerza. Creo en ti.",
             "en": "💙 Sending strength. I believe in you.",
@@ -240,7 +240,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["inquiry", "testimony", "police", "station", "witness", "jury"],
         },
         "messages": {
-            "pt-BR": "💙 Força para este dia. Cuida de ti.",
+            "pt-BR": "💙 Muita força para este dia. Se cuide.",
             "pt-PT": "💙 Força para este dia. Cuida de ti.",
             "es": "💙 Fuerza para este día. Cuídate.",
             "en": "💙 Sending strength for today. Take care.",
@@ -255,7 +255,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["cardiologist", "neurologist", "orthopedist", "dermatologist", "gynecologist", "urologist", "ophthalmologist", "ENT", "endocrinologist", "rheumatologist", "specialist appointment", "specialist"],
         },
         "messages": {
-            "pt-BR": "💙 Espero que esteja tudo bem. Cuida-te.",
+            "pt-BR": "💙 Espero que esteja tudo bem. Se cuide.",
             "pt-PT": "💙 Espero que esteja tudo bem. Cuida-te.",
             "es": "💙 Espero que todo esté bien. Cuídate.",
             "en": "💙 Hope everything goes well. Take care.",
@@ -270,7 +270,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["hospitalization", "hospital visit", "visiting in hospital", "ICU", "ward"],
         },
         "messages": {
-            "pt-BR": "💙 Força. Estou contigo. Cuida de ti.",
+            "pt-BR": "💙 Muita força. Estou com você. Se cuide.",
             "pt-PT": "💙 Força. Estou contigo. Cuida de ti.",
             "es": "💙 Fuerza. Estoy contigo. Cuídate.",
             "en": "💙 Sending strength. Take care.",
@@ -285,7 +285,7 @@ EMPATHY_CATEGORIES: list[_Category] = [
             "en": ["blood draw", "blood test", "endoscopy", "colonoscopy", "catheterization", "x-ray", "ultrasound", "scan"],
         },
         "messages": {
-            "pt-BR": "💙 Espero que corra tudo bem. Cuida-te.",
+            "pt-BR": "💙 Espero que corra tudo bem. Se cuide.",
             "pt-PT": "💙 Espero que corra tudo bem. Cuida-te.",
             "es": "💙 Espero que todo salga bien. Cuídate.",
             "en": "💙 Hope it goes well. Take care.",
@@ -304,7 +304,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["meeting friends", "meet up with friends", "friends", "lunch with friends", "dinner with friends", "hanging out with friends", "happy hour", "bar with friends", "coffee with friends", "party with friends"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita o momento!",
+            "pt-BR": "✨ Aproveite o momento!",
             "pt-PT": "✨ Aproveita o momento!",
             "es": "✨ ¡Disfruta el momento!",
             "en": "✨ Enjoy!",
@@ -319,7 +319,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["date", "girlfriend", "boyfriend", "tinder", "romantic dinner", "first date", "blind date"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita o jantar! Divertido e sem pressão. 😊",
+            "pt-BR": "✨ Aproveite o jantar! Divirta-se e sem pressão. 😊",
             "pt-PT": "✨ Aproveita o jantar! Divertido e sem pressão. 😊",
             "es": "✨ ¡Disfruta la cena! Divertido y sin presión. 😊",
             "en": "✨ Enjoy the dinner! Have fun and keep it light. 😊",
@@ -334,7 +334,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["movie", "film", "cinema", "going to the movies", "movie night", "premiere"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita o filme! 🍿",
+            "pt-BR": "✨ Aproveite o filme! 🍿",
             "pt-PT": "✨ Aproveita o filme! 🍿",
             "es": "✨ ¡Disfruta la película! 🍿",
             "en": "✨ Enjoy the movie! 🍿",
@@ -349,7 +349,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["presentation", "present", "pitch", "important meeting", "client meeting", "talk", "webinar", "demo", "demonstration"],
         },
         "messages": {
-            "pt-BR": "✨ Boa sorte na apresentação! Vais arrasar.",
+            "pt-BR": "✨ Boa sorte na apresentação! Você vai arrasar.",
             "pt-PT": "✨ Boa sorte na apresentação! Vais arrasar.",
             "es": "✨ ¡Buena suerte en la presentación! Lo harás genial.",
             "en": "✨ Good luck with the presentation! You've got this.",
@@ -379,7 +379,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["job interview", "employment interview", "interview", "hiring process", "HR interview", "recruiter interview"],
         },
         "messages": {
-            "pt-BR": "✨ Boa sorte na entrevista! Mostra o teu valor.",
+            "pt-BR": "✨ Boa sorte na entrevista! Mostre o seu valor.",
             "pt-PT": "✨ Boa sorte na entrevista! Mostra o teu valor.",
             "es": "✨ ¡Buena suerte en la entrevista! Demuestra tu valor.",
             "en": "✨ Good luck at the interview! Show them your best.",
@@ -394,7 +394,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["championship", "competition", "game", "match", "tournament", "olympics", "marathon", "race", "triathlon", "competing", "sports"],
         },
         "messages": {
-            "pt-BR": "✨ Boa sorte! Dá o teu melhor e diverte-te.",
+            "pt-BR": "✨ Boa sorte! Dê o seu melhor e divirta-se.",
             "pt-PT": "✨ Boa sorte! Dá o teu melhor e diverte-te.",
             "es": "✨ ¡Buena suerte! Da lo mejor y disfruta.",
             "en": "✨ Good luck! Give it your best and have fun.",
@@ -409,7 +409,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["dinner", "lunch", "restaurant", "business dinner", "family dinner", "family lunch", "eating out"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita o jantar! (E não bebas demais perto do chefe — só quando não estiver a olhar. 😉)",
+            "pt-BR": "✨ Aproveite o jantar! (E não beba demais perto do chefe — só quando não estiver olhando. 😉)",
             "pt-PT": "✨ Aproveita o jantar! (E não bebas demais perto do chefe — só quando não estiver a olhar. 😉)",
             "es": "✨ ¡Disfruta la cena! (Y no bebas de más delante del jefe — solo cuando no mire. 😉)",
             "en": "✨ Enjoy dinner! (And don't drink too much near the boss — only when they're not looking. 😉)",
@@ -424,7 +424,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["party", "birthday", "birthday party", "celebration", "night out", "club", "disco"],
         },
         "messages": {
-            "pt-BR": "✨ Divertido e aproveita! 🎉",
+            "pt-BR": "✨ Divirta-se e aproveite! 🎉",
             "pt-PT": "✨ Divertido e aproveita! 🎉",
             "es": "✨ ¡Diviértete y disfruta! 🎉",
             "en": "✨ Have fun and enjoy! 🎉",
@@ -439,7 +439,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["trip", "vacation", "travel", "airport", "flight", "departure", "arrival", "weekend getaway"],
         },
         "messages": {
-            "pt-BR": "✨ Boa viagem! Aproveita cada momento.",
+            "pt-BR": "✨ Boa viagem! Aproveite cada momento.",
             "pt-PT": "✨ Boa viagem! Aproveita cada momento.",
             "es": "✨ ¡Buen viaje! Disfruta cada momento.",
             "en": "✨ Safe travels! Enjoy every moment.",
@@ -469,7 +469,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["concert", "show", "gig", "festival", "live", "going to the concert", "opera", "theatre", "theater", "musical"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita o show! 🎵",
+            "pt-BR": "✨ Aproveite o show! 🎵",
             "pt-PT": "✨ Aproveita o show! 🎵",
             "es": "✨ ¡Disfruta el show! 🎵",
             "en": "✨ Enjoy the show! 🎵",
@@ -499,7 +499,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["breakfast", "brunch", "coffee", "coffee with", "morning coffee"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita! ☕",
+            "pt-BR": "✨ Aproveite! ☕",
             "pt-PT": "✨ Aproveita! ☕",
             "es": "✨ ¡Disfruta! ☕",
             "en": "✨ Enjoy! ☕",
@@ -514,7 +514,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["networking", "work event", "corporate event", "conference", "workshop", "seminar", "trade show", "professional course"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita e faz bons contactos!",
+            "pt-BR": "✨ Aproveite e faça bons contatos!",
             "pt-PT": "✨ Aproveita e faz bons contactos!",
             "es": "✨ ¡Disfruta y haz buenos contactos!",
             "en": "✨ Enjoy and make good connections!",
@@ -529,7 +529,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["wedding", "baptism", "graduation", "family gathering", "family lunch", "family dinner", "family reunion", "family"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita o momento em família!",
+            "pt-BR": "✨ Aproveite o momento em família!",
             "pt-PT": "✨ Aproveita o momento em família!",
             "es": "✨ ¡Disfruta el momento en familia!",
             "en": "✨ Enjoy the time with family!",
@@ -544,7 +544,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["first day", "first day at work", "new job", "new job", "starting work", "first day at new job"],
         },
         "messages": {
-            "pt-BR": "✨ Boa sorte no primeiro dia! Vai correr bem.",
+            "pt-BR": "✨ Boa sorte no primeiro dia! Vai dar tudo certo.",
             "pt-PT": "✨ Boa sorte no primeiro dia! Vai correr bem.",
             "es": "✨ ¡Buena suerte el primer día! Saldrá bien.",
             "en": "✨ Good luck on your first day! You've got this.",
@@ -574,7 +574,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["series", "binge", "watch series", "new episode", "series premiere", "netflix", "streaming", "movie at home"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita o episódio! 🍿",
+            "pt-BR": "✨ Aproveite o episódio! 🍿",
             "pt-PT": "✨ Aproveita o episódio! 🍿",
             "es": "✨ ¡Disfruta el episodio! 🍿",
             "en": "✨ Enjoy the episode! 🍿",
@@ -589,7 +589,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["class", "course", "workshop", "painting class", "music class", "cooking class", "hobby", "pastime"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita a aula!",
+            "pt-BR": "✨ Aproveite a aula!",
             "pt-PT": "✨ Aproveita a aula!",
             "es": "✨ ¡Disfruta la clase!",
             "en": "✨ Enjoy the class!",
@@ -604,7 +604,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["game", "videogame", "gaming", "game launch", "game streaming", "esports championship", "esports"],
         },
         "messages": {
-            "pt-BR": "✨ Divertido e boa sorte! 🎮",
+            "pt-BR": "✨ Divirta-se e boa sorte! 🎮",
             "pt-PT": "✨ Divertido e boa sorte! 🎮",
             "es": "✨ ¡Diviértete y buena suerte! 🎮",
             "en": "✨ Have fun and good luck! 🎮",
@@ -619,7 +619,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["massage", "spa", "sauna", "wellness", "relax", "spa day", "beauty treatment", "manicure", "pedicure"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita para relaxar! 💆",
+            "pt-BR": "✨ Aproveite para relaxar! 💆",
             "pt-PT": "✨ Aproveita para relaxar! 💆",
             "es": "✨ ¡Disfruta para relajarte! 💆",
             "en": "✨ Enjoy and relax! 💆",
@@ -634,7 +634,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["shopping", "go shopping", "mall", "store", "black friday", "buy present", "gift for"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita as compras!",
+            "pt-BR": "✨ Aproveite as compras!",
             "pt-PT": "✨ Aproveita as compras!",
             "es": "✨ ¡Disfruta las compras!",
             "en": "✨ Enjoy shopping!",
@@ -649,7 +649,7 @@ POSITIVE_CATEGORIES: list[_Category] = [
             "en": ["walk", "park", "nature", "hike", "hiking", "beach", "pool", "picnic", "outdoor day"],
         },
         "messages": {
-            "pt-BR": "✨ Aproveita o dia! 🌳",
+            "pt-BR": "✨ Aproveite o dia! 🌳",
             "pt-PT": "✨ Aproveita o dia! 🌳",
             "es": "✨ ¡Disfruta el día! 🌳",
             "en": "✨ Enjoy the day! 🌳",

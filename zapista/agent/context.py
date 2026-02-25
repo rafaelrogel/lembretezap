@@ -294,7 +294,7 @@ You are NOT a chatbot for fun. You do NOT tell jokes, stories, or recipes unless
             system_prompt += f"\n\n## Current Session\nChannel: {channel}\nChat ID: {chat_id}"
         if user_lang:
             lang_label = "Brazilian Portuguese" if user_lang == "pt-BR" else "European Portuguese" if user_lang == "pt-PT" else user_lang
-            system_prompt += f"\n\n**STRICT LANGUAGE RULE:** Reply in {user_lang} ({lang_label}). Use this language for ALL your replies. Match the vocabulary, grammar, and formal/informal style of this specific dialect perfectly. For pt-BR, use 'você'/'seu' and avoid European terms like 'tens' or 'regista'. For pt-PT, use 'tu'/'teu' and common European phrasing. NEVER mix dialects in the same conversation."
+            system_prompt += f"\n\n**STRICT LANGUAGE RULE:** Reply in {user_lang} ({lang_label}). Use this language for ALL your replies. Match the vocabulary, grammar, and formal/informal style of this specific dialect perfectly. These dialects are treated as DIFFERENT LANGUAGES. For pt-BR, use 'você'/'seu' and avoid European terms like 'tens', 'teu', 'regista', 'clica' or 'contacto'. For pt-PT, use 'tu'/'teu' and common European phrasing. NEVER mix dialects in the same conversation. Your response must be 100% consistent with the chosen dialect."
         messages.append({"role": "system", "content": system_prompt})
 
         # History

@@ -885,6 +885,39 @@ class AgentLoop:
             logger.debug(f"MIMO Reasoning/Search error: {e}")
             return None
 
+    async def _verify_language_switch_with_mimo(
+        self, content: str, requested_lang: str
+    ) -> bool:
+        """
+        Usa o modelo Scope (Mimo) para confirmar se a intenção do utilizador é realmente mudar de idioma.
+        Necessário para mensagens longas ou ambíguas (ex.: 'não fale em ptpt').
+        """
+        if not self.scope_provider or not self.scope_model:
+            return True # Fallback para aceitar o switch se não houver LLM
+            
+        prompt = (
+            f"User message: \"{content}\"\n"
+            f"Detected language switch requested: {requested_lang}\n\n"
+            "Task: Decide if the user REALLY wants to switch the interface language to this new one.\n"
+            "Respond ONLY with 'CONFIRM' or 'REJECT'.\n"
+            "- REJECT if they are complaining, being sarcastic, or saying 'don't speak X'.\n"
+            "- CONFIRM if they clearly state 'fale em X', 'change to X', etc.\n"
+            "Output exactly 'CONFIRM' or 'REJECT'."
+        )
+        
+        try:
+            r = await self.scope_provider.chat(
+                messages=[{"role": "user", "content": prompt}],
+                model=self.scope_model,
+                profile="parser",
+                temperature=0.0,
+            )
+            out = (r.content or "").strip().upper()
+            return "CONFIRM" in out
+        except Exception as e:
+            logger.debug(f"Mimo language switch verification failed: {e}")
+            return True # Em erro, deixar passar o switch original
+
     async def _process_message(self, msg: InboundMessage) -> OutboundMessage | None:
         """
         Process a single inbound message.
@@ -1080,6 +1113,15 @@ class AgentLoop:
                 requested_lang = parse_language_switch_request(
                     msg.content, msg.metadata.get("phone_for_locale") or msg.chat_id
                 )
+                if requested_lang is not None:
+                    # Se a mensagem for longa ou ambígua, usar MIMO para confirmar
+                    if len(msg.content or "") > 15:
+                        confirmed = await self._verify_language_switch_with_mimo(
+                            msg.content, requested_lang
+                        )
+                        if not confirmed:
+                            requested_lang = None # Cancela o switch
+                
                 if requested_lang is not None:
                     if requested_lang != user_lang:
                         set_user_language(db, msg.chat_id, requested_lang)
@@ -1619,6 +1661,41 @@ class AgentLoop:
                 )
         except Exception as e:
             logger.debug(f"Handlers route failed: {e}")
+
+        # Raciocínio contextual (Mimo): se os handlers falharem, tentar identificar itens de lista pelo histórico
+        try:
+            from backend.context_reasoner import classify_intent_with_full_context
+            session = self.sessions.get_or_create(msg.session_key)
+            history = session.get_history(max_messages=10)
+            contextual_intent = await classify_intent_with_full_context(
+                history, msg.content, self.scope_provider or self.provider, self.scope_model
+            )
+            if contextual_intent and contextual_intent.get("type") == "list_add" and self.tools.get("list"):
+                list_name = contextual_intent["list_name"]
+                item = contextual_intent["item"]
+                _p_for_l = msg.metadata.get("phone_for_locale") if msg.metadata else None
+                self.tools["list"].set_context(ctx.channel, ctx.chat_id, _p_for_l)
+                result = await self.tools["list"].execute(action="add", list_name=list_name, item_text=item)
+                if result:
+                    logger.info("Intent handled via context reasoner: type=list_add list_name=%s", list_name)
+                    if isinstance(result, list):
+                        for part in result[1:]:
+                            await self.bus.publish_outbound(OutboundMessage(
+                                channel=msg.channel, chat_id=msg.chat_id, content=part,
+                            ))
+                        result = result[0]
+                    try:
+                        session.add_message("user", msg.content)
+                        session.add_message("assistant", result)
+                        self.sessions.save(session)
+                        asyncio.create_task(self._maybe_sentiment_check(session, msg.channel, msg.chat_id))
+                    except Exception:
+                        pass
+                    return OutboundMessage(
+                        channel=msg.channel, chat_id=msg.chat_id, content=result, metadata=dict(msg.metadata or {}),
+                    )
+        except Exception as e:
+            logger.debug(f"Contextual reasoning failed: {e}")
 
         # Scope filter: LLM SIM/NAO (fallback: regex). Follow-ups: se a última mensagem do user estava no escopo, considerar esta também.
         from backend.scope_filter import is_in_scope_fast, is_in_scope_llm, is_follow_up_llm

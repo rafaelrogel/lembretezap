@@ -234,16 +234,35 @@ def is_calling_message(content: str | None, max_length: int = 42) -> bool:
     if any(kw in lower for kw in _TASK_KEYWORDS):
         return False
     phrases = get_calling_phrases()
-    # Usar regex para garantir match de palavra inteira (whole word matching)
-    # Evita que "respond" (English base) capture "responda".
+    # Greetings comuns para ignorar na contagem de palavras "estranhas"
+    greetings = {"oi", "olá", "ola", "e aí", "e ai", "hey", "ei", "opa", "fala", "bom", "dia", "tarde", "noite", "alô", "alo"}
+    
     import re
+    lower_clean = re.sub(r"[?!.,]", " ", lower).strip()
+    words = lower_clean.split()
+    
     for p in phrases:
         if not p:
             continue
-        # Escapar p e verificar se existe como palavra inteira no lower
+        p_clean = re.sub(r"[?!.,]", " ", p.lower()).strip()
+        p_words = p_clean.split()
+        
+        # Se a frase de chamada está na mensagem
         pattern = r"\b" + re.escape(p) + r"\b"
         if re.search(pattern, lower):
-            return True
+            # Se a mensagem for EXATAMENTE a frase de chamada (ou com pontuação)
+            if lower_clean == p_clean:
+                return True
+            
+            # Se a mensagem for curta (até 4 palavras) e o resto for só greeting ou trivial
+            other_words = [w for w in words if w not in p_words and w not in greetings]
+            if not other_words:
+                return True
+            
+            # Se a frase de chamada for longa (2+ palavras), aceitamos mais flexibilidade
+            if len(p_words) >= 2 and len(other_words) <= 1:
+                return True
+                
     return False
 
 

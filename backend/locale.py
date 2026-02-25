@@ -137,7 +137,7 @@ LANGUAGE_ALREADY_MSG: dict[LangCode, str] = {
 
 # Pergunta "como gostaria de ser chamado" (fallback quando não há Xiaomi)
 PREFERRED_NAME_QUESTION: dict[LangCode, str] = {
-    "pt-PT": "Como gostaria que eu te chamasse?",
+    "pt-PT": "Como gostarias que eu te chamasse?",
     "pt-BR": "Como você gostaria que eu te chamasse?",
     "es": "¿Cómo te gustaría que te llamara?",
     "en": "What would you like me to call you?",
@@ -947,8 +947,24 @@ def parse_language_switch_request(
         text = unicodedata.normalize("NFC", text)
     except Exception:
         pass
+    # Lista de termos de negação/paragem (anti-switch)
+    negative_terms = [
+        "não", "nao", "no ", "don't", "stop", "para de ", "para com ", "chega", "never", "nunca",
+        "quite", "salir", "cancel", "errado", "incorreto"
+    ]
+    
     for pattern, lang in _LANG_SWITCH_PATTERNS:
-        if pattern.search(text):
+        match = pattern.search(text)
+        if match:
+            # Check for negation in the context (around the match or in the whole short message)
+            context = text.lower()
+            # Se for uma frase curta e contiver negação, provavelmente é um "não mude" ou "não fale"
+            if any(neg in context for neg in negative_terms):
+                # Se a negação estiver próxima (ex: "não fala em espanhol"), ignorar o switch
+                # mas permitir se for "não fale espanhol, fale português" (complexo, melhor LLM)
+                if len(context) < 40:
+                    continue
+            
             if lang == "pt":  # Genérico: inferir do número
                 if phone_for_locale:
                     inferred = phone_to_default_language(phone_for_locale)
