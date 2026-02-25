@@ -1,0 +1,530 @@
+DEBUG: cal parse failed: Content line could not be parsed into parts: 'not ics content': not ics content
+DEBUG: cal fallback failed: Content line could not be parsed into parts: 'not ics content': not ics content
+DEBUG: cal parsed, name=VCALENDAR
+DEBUG: cal parsed, name=VCALENDAR
+2026-02-25 14:49:33.190 | ERROR    | backend.ics_handler:handle_ics_payload:283 - ics_handler failed: local variable 'count' referenced before assignment
+Traceback (most recent call last):
+
+  File "C:\Program Files\Python310\lib\runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+           |         |     -> {'__name__': '__main__', '__doc__': 'The pytest entry point.', '__package__': 'pytest', '__loader__': <_frozen_importlib_exte...
+           |         -> <code object <module> at 0x000002473EC1A4A0, file "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pytest\__mai...
+           -> <function _run_code at 0x000002473D95A560>
+
+  File "C:\Program Files\Python310\lib\runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+         |     -> {'__name__': '__main__', '__doc__': 'The pytest entry point.', '__package__': 'pytest', '__loader__': <_frozen_importlib_exte...
+         -> <code object <module> at 0x000002473EC1A4A0, file "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pytest\__mai...
+
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pytest\__main__.py", line 9, in <module>
+    raise SystemExit(pytest.console_main())
+                     |      -> <function console_main at 0x000002473E95F7F0>
+                     -> <module 'pytest' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\site-packages\\pytest\\__init__.py'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\config\__init__.py", line 223, in console_main
+    code = main()
+           -> <function main at 0x000002473E95F760>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\config\__init__.py", line 199, in main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+         |                |      |    |                          -> <_pytest.config.Config object at 0x000002473EC21510>
+         |                |      |    -> <HookCaller 'pytest_cmdline_main'>
+         |                |      -> <_pytest.config.compat.PathAwareHookProxy object at 0x000002473EC215D0>
+         |                -> <_pytest.config.Config object at 0x000002473EC21510>
+         -> <enum 'ExitCode'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           |    |         |    |     |    |                  |       -> True
+           |    |         |    |     |    |                  -> {'config': <_pytest.config.Config object at 0x000002473EC21510>}
+           |    |         |    |     |    -> <member '_hookimpls' of 'HookCaller' objects>
+           |    |         |    |     -> <HookCaller 'pytest_cmdline_main'>
+           |    |         |    -> <member 'name' of 'HookCaller' objects>
+           |    |         -> <HookCaller 'pytest_cmdline_main'>
+           |    -> <member '_hookexec' of 'HookCaller' objects>
+           -> <HookCaller 'pytest_cmdline_main'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           |    |               |          |        |       -> True
+           |    |               |          |        -> {'config': <_pytest.config.Config object at 0x000002473EC21510>}
+           |    |               |          -> [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\sit...
+           |    |               -> 'pytest_cmdline_main'
+           |    -> <function _multicall at 0x000002473E14C940>
+           -> <_pytest.config.PytestPluginManager object at 0x000002473D939EA0>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          |         |         -> [<_pytest.config.Config object at 0x000002473EC21510>]
+          |         -> <member 'function' of 'HookImpl' objects>
+          -> <HookImpl plugin_name='main', plugin=<module '_pytest.main' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\site...
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\main.py", line 365, in pytest_cmdline_main
+    return wrap_session(config, _main)
+           |            |       -> <function _main at 0x000002473EA0AF80>
+           |            -> <_pytest.config.Config object at 0x000002473EC21510>
+           -> <function wrap_session at 0x000002473EA0AE60>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\main.py", line 318, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+    |       |            |    |       -> <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=6>
+    |       |            |    -> <_pytest.config.Config object at 0x000002473EC21510>
+    |       |            -> <function _main at 0x000002473EA0AF80>
+    |       -> <ExitCode.OK: 0>
+    -> <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=6>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\main.py", line 372, in _main
+    config.hook.pytest_runtestloop(session=session)
+    |      |    |                          -> <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=6>
+    |      |    -> <HookCaller 'pytest_runtestloop'>
+    |      -> <_pytest.config.compat.PathAwareHookProxy object at 0x000002473EC215D0>
+    -> <_pytest.config.Config object at 0x000002473EC21510>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           |    |         |    |     |    |                  |       -> True
+           |    |         |    |     |    |                  -> {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=6>}
+           |    |         |    |     |    -> <member '_hookimpls' of 'HookCaller' objects>
+           |    |         |    |     -> <HookCaller 'pytest_runtestloop'>
+           |    |         |    -> <member 'name' of 'HookCaller' objects>
+           |    |         -> <HookCaller 'pytest_runtestloop'>
+           |    -> <member '_hookexec' of 'HookCaller' objects>
+           -> <HookCaller 'pytest_runtestloop'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           |    |               |          |        |       -> True
+           |    |               |          |        -> {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=6>}
+           |    |               |          -> [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\sit...
+           |    |               -> 'pytest_runtestloop'
+           |    -> <function _multicall at 0x000002473E14C940>
+           -> <_pytest.config.PytestPluginManager object at 0x000002473D939EA0>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          |         |         -> [<Session  exitstatus=<ExitCode.OK: 0> testsfailed=0 testscollected=6>]
+          |         -> <member 'function' of 'HookImpl' objects>
+          -> <HookImpl plugin_name='main', plugin=<module '_pytest.main' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\site...
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\main.py", line 396, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+    |    |                                        |              -> <Coroutine test_icalendar_parse_summary_dtstart_location>
+    |    |                                        -> <Coroutine test_handle_ics_payload_valid_with_db>
+    |    -> <member 'config' of 'Node' objects>
+    -> <Coroutine test_handle_ics_payload_valid_with_db>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           |    |         |    |     |    |                  |       -> True
+           |    |         |    |     |    |                  -> {'item': <Coroutine test_handle_ics_payload_valid_with_db>, 'nextitem': <Coroutine test_icalendar_parse_summary_dtstart_locat...
+           |    |         |    |     |    -> <member '_hookimpls' of 'HookCaller' objects>
+           |    |         |    |     -> <HookCaller 'pytest_runtest_protocol'>
+           |    |         |    -> <member 'name' of 'HookCaller' objects>
+           |    |         -> <HookCaller 'pytest_runtest_protocol'>
+           |    -> <member '_hookexec' of 'HookCaller' objects>
+           -> <HookCaller 'pytest_runtest_protocol'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           |    |               |          |        |       -> True
+           |    |               |          |        -> {'item': <Coroutine test_handle_ics_payload_valid_with_db>, 'nextitem': <Coroutine test_icalendar_parse_summary_dtstart_locat...
+           |    |               |          -> [<HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\...
+           |    |               -> 'pytest_runtest_protocol'
+           |    -> <function _multicall at 0x000002473E14C940>
+           -> <_pytest.config.PytestPluginManager object at 0x000002473D939EA0>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          |         |         -> [<Coroutine test_handle_ics_payload_valid_with_db>, <Coroutine test_icalendar_parse_summary_dtstart_location>]
+          |         -> <member 'function' of 'HookImpl' objects>
+          -> <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\...
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 118, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+    |               |              -> <Coroutine test_icalendar_parse_summary_dtstart_location>
+    |               -> <Coroutine test_handle_ics_payload_valid_with_db>
+    -> <function runtestprotocol at 0x000002473EA0A170>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 137, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+    |       |      |               |             -> True
+    |       |      |               -> <Coroutine test_handle_ics_payload_valid_with_db>
+    |       |      -> <function call_and_report at 0x000002473EA0A560>
+    |       -> <method 'append' of 'list' objects>
+    -> [<TestReport 'tests/test_ics_handler.py::test_handle_ics_payload_valid_with_db' when='setup' outcome='passed'>]
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 244, in call_and_report
+    call = CallInfo.from_call(
+           |        -> <classmethod(<function CallInfo.from_call at 0x000002473EA0A8C0>)>
+           -> <class '_pytest.runner.CallInfo'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 353, in from_call
+    result: TResult | None = func()
+            |                -> <function call_and_report.<locals>.<lambda> at 0x0000024741203B50>
+            -> +TResult
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 245, in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+            |                 |       -> {}
+            |                 -> <Coroutine test_handle_ics_payload_valid_with_db>
+            -> <HookCaller 'pytest_runtest_call'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           |    |         |    |     |    |                  |       -> False
+           |    |         |    |     |    |                  -> {'item': <Coroutine test_handle_ics_payload_valid_with_db>}
+           |    |         |    |     |    -> <member '_hookimpls' of 'HookCaller' objects>
+           |    |         |    |     -> <HookCaller 'pytest_runtest_call'>
+           |    |         |    -> <member 'name' of 'HookCaller' objects>
+           |    |         -> <HookCaller 'pytest_runtest_call'>
+           |    -> <member '_hookexec' of 'HookCaller' objects>
+           -> <HookCaller 'pytest_runtest_call'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           |    |               |          |        |       -> False
+           |    |               |          |        -> {'item': <Coroutine test_handle_ics_payload_valid_with_db>}
+           |    |               |          -> [<HookImpl plugin_name='threadexception', plugin=<module '_pytest.threadexception' from 'C:\\Users\\rafae\\AppData\\Roaming\\...
+           |    |               -> 'pytest_runtest_call'
+           |    -> <function _multicall at 0x000002473E14C940>
+           -> <_pytest.config.PytestPluginManager object at 0x000002473D939EA0>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          |         |         -> [<Coroutine test_handle_ics_payload_valid_with_db>]
+          |         -> <member 'function' of 'HookImpl' objects>
+          -> <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\...
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 179, in pytest_runtest_call
+    item.runtest()
+    |    -> <function PytestAsyncioFunction.runtest at 0x0000024740FC3490>
+    -> <Coroutine test_handle_ics_payload_valid_with_db>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pytest_asyncio\plugin.py", line 469, in runtest
+    super().runtest()
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\python.py", line 1720, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+    |    |                                   -> <Coroutine test_handle_ics_payload_valid_with_db>
+    |    -> <property object at 0x000002473E992BB0>
+    -> <Coroutine test_handle_ics_payload_valid_with_db>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           |    |         |    |     |    |                  |       -> True
+           |    |         |    |     |    |                  -> {'pyfuncitem': <Coroutine test_handle_ics_payload_valid_with_db>}
+           |    |         |    |     |    -> <member '_hookimpls' of 'HookCaller' objects>
+           |    |         |    |     -> <HookCaller 'pytest_pyfunc_call'>
+           |    |         |    -> <member 'name' of 'HookCaller' objects>
+           |    |         -> <HookCaller 'pytest_pyfunc_call'>
+           |    -> <member '_hookexec' of 'HookCaller' objects>
+           -> <HookCaller 'pytest_pyfunc_call'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           |    |               |          |        |       -> True
+           |    |               |          |        -> {'pyfuncitem': <Coroutine test_handle_ics_payload_valid_with_db>}
+           |    |               |          -> [<HookImpl plugin_name='python', plugin=<module '_pytest.python' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\...
+           |    |               -> 'pytest_pyfunc_call'
+           |    -> <function _multicall at 0x000002473E14C940>
+           -> <_pytest.config.PytestPluginManager object at 0x000002473D939EA0>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          |         |         -> [<Coroutine test_handle_ics_payload_valid_with_db>]
+          |         -> <member 'function' of 'HookImpl' objects>
+          -> <HookImpl plugin_name='python', plugin=<module '_pytest.python' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\...
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\python.py", line 166, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+             |              -> {}
+             -> <function test_handle_ics_payload_valid_with_db at 0x000002474106BC70>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pytest_asyncio\plugin.py", line 716, in inner
+    runner.run(coro, context=context)
+    |      |   |             -> <_contextvars.Context object at 0x000002474111C580>
+    |      |   -> <coroutine object test_handle_ics_payload_valid_with_db at 0x00000247411BC270>
+    |      -> <function Runner.run at 0x0000024740FC2830>
+    -> <backports.asyncio.runner.runner.Runner object at 0x0000024741152110>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\backports\asyncio\runner\runner.py", line 175, in run
+    return self._loop.run_until_complete(task)  # type: ignore[union-attr, no-any-return]
+           |    |     |                  -> <Task pending name='Task-4' coro=<test_handle_ics_payload_valid_with_db() running at C:\Users\rafae\Documents\Vibecoding\Zapi...
+           |    |     -> <function BaseEventLoop.run_until_complete at 0x0000024740EDE950>
+           |    -> <ProactorEventLoop running=True closed=False debug=False>
+           -> <backports.asyncio.runner.runner.Runner object at 0x0000024741152110>
+
+  File "C:\Program Files\Python310\lib\asyncio\base_events.py", line 636, in run_until_complete
+    self.run_forever()
+    |    -> <function ProactorEventLoop.run_forever at 0x0000024740F48E50>
+    -> <ProactorEventLoop running=True closed=False debug=False>
+
+  File "C:\Program Files\Python310\lib\asyncio\windows_events.py", line 321, in run_forever
+    super().run_forever()
+
+  File "C:\Program Files\Python310\lib\asyncio\base_events.py", line 603, in run_forever
+    self._run_once()
+    |    -> <function BaseEventLoop._run_once at 0x0000024740EEC430>
+    -> <ProactorEventLoop running=True closed=False debug=False>
+
+  File "C:\Program Files\Python310\lib\asyncio\base_events.py", line 1909, in _run_once
+    handle._run()
+    |      -> <function Handle._run at 0x0000024740E5FD90>
+    -> <Handle Task.__step()>
+
+  File "C:\Program Files\Python310\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+    |    |            |    |           |    -> <member '_args' of 'Handle' objects>
+    |    |            |    |           -> <Handle Task.__step()>
+    |    |            |    -> <member '_callback' of 'Handle' objects>
+    |    |            -> <Handle Task.__step()>
+    |    -> <member '_context' of 'Handle' objects>
+    -> <Handle Task.__step()>
+
+  File "C:\Program Files\Python310\lib\asyncio\tasks.py", line 232, in __step
+    result = coro.send(None)
+             |    -> <method 'send' of 'coroutine' objects>
+             -> <coroutine object test_handle_ics_payload_valid_with_db at 0x00000247411BC270>
+
+  File "C:\Users\rafae\Documents\Vibecoding\Zapista\lembretezap\tests\test_ics_handler.py", line 91, in test_handle_ics_payload_valid_with_db
+    out = await handle_ics_payload(
+                -> <function handle_ics_payload at 0x00000247412039A0>
+
+> File "C:\Users\rafae\Documents\Vibecoding\Zapista\lembretezap\backend\ics_handler.py", line 192, in handle_ics_payload
+    print(f"DEBUG: starting loop, user_id={user_id}, count={count}", file=sys.stderr)
+                                                                          |   -> <_io.TextIOWrapper name='<stderr>' mode='w' encoding='cp1252'>
+                                                                          -> <module 'sys' (built-in)>
+
+UnboundLocalError: local variable 'count' referenced before assignment
+DEBUG: cal parsed, name=VCALENDAR
+2026-02-25 14:49:33.735 | ERROR    | backend.ics_handler:handle_ics_payload:283 - ics_handler failed: local variable 'count' referenced before assignment
+Traceback (most recent call last):
+
+  File "C:\Program Files\Python310\lib\runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+           |         |     -> {'__name__': '__main__', '__doc__': 'The pytest entry point.', '__package__': 'pytest', '__loader__': <_frozen_importlib_exte...
+           |         -> <code object <module> at 0x000002473EC1A4A0, file "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pytest\__mai...
+           -> <function _run_code at 0x000002473D95A560>
+
+  File "C:\Program Files\Python310\lib\runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+         |     -> {'__name__': '__main__', '__doc__': 'The pytest entry point.', '__package__': 'pytest', '__loader__': <_frozen_importlib_exte...
+         -> <code object <module> at 0x000002473EC1A4A0, file "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pytest\__mai...
+
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pytest\__main__.py", line 9, in <module>
+    raise SystemExit(pytest.console_main())
+                     |      -> <function console_main at 0x000002473E95F7F0>
+                     -> <module 'pytest' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\site-packages\\pytest\\__init__.py'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\config\__init__.py", line 223, in console_main
+    code = main()
+           -> <function main at 0x000002473E95F760>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\config\__init__.py", line 199, in main
+    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)
+         |                |      |    |                          -> <_pytest.config.Config object at 0x000002473EC21510>
+         |                |      |    -> <HookCaller 'pytest_cmdline_main'>
+         |                |      -> <_pytest.config.compat.PathAwareHookProxy object at 0x000002473EC215D0>
+         |                -> <_pytest.config.Config object at 0x000002473EC21510>
+         -> <enum 'ExitCode'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           |    |         |    |     |    |                  |       -> True
+           |    |         |    |     |    |                  -> {'config': <_pytest.config.Config object at 0x000002473EC21510>}
+           |    |         |    |     |    -> <member '_hookimpls' of 'HookCaller' objects>
+           |    |         |    |     -> <HookCaller 'pytest_cmdline_main'>
+           |    |         |    -> <member 'name' of 'HookCaller' objects>
+           |    |         -> <HookCaller 'pytest_cmdline_main'>
+           |    -> <member '_hookexec' of 'HookCaller' objects>
+           -> <HookCaller 'pytest_cmdline_main'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           |    |               |          |        |       -> True
+           |    |               |          |        -> {'config': <_pytest.config.Config object at 0x000002473EC21510>}
+           |    |               |          -> [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\sit...
+           |    |               -> 'pytest_cmdline_main'
+           |    -> <function _multicall at 0x000002473E14C940>
+           -> <_pytest.config.PytestPluginManager object at 0x000002473D939EA0>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          |         |         -> [<_pytest.config.Config object at 0x000002473EC21510>]
+          |         -> <member 'function' of 'HookImpl' objects>
+          -> <HookImpl plugin_name='main', plugin=<module '_pytest.main' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\site...
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\main.py", line 365, in pytest_cmdline_main
+    return wrap_session(config, _main)
+           |            |       -> <function _main at 0x000002473EA0AF80>
+           |            -> <_pytest.config.Config object at 0x000002473EC21510>
+           -> <function wrap_session at 0x000002473EA0AE60>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\main.py", line 318, in wrap_session
+    session.exitstatus = doit(config, session) or 0
+    |       |            |    |       -> <Session  exitstatus=<ExitCode.OK: 0> testsfailed=1 testscollected=6>
+    |       |            |    -> <_pytest.config.Config object at 0x000002473EC21510>
+    |       |            -> <function _main at 0x000002473EA0AF80>
+    |       -> <ExitCode.OK: 0>
+    -> <Session  exitstatus=<ExitCode.OK: 0> testsfailed=1 testscollected=6>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\main.py", line 372, in _main
+    config.hook.pytest_runtestloop(session=session)
+    |      |    |                          -> <Session  exitstatus=<ExitCode.OK: 0> testsfailed=1 testscollected=6>
+    |      |    -> <HookCaller 'pytest_runtestloop'>
+    |      -> <_pytest.config.compat.PathAwareHookProxy object at 0x000002473EC215D0>
+    -> <_pytest.config.Config object at 0x000002473EC21510>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           |    |         |    |     |    |                  |       -> True
+           |    |         |    |     |    |                  -> {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=1 testscollected=6>}
+           |    |         |    |     |    -> <member '_hookimpls' of 'HookCaller' objects>
+           |    |         |    |     -> <HookCaller 'pytest_runtestloop'>
+           |    |         |    -> <member 'name' of 'HookCaller' objects>
+           |    |         -> <HookCaller 'pytest_runtestloop'>
+           |    -> <member '_hookexec' of 'HookCaller' objects>
+           -> <HookCaller 'pytest_runtestloop'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           |    |               |          |        |       -> True
+           |    |               |          |        -> {'session': <Session  exitstatus=<ExitCode.OK: 0> testsfailed=1 testscollected=6>}
+           |    |               |          -> [<HookImpl plugin_name='main', plugin=<module '_pytest.main' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\sit...
+           |    |               -> 'pytest_runtestloop'
+           |    -> <function _multicall at 0x000002473E14C940>
+           -> <_pytest.config.PytestPluginManager object at 0x000002473D939EA0>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          |         |         -> [<Session  exitstatus=<ExitCode.OK: 0> testsfailed=1 testscollected=6>]
+          |         -> <member 'function' of 'HookImpl' objects>
+          -> <HookImpl plugin_name='main', plugin=<module '_pytest.main' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\site...
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\main.py", line 396, in pytest_runtestloop
+    item.config.hook.pytest_runtest_protocol(item=item, nextitem=nextitem)
+    |    |                                        |              -> <Coroutine test_whatsapp_channel_attachment_ics_calls_handler_and_sends_response>
+    |    |                                        -> <Coroutine test_icalendar_parse_summary_dtstart_location>
+    |    -> <member 'config' of 'Node' objects>
+    -> <Coroutine test_icalendar_parse_summary_dtstart_location>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           |    |         |    |     |    |                  |       -> True
+           |    |         |    |     |    |                  -> {'item': <Coroutine test_icalendar_parse_summary_dtstart_location>, 'nextitem': <Coroutine test_whatsapp_channel_attachment_i...
+           |    |         |    |     |    -> <member '_hookimpls' of 'HookCaller' objects>
+           |    |         |    |     -> <HookCaller 'pytest_runtest_protocol'>
+           |    |         |    -> <member 'name' of 'HookCaller' objects>
+           |    |         -> <HookCaller 'pytest_runtest_protocol'>
+           |    -> <member '_hookexec' of 'HookCaller' objects>
+           -> <HookCaller 'pytest_runtest_protocol'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           |    |               |          |        |       -> True
+           |    |               |          |        -> {'item': <Coroutine test_icalendar_parse_summary_dtstart_location>, 'nextitem': <Coroutine test_whatsapp_channel_attachment_i...
+           |    |               |          -> [<HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\...
+           |    |               -> 'pytest_runtest_protocol'
+           |    -> <function _multicall at 0x000002473E14C940>
+           -> <_pytest.config.PytestPluginManager object at 0x000002473D939EA0>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          |         |         -> [<Coroutine test_icalendar_parse_summary_dtstart_location>, <Coroutine test_whatsapp_channel_attachment_ics_calls_handler_and...
+          |         -> <member 'function' of 'HookImpl' objects>
+          -> <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\...
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 118, in pytest_runtest_protocol
+    runtestprotocol(item, nextitem=nextitem)
+    |               |              -> <Coroutine test_whatsapp_channel_attachment_ics_calls_handler_and_sends_response>
+    |               -> <Coroutine test_icalendar_parse_summary_dtstart_location>
+    -> <function runtestprotocol at 0x000002473EA0A170>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 137, in runtestprotocol
+    reports.append(call_and_report(item, "call", log))
+    |       |      |               |             -> True
+    |       |      |               -> <Coroutine test_icalendar_parse_summary_dtstart_location>
+    |       |      -> <function call_and_report at 0x000002473EA0A560>
+    |       -> <method 'append' of 'list' objects>
+    -> [<TestReport 'tests/test_ics_handler.py::test_icalendar_parse_summary_dtstart_location' when='setup' outcome='passed'>]
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 244, in call_and_report
+    call = CallInfo.from_call(
+           |        -> <classmethod(<function CallInfo.from_call at 0x000002473EA0A8C0>)>
+           -> <class '_pytest.runner.CallInfo'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 353, in from_call
+    result: TResult | None = func()
+            |                -> <function call_and_report.<locals>.<lambda> at 0x0000024742069000>
+            -> +TResult
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 245, in <lambda>
+    lambda: runtest_hook(item=item, **kwds),
+            |                 |       -> {}
+            |                 -> <Coroutine test_icalendar_parse_summary_dtstart_location>
+            -> <HookCaller 'pytest_runtest_call'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           |    |         |    |     |    |                  |       -> False
+           |    |         |    |     |    |                  -> {'item': <Coroutine test_icalendar_parse_summary_dtstart_location>}
+           |    |         |    |     |    -> <member '_hookimpls' of 'HookCaller' objects>
+           |    |         |    |     -> <HookCaller 'pytest_runtest_call'>
+           |    |         |    -> <member 'name' of 'HookCaller' objects>
+           |    |         -> <HookCaller 'pytest_runtest_call'>
+           |    -> <member '_hookexec' of 'HookCaller' objects>
+           -> <HookCaller 'pytest_runtest_call'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           |    |               |          |        |       -> False
+           |    |               |          |        -> {'item': <Coroutine test_icalendar_parse_summary_dtstart_location>}
+           |    |               |          -> [<HookImpl plugin_name='threadexception', plugin=<module '_pytest.threadexception' from 'C:\\Users\\rafae\\AppData\\Roaming\\...
+           |    |               -> 'pytest_runtest_call'
+           |    -> <function _multicall at 0x000002473E14C940>
+           -> <_pytest.config.PytestPluginManager object at 0x000002473D939EA0>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          |         |         -> [<Coroutine test_icalendar_parse_summary_dtstart_location>]
+          |         -> <member 'function' of 'HookImpl' objects>
+          -> <HookImpl plugin_name='runner', plugin=<module '_pytest.runner' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\...
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\runner.py", line 179, in pytest_runtest_call
+    item.runtest()
+    |    -> <function PytestAsyncioFunction.runtest at 0x0000024740FC3490>
+    -> <Coroutine test_icalendar_parse_summary_dtstart_location>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pytest_asyncio\plugin.py", line 469, in runtest
+    super().runtest()
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\python.py", line 1720, in runtest
+    self.ihook.pytest_pyfunc_call(pyfuncitem=self)
+    |    |                                   -> <Coroutine test_icalendar_parse_summary_dtstart_location>
+    |    -> <property object at 0x000002473E992BB0>
+    -> <Coroutine test_icalendar_parse_summary_dtstart_location>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_hooks.py", line 512, in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           |    |         |    |     |    |                  |       -> True
+           |    |         |    |     |    |                  -> {'pyfuncitem': <Coroutine test_icalendar_parse_summary_dtstart_location>}
+           |    |         |    |     |    -> <member '_hookimpls' of 'HookCaller' objects>
+           |    |         |    |     -> <HookCaller 'pytest_pyfunc_call'>
+           |    |         |    -> <member 'name' of 'HookCaller' objects>
+           |    |         -> <HookCaller 'pytest_pyfunc_call'>
+           |    -> <member '_hookexec' of 'HookCaller' objects>
+           -> <HookCaller 'pytest_pyfunc_call'>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_manager.py", line 120, in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           |    |               |          |        |       -> True
+           |    |               |          |        -> {'pyfuncitem': <Coroutine test_icalendar_parse_summary_dtstart_location>}
+           |    |               |          -> [<HookImpl plugin_name='python', plugin=<module '_pytest.python' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\...
+           |    |               -> 'pytest_pyfunc_call'
+           |    -> <function _multicall at 0x000002473E14C940>
+           -> <_pytest.config.PytestPluginManager object at 0x000002473D939EA0>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pluggy\_callers.py", line 121, in _multicall
+    res = hook_impl.function(*args)
+          |         |         -> [<Coroutine test_icalendar_parse_summary_dtstart_location>]
+          |         -> <member 'function' of 'HookImpl' objects>
+          -> <HookImpl plugin_name='python', plugin=<module '_pytest.python' from 'C:\\Users\\rafae\\AppData\\Roaming\\Python\\Python310\\...
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\_pytest\python.py", line 166, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+             |              -> {}
+             -> <function test_icalendar_parse_summary_dtstart_location at 0x00000247410FC670>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\pytest_asyncio\plugin.py", line 716, in inner
+    runner.run(coro, context=context)
+    |      |   |             -> <_contextvars.Context object at 0x000002474111DE80>
+    |      |   -> <coroutine object test_icalendar_parse_summary_dtstart_location at 0x00000247426D8EB0>
+    |      -> <function Runner.run at 0x0000024740FC2830>
+    -> <backports.asyncio.runner.runner.Runner object at 0x0000024742717BE0>
+  File "C:\Users\rafae\AppData\Roaming\Python\Python310\site-packages\backports\asyncio\runner\runner.py", line 175, in run
+    return self._loop.run_until_complete(task)  # type: ignore[union-attr, no-any-return]
+           |    |     |                  -> <Task pending name='Task-5' coro=<test_icalendar_parse_summary_dtstart_location() running at C:\Users\rafae\Documents\Vibecod...
+           |    |     -> <function BaseEventLoop.run_until_complete at 0x0000024740EDE950>
+           |    -> <ProactorEventLoop running=True closed=False debug=False>
+           -> <backports.asyncio.runner.runner.Runner object at 0x0000024742717BE0>
+
+  File "C:\Program Files\Python310\lib\asyncio\base_events.py", line 636, in run_until_complete
+    self.run_forever()
+    |    -> <function ProactorEventLoop.run_forever at 0x0000024740F48E50>
+    -> <ProactorEventLoop running=True closed=False debug=False>
+
+  File "C:\Program Files\Python310\lib\asyncio\windows_events.py", line 321, in run_forever
+    super().run_forever()
+
+  File "C:\Program Files\Python310\lib\asyncio\base_events.py", line 603, in run_forever
+    self._run_once()
+    |    -> <function BaseEventLoop._run_once at 0x0000024740EEC430>
+    -> <ProactorEventLoop running=True closed=False debug=False>
+
+  File "C:\Program Files\Python310\lib\asyncio\base_events.py", line 1909, in _run_once
+    handle._run()
+    |      -> <function Handle._run at 0x0000024740E5FD90>
+    -> <Handle Task.__step()>
+
+  File "C:\Program Files\Python310\lib\asyncio\events.py", line 80, in _run
+    self._context.run(self._callback, *self._args)
+    |    |            |    |           |    -> <member '_args' of 'Handle' objects>
+    |    |            |    |           -> <Handle Task.__step()>
+    |    |            |    -> <member '_callback' of 'Handle' objects>
+    |    |            -> <Handle Task.__step()>
+    |    -> <member '_context' of 'Handle' objects>
+    -> <Handle Task.__step()>
+
+  File "C:\Program Files\Python310\lib\asyncio\tasks.py", line 232, in __step
+    result = coro.send(None)
+             |    -> <method 'send' of 'coroutine' objects>
+             -> <coroutine object test_icalendar_parse_summary_dtstart_location at 0x00000247426D8EB0>
+
+  File "C:\Users\rafae\Documents\Vibecoding\Zapista\lembretezap\tests\test_ics_handler.py", line 153, in test_icalendar_parse_summary_dtstart_location
+    out = await handle_ics_payload(
+                -> <function handle_ics_payload at 0x00000247412039A0>
+
+> File "C:\Users\rafae\Documents\Vibecoding\Zapista\lembretezap\backend\ics_handler.py", line 192, in handle_ics_payload
+    print(f"DEBUG: starting loop, user_id={user_id}, count={count}", file=sys.stderr)
+                                                                          |   -> <_io.TextIOWrapper name='<stderr>' mode='w' encoding='cp1252'>
+                                                                          -> <module 'sys' (built-in)>
+
+UnboundLocalError: local variable 'count' referenced before assignment
+2026-02-25 14:49:33.761 | INFO     | zapista.channels.whatsapp:_handle_bridge_message:349 - WhatsApp from sender='351912345678@s.whatsapp.net' pn='' \u2192 chat_id='351912345678@s.whatsapp.net' (sender_id='351912345678')

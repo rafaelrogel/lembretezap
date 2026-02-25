@@ -22,7 +22,6 @@ from backend.handlers import (
     handle_pendente,
     handle_stop,
 )
-from backend.handlers import handle_entertainment
 from backend.integrations import handle_atendimento_request, handle_crypto, handle_sacred_text
 from backend.confirm_actions import handle_exportar, handle_deletar_tudo, resolve_confirm
 from backend.settings_handlers import handle_tz, handle_lang, handle_quiet, handle_reset, handle_nuke
@@ -60,7 +59,6 @@ from backend.views import (
 HANDLERS = [
     handle_atendimento_request,
     handle_pending_confirmation,
-    handle_entertainment,  # /filme, /livro, /musica (antes de list)
     handle_list,  # primeiro: "cria lista de X", "mostre lista" → evita cair no LLM com histórico de erro
     handle_list_or_events_ambiguous,  # "tenho de X, Y" → pergunta lista ou lembretes
     handle_vague_time_reminder,

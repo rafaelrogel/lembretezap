@@ -195,9 +195,9 @@ def test_command_parser():
 
     # /filme, /livro, /musica, /receita → list_add (tudo dentro de /list)
     i = parse("/filme Matrix")
-    assert i == {"type": "event_add", "event_type": "filme", "name": "Matrix"}
+    assert i == {"type": "list_add", "list_name": "filme", "item": "Matrix"}
     i = parse("/filme O Senhor dos Anéis")
-    assert i is not None and i["type"] == "event_add" and i["event_type"] == "filme" and "Senhor" in i["name"]
+    assert i is not None and i["type"] == "list_add" and i["list_name"] == "filme" and "Senhor" in i["item"]
     i = parse("/list filme Inception")
     assert i == {"type": "list_add", "list_name": "filme", "item": "Inception"}
     i = parse("/list receita Bolo de chocolate")
@@ -280,10 +280,10 @@ def test_command_filter():
 def test_fastapi_health():
     from fastapi.testclient import TestClient
     from backend.app import app
-    client = TestClient(app)
-    r = client.get("/health")
-    assert r.status_code == 200
-    assert r.json() == {"status": "ok"}
+    with TestClient(app) as client:
+        r = client.get("/health")
+        assert r.status_code == 200
+        assert r.json() == {"status": "ok"}
 
 
 def test_fastapi_api_key_auth():
@@ -292,16 +292,16 @@ def test_fastapi_api_key_auth():
     from fastapi.testclient import TestClient
     from backend.app import app
 
-    client = TestClient(app)
     original = auth_module.API_SECRET_KEY
     try:
         auth_module.API_SECRET_KEY = "test-secret"
-        r_no_header = client.get("/users")
-        assert r_no_header.status_code in (401, 403)
-        r_wrong = client.get("/users", headers={"X-API-Key": "wrong"})
-        assert r_wrong.status_code in (401, 403)
-        r_ok = client.get("/users", headers={"X-API-Key": "test-secret"})
-        assert r_ok.status_code == 200
+        with TestClient(app) as client:
+            r_no_header = client.get("/users")
+            assert r_no_header.status_code in (401, 403)
+            r_wrong = client.get("/users", headers={"X-API-Key": "wrong"})
+            assert r_wrong.status_code in (401, 403)
+            r_ok = client.get("/users", headers={"X-API-Key": "test-secret"})
+            assert r_ok.status_code == 200
     finally:
         auth_module.API_SECRET_KEY = original
 
