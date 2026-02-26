@@ -34,6 +34,11 @@ def _now_ms() -> int:
         return int(time.time() * 1000)
 
 
+# Janela de catch-up ao arranque: jobs "at" atrasados até este limite são disparados imediatamente
+# em vez de serem silenciosamente eliminados. 10 min cobre reinícios rápidos do serviço.
+_CATCHUP_WINDOW_MS = 10 * 60 * 1000  # 10 minutos
+
+
 def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:
     """Compute next run time in ms. Respeita not_before_ms para recorrentes (ex.: «a partir de 1º julho»)."""
     if schedule.kind == "at":
@@ -227,6 +232,8 @@ class CronService:
         self._save_store()
         self._arm_timer()
         # Limpeza de jobs "at" no passado: 1x ao arranque e depois 1x por dia
+        # NOTA: remove_stale_at_jobs não toca em jobs que foram resgatados pelo catch-up
+        # (esses já têm next_run_at_ms definido no futuro imediato)
         removals = self.remove_stale_at_jobs()
         if removals and self.on_stale_removed:
             try:
@@ -247,12 +254,36 @@ class CronService:
             self._daily_stale_task = None
     
     def _recompute_next_runs(self) -> None:
-        """Recompute next run times for all enabled jobs."""
+        """Recompute next run times for all enabled jobs.
+        
+        Para jobs 'at' atrasados (at_ms no passado): se dentro da janela de catch-up
+        (_CATCHUP_WINDOW_MS), agenda-os para disparar daqui a 1s em vez de os descartar.
+        Isso garante que lembretes agendados durante uma paragem do serviço não se percam.
+        """
         if not self._store:
             return
         now = _now_ms()
         for job in self._store.jobs:
-            if job.enabled:
+            if not job.enabled:
+                continue
+            if job.schedule.kind == "at" and job.schedule.at_ms:
+                at_ms = job.schedule.at_ms
+                if at_ms <= now:
+                    # Job atrasado: verificar se está dentro da janela de catch-up
+                    overdue_ms = now - at_ms
+                    if overdue_ms <= _CATCHUP_WINDOW_MS and job.state.last_run_at_ms is None:
+                        # Rescatar: disparar daqui a 1s (não foi ainda executado)
+                        job.state.next_run_at_ms = now + 1000
+                        logger.info(
+                            f"Cron startup catch-up: job '{job.name}' ({job.id}) "
+                            f"was {overdue_ms // 1000}s overdue, rescheduled to fire in 1s"
+                        )
+                    else:
+                        # Muito antigo ou já executado: marcar como sem próxima execução (stale removal trata)
+                        job.state.next_run_at_ms = None
+                else:
+                    job.state.next_run_at_ms = at_ms
+            else:
                 job.state.next_run_at_ms = _compute_next_run(job.schedule, now)
     
     def _get_next_wake_ms(self) -> int | None:
@@ -580,6 +611,10 @@ class CronService:
             at_ms = getattr(j.schedule, "at_ms", None)
             next_ms = getattr(j.state, "next_run_at_ms", None)
             if at_ms is None:
+                continue
+            # Se next_run_at_ms esta no futuro, o job ainda e valido (pode ter sido resgatado
+            # pelo catch-up de startup) -> nunca remover como stale.
+            if next_ms is not None and next_ms > now:
                 continue
             if at_ms <= now or next_ms is None:
                 to_remove.append(j)
