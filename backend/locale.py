@@ -458,8 +458,8 @@ HELP_FULL: dict[LangCode, str] = {
         "• {{/reset}} — refazer cadastro (nome, cidade)\n"
         "• {{/quiet}} 22:00-08:00 — horário silencioso\n\n"
         "*Dicas*\n"
+        '• 🎙️ *Áudio:* Podes enviar áudios para criar lembretes ou listas. Se quiseres que eu responda em áudio, basta dizer "manda áudio" ou "responde por voz".\n'
         '• Marcar item como feito: podes dizer por áudio ("pronto", "já fiz"), escrever texto ou usar emoji ("✓", "👍") — não precisas de comando.\n'
-        '• Conversa por mensagem ou áudio; se quiseres resposta em áudio, pede "responde em áudio", "manda áudio" ou "fala comigo". 😊\n'
         '• Se as respostas parecerem estranhas por causa do histórico, usa {{/reset}} ou /reiniciar para limpar a conversa.'
     ),
     "pt-BR": (
@@ -480,8 +480,8 @@ HELP_FULL: dict[LangCode, str] = {
         "• {{/reset}} — refazer cadastro (nome, cidade)\n"
         "• {{/quiet}} 22:00-08:00 — horário silencioso\n\n"
         "*Dicas*\n"
+        '• 🎙️ *Áudio:* Você pode enviar áudios para criar lembretes ou listas. Se quiser que eu responda em áudio, basta dizer "manda áudio" ou "responde por voz".\n'
         '• Marcar item como feito: você pode dizer por áudio ("pronto", "já fiz"), escrever texto ou usar emoji ("✓", "👍") — não precisa de comando.\n'
-        '• Conversa por mensagem ou áudio; se quiser resposta em áudio, peça "responde em áudio", "manda áudio" ou "fala comigo". 😊\n'
         '• Se as respostas parecerem estranhas por causa do histórico, use {{/reset}} ou /reiniciar para limpar a conversa.'
     ),
     "es": (
@@ -502,8 +502,8 @@ HELP_FULL: dict[LangCode, str] = {
         "• {{/reset}} — reiniciar registro (nombre, ciudad)\n"
         "• {{/quiet}} 22:00-08:00 — horario silencioso\n\n"
         "*Consejos*\n"
+        '• 🎙️ *Audio:* Puedes enviar audios para crear recordatorios o listas. Si quieres que responda en audio, solo di "manda audio" o "responde por voz".\n'
         '• Marcar ítem como hecho: puedes decir por audio ("listo", "ya está"), escribir texto o usar emoji ("✓", "👍") — no necesitas comando.\n'
-        '• Conversa por mensaje o audio; si quieres respuesta en audio, pide "responde en audio", "manda audio" ou "habla conmigo". 😊\n'
         '• Si las respuestas parecen extrañas debido al historial, usa {{/reset}} o /reiniciar para limpiar el chat.'
     ),
     "en": (
@@ -524,8 +524,8 @@ HELP_FULL: dict[LangCode, str] = {
         "• {{/reset}} — redo signup (name, city)\n"
         "• {{/quiet}} 22:00-08:00 — quiet hours\n\n"
         "*Tips*\n"
+        '• 🎙️ *Audio:* You can send voice notes to create reminders or lists. If you want me to reply with audio, just say "send audio" or "reply with voice".\n'
         '• Mark item done: you can say by voice ("done", "finished"), type or use emoji ("✓", "👍") — no command needed.\n'
-        '• Chat by message or voice; for voice reply ask "reply in audio", "send audio" or "talk to me". 😊\n'
         '• If answers seem off due to conversation history, use {{/reset}} or /reiniciar to clear the chat.'
     ),
 }

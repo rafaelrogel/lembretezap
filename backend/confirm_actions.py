@@ -301,6 +301,30 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
             except Exception:
                 pass
 
+        # 6. Limpar ficheiros físicos de memória e perfil (total privacy)
+        try:
+            import shutil
+            from zapista.config.loader import get_data_dir
+            from zapista.utils.helpers import safe_filename
+            from backend.client_memory import get_client_memory_file_path
+
+            workspace = get_data_dir()
+            
+            # Memória da sessão (workspace/memory/safe_key)
+            session_key = f"{ctx.channel}:{ctx.chat_id}"
+            safe_key = safe_filename(str(session_key).strip().replace(":", "_"))
+            if safe_key:
+                memory_dir = workspace / "memory" / safe_key
+                if memory_dir.exists() and memory_dir.is_dir():
+                    shutil.rmtree(memory_dir, ignore_errors=True)
+            
+            # Perfil do utilizador (workspace/users/safe_chat_id.md)
+            user_file = get_client_memory_file_path(workspace, ctx.chat_id)
+            if user_file.exists():
+                user_file.unlink()
+        except Exception:
+            pass
+
         return _NUKE_DONE_MSGS.get(lang, _NUKE_DONE_MSGS["pt-BR"])
 
     return None
