@@ -43,7 +43,8 @@ class ListTool(Tool):
     def description(self) -> str:
         return (
             "Manage user lists. Always use this tool when the user asks to create a list, add items (e.g. books, recipes), or show lists; do not say the system is broken without calling the tool first. "
-            "Actions: add (list_name, item_text — REQUIRED: never call add without a non-empty item_text, ask the user what to add first), "
+            "Actions: add (list_name, item_text — REQUIRED: never call add without a non-empty item_text, ask the user what to add first; "
+            "IMPORTANT: when adding multiple items, call add once per item — never pack multiple items into a single item_text), "
             "list (list_name), remove (list_name, item_id), "
             "feito (list_name, item_id to mark done), habitual (list_name), shuffle (list_name)."
         )
@@ -125,6 +126,28 @@ class ListTool(Tool):
         finally:
             db.close()
 
+    @staticmethod
+    def _split_items(item_text: str) -> list[str]:
+        """
+        Divide texto em múltiplos itens quando separados por vírgula ou ' e '.
+        Só divide se todas as partes forem curtas (< 80 chars) — evita dividir
+        títulos longos de livros/filmes que contenham vírgulas intercaladas.
+        Ex.: 'ovo, pão e leite' -> ['ovo', 'pão', 'leite']
+             'Paulo Coelho - O Alquimista' -> ['Paulo Coelho - O Alquimista'] (não divide)
+        """
+        import re
+        text = item_text.strip()
+        # Primeiro substituir " e " por vírgula para uniformizar
+        normalized = re.sub(r"\s+e\s+", ", ", text)
+        parts = [p.strip() for p in re.split(r",\s*", normalized) if p.strip()]
+        if len(parts) <= 1:
+            return [text]
+        # Só dividir se todas as partes forem curtas (itens simples, não títulos com vírgula)
+        max_part_len = 80
+        if all(len(p) <= max_part_len for p in parts):
+            return parts
+        return [text]
+
     def _add(self, db, user_id: int, list_name: str, item_text: str) -> str:
         list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
         item_text = sanitize_string(item_text or "", MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
@@ -145,6 +168,21 @@ class ListTool(Tool):
             return LIST_EMPTY_ITEM_ERROR.get(_lg, LIST_EMPTY_ITEM_ERROR["en"]).format(list_name=list_name)
         if looks_like_confidential_data(item_text):
             return "Por política de privacidade (RGPD/LGPD), não guardamos dados confidenciais em listas (ex.: CPF, números de cartão). Pode guardar receitas, compras e outros textos sem dados pessoais sensíveis."
+
+        # Auto-split: se LLM passou múltiplos itens numa string, dividir e adicionar cada um
+        items_to_add = self._split_items(item_text)
+        if len(items_to_add) > 1:
+            results = []
+            for single_item in items_to_add:
+                single_clean = sanitize_string(single_item, MAX_LIST_ITEM_TEXT_LEN)
+                if single_clean:
+                    results.append(self._add_single(db, user_id, list_name, single_clean))
+            return "\n".join(results)
+
+        return self._add_single(db, user_id, list_name, item_text)
+
+    def _add_single(self, db, user_id: int, list_name: str, item_text: str) -> str:
+        """Adiciona um único item à lista (uso interno; list_name e item_text já sanitizados)."""
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
             proj = db.query(Project).filter(Project.user_id == user_id, Project.name == list_name).first()
