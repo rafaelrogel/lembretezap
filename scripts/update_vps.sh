@@ -99,9 +99,9 @@ echo ""
 echo "[3/3] Verificação de saúde do sistema (TTS)..."
 DATA_DIR="${INSTALL_DIR}/data"
 if [ -f ".env" ]; then
-  CUR_PIPER=$(grep "PIPER_BIN=" .env | cut -d'=' -f2)
+  CUR_PIPER=$(grep "^PIPER_BIN=" .env | cut -d'=' -f2-)
   if [ -n "$CUR_PIPER" ] && [ ! -f "$CUR_PIPER" ]; then
-    echo "    ⚠️ Aviso: PIPER_BIN no .env aponta para um caminho inexistente: $CUR_PIPER"
+    echo "    ⚠️ Aviso: PIPER_BIN no .env aponta para um caminho inexistente no host: $CUR_PIPER"
     NEW_PIPER="${DATA_DIR}/bin/piper"
     if [ -f "$NEW_PIPER" ]; then
       echo "    ✅ Encontrado Piper em: $NEW_PIPER"
@@ -141,6 +141,30 @@ if [ -f ".env" ]; then
       fi
     fi
     echo "    ✅ Configuração de TTS parece correta."
+  fi
+
+  # Verificar TTS dentro do container gateway (cobre setups onde os paths no host diferem do container)
+  _gw_container=$(docker ps --filter "name=gateway" --format "{{.Names}}" 2>/dev/null | head -1)
+  if [ -n "$_gw_container" ] && [ -n "$CUR_PIPER" ]; then
+    if docker exec "$_gw_container" test -f "$CUR_PIPER" 2>/dev/null; then
+      echo "    ✅ Piper acessível dentro do container ($CUR_PIPER)"
+    else
+      echo "    ⚠️  Piper não acessível dentro do container gateway em: $CUR_PIPER"
+      echo "    Dica: o volume do container pode não incluir o path do Piper."
+      echo "    Alternativa: copiar piper para o volume em uso pelo container e atualizar PIPER_BIN."
+      # Tentar auto-detetar path acessível no container
+      _container_piper=$(docker exec "$_gw_container" sh -c 'for p in /root/.zapista/bin/piper /opt/zapista/data/bin/piper; do [ -f "$p" ] && echo "$p" && break; done' 2>/dev/null)
+      if [ -n "$_container_piper" ]; then
+        echo "    ✅ Piper encontrado no container em: $_container_piper"
+        echo "    A atualizar .env com o caminho correto para o container..."
+        sed -i "s|PIPER_BIN=.*|PIPER_BIN=$_container_piper|" .env
+        _container_models=$(dirname "$(dirname "$_container_piper")")/models/piper
+        sed -i "s|TTS_MODELS_BASE=.*|TTS_MODELS_BASE=$_container_models|" .env
+        echo "    .env atualizado: PIPER_BIN=$_container_piper"
+        echo "    A reiniciar o gateway para aplicar novo .env..."
+        docker restart "$_gw_container" >/dev/null 2>&1 && echo "    ✅ Gateway reiniciado." || true
+      fi
+    fi
   fi
 fi
 echo ""
