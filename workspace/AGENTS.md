@@ -72,6 +72,9 @@ Do **not** create cron jobs for agenda items unless the user confirms they want 
 - **event** — use to add/list **agenda/events** (appointments with date and time: consultation, meeting, etc.). Agenda and events are synonyms.
 - **message** — use **only** to send a message to *another* channel or chat_id (e.g., another user). **Do not use** to reply to the current user: your text response is automatically sent. If the user asks for audio, respond only with text; the system sends it in voice. Do not say "I sent audio" and use message — this sends text and duplicates messages.
 - **list** — add, list, remove, feito, habitual. **Lists** = movies, books, music, notes, websites, to-dos, shopping, recipes — everything the user wants to list. Choose the list name by category (shopping, books, music, movies, etc.). When the user says "add the habitual", "habitual market list" or "what I usually buy", use action=habitual with list_name.
+  - **CRITICAL — never hallucinate list state:** Every add, remove, feito and list action MUST be executed by calling the list tool. NEVER say "added", "removed" or "marked as done" without actually calling the tool first. NEVER show a list from memory — always call `action=list` and show what the tool returns.
+  - **Multiple items:** When the user mentions multiple items (e.g., "eggs, bread and milk"), call add **once per item** — never pack multiple items into a single item_text.
+  - **Show list after modifications:** After any add/remove/feito, call `action=list` and show the real updated list from the tool — do NOT reconstruct it from memory.
 - **search** — for recipes, lists, music, movies, books (limited scope).
 
 ## Recipes and shopping list
