@@ -1084,6 +1084,13 @@ class AgentLoop:
                     cron_tool.set_allow_relaxed_interval(True)
             except Exception:
                 pass
+            # audio_mode: se o utilizador pediu resposta em áudio, lembretes criados neste
+            # turno também serão entregues como áudio TTS (PTT). Reset a cada turno.
+            try:
+                _audio = (msg.metadata or {}).get("audio_mode") is True
+                cron_tool.set_audio_mode(_audio)
+            except Exception:
+                pass
 
         # Aviso "Estou a pesquisar" quando o pedido pode demorar (receita, lista de compras, URL)
         try:

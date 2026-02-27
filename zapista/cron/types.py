@@ -41,6 +41,8 @@ class CronPayload:
     parent_job_id: str | None = None
     # Lembrete com prazo: não remover main job ao executar; deadline checker cria 3 lembretes pós-prazo
     has_deadline: bool = False
+    # Entregar o lembrete como áudio TTS (PTT) em vez de texto
+    audio_mode: bool = False
     # Deadline checker: id do job principal a verificar
     deadline_check_for_job_id: str | None = None
     # Jobs pós-prazo (1,2,3): id do job principal; ao confirmar, remover todos

@@ -142,6 +142,7 @@ class CronService:
                             depends_on_job_id=j["payload"].get("dependsOnJobId"),
                             parent_job_id=j["payload"].get("parentJobId"),
                             has_deadline=j["payload"].get("hasDeadline", False),
+                            audio_mode=j["payload"].get("audioMode", False),
                             deadline_check_for_job_id=j["payload"].get("deadlineCheckForJobId"),
                             deadline_main_job_id=j["payload"].get("deadlineMainJobId"),
                             deadline_post_index=j["payload"].get("deadlinePostIndex"),
@@ -202,6 +203,7 @@ class CronService:
                         "dependsOnJobId": getattr(j.payload, "depends_on_job_id", None),
                         "parentJobId": getattr(j.payload, "parent_job_id", None),
                         "hasDeadline": getattr(j.payload, "has_deadline", False),
+                        "audioMode": getattr(j.payload, "audio_mode", False),
                         "deadlineCheckForJobId": getattr(j.payload, "deadline_check_for_job_id", None),
                         "deadlineMainJobId": getattr(j.payload, "deadline_main_job_id", None),
                         "deadlinePostIndex": getattr(j.payload, "deadline_post_index", None),
@@ -434,6 +436,7 @@ class CronService:
         deadline_main_job_id: str | None = None,
         deadline_post_index: int | None = None,
         phone_for_locale: str | None = None,
+        audio_mode: bool = False,
         is_proactive_nudge: bool = False,
     ) -> CronJob:
         """Add a new job. suggested_prefix: quando dado (ex. pelo MIMO), usa para o ID em vez de derivar da mensagem."""
@@ -537,6 +540,7 @@ class CronService:
                 deadline_check_for_job_id=deadline_check_for_job_id,
                 deadline_main_job_id=deadline_main_job_id,
                 deadline_post_index=deadline_post_index,
+                audio_mode=audio_mode,
                 is_proactive_nudge=is_proactive_nudge,
             ),
             created_at_ms=now,

@@ -39,6 +39,7 @@ class CronTool(Tool):
         self._scope_provider = scope_provider
         self._scope_model = (scope_model or "").strip()
         self._session_manager = session_manager
+        self._audio_mode: bool = False
     
     def set_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
         """Set the current session context for delivery. phone_for_locale: número para inferir idioma na entrega (quando chat_id é LID)."""
@@ -49,6 +50,10 @@ class CronTool(Tool):
     def set_allow_relaxed_interval(self, allow: bool) -> None:
         """Para este turno: cliente insistiu, permitir intervalo até 30 min."""
         self._allow_relaxed_interval = allow
+
+    def set_audio_mode(self, audio_mode: bool) -> None:
+        """Para este turno: entregar lembretes como áudio TTS."""
+        self._audio_mode = audio_mode
 
     def _get_allow_relaxed(self, explicit: bool | None = None) -> bool:
         return explicit if explicit is not None else getattr(self, "_allow_relaxed_interval", False)
@@ -264,6 +269,7 @@ class CronTool(Tool):
                 remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
                 depends_on_job_id=depends_on_job_id,
                 has_deadline=has_deadline,
+                audio_mode=getattr(self, "_audio_mode", False),
             )
         elif action == "list":
             return self._list_jobs()
@@ -387,6 +393,7 @@ class CronTool(Tool):
         remind_again_if_unconfirmed_seconds: int | None = None,
         depends_on_job_id: str | None = None,
         has_deadline: bool = False,
+        audio_mode: bool = False,
     ) -> str:
         message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
@@ -596,6 +603,7 @@ class CronTool(Tool):
                 remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
                 depends_on_job_id=depends_on_job_id.strip().upper()[:16] if depends_on_job_id else None,
                 has_deadline=use_deadline,
+                audio_mode=audio_mode,
             )
         except ValueError as e:
             if "MAX_REMINDERS_EXCEEDED" in str(e):
@@ -643,6 +651,7 @@ class CronTool(Tool):
                                 phone_for_locale=getattr(self, "_phone_for_locale", None),
                                 delete_after_run=True,
                                 parent_job_id=job.id,
+                                audio_mode=audio_mode,
                             )
                             pre_reminder_count = 1
                     else:
@@ -676,6 +685,7 @@ class CronTool(Tool):
                                 phone_for_locale=getattr(self, "_phone_for_locale", None),
                                 delete_after_run=True,
                                 parent_job_id=job.id,
+                                audio_mode=audio_mode,
                             )
                             pre_reminder_count += 1
                 finally:
