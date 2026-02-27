@@ -1621,7 +1621,7 @@ class AgentLoop:
             if ctx.list_tool and msg.content and (not intent or intent.get("type") not in ("list_add", "list_show")):
                 t = (msg.content or "").strip()
                 m = re.match(
-                    r"^(?i)(?:cria|crie|faça|faz|mostre|mostra|exiba|me\s+d[êe]|de-me|dê-me|crea|haz|dame|muéstrame|muestra|create|make|give\s+me|show\s+me|show|display)\s+"
+                    r"(?i)^(?:cria|crie|faça|faz|mostre|mostra|exiba|me\s+d[êe]|de-me|dê-me|crea|haz|dame|muéstrame|muestra|create|make|give\s+me|show\s+me|show|display)\s+"
                     r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?(\w+)\s*(.*)$",
                     t,
                 )
