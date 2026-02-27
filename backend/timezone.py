@@ -36,6 +36,37 @@ BR_DDD_TO_IANA = {
     63: "America/Sao_Paulo",         # Tocantins - Palmas
 }
 
+# DDD → nome amigável da cidade capital (para exibição no onboarding)
+BR_DDD_TO_CITY_NAME: dict[int, str] = {
+    68: "Rio Branco",
+    82: "Maceió",
+    96: "Macapá",
+    92: "Manaus",
+    71: "Salvador",
+    85: "Fortaleza",
+    61: "Brasília",
+    27: "Vitória",
+    62: "Goiânia",
+    98: "São Luís",
+    65: "Cuiabá",
+    67: "Campo Grande",
+    31: "Belo Horizonte",
+    91: "Belém",
+    83: "João Pessoa",
+    41: "Curitiba",
+    81: "Recife",
+    86: "Teresina",
+    21: "Rio de Janeiro",
+    84: "Natal",
+    51: "Porto Alegre",
+    69: "Porto Velho",
+    95: "Boa Vista",
+    48: "Florianópolis",
+    11: "São Paulo",
+    79: "Aracaju",
+    63: "Palmas",
+}
+
 # Prefixo país (dígitos) → IANA timezone por defeito (Brasil 55 tratado à parte com DDD)
 _DEFAULT_TZ_BY_PREFIX = {
     "351": "Europe/Lisbon",         # Portugal
@@ -202,6 +233,27 @@ CITY_TO_IANA = {
     "lagos": "Africa/Lagos",
     "cairo": "Africa/Cairo",
 }
+
+
+def ddd_city_and_tz(phone: str) -> tuple[str, str] | None:
+    """Retorna (city_name, iana_tz) para números brasileiros com DDD reconhecido.
+    Ex.: '5571919191919' → ('Salvador', 'America/Bahia').
+    Retorna None para outros países ou DDDs não mapeados.
+    """
+    digits = _digits_from_chat_id(phone)
+    if not digits:
+        return None
+    if not digits.startswith("55") or len(digits) < 4:
+        return None
+    try:
+        ddd = int(digits[2:4])
+    except (ValueError, IndexError):
+        return None
+    iana = BR_DDD_TO_IANA.get(ddd)
+    city = BR_DDD_TO_CITY_NAME.get(ddd)
+    if iana and city:
+        return (city, iana)
+    return None
 
 
 def phone_to_default_timezone(chat_id: str) -> str:

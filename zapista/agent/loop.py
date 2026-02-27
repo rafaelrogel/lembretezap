@@ -1256,10 +1256,11 @@ class AgentLoop:
                     NUDGE_TZ_WHEN_MISSING,
                     PREFERRED_NAME_QUESTION,
                     preferred_name_confirmation,
+                    ddd_tz_confirm_message,
                 )
                 from backend.onboarding_skip import is_likely_not_city, is_likely_valid_name, is_onboarding_refusal_or_skip
                 from backend.onboarding_time import parse_local_time_from_message
-                from backend.timezone import iana_from_offset_minutes, phone_to_default_timezone, is_valid_iana
+                from backend.timezone import iana_from_offset_minutes, phone_to_default_timezone, is_valid_iana, ddd_city_and_tz
                 db = SessionLocal()
                 try:
                     user = get_or_create_user(db, msg.chat_id)
@@ -1272,6 +1273,7 @@ class AgentLoop:
                     intro_sent = session.metadata.get("onboarding_intro_sent") is True
                     pending_timezone = session.metadata.get("pending_timezone") is True
                     pending_time_confirm = session.metadata.get("pending_time_confirm") is True
+                    pending_ddd_confirm = session.metadata.get("pending_ddd_confirm") is True
                     try:
                         user_lang = _get_user_lang(db, msg.chat_id, msg.metadata.get("phone_for_locale"))
                     except Exception:
@@ -1307,8 +1309,53 @@ class AgentLoop:
                         pass  # fall through to handlers
                     else:
                         nudge_count = session.metadata.get("onboarding_nudge_count", 0)
+
+                        # --- 0. Resposta à confirmação de fuso por DDD ---
+                        if pending_ddd_confirm and not (msg.content or "").strip().startswith("/"):
+                            content_stripped = (msg.content or "").strip().lower()
+                            negado = any(w in content_stripped for w in (
+                                "não", "nao", "no", "errado", "incorreto", "wrong", "nope",
+                                "não é", "nao e", "nao é", "está errado", "esta errado",
+                            ))
+                            proposed_tz = session.metadata.get("proposed_tz_iana")
+                            proposed_city = session.metadata.get("proposed_ddd_city", "")
+                            if negado:
+                                # Limpar estado DDD e pedir cidade/hora
+                                session.metadata.pop("pending_ddd_confirm", None)
+                                session.metadata.pop("proposed_tz_iana", None)
+                                session.metadata.pop("proposed_ddd_city", None)
+                                session.metadata["pending_timezone"] = True
+                                self.sessions.save(session)
+                                ask = ONBOARDING_ASK_TIME_FALLBACK.get(user_lang, ONBOARDING_ASK_TIME_FALLBACK["en"])
+                                session.add_message("user", msg.content)
+                                session.add_message("assistant", ask)
+                                self.sessions.save(session)
+                                db.close()
+                                return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=ask)
+                            # Confirmado (explícito ou não houve negação) → registrar fuso
+                            if proposed_tz and is_valid_iana(proposed_tz):
+                                from backend.user_store import set_user_city
+                                set_user_city(db, msg.chat_id, proposed_city, tz_iana=proposed_tz)
+                                session.metadata.pop("pending_ddd_confirm", None)
+                                session.metadata.pop("pending_timezone", None)
+                                session.metadata.pop("proposed_tz_iana", None)
+                                session.metadata.pop("proposed_ddd_city", None)
+                                self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
+                                self.sessions.save(session)
+                                complete_msg = ONBOARDING_COMPLETE.get(user_lang, ONBOARDING_COMPLETE["en"])
+                                complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
+                                complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
+                                complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
+                                name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                complete_msg += "\n\n" + name_q
+                                session.metadata["pending_preferred_name"] = True
+                                session.add_message("user", msg.content)
+                                session.add_message("assistant", complete_msg)
+                                self.sessions.save(session)
+                                db.close()
+                                return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=complete_msg)
                         # Retry gradual: após 2 mensagens sem responder à pergunta de fuso, perguntar «que horas são aí?»
-                        if intro_sent and not pending_timezone and not pending_time_confirm and nudge_count >= 2:
+                        if intro_sent and not pending_timezone and not pending_time_confirm and not pending_ddd_confirm and nudge_count >= 2:
                             ask = ONBOARDING_ASK_TIME_FALLBACK.get(user_lang, ONBOARDING_ASK_TIME_FALLBACK["en"])
                             session.metadata["pending_timezone"] = True
                             session.metadata["onboarding_nudge_count"] = 0
@@ -1320,6 +1367,32 @@ class AgentLoop:
                             return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=ask)
                         # --- 1. Primeira mensagem: intro + pergunta única (cidade ou hora) ---
                         if not intro_sent:
+                            # 1a. Tentar auto-detectar fuso pelo DDD (Brasil)
+                            _phone_for_ddd = msg.metadata.get("phone_for_locale") or msg.chat_id
+                            _ddd_result = ddd_city_and_tz(_phone_for_ddd)
+                            if _ddd_result:
+                                _ddd_city, _ddd_iana = _ddd_result
+                                try:
+                                    from zoneinfo import ZoneInfo as _ZI
+                                    _now_local = self._get_now_tz(_ZI(_ddd_iana))
+                                    _time_str = _now_local.strftime("%H:%M")
+                                except Exception:
+                                    _time_str = "??"
+                                _lang_key = user_lang if user_lang in ("pt-PT", "pt-BR", "es", "en") else "pt-BR"
+                                intro = ONBOARDING_INTRO_TZ_FIRST.get(intro_lang, ONBOARDING_INTRO_TZ_FIRST["en"])
+                                ddd_confirm = ddd_tz_confirm_message(_lang_key, _ddd_city, _time_str)
+                                full_msg = intro + "\n\n" + ddd_confirm
+                                session.metadata["onboarding_intro_sent"] = True
+                                session.metadata["pending_ddd_confirm"] = True
+                                session.metadata["proposed_tz_iana"] = _ddd_iana
+                                session.metadata["proposed_ddd_city"] = _ddd_city
+                                self.sessions.save(session)
+                                session.add_message("user", msg.content)
+                                session.add_message("assistant", full_msg)
+                                self.sessions.save(session)
+                                db.close()
+                                return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=full_msg)
+                            # 1b. DDD não reconhecido: intro normal + pergunta cidade/hora
                             intro = ONBOARDING_INTRO_TZ_FIRST.get(intro_lang, ONBOARDING_INTRO_TZ_FIRST["en"])
                             ask = ONBOARDING_ASK_CITY_OR_TIME.get(intro_lang, ONBOARDING_ASK_CITY_OR_TIME["en"])
                             full_msg = intro + "\n\n" + ask

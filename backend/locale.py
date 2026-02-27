@@ -283,6 +283,18 @@ ONBOARDING_TZ_SET_FROM_TIME: dict[LangCode, str] = {
     "es": "Huso definido. Puedes cambiar cuando quieras con /tz o /fuso.",
     "en": "Timezone set. You can change anytime with /tz or /fuso.",
 }
+
+# Confirmação de fuso por DDD: "Percebi que seu número é de Salvador — são 14h aí, certo?"
+def ddd_tz_confirm_message(lang: LangCode, city: str, current_time: str) -> str:
+    """Mensagem de confirmação de fuso inferido pelo DDD. city=nome da cidade, current_time=HH:MM."""
+    templates: dict[LangCode, str] = {
+        "pt-BR": f"Percebi que seu número é de *{city}* — são *{current_time}* aí agora, certo? 📍\n_(Responda sim ou não. Se não responder, confirmo automaticamente.)_",
+        "pt-PT": f"Vi que o teu número é de *{city}* — são *{current_time}* aí agora, correto? 📍\n_(Responde sim ou não. Se não responderes, confirmo automaticamente.)_",
+        "es": f"Vi que tu número es de *{city}* — son las *{current_time}* ahí ahora, ¿verdad? 📍\n_(Responde sí o no. Si no respondes, confirmo automáticamente.)_",
+        "en": f"I see your number is from *{city}* — it's *{current_time}* there right now, correct? 📍\n_(Reply yes or no. If you don't reply, I'll confirm automatically.)_",
+    }
+    return templates.get(lang, templates["pt-BR"])
+
 # Nudge quando falta fuso (não bloquear; lembrete suave)
 NUDGE_TZ_WHEN_MISSING: dict[LangCode, str] = {
     "pt-PT": "Quando puderes, diz a tua cidade ou que horas são aí para os lembretes chegarem na hora. 😊",
