@@ -159,7 +159,7 @@ class LiteLLMProvider(LLMProvider):
         if profile == "parser":
             max_tokens, temperature = 512, 0.2
         elif profile == "assistant":
-            max_tokens, temperature = 2048, 0.7
+            max_tokens, temperature = 3200, 0.7
         model = model or self.default_model
         # LiteLLM usa prefixo xiaomi_mimo/ (não xiaomi/)
         if model.lower().startswith("xiaomi/") and not model.startswith("xiaomi_mimo/"):
