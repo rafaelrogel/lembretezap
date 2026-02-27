@@ -3,6 +3,11 @@
 Com Redis (REDIS_URL): outbound vai para a fila Redis; um feeder task
 drena Redis para a queue local; o dispatch envia como antes.
 Sem Redis: outbound vai só para a queue in-memory.
+
+Debounce (MSG_BUFFER_SECONDS, default 3):
+  Mensagens do mesmo chat_id dentro da janela são acumuladas e entregues
+  como uma única mensagem, evitando resposta item-a-item em rajadas.
+  Comandos (começam com /) passam direto sem buffer.
 """
 
 import asyncio
@@ -19,6 +24,24 @@ def _redis_url_from_env() -> str | None:
     return u or None
 
 
+def _buffer_seconds() -> float:
+    """Janela de debounce em segundos. MSG_BUFFER_SECONDS=0 desativa o buffer."""
+    v = os.environ.get("MSG_BUFFER_SECONDS", "3").strip()
+    try:
+        return max(0.0, min(30.0, float(v)))
+    except ValueError:
+        return 3.0
+
+
+def _buffer_max() -> int:
+    """Número máximo de mensagens a acumular por janela (anti-spam)."""
+    v = os.environ.get("MSG_BUFFER_MAX", "10").strip()
+    try:
+        return max(1, min(50, int(v)))
+    except ValueError:
+        return 10
+
+
 class MessageBus:
     """
     Async message bus that decouples chat channels from the agent core.
@@ -27,6 +50,9 @@ class MessageBus:
     them and pushes responses to the outbound queue.
     When REDIS_URL is set, outbound is pushed to Redis and a feeder task
     drains Redis into the local outbound queue for dispatch.
+
+    Debounce: mensagens do mesmo chat_id dentro da janela MSG_BUFFER_SECONDS
+    são acumuladas e entregues como uma única mensagem ao agente.
     """
     
     def __init__(self, redis_url: str | None = None):
@@ -36,11 +62,69 @@ class MessageBus:
         self._outbound_subscribers: dict[str, list[Callable[[OutboundMessage], Awaitable[None]]]] = {}
         self._running = False
         self._redis_feeder_task: asyncio.Task | None = None
-    
+        # Debounce state (per chat_id)
+        self._pending: dict[str, InboundMessage] = {}
+        self._pending_tasks: dict[str, asyncio.Task] = {}
+
     async def publish_inbound(self, msg: InboundMessage) -> None:
-        """Publish a message from a channel to the agent."""
-        await self.inbound.put(msg)
-    
+        """Publish a message from a channel to the agent, with debounce buffering."""
+        delay = _buffer_seconds()
+        content = (msg.content or "").strip()
+
+        # Comandos passam direto (sem buffer) para não atrasar /feito, /start, etc.
+        is_command = content.startswith("/")
+
+        if delay <= 0 or is_command:
+            await self.inbound.put(msg)
+            return
+
+        key = f"{msg.channel}:{msg.chat_id}"
+        max_msgs = _buffer_max()
+
+        # Cancelar task anterior se existir
+        existing_task = self._pending_tasks.pop(key, None)
+        if existing_task and not existing_task.done():
+            existing_task.cancel()
+
+        # Acumular conteúdo no pending
+        if key in self._pending:
+            prev = self._pending[key]
+            count = prev.metadata.get("_buffer_count", 1)
+            if count < max_msgs:
+                # Juntar conteúdo com nova linha (natural para o LLM)
+                joined = (prev.content or "").rstrip() + "\n" + content
+                # Manter metadata do primeiro msg + atualizar com último
+                merged_meta = dict(prev.metadata)
+                merged_meta.update(msg.metadata)
+                merged_meta["_buffer_count"] = count + 1
+                self._pending[key] = InboundMessage(
+                    channel=msg.channel,
+                    sender_id=msg.sender_id,
+                    chat_id=msg.chat_id,
+                    content=joined,
+                    timestamp=msg.timestamp,
+                    media=prev.media + msg.media,
+                    metadata=merged_meta,
+                    trace_id=msg.trace_id or prev.trace_id,
+                )
+            # Se atingiu max_msgs, descarta as novas (já vai processar em breve)
+        else:
+            self._pending[key] = msg
+
+        # Iniciar novo timer
+        async def _flush(k: str) -> None:
+            await asyncio.sleep(delay)
+            buffered = self._pending.pop(k, None)
+            self._pending_tasks.pop(k, None)
+            if buffered:
+                count = buffered.metadata.get("_buffer_count", 1)
+                if count > 1:
+                    logger.debug(f"Buffer flush: {k} acumulou {count} msgs → 1 entrega")
+                await self.inbound.put(buffered)
+
+        task = asyncio.create_task(_flush(key))
+        self._pending_tasks[key] = task
+
     async def consume_inbound(self) -> InboundMessage:
         """Consume the next inbound message (blocks until available)."""
         return await self.inbound.get()
@@ -89,10 +173,16 @@ class MessageBus:
                 continue
     
     def stop(self) -> None:
-        """Stop the dispatcher loop and Redis feeder."""
+        """Stop the dispatcher loop, Redis feeder, and cancel pending buffer tasks."""
         self._running = False
         if self._redis_feeder_task and not self._redis_feeder_task.done():
             self._redis_feeder_task.cancel()
+        # Cancelar todos os timers de debounce pendentes (flush imediato no shutdown)
+        for task in list(self._pending_tasks.values()):
+            if not task.done():
+                task.cancel()
+        self._pending_tasks.clear()
+        self._pending.clear()
 
     async def _redis_feeder_loop(self) -> None:
         """Drena a fila Redis para a queue local outbound (correr como task)."""
