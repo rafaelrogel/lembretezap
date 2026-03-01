@@ -1,143 +1,94 @@
-# Zapista
+# Zappelin
 
-**Assistente de organização por WhatsApp** — lembretes, listas e eventos.
+Modern web app foundation with Next.js (App Router), TypeScript, and Tailwind CSS. Set up for a component-based, responsive layout system and ready to plug in Figma design tokens.
 
-- 📱 Um número WhatsApp (bridge Baileys)
-- ⏰ Lembretes por mensagem natural ou `/lembrete`
-- 📋 Listas com `/list nome add item`, `/list nome`, `/feito nome id`
-- 🎬 Eventos (ex.: filmes) com `/filme Nome`
-- 🤖 Agente LLM restrito ao escopo (organizador)
-- 🐳 Docker: bridge + gateway + API
+## Stack
 
-## Requisitos
+- **Next.js 14** (App Router)
+- **TypeScript**
+- **Tailwind CSS** with design tokens (colors, spacing, radius, typography)
+- Component-based layout and UI structure
 
-- Python 3.11+
-- Node.js (para o bridge WhatsApp)
-- Chaves de API: **DeepSeek** (agente) e **Xiaomi MiMo** (scope/heartbeat), APIs diretas — ou outro provedor
+## Folder structure
 
-## Instalação
-
-```bash
-git clone https://github.com/rafaelrogel/lembretezap.git
-cd lembretezap
-pip install -e .
+```
+├── app/
+│   ├── layout.tsx          # Root layout
+│   ├── page.tsx            # Home
+│   ├── globals.css         # Design tokens (CSS variables)
+│   └── about/
+│       └── page.tsx        # Example secondary page
+├── components/
+│   ├── layout/             # Layout primitives
+│   │   ├── Container.tsx
+│   │   ├── Grid.tsx
+│   │   ├── Stack.tsx
+│   │   └── index.ts
+│   └── ui/                 # Reusable UI components
+│       ├── Typography.tsx
+│       └── index.ts
+├── tailwind.config.ts      # Token → Tailwind mapping
+├── postcss.config.js
+└── next.config.js
 ```
 
-## Configuração
+## Design tokens
 
-Crie `~/.zapista/config.json` (ou `%USERPROFILE%\.zapista\config.json` no Windows). Exemplo:
+- **Colors:** `brand.*` and `neutral.*` in `app/globals.css`; override with Figma palette.
+- **Spacing:** `--spacing-page-x`, `--spacing-section`, `--spacing-block`, `--spacing-element`.
+- **Radius:** `--radius-sm` through `--radius-full`.
+- **Typography:** scale from `display-lg` to `caption`; sizes and line heights in `globals.css`, mapped in `tailwind.config.ts`.
 
-```json
-{
-  "agents": {
-    "defaults": {
-      "workspace": "~/.zapista/workspace",
-      "model": "deepseek/deepseek-chat",
-      "scopeModel": "xiaomi_mimo/mimo-v2-flash",
-      "max_tokens": 2048,
-      "temperature": 0.7
-    }
-  },
-  "channels": {
-    "whatsapp": {
-      "enabled": true,
-      "bridge_url": "ws://localhost:3001",
-      "allow_from": []
-    }
-  },
-  "providers": {
-    "deepseek": { "api_key": "" },
-    "xiaomi": { "api_key": "" }
-  }
-}
-```
+## Layout & typography
 
-- `allow_from`: lista vazia = qualquer número; ou `["5511999999999"]` (país + número, sem + nem espaços).
-- As chaves **DeepSeek** e **Xiaomi** põem-se no `.env` (`ZAPISTA_PROVIDERS__DEEPSEEK__API_KEY`, `ZAPISTA_PROVIDERS__XIAOMI__API_KEY`). Ver [DEPLOY.md](DEPLOY.md) § 1.1.
+- **Container:** `size="default" | "sm" | "lg"`, responsive horizontal padding.
+- **Grid:** `cols`, `gap`, and optional `sm` / `md` / `lg` for breakpoints.
+- **Stack:** vertical or horizontal flex with `gap`, `align`, `justify`.
+- **Typography:** `variant` for display, heading, body, caption; optional `as` to override the rendered element.
 
-### Rate limit (mensagens por minuto)
+## Requirements
 
-O limite de mensagens é **por utilizador** (por chat). Evita abuso e controla custos de API.
+- Node.js **18.17+** (recommended 20.x LTS)
 
-| Variável | Descrição | Default |
-|----------|-----------|---------|
-| `RATE_LIMIT_MAX_PER_MINUTE` | Máximo de mensagens por utilizador por minuto | `15` |
+## Live development (visual iteration)
 
-**Como ativar e alterar:**
+Optimized so you can edit components in the editor and see changes instantly in the browser without restarting.
 
-- **Sem Docker:** no `.env` (ou export no shell):
-  ```bash
-  RATE_LIMIT_MAX_PER_MINUTE=30
-  ```
-- **Com Docker:** no `.env` do projeto ou em `docker-compose.override.yml`:
-  ```yaml
-  environment:
-    - RATE_LIMIT_MAX_PER_MINUTE=30
-  ```
-  O `docker-compose.yml` já usa `RATE_LIMIT_MAX_PER_MINUTE=${RATE_LIMIT_MAX_PER_MINUTE:-15}`; basta definir a variável no `.env`.
+### Start the preview
 
-**Comportamento:** entre 5 e 300 mensagens/minuto (valores fora deste intervalo são ajustados). Ao ultrapassar o limite, o utilizador recebe *"Muitas mensagens. Aguarde um minuto."* e a mensagem não é processada. O algoritmo é token bucket (permite picos curtos e depois refill contínuo).
+1. **Install and run the dev server**
+   ```bash
+   npm install
+   npm run dev
+   ```
+2. **Open the app in your browser**
+   - Dev server runs at: **http://localhost:3000**
+   - The terminal will show: `▲ Next.js ... Local: http://localhost:3000`
+3. **Edit and see changes**
+   - Save any file in `app/` or `components/` — the browser updates automatically.
+   - **Fast Refresh** keeps component state when you edit React components (no full page reload).
+   - **Tailwind** watches `app/` and `components/`; style and class changes apply immediately.
+   - CSS (e.g. `globals.css`) and layout updates also hot-reload without a full refresh.
 
-### God Mode (comandos admin)
+### Tips
 
-O bot está **disponível para qualquer pessoa** no WhatsApp. Os comandos admin (`#status`, `#users`, etc.) são protegidos por **senha**:
+- **Keep the dev server running** — leave `npm run dev` in a terminal; no need to restart on file changes.
+- **Fix errors to keep HMR working** — syntax or runtime errors can force a full reload; fixing them restores instant updates.
+- **Faster rebuilds (optional)** — run `npm run dev:turbo` to use Turbopack for quicker refresh on large projects.
 
-1. Na instalação no VPS, defines uma **senha de god-mode** (guardada no `.env` como `GOD_MODE_PASSWORD`).
-2. No chat, quem quiser rodar comandos admin envia **`#<senha>`** (ex.: `#minhasenha123`) — o bot responde «God-mode ativo» e a partir daí pode usar os comandos.
-3. A ativação dura **24 horas** por chat; depois é preciso enviar `#<senha>` de novo.
-4. Se alguém enviar **`#` com senha errada** ou **`#comando` sem ter ativado**, o bot **não responde** (silêncio total).
+## Scripts
 
-**Comandos (após ativar com #senha):**
+| Script         | Command           | Description                    |
+|----------------|-------------------|--------------------------------|
+| `npm run dev`  | `next dev`        | Start dev server with HMR      |
+| `npm run dev:turbo` | `next dev --turbo` | Dev server with Turbopack |
+| `npm run build`| `next build`      | Production build               |
+| `npm run start`| `next start`      | Run production server          |
+| `npm run lint` | `next lint`       | Run ESLint                     |
 
-| Comando   | Conteúdo |
-|-----------|----------|
-| `#status` | Resumo e lista de comandos |
-| `#users`  | Total de utilizadores registados (DB) |
-| `#paid`   | Total pagantes (critério a definir) |
-| `#cron`   | N.º de jobs agendados, último/next run |
-| `#server` | RAM, CPU (load), disco (psutil) |
-| `#system` | Erros 60 min, latência (estrutura para métricas) |
-| `#ai`     | Uso de tokens por provedor (dia/7d; a implementar) |
-| `#painpoints` | Jobs atrasados, endpoints lentos (heurísticas) |
+## Adding Figma designs
 
-**Exemplo de output (admin envia `#users`):**
-```
-#users
-Total: 12 utilizadores registados.
-```
-
-**Exemplo de output (`#server`):**
-```
-#server
-RAM: 45% usado | livre: 2.1G
-Load (1m): N/A (Windows)
-Disco: 62% usado | livre: 120.5G
-```
-
-Segurança: as respostas **nunca** incluem secrets (tokens, API keys, connection strings).
-
-### O bot não responde a ninguém / ao cliente
-
-1. **Por defeito qualquer pessoa pode falar com o bot** (instalação VPS usa `allow_from: []`). Se não há resposta, vê os logs do gateway: `docker compose -f docker-compose.yml -f docker-compose.vps.yml logs -f gateway`. Confirma que aparecem linhas como "WhatsApp from sender ..." e que o bridge está ligado (`docker compose logs bridge`, QR escaneado).
-2. **God Mode:** Envia `#<tua_senha>` para ativar; depois podes usar `#status`, `#users`, etc. Senha errada = o bot não responde (silêncio).
-
-## Uso
-
-1. **Inicializar:** `zapista onboard`
-2. **Bridge WhatsApp:** na pasta `bridge/`: `npm install && npm run build && npm start` → escanear QR no telemóvel
-3. **Gateway:** `zapista gateway` (recebe/envia WhatsApp, roda cron e agente)
-4. **CLI (sem WhatsApp):** `zapista agent -m "Olá"` ou `zapista agent` (interativo)
-
-## Docker
-
-Ver [TESTAR_COM_DOCKER.md](TESTAR_COM_DOCKER.md) ou [DEPLOY.md](DEPLOY.md) para build e subida com `docker-compose` (bridge + gateway + API).
-
-## Documentação
-
-- [PASSO_A_PASSO_TESTE.md](PASSO_A_PASSO_TESTE.md) — teste completo (config, bridge, gateway, WhatsApp)
-- [DEBUG_WHATSAPP_DELIVERY.md](DEBUG_WHATSAPP_DELIVERY.md) — quando o lembrete não chega no WhatsApp
-- [DEPLOY.md](DEPLOY.md) — deploy com Docker
-
-## Licença
-
-MIT.
+1. Replace CSS variables in `app/globals.css` with your Figma colors, spacing, and radius.
+2. Update typography scale in `globals.css` and any font families in `app/layout.tsx`.
+3. Add new components under `components/ui/` and export from `components/ui/index.ts`.
+4. Use route groups under `app/` (e.g. `app/(marketing)/`, `app/(dashboard)/`) if you need different layouts per section.

@@ -1,0 +1,209 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   Design system – calm rhythm, minimal UI
+   Inspired by: generous whitespace, clear hierarchy, subtle motion
+   ============================================ */
+
+:root {
+  /* ---- Spacing scale (4px base) – calm, generous ---- */
+  --space-0: 0;
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+  --space-24: 6rem;     /* 96px */
+
+  /* Semantic spacing – premium breathing room */
+  --spacing-page-x: var(--space-8);
+  --spacing-page-y: var(--space-24);
+  --spacing-section: var(--space-24);
+  --spacing-block: var(--space-8);
+  --spacing-element: var(--space-3);
+
+  /* ---- Color tokens – minimal, soft ---- */
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f5f5f5;
+  --color-neutral-200: #ebebeb;
+  --color-neutral-300: #d6d6d6;
+  --color-neutral-400: #a3a3a3;
+  --color-neutral-500: #737373;
+  --color-neutral-600: #525252;
+  --color-neutral-700: #404040;
+  --color-neutral-800: #262626;
+  --color-neutral-900: #171717;
+
+  --color-brand-50: #f0f9ff;
+  --color-brand-100: #e0f2fe;
+  --color-brand-200: #bae6fd;
+  --color-brand-300: #7dd3fc;
+  --color-brand-400: #38bdf8;
+  --color-brand-500: #0ea5e9;
+  --color-brand-600: #0284c7;
+  --color-brand-700: #0369a1;
+  --color-brand-800: #075985;
+  --color-brand-900: #0c4a6e;
+
+  --color-surface: var(--color-neutral-50);
+  --color-surface-elevated: #ffffff;
+  --color-text-primary: var(--color-neutral-900);
+  --color-text-secondary: var(--color-neutral-600);
+  --color-text-muted: var(--color-neutral-500);
+  --Text-0: #FFF;
+  --Text-900: #212121;
+  --Text-600: #797781;
+  --Primary-100: #1CCF5F;
+  --color-border: var(--color-neutral-200);
+  --color-border-strong: var(--color-neutral-300);
+  --color-focus-ring: var(--color-brand-500);
+  --color-interactive: var(--color-brand-600);
+  --color-interactive-hover: var(--color-brand-700);
+  --color-interactive-active: var(--color-brand-800);
+
+  /* ---- Border radius – soft, minimal ---- */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+
+  /* ---- Layout ---- */
+  --container-max: 80rem;
+  --container-sm: 40rem;
+  --container-lg: 90rem;
+
+  /* ---- Typography scale – clear hierarchy, calm rhythm ---- */
+  --text-display-xl: 3.5rem;
+  --text-display-lg: 3rem;
+  --text-display-md: 2.25rem;
+  --text-display-sm: 1.875rem;
+  --text-heading-lg: 1.5rem;
+  --text-heading-md: 1.25rem;
+  --text-heading-sm: 1.125rem;
+  --text-body-lg: 1.125rem;
+  --text-body-md: 1rem;
+  --text-body-sm: 0.875rem;
+  --text-caption: 0.75rem;
+
+  --leading-display-xl: 1.05;
+  --leading-display-lg: 1.1;
+  --leading-display-md: 1.15;
+  --leading-display-sm: 1.2;
+  --leading-heading-lg: 1.25;
+  --leading-heading-md: 1.35;
+  --leading-heading-sm: 1.4;
+  --leading-body-lg: 1.6;
+  --leading-body-md: 1.55;
+  --leading-body-sm: 1.5;
+  --leading-caption: 1.4;
+
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+
+  /* ---- Motion – subtle, respectful ---- */
+  --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+  body {
+    background-color: #fafaf8;
+    color: var(--color-text-primary);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .transition-token {
+    transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+    transition-duration: var(--duration-fast);
+    transition-timing-function: var(--ease-out);
+  }
+
+  .transition-token-slow {
+    transition-property: color, background-color, border-color, opacity, transform, box-shadow;
+    transition-duration: var(--duration-normal);
+    transition-timing-function: var(--ease-out-expo);
+  }
+
+  /* Subtle hover lift for cards – only when motion is OK */
+  @media (prefers-reduced-motion: no-preference) {
+    .hover-lift {
+      transition: transform var(--duration-normal) var(--ease-out-expo),
+        box-shadow var(--duration-normal) var(--ease-out);
+    }
+    .hover-lift:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.08);
+    }
+  }
+
+  /* Gentle fade-in for sections (use with animation) */
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-fade-in {
+      animation: fade-in var(--duration-slow) var(--ease-out-expo) both;
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Hero rotating word – subtle fade/slide */
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-hero-word {
+      animation: hero-word-in 0.45s var(--ease-out-expo) both;
+    }
+  }
+  @keyframes hero-word-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Hero typewriter cursor blink */
+  @media (prefers-reduced-motion: no-preference) {
+    .animate-hero-cursor {
+      animation: hero-cursor-blink 1s step-end infinite;
+    }
+  }
+  @keyframes hero-cursor-blink {
+    0%,
+    50% {
+      opacity: 1;
+    }
+    51%,
+    100% {
+      opacity: 0;
+    }
+  }
+}
