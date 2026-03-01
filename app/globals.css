@@ -120,6 +120,8 @@
 @layer base {
   html {
     @apply antialiased;
+    scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
   }
   body {
     background-color: #fafaf8;
