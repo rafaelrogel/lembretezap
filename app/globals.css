@@ -300,28 +300,49 @@
   background: transparent !important;
 }
 
-/* Background shapes: ellipse loop (circular drift) */
-@keyframes ellipse-loop {
-  0% {
-    transform: translate(22px, 0);
+/* Background shapes: ellipses rotate + deslocam 100% (esquerda, baixo, direita, cima) */
+@keyframes ellipse-rotate {
+  from {
+    transform: rotate(0deg) translate(0, 0);
   }
   25% {
-    transform: translate(0, 22px);
+    transform: rotate(90deg) translate(-100%, 0);
   }
   50% {
-    transform: translate(-22px, 0);
+    transform: rotate(180deg) translate(-100%, 100%);
   }
   75% {
-    transform: translate(0, -22px);
+    transform: rotate(270deg) translate(0, 100%);
   }
   100% {
-    transform: translate(22px, 0);
+    transform: rotate(360deg) translate(0, 0);
+  }
+}
+@keyframes ellipse-rotate-reverse {
+  from {
+    transform: rotate(360deg) translate(0, 0);
+  }
+  25% {
+    transform: rotate(270deg) translate(100%, 0);
+  }
+  50% {
+    transform: rotate(180deg) translate(100%, -100%);
+  }
+  75% {
+    transform: rotate(90deg) translate(0, -100%);
+  }
+  100% {
+    transform: rotate(0deg) translate(0, 0);
   }
 }
 .ellipse-loop {
   width: 100%;
   height: 100%;
-  animation: ellipse-loop 22s linear infinite;
+  will-change: transform;
+  animation: ellipse-rotate 24s linear infinite;
+}
+.ellipse-loop.reverse {
+  animation-name: ellipse-rotate-reverse;
 }
 @media (prefers-reduced-motion: reduce) {
   .ellipse-loop {

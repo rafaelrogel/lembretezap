@@ -264,7 +264,7 @@ export function BackgroundShapes({ pointerRef }: { pointerRef: PointerRef }) {
           }}
         >
           <div
-            className="ellipse-loop"
+            className={`ellipse-loop ${i % 2 === 1 ? "reverse" : ""}`}
             style={{
               animationDuration: `${LOOP_DURATION[i]}s`,
               animationDelay: `${-ellipse.driftPhase}s`,
