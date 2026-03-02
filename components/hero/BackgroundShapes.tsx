@@ -19,9 +19,11 @@ const SMOOTHING_DEBUG = 0.15;
 const SMOOTHING_FINAL = 0.09;
 const SMOOTHING = DEBUG_MOTION ? SMOOTHING_DEBUG : SMOOTHING_FINAL;
 
-const DRIFT_AMPLITUDE_DEBUG = 18;
-const DRIFT_AMPLITUDE_FINAL = 7;
+const DRIFT_AMPLITUDE_DEBUG = 32;
+const DRIFT_AMPLITUDE_FINAL = 22;
 const DRIFT_AMPLITUDE = DEBUG_MOTION ? DRIFT_AMPLITUDE_DEBUG : DRIFT_AMPLITUDE_FINAL;
+/** Loop duration (seconds) per ellipse – one full orbit. Shorter = more visible motion. */
+const LOOP_DURATION = [20, 24, 18, 26, 22] as const;
 
 const HOVER_SPREAD_DEBUG = 60;
 const HOVER_SPREAD_FINAL = 52;
@@ -218,11 +220,8 @@ export function BackgroundShapes({ pointerRef }: { pointerRef: PointerRef }) {
         const isHoveredOne = hoveredIndex >= 0 && i === hoveredIndex;
         const afastarX = ellipseSpreadAmount * (isHoveredOne ? ELLIPSE_HOVER_PULL * pt.x : ELLIPSE_HOVER_SPREAD * cfg.outward[0]);
         const afastarY = ellipseSpreadAmount * (isHoveredOne ? ELLIPSE_HOVER_PULL * pt.y : ELLIPSE_HOVER_SPREAD * cfg.outward[1]);
-        const T = (2 * Math.PI * t) / cfg.driftDuration + cfg.driftPhase;
-        const driftX = reducedMotion ? 0 : DRIFT_AMPLITUDE * (Math.sin(T) + Math.cos(T * 0.7));
-        const driftY = reducedMotion ? 0 : DRIFT_AMPLITUDE * (Math.sin(T + 1.5) + Math.cos(T * 0.7 + 1.5));
-        const x = px + sx + afastarX + driftX;
-        const y = py + sy + afastarY + driftY;
+        const x = px + sx + afastarX;
+        const y = py + sy + afastarY;
         node.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
         node.style.opacity = String(opacity);
       });
@@ -265,14 +264,22 @@ export function BackgroundShapes({ pointerRef }: { pointerRef: PointerRef }) {
           }}
         >
           <div
+            className="ellipse-loop"
             style={{
-              width: "100%",
-              height: "100%",
-              borderRadius: `${ellipse.borderRadius}px`,
-              filter: "blur(150px)",
-              background: ellipse.background,
+              animationDuration: `${LOOP_DURATION[i]}s`,
+              animationDelay: `${-ellipse.driftPhase}s`,
             }}
-          />
+          >
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                borderRadius: `${ellipse.borderRadius}px`,
+                filter: "blur(150px)",
+                background: ellipse.background,
+              }}
+            />
+          </div>
         </div>
       ))}
     </div>

@@ -117,19 +117,22 @@ export function HeroSection() {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <BackgroundShapes pointerRef={pointerRef} />
+        <div className="hero-bg-entrance absolute inset-0 -z-10">
+          <BackgroundShapes pointerRef={pointerRef} />
+        </div>
         <div className="relative z-20 flex max-h-[624px] flex-col items-center gap-section md:flex-row md:items-center md:justify-between md:gap-12 lg:gap-16 pl-8 pr-0 py-10 md:pl-12 md:pr-0 md:py-12 lg:pl-16 lg:pr-0 lg:py-14">
           <div className="flex flex-1 flex-col justify-center max-w-xl min-w-0">
             <Typography
               id="hero-heading"
               variant="display-lg"
               as="h1"
-              className="font-bold"
+              className="hero-entrance font-bold"
               style={{
                 color: "var(--Text-900, #212121)",
                 fontSize: 56,
                 fontWeight: 700,
                 lineHeight: "110%",
+                animationDelay: "0.15s",
               }}
             >
               Suas mensagens viram{" "}
@@ -140,19 +143,20 @@ export function HeroSection() {
             <Typography
               variant="body-lg"
               as="p"
-              className="mt-4 max-w-lg font-normal"
+              className="hero-entrance mt-4 max-w-lg font-normal"
               style={{
                 color: "var(--Text-600, #797781)",
                 fontSize: 16,
                 fontWeight: 400,
                 lineHeight: "140%",
+                animationDelay: "0.4s",
               }}
             >
               Escreva como sempre escreveu. Sem nada para
               <br />
               aprender, nem instalar.
             </Typography>
-            <span id="hero-cta" className="inline-block">
+            <span id="hero-cta" className="hero-entrance inline-block" style={{ animationDelay: "0.65s" }}>
               <Button
                 href="/about"
                 variant="primary"
@@ -167,8 +171,11 @@ export function HeroSection() {
               </Button>
             </span>
           </div>
-          <div className="flex flex-1 items-center justify-center md:items-end md:justify-end min-w-0 pt-[328px] md:pt-[320px] pr-12 md:pr-20 lg:pr-24">
-            <PhonePreview />
+          <div
+            className="hero-phone-entrance flex flex-1 items-center justify-center md:items-end md:justify-end min-w-0 pt-[328px] md:pt-[320px] pr-12 md:pr-20 lg:pr-24"
+            style={{ animationDelay: "0.9s" }}
+          >
+            <PhonePreview pointerRef={pointerRef} />
           </div>
         </div>
       </div>

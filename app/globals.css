@@ -210,7 +210,121 @@
   }
 }
 
+/* Navbar: hidden until animation, then slides down from top (no visible fade) */
+@keyframes navbar-entrance {
+  0% {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+  2% {
+    opacity: 1;
+    transform: translateY(-22px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.navbar-entrance {
+  opacity: 0;
+  animation: navbar-entrance 0.5s ease-out 1.5s both;
+}
+
+/* Hero background shapes: fade in */
+@keyframes hero-bg-entrance {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.hero-bg-entrance {
+  opacity: 0;
+  animation: hero-bg-entrance 0.6s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .navbar-entrance,
+  .hero-bg-entrance {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Hero: staggered entrance on load */
+@keyframes hero-entrance {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.hero-entrance {
+  opacity: 0;
+  animation: hero-entrance 0.55s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-entrance {
+    animation: none;
+    opacity: 1;
+  }
+  .hero-phone-entrance {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* Hero phone: fade + rise from below */
+@keyframes hero-phone-entrance {
+  from {
+    opacity: 0;
+    transform: translateY(48px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.hero-phone-entrance {
+  opacity: 0;
+  animation: hero-phone-entrance 0.7s ease-out forwards;
+}
+
 /* Phone mockup: force transparent background so PNG alpha is preserved */
 .phone-mockup-img {
   background: transparent !important;
+}
+
+/* Background shapes: ellipse loop (circular drift) */
+@keyframes ellipse-loop {
+  0% {
+    transform: translate(22px, 0);
+  }
+  25% {
+    transform: translate(0, 22px);
+  }
+  50% {
+    transform: translate(-22px, 0);
+  }
+  75% {
+    transform: translate(0, -22px);
+  }
+  100% {
+    transform: translate(22px, 0);
+  }
+}
+.ellipse-loop {
+  width: 100%;
+  height: 100%;
+  animation: ellipse-loop 22s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ellipse-loop {
+    animation: none;
+  }
 }

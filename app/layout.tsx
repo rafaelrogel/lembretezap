@@ -30,7 +30,7 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <header className="sticky top-0 z-50 bg-[#fafaf8]">
+        <header className="navbar-entrance sticky top-0 z-50 bg-[#fafaf8]">
           <nav
             className="relative mx-auto flex max-w-container items-center justify-between gap-8 px-page-x py-5"
             aria-label="Main"
