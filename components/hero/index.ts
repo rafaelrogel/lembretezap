@@ -1,3 +1,4 @@
+export { AnimatedBlobs } from "./AnimatedBlobs";
 export { BackgroundShapes } from "./BackgroundShapes";
 export { HeroSection } from "./HeroSection";
 export { PhonePreview } from "./PhonePreview";

@@ -14,9 +14,9 @@ export interface PhonePreviewProps {
   pointerRef?: RefObject<{ x: number; y: number; isHovering: boolean }>;
 }
 
-const PAN_STRENGTH = 6;
+const PAN_STRENGTH = 8;
 const TILT_DEG = 3;
-const PAN_SMOOTHING = 0.08;
+const PAN_SMOOTHING = 0.1;
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
@@ -64,7 +64,11 @@ export function PhonePreview({ children, pointerRef }: PhonePreviewProps) {
       <div
         ref={wrapperRef}
         className="relative w-full bg-transparent will-change-transform"
-        style={{ background: "transparent", transformStyle: "preserve-3d" }}
+        style={{
+          background: "transparent",
+          transformStyle: "preserve-3d",
+          transformOrigin: "50% 50%",
+        }}
       >
         <img
           src="/phone-preview.svg"

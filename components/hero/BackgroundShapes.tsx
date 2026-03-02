@@ -1,45 +1,47 @@
 "use client";
 
 import type { RefObject } from "react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
-const DEBUG = false;
-/** Set true to exaggerate motion (parallax, hover spread, drift) and confirm animation is visible. */
-const DEBUG_MOTION = false;
+/** Set true to show red overlay, RAF logs, bypass reduced-motion, and huge orbit. Set false for normal. */
+const DIAG = false;
+/** When true: throw once in RAF to verify this component is the one running. Set false after verifying. */
+const THROW_DIAG_ERROR = false;
+/** When true (or DIAG): large orbit, short duration. When false: premium subtle. */
+const DEBUG = true;
+/** Animate blob by moving radial-gradient center instead of transform (more reliably visible). */
+const USE_GRADIENT_ORBIT = true;
 
 // ---------------------------------------------------------------------------
-// PRESET VALUES (tuned for premium Apple/Linear feel)
+// ORBIT & BREATH – premium “almost static” blob motion (Apple/Linear vibe)
 // ---------------------------------------------------------------------------
 
-const PARALLAX_STRENGTH_DEBUG = { back: 10, mid: 25, front: 45 } as const;
-const PARALLAX_STRENGTH_FINAL = { back: 4, mid: 10, front: 18 } as const;
-const PARALLAX_STRENGTH = DEBUG_MOTION ? PARALLAX_STRENGTH_DEBUG : PARALLAX_STRENGTH_FINAL;
+/** Orbit radius X range (px). DEBUG = exaggerated so blobs visibly orbit within ~2s. */
+const ORBIT_RADIUS_X_RANGE = DEBUG ? ([60, 100] as const) : ([6, 14] as const);
+/** Orbit radius Y range (px). */
+const ORBIT_RADIUS_Y_RANGE = DEBUG ? ([60, 100] as const) : ([4, 12] as const);
+/** Orbit duration range (seconds per full circle). DEBUG = 5–8s so motion is obvious. */
+const ORBIT_DURATION_RANGE = DEBUG ? ([5, 8] as const) : ([18, 34] as const);
+/** Breathing scale range (1 = no change). DEBUG = stronger pulse. */
+const BREATH_SCALE_RANGE = DEBUG ? ([1.0, 1.12] as const) : ([1.0, 1.03] as const);
+/** Breathing cycle duration range (seconds). */
+const BREATH_DURATION_RANGE = [20, 40] as const;
 
-const SMOOTHING_DEBUG = 0.15;
-const SMOOTHING_FINAL = 0.09;
-const SMOOTHING = DEBUG_MOTION ? SMOOTHING_DEBUG : SMOOTHING_FINAL;
+// ---------------------------------------------------------------------------
+// INTERACTION (optional) – hover & parallax
+// ---------------------------------------------------------------------------
 
-const DRIFT_AMPLITUDE_DEBUG = 32;
-const DRIFT_AMPLITUDE_FINAL = 22;
-const DRIFT_AMPLITUDE = DEBUG_MOTION ? DRIFT_AMPLITUDE_DEBUG : DRIFT_AMPLITUDE_FINAL;
-/** Loop duration (seconds) per ellipse – one full orbit. Shorter = more visible motion. */
-const LOOP_DURATION = [20, 24, 18, 26, 22] as const;
+/** Hover: orbit radius multiplier (1.2 = +20%). */
+const HOVER_ORBIT_BOOST = 1.2;
+/** Parallax max displacement (px) by layer – microscopic. */
+const PARALLAX_MAX_PX = { back: 6, mid: 9, front: 12 } as const;
+const SMOOTHING = 0.09;
 
-const HOVER_SPREAD_DEBUG = 60;
-const HOVER_SPREAD_FINAL = 52;
-const HOVER_SPREAD = DEBUG_MOTION ? HOVER_SPREAD_DEBUG : HOVER_SPREAD_FINAL;
-/** Snappier hover reaction so ellipses visibly move when entering hero center */
-const HOVER_SPREAD_SMOOTHING = 0.065;
-/** When hovering over one ellipse, others move away by this amount (px) */
-const ELLIPSE_HOVER_SPREAD = 28;
-/** Hovered ellipse moves slightly toward cursor (px per unit normalized) */
-const ELLIPSE_HOVER_PULL = 12;
-/** Smoothing for per-ellipse hover spread (afastar) */
-const ELLIPSE_HOVER_SMOOTHING = 0.08;
 const LAYER_OPACITY = { back: 0.25, mid: 0.35, front: 0.45 } as const;
 const LAYER_SCALE = { back: 1, mid: 1.02, front: 1.04 } as const;
 
-type Layer = keyof typeof PARALLAX_STRENGTH;
+type Layer = keyof typeof PARALLAX_MAX_PX;
 
 /* Blurred ellipses over gradient base – left blue-green, center yellow-green, right light green */
 const ELLIPSES: ReadonlyArray<{
@@ -52,9 +54,13 @@ const ELLIPSES: ReadonlyArray<{
   layer: Layer;
   borderRadius: number;
   background: string;
-  outward: [number, number];
-  driftPhase: number;
-  driftDuration: number;
+  /** Orbit config: radius (px), duration (s), phase (rad). */
+  orbitRadiusX: number;
+  orbitRadiusY: number;
+  orbitDuration: number;
+  orbitPhase: number;
+  breathDuration: number;
+  breathPhase: number;
 }> = [
   {
     width: "clamp(20rem, 55vw, 40rem)",
@@ -64,9 +70,12 @@ const ELLIPSES: ReadonlyArray<{
     layer: "back",
     borderRadius: 618,
     background: "rgba(217, 243, 242, 0.45)",
-    outward: [-0.7, -0.7],
-    driftPhase: 0,
-    driftDuration: 18,
+    orbitRadiusX: 10,
+    orbitRadiusY: 6,
+    orbitDuration: 24,
+    orbitPhase: 0,
+    breathDuration: 28,
+    breathPhase: 0,
   },
   {
     width: "clamp(14rem, 42vw, 28rem)",
@@ -77,9 +86,12 @@ const ELLIPSES: ReadonlyArray<{
     layer: "mid",
     borderRadius: 334,
     background: "rgba(233, 246, 224, 0.5)",
-    outward: [0.8, -0.6],
-    driftPhase: 2.1,
-    driftDuration: 20,
+    orbitRadiusX: 8,
+    orbitRadiusY: 10,
+    orbitDuration: 30,
+    orbitPhase: 2.1,
+    breathDuration: 22,
+    breathPhase: 1.2,
   },
   {
     width: "clamp(14rem, 42vw, 28rem)",
@@ -90,9 +102,12 @@ const ELLIPSES: ReadonlyArray<{
     layer: "mid",
     borderRadius: 334,
     background: "rgba(168, 225, 229, 0.45)",
-    outward: [-0.6, 0.8],
-    driftPhase: 4.2,
-    driftDuration: 17,
+    orbitRadiusX: 12,
+    orbitRadiusY: 8,
+    orbitDuration: 20,
+    orbitPhase: 4.2,
+    breathDuration: 36,
+    breathPhase: 0.5,
   },
   {
     width: "clamp(14rem, 42vw, 28rem)",
@@ -104,9 +119,12 @@ const ELLIPSES: ReadonlyArray<{
     layer: "mid",
     borderRadius: 334,
     background: "rgba(224, 247, 224, 0.5)",
-    outward: [0.7, 0.7],
-    driftPhase: 1.3,
-    driftDuration: 21,
+    orbitRadiusX: 7,
+    orbitRadiusY: 11,
+    orbitDuration: 28,
+    orbitPhase: 1.3,
+    breathDuration: 24,
+    breathPhase: 2.8,
   },
   {
     width: "clamp(24rem, 65vw, 48rem)",
@@ -116,9 +134,12 @@ const ELLIPSES: ReadonlyArray<{
     layer: "front",
     borderRadius: 805,
     background: "rgba(233, 246, 224, 0.4)",
-    outward: [0.3, -0.3],
-    driftPhase: 3,
-    driftDuration: 19,
+    orbitRadiusX: 14,
+    orbitRadiusY: 9,
+    orbitDuration: 18,
+    orbitPhase: 3,
+    breathDuration: 32,
+    breathPhase: 1.8,
   },
 ];
 
@@ -126,39 +147,25 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-export type PointerRef = RefObject<{ x: number; y: number; isHovering: boolean; clientX: number; clientY: number }>;
+const TAU = Math.PI * 2;
 
-/** Index of ellipse whose center is closest to (cx, cy), or -1 if hero not hovered. */
-function closestEllipse(nodeRefs: (HTMLDivElement | null)[], cx: number, cy: number): number {
-  let best = -1;
-  let bestD2 = Infinity;
-  for (let i = 0; i < nodeRefs.length; i++) {
-    const node = nodeRefs[i];
-    if (!node) continue;
-    const rect = node.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    const d2 = (cx - centerX) ** 2 + (cy - centerY) ** 2;
-    if (d2 < bestD2) {
-      bestD2 = d2;
-      best = i;
-    }
-  }
-  return best;
-}
+export type PointerRef = RefObject<{ x: number; y: number; isHovering: boolean; clientX: number; clientY: number }>;
 
 export function BackgroundShapes({ pointerRef }: { pointerRef: PointerRef }) {
   const nodeRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const startTimeRef = useRef(0);
   const currentPointer = useRef({ x: 0, y: 0 });
-  const hoverCurrent = useRef(0);
-  /** Which ellipse is under the cursor (-1 = none). Smoothed so "afastar" animates nicely. */
-  const hoveredIndexTarget = useRef(-1);
-  const hoveredIndexSmooth = useRef(0);
+  const hoverAmount = useRef(0);
   const rafId = useRef<number>();
   const reducedMotionRef = useRef(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (DIAG) console.log("[BackgroundShapes] mounted (this component instance)");
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     reducedMotionRef.current = mq.matches;
     const handler = () => {
@@ -169,75 +176,120 @@ export function BackgroundShapes({ pointerRef }: { pointerRef: PointerRef }) {
   }, []);
 
   useEffect(() => {
-    const start = performance.now() / 1000;
+    startTimeRef.current = performance.now() / 1000;
+    let frameCount = 0;
 
     const tick = () => {
+      frameCount += 1;
+      if (THROW_DIAG_ERROR && frameCount === 2) {
+        throw new Error("BackgroundShapes DIAG: correct component (throw once to verify)");
+      }
+      if (DIAG && frameCount % 60 === 0) {
+        const nodeCount = nodeRefs.current.filter(Boolean).length;
+        console.log("[BackgroundShapes] RAF tick", { frameCount, nodes: nodeCount, time: (performance.now() / 1000 - startTimeRef.current).toFixed(1) });
+      }
+
       const raw = pointerRef.current;
       const pt = raw
-        ? { x: raw.x, y: raw.y, isHovering: raw.isHovering, clientX: raw.clientX ?? 0, clientY: raw.clientY ?? 0 }
-        : { x: 0, y: 0, isHovering: false, clientX: 0, clientY: 0 };
-      const t = performance.now() / 1000 - start;
+        ? { x: raw.x, y: raw.y, isHovering: raw.isHovering }
+        : { x: 0, y: 0, isHovering: false };
+      const time = performance.now() / 1000 - startTimeRef.current;
       const cp = currentPointer.current;
-      const reducedMotion = reducedMotionRef.current;
+      const reducedMotion = DIAG ? false : reducedMotionRef.current;
 
       if (reducedMotion) {
-        cp.x = pt.x;
-        cp.y = pt.y;
+        cp.x = 0;
+        cp.y = 0;
+        hoverAmount.current = 0;
       } else {
         cp.x = lerp(cp.x, pt.x, SMOOTHING);
         cp.y = lerp(cp.y, pt.y, SMOOTHING);
+        hoverAmount.current = lerp(hoverAmount.current, pt.isHovering ? 1 : 0, 0.06);
       }
 
-      const hoverTgt = pt.isHovering ? 1 : 0;
-      hoverCurrent.current = lerp(hoverCurrent.current, hoverTgt, HOVER_SPREAD_SMOOTHING);
-      /* Strongest movement when cursor is near hero center; falls off toward edges */
-      const distFromCenter = Math.sqrt(pt.x * pt.x + pt.y * pt.y);
-      const centerStrength = 1 - 0.5 * Math.min(1, distFromCenter);
-      const spread = hoverCurrent.current * HOVER_SPREAD * (pt.isHovering ? centerStrength : 0);
-
-      /* Per-ellipse hover: which ellipse is closest to cursor? Others "afastar" (move away) */
-      const hoveredIndex = pt.isHovering ? closestEllipse(nodeRefs.current, pt.clientX, pt.clientY) : -1;
-      hoveredIndexTarget.current = hoveredIndex;
-      const targetStrength = hoveredIndex >= 0 ? 1 : 0;
-      hoveredIndexSmooth.current = reducedMotion ? targetStrength : lerp(hoveredIndexSmooth.current, targetStrength, ELLIPSE_HOVER_SMOOTHING);
-      const ellipseSpreadAmount = hoveredIndexSmooth.current;
-
-      if (DEBUG && t < 1) {
-        console.log("[BackgroundShapes] RAF running", { pt, reducedMotion, hoveredIndex });
-      }
+      const hoverBoost = 1 + (HOVER_ORBIT_BOOST - 1) * hoverAmount.current;
 
       nodeRefs.current.forEach((node, i) => {
         if (!node) return;
         const cfg = ELLIPSES[i];
-        const strength = PARALLAX_STRENGTH[cfg.layer];
-        const scale = LAYER_SCALE[cfg.layer];
+        const layerScale = LAYER_SCALE[cfg.layer];
         const opacity = LAYER_OPACITY[cfg.layer];
-        const px = cp.x * strength;
-        const py = cp.y * strength;
-        const sx = spread * cfg.outward[0];
-        const sy = spread * cfg.outward[1];
-        /* When one ellipse is hovered: it shifts slightly toward cursor; others move away (afastar) */
-        const isHoveredOne = hoveredIndex >= 0 && i === hoveredIndex;
-        const afastarX = ellipseSpreadAmount * (isHoveredOne ? ELLIPSE_HOVER_PULL * pt.x : ELLIPSE_HOVER_SPREAD * cfg.outward[0]);
-        const afastarY = ellipseSpreadAmount * (isHoveredOne ? ELLIPSE_HOVER_PULL * pt.y : ELLIPSE_HOVER_SPREAD * cfg.outward[1]);
-        const x = px + sx + afastarX;
-        const y = py + sy + afastarY;
-        node.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+        const maxPx = PARALLAX_MAX_PX[cfg.layer];
+
+        let orbitX = 0;
+        let orbitY = 0;
+        let breathScale = 1;
+
+        if (!reducedMotion) {
+          const [rxLo, rxHi] = ORBIT_RADIUS_X_RANGE;
+          const [ryLo, ryHi] = ORBIT_RADIUS_Y_RANGE;
+          const [durLo, durHi] = ORBIT_DURATION_RANGE;
+          const radiusXEff = rxLo + ((cfg.orbitRadiusX - 6) / 8) * (rxHi - rxLo);
+          const radiusYEff = ryLo + ((cfg.orbitRadiusY - 4) / 8) * (ryHi - ryLo);
+          const durationEff = durLo + ((cfg.orbitDuration - 18) / 16) * (durHi - durLo);
+          const angle = (time / durationEff) * TAU + cfg.orbitPhase;
+          const rX = radiusXEff * hoverBoost;
+          const rY = radiusYEff * hoverBoost;
+          orbitX = Math.cos(angle) * rX;
+          orbitY = Math.sin(angle) * rY;
+          const breathAngle = (time / cfg.breathDuration) * TAU + cfg.breathPhase;
+          const [bMin, bMax] = BREATH_SCALE_RANGE;
+          breathScale = bMin + (bMax - bMin) * (0.5 + 0.5 * Math.sin(breathAngle));
+        }
+
+        const parallaxX = reducedMotion ? 0 : cp.x * maxPx;
+        const parallaxY = reducedMotion ? 0 : cp.y * maxPx;
+        const finalX = orbitX + parallaxX;
+        const finalY = orbitY + parallaxY;
+        const scale = layerScale * breathScale;
+
+        if (USE_GRADIENT_ORBIT) {
+          const cx = Math.max(5, Math.min(95, 50 + (finalX / 100) * 28));
+          const cy = Math.max(5, Math.min(95, 50 + (finalY / 100) * 28));
+          node.style.background = `radial-gradient(circle at ${cx}% ${cy}%, ${cfg.background} 0%, transparent 65%)`;
+          node.style.transform = `scale(${scale})`;
+        } else {
+          node.style.transform = `translate3d(${finalX}px, ${finalY}px, 0) scale(${scale})`;
+        }
         node.style.opacity = String(opacity);
       });
 
       rafId.current = requestAnimationFrame(tick);
     };
 
-    rafId.current = requestAnimationFrame(tick);
+    const startTick = () => {
+      rafId.current = requestAnimationFrame(tick);
+    };
+    rafId.current = requestAnimationFrame(startTick);
     return () => {
       if (rafId.current) cancelAnimationFrame(rafId.current);
     };
   }, [pointerRef]);
 
   return (
-    <div className="absolute inset-0 -z-10 pointer-events-none overflow-hidden" aria-hidden>
-      {/* Base: soft gradient left (blue-green) → center (yellow-green) → right (light green) */}
+    <>
+      {DIAG && mounted && typeof document !== "undefined" &&
+        createPortal(
+          <div
+            data-diagnostic="background-shapes-mounted"
+            style={{
+              position: "fixed",
+              top: 8,
+              right: 8,
+              width: 48,
+              height: 48,
+              background: "red",
+              opacity: 0.9,
+              zIndex: 2147483647,
+              pointerEvents: "none",
+              borderRadius: 4,
+            }}
+            title="BackgroundShapes mounted"
+          />,
+          document.body
+        )}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-visible" aria-hidden>
+        {/* Base: soft gradient left (blue-green) → center (yellow-green) → right (light green) */}
       <div
         style={{
           position: "absolute",
@@ -249,9 +301,6 @@ export function BackgroundShapes({ pointerRef }: { pointerRef: PointerRef }) {
       {ELLIPSES.map((ellipse, i) => (
         <div
           key={i}
-          ref={(el) => {
-            nodeRefs.current[i] = el;
-          }}
           style={{
             position: "absolute",
             width: ellipse.width,
@@ -260,28 +309,26 @@ export function BackgroundShapes({ pointerRef }: { pointerRef: PointerRef }) {
             left: ellipse.left,
             right: ellipse.right,
             bottom: ellipse.bottom,
-            willChange: "transform",
           }}
         >
           <div
-            className={`ellipse-loop ${i % 2 === 1 ? "reverse" : ""}`}
-            style={{
-              animationDuration: `${LOOP_DURATION[i]}s`,
-              animationDelay: `${-ellipse.driftPhase}s`,
+            ref={(el) => {
+              nodeRefs.current[i] = el;
             }}
-          >
-            <div
-              style={{
-                width: "100%",
-                height: "100%",
-                borderRadius: `${ellipse.borderRadius}px`,
-                filter: "blur(150px)",
-                background: ellipse.background,
-              }}
-            />
-          </div>
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: `${ellipse.borderRadius}px`,
+              filter: "blur(40px)",
+              background: USE_GRADIENT_ORBIT
+                ? `radial-gradient(circle at 50% 50%, ${ellipse.background} 0%, transparent 65%)`
+                : ellipse.background,
+              willChange: USE_GRADIENT_ORBIT ? "background" : "transform",
+            }}
+          />
         </div>
       ))}
-    </div>
+      </div>
+    </>
   );
 }

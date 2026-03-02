@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BackgroundShapes } from "./BackgroundShapes";
+import { AnimatedBlobs } from "./AnimatedBlobs";
+// import { BackgroundShapes } from "./BackgroundShapes"; // kept if we need to revert
 import { PhonePreview } from "./PhonePreview";
 import { Button, Typography } from "@/components/ui";
 
@@ -117,8 +118,16 @@ export function HeroSection() {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        <div className="hero-bg-entrance absolute inset-0 -z-10">
-          <BackgroundShapes pointerRef={pointerRef} />
+        {/* BackgroundShapes removed; use AnimatedBlobs. Re-add <BackgroundShapes pointerRef={pointerRef} /> if reverting. */}
+        <div
+          className="hero-bg-entrance absolute inset-0 -z-10"
+          style={{
+            background: "linear-gradient(to right, rgb(217, 243, 242), rgb(233, 246, 224), rgb(224, 247, 224))",
+            borderRadius: "2.5rem",
+          }}
+        />
+        <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+          <AnimatedBlobs />
         </div>
         <div className="relative z-20 flex max-h-[624px] flex-col items-center gap-section md:flex-row md:items-center md:justify-between md:gap-12 lg:gap-16 pl-8 pr-0 py-10 md:pl-12 md:pr-0 md:py-12 lg:pl-16 lg:pr-0 lg:py-14">
           <div className="flex flex-1 flex-col justify-center max-w-xl min-w-0">
@@ -172,7 +181,7 @@ export function HeroSection() {
             </span>
           </div>
           <div
-            className="hero-phone-entrance flex flex-1 items-center justify-center md:items-end md:justify-end min-w-0 pt-[328px] md:pt-[320px] pr-12 md:pr-20 lg:pr-24"
+            className="hero-phone-entrance flex flex-1 items-center justify-center md:items-end md:justify-end min-w-0 pt-[328px] md:pt-[320px] pr-12 md:pr-20 lg:pr-24 overflow-visible"
             style={{ animationDelay: "0.9s" }}
           >
             <PhonePreview pointerRef={pointerRef} />
