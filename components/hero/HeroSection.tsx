@@ -68,7 +68,7 @@ function HeroTypewriter() {
 
 export function HeroSection() {
   const heroRef = useRef<HTMLDivElement>(null);
-  const pointerRef = useRef({ x: 0, y: 0, isHovering: false });
+  const pointerRef = useRef({ x: 0, y: 0, isHovering: false, clientX: 0, clientY: 0 });
   const lastLogRef = useRef(0);
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = heroRef.current;
@@ -80,6 +80,8 @@ export function HeroSection() {
     const halfH = rect.height / 2;
     pointerRef.current.x = halfW > 0 ? Math.max(-1, Math.min(1, (e.clientX - centerX) / halfW)) : 0;
     pointerRef.current.y = halfH > 0 ? Math.max(-1, Math.min(1, (e.clientY - centerY) / halfH)) : 0;
+    pointerRef.current.clientX = e.clientX;
+    pointerRef.current.clientY = e.clientY;
     if (DEBUG) {
       const now = Date.now();
       if (now - lastLogRef.current > 300) {
@@ -98,6 +100,8 @@ export function HeroSection() {
     pointerRef.current.isHovering = false;
     pointerRef.current.x = 0;
     pointerRef.current.y = 0;
+    pointerRef.current.clientX = 0;
+    pointerRef.current.clientY = 0;
     if (DEBUG) console.log("[HeroSection] onMouseLeave");
   };
 
@@ -108,7 +112,7 @@ export function HeroSection() {
     >
       <div
         ref={heroRef}
-        className="relative isolate overflow-hidden rounded-[2.5rem] max-h-[624px]"
+        className="relative overflow-hidden rounded-[2.5rem] max-h-[624px]"
         onMouseMove={handleMouseMove}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -144,8 +148,9 @@ export function HeroSection() {
                 lineHeight: "140%",
               }}
             >
-              Escreva como sempre escreveu. Sem nada para aprender, nem
-              instalar.
+              Escreva como sempre escreveu. Sem nada para
+              <br />
+              aprender, nem instalar.
             </Typography>
             <span id="hero-cta" className="inline-block">
               <Button
@@ -162,7 +167,7 @@ export function HeroSection() {
               </Button>
             </span>
           </div>
-          <div className="flex flex-1 items-center justify-center md:items-end md:justify-end min-w-0 pt-[328px] md:pt-[320px] pr-8 md:pr-12 lg:pr-16">
+          <div className="flex flex-1 items-center justify-center md:items-end md:justify-end min-w-0 pt-[328px] md:pt-[320px] pr-12 md:pr-20 lg:pr-24">
             <PhonePreview />
           </div>
         </div>

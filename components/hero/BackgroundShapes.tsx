@@ -28,6 +28,12 @@ const HOVER_SPREAD_FINAL = 52;
 const HOVER_SPREAD = DEBUG_MOTION ? HOVER_SPREAD_DEBUG : HOVER_SPREAD_FINAL;
 /** Snappier hover reaction so ellipses visibly move when entering hero center */
 const HOVER_SPREAD_SMOOTHING = 0.065;
+/** When hovering over one ellipse, others move away by this amount (px) */
+const ELLIPSE_HOVER_SPREAD = 28;
+/** Hovered ellipse moves slightly toward cursor (px per unit normalized) */
+const ELLIPSE_HOVER_PULL = 12;
+/** Smoothing for per-ellipse hover spread (afastar) */
+const ELLIPSE_HOVER_SMOOTHING = 0.08;
 const LAYER_OPACITY = { back: 0.25, mid: 0.35, front: 0.45 } as const;
 const LAYER_SCALE = { back: 1, mid: 1.02, front: 1.04 } as const;
 
@@ -118,12 +124,34 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
-export type PointerRef = RefObject<{ x: number; y: number; isHovering: boolean }>;
+export type PointerRef = RefObject<{ x: number; y: number; isHovering: boolean; clientX: number; clientY: number }>;
+
+/** Index of ellipse whose center is closest to (cx, cy), or -1 if hero not hovered. */
+function closestEllipse(nodeRefs: (HTMLDivElement | null)[], cx: number, cy: number): number {
+  let best = -1;
+  let bestD2 = Infinity;
+  for (let i = 0; i < nodeRefs.length; i++) {
+    const node = nodeRefs[i];
+    if (!node) continue;
+    const rect = node.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const d2 = (cx - centerX) ** 2 + (cy - centerY) ** 2;
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      best = i;
+    }
+  }
+  return best;
+}
 
 export function BackgroundShapes({ pointerRef }: { pointerRef: PointerRef }) {
   const nodeRefs = useRef<(HTMLDivElement | null)[]>([]);
   const currentPointer = useRef({ x: 0, y: 0 });
   const hoverCurrent = useRef(0);
+  /** Which ellipse is under the cursor (-1 = none). Smoothed so "afastar" animates nicely. */
+  const hoveredIndexTarget = useRef(-1);
+  const hoveredIndexSmooth = useRef(0);
   const rafId = useRef<number>();
   const reducedMotionRef = useRef(false);
 
@@ -143,7 +171,9 @@ export function BackgroundShapes({ pointerRef }: { pointerRef: PointerRef }) {
 
     const tick = () => {
       const raw = pointerRef.current;
-      const pt = raw ? { x: raw.x, y: raw.y, isHovering: raw.isHovering } : { x: 0, y: 0, isHovering: false };
+      const pt = raw
+        ? { x: raw.x, y: raw.y, isHovering: raw.isHovering, clientX: raw.clientX ?? 0, clientY: raw.clientY ?? 0 }
+        : { x: 0, y: 0, isHovering: false, clientX: 0, clientY: 0 };
       const t = performance.now() / 1000 - start;
       const cp = currentPointer.current;
       const reducedMotion = reducedMotionRef.current;
@@ -163,8 +193,15 @@ export function BackgroundShapes({ pointerRef }: { pointerRef: PointerRef }) {
       const centerStrength = 1 - 0.5 * Math.min(1, distFromCenter);
       const spread = hoverCurrent.current * HOVER_SPREAD * (pt.isHovering ? centerStrength : 0);
 
+      /* Per-ellipse hover: which ellipse is closest to cursor? Others "afastar" (move away) */
+      const hoveredIndex = pt.isHovering ? closestEllipse(nodeRefs.current, pt.clientX, pt.clientY) : -1;
+      hoveredIndexTarget.current = hoveredIndex;
+      const targetStrength = hoveredIndex >= 0 ? 1 : 0;
+      hoveredIndexSmooth.current = reducedMotion ? targetStrength : lerp(hoveredIndexSmooth.current, targetStrength, ELLIPSE_HOVER_SMOOTHING);
+      const ellipseSpreadAmount = hoveredIndexSmooth.current;
+
       if (DEBUG && t < 1) {
-        console.log("[BackgroundShapes] RAF running", { pt, reducedMotion });
+        console.log("[BackgroundShapes] RAF running", { pt, reducedMotion, hoveredIndex });
       }
 
       nodeRefs.current.forEach((node, i) => {
@@ -177,11 +214,15 @@ export function BackgroundShapes({ pointerRef }: { pointerRef: PointerRef }) {
         const py = cp.y * strength;
         const sx = spread * cfg.outward[0];
         const sy = spread * cfg.outward[1];
+        /* When one ellipse is hovered: it shifts slightly toward cursor; others move away (afastar) */
+        const isHoveredOne = hoveredIndex >= 0 && i === hoveredIndex;
+        const afastarX = ellipseSpreadAmount * (isHoveredOne ? ELLIPSE_HOVER_PULL * pt.x : ELLIPSE_HOVER_SPREAD * cfg.outward[0]);
+        const afastarY = ellipseSpreadAmount * (isHoveredOne ? ELLIPSE_HOVER_PULL * pt.y : ELLIPSE_HOVER_SPREAD * cfg.outward[1]);
         const T = (2 * Math.PI * t) / cfg.driftDuration + cfg.driftPhase;
         const driftX = reducedMotion ? 0 : DRIFT_AMPLITUDE * (Math.sin(T) + Math.cos(T * 0.7));
         const driftY = reducedMotion ? 0 : DRIFT_AMPLITUDE * (Math.sin(T + 1.5) + Math.cos(T * 0.7 + 1.5));
-        const x = px + sx + driftX;
-        const y = py + sy + driftY;
+        const x = px + sx + afastarX + driftX;
+        const y = py + sy + afastarY + driftY;
         node.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
         node.style.opacity = String(opacity);
       });

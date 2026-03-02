@@ -41,10 +41,10 @@ export default function RootLayout({
               aria-label="Zappelin – início"
             >
               <img
-                src="/logoZappelin.svg"
+                src="/logonovo.svg"
                 alt="Zappelin"
-                width={137}
-                height={32}
+                width={120}
+                height={28}
                 className="h-8 w-auto"
               />
             </Link>

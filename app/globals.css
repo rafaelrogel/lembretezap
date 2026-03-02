@@ -209,3 +209,8 @@
     }
   }
 }
+
+/* Phone mockup: force transparent background so PNG alpha is preserved */
+.phone-mockup-img {
+  background: transparent !important;
+}

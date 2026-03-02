@@ -25,19 +25,30 @@ export function HeaderActions() {
   return (
     <div className="flex items-center gap-3">
       <div
-        className={`overflow-hidden transition-[max-width,transform] duration-500 ease-out ${
-          showAssinar
-            ? "max-w-[120px] translate-x-0"
-            : "max-w-0 -translate-x-4"
+        className={`grid overflow-hidden ${
+          showAssinar ? "max-w-[120px]" : "max-w-0 min-w-0"
         }`}
+        style={{
+          transitionProperty: "max-width",
+          transitionDuration: "600ms",
+          transitionTimingFunction: "cubic-bezier(0.34, 1.2, 0.64, 1)",
+        }}
       >
         <Button
           href="#"
           variant="primary"
           size="sm"
-          className="whitespace-nowrap border-0 bg-emerald-600 text-white hover:bg-emerald-700"
+          className="whitespace-nowrap border-0 bg-emerald-600 text-white hover:bg-emerald-700 min-w-0"
         >
-          Assinar
+          <span
+            className={showAssinar ? "opacity-100" : "opacity-0"}
+            style={{
+              transition: "opacity 0.2s ease-out",
+              transitionDelay: showAssinar ? "50ms" : "0ms",
+            }}
+          >
+            Assinar
+          </span>
         </Button>
       </div>
       <Button
