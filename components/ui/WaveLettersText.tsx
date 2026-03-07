@@ -11,19 +11,23 @@ export interface WaveLettersTextProps {
    * so it runs again each time the user scrolls back into view.
    */
   triggerOncePerEntry?: boolean;
+  /** Duration of each letter (ms). Default 420. Use 294 for 30% faster. */
+  letterDurationMs?: number;
+  /** Stagger between letters (ms). Default 42. Use 29 for 30% faster. */
+  staggerMs?: number;
 }
 
 /** Scale peak for the letter pop (subtle). */
 const SCALE_PEAK = 1.15;
-/** Duration of each letter's scale animation (ms). */
-const LETTER_DURATION_MS = 420;
-/** Delay between starting each letter (ms). */
-const STAGGER_MS = 42;
+const DEFAULT_LETTER_DURATION_MS = 420;
+const DEFAULT_STAGGER_MS = 42;
 
 export function WaveLettersText({
   text,
   className = "",
   triggerOncePerEntry = true,
+  letterDurationMs = DEFAULT_LETTER_DURATION_MS,
+  staggerMs = DEFAULT_STAGGER_MS,
 }: WaveLettersTextProps) {
   const containerRef = useRef<HTMLSpanElement>(null);
   const [isInView, setIsInView] = useState(false);
@@ -79,8 +83,8 @@ export function WaveLettersText({
       style={
         {
           "--wave-scale-peak": SCALE_PEAK,
-          "--wave-duration": `${LETTER_DURATION_MS}ms`,
-          "--wave-stagger": `${STAGGER_MS}ms`,
+          "--wave-duration": `${letterDurationMs}ms`,
+          "--wave-stagger": `${staggerMs}ms`,
         } as React.CSSProperties
       }
     >

@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 
-/** Ícone de pin (pushpin) – imagem do design */
-function PinIcon({ className }: { className?: string }) {
+/** Ícone do carrinho de compras (imagem em anexo) */
+function CartIcon({ className }: { className?: string }) {
   return (
     <img
-      src="/pin-icon.png"
+      src="/cart-icon.png"
       alt=""
-      width={16}
-      height={16}
+      width={18}
+      height={18}
       className={className}
       aria-hidden
     />
@@ -40,7 +40,7 @@ function MessageReadCheckIcon({ className }: { className?: string }) {
   );
 }
 
-/** Speech blob SVG: 258×66, drop shadow. Use fill #DCF7C5 (verde) ou #FAFAFA (cinza). */
+/** Speech blob SVG: 258×66. Use fill #DCF7C5 (verde) ou #FBF7F2 (cinza). */
 function SpeechBlobSvg({
   fill,
   filterId,
@@ -80,12 +80,10 @@ function SpeechBlobSvg({
 }
 
 /**
- * Static chat mockup for the Tagline section.
- * Matches the design: grey bubble (right), green bubble + avatar (left), timestamps, checkmarks.
- * Animação de entrada dispara quando a section entra no viewport.
+ * Chat mockup para lista de compras: mensagem verde (pedido) + bolha cinza (resposta com carrinho).
+ * Com entranceDelayMs, a segunda animação começa na metade do tempo da primeira (ex.: 1350ms).
  */
-/** Bolha de “a escrever…” (três pontos) */
-export function TaglineChatMockup({ playTrigger }: { playTrigger?: number }) {
+export function TaglineChatMockupCompras({ entranceDelayMs = 0, playTrigger }: { entranceDelayMs?: number; playTrigger?: number }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [playKey, setPlayKey] = useState(0);
   const wasVisibleRef = useRef(false);
@@ -96,27 +94,39 @@ export function TaglineChatMockup({ playTrigger }: { playTrigger?: number }) {
       setPlayKey(0);
       return;
     }
+    if (entranceDelayMs > 0) {
+      const t = setTimeout(() => setPlayKey(playTrigger), entranceDelayMs);
+      return () => clearTimeout(t);
+    }
     setPlayKey(playTrigger);
-  }, [playTrigger]);
+  }, [playTrigger, entranceDelayMs]);
 
   useEffect(() => {
     if (playTrigger !== undefined) return;
     const el = containerRef.current;
     if (!el) return;
+    let delayTimer: ReturnType<typeof setTimeout> | null = null;
     const observer = new IntersectionObserver(
       (entries) => {
         const isVisible = entries[0]?.isIntersecting ?? false;
         if (isVisible && !wasVisibleRef.current) {
           wasVisibleRef.current = true;
-          setPlayKey((k) => k + 1);
+          if (entranceDelayMs > 0) {
+            delayTimer = setTimeout(() => setPlayKey((k) => k + 1), entranceDelayMs);
+          } else {
+            setPlayKey((k) => k + 1);
+          }
         }
         if (!isVisible) wasVisibleRef.current = false;
       },
       { threshold: 0.2, rootMargin: "0px" }
     );
     observer.observe(el);
-    return () => observer.disconnect();
-  }, [playTrigger]);
+    return () => {
+      observer.disconnect();
+      if (delayTimer) clearTimeout(delayTimer);
+    };
+  }, [entranceDelayMs, playTrigger]);
 
   return (
     <div
@@ -124,8 +134,8 @@ export function TaglineChatMockup({ playTrigger }: { playTrigger?: number }) {
       className="mx-auto mt-10 min-w-[260px] w-full max-w-[340px] px-3 py-5"
       aria-hidden
     >
-      {/* Top: primeiro “a escrever…”, depois bolha cinza */}
-      <div className="min-h-0">
+      {/* Top: bolha cinza – resposta com lista e carrinho – sempre no DOM para evitar CLS */}
+      <div className="min-h-[140px]">
         <div
           key={`grey-${playKey}`}
           className={`flex justify-end ${playKey > 0 ? "chat-bubble-grey-enter" : ""}`}
@@ -133,24 +143,28 @@ export function TaglineChatMockup({ playTrigger }: { playTrigger?: number }) {
         >
           <div className="relative inline-block min-h-[54px] max-w-[85%] overflow-hidden rounded-[8px] bg-[#FBF7F2] shadow-[0_4px_4px_0_rgba(0,0,0,0.08)]">
             <div className="absolute inset-0 scale-x-[-1]">
-              <SpeechBlobSvg fill="#FBF7F2" filterId="filter_blob_grey" className="h-full w-full" />
+              <SpeechBlobSvg fill="#FBF7F2" filterId="filter_blob_grey_compras" className="h-full w-full" />
             </div>
             <div className="relative z-10 flex min-h-[54px] flex-col justify-center px-[12px] py-[4px] text-left" style={{ transform: "translateY(-1px)" }}>
-              <p className="text-[15px] leading-snug text-[#212121]">
+              <p className="text-[15px] leading-snug text-[#212121]">Adicionado a sua lista de</p>
+              <p className="mt-0.5 text-[15px] leading-snug text-[#212121]">
                 <span className="inline-flex items-center gap-1">
-                  Anotado <PinIcon className="inline-block shrink-0" /> Sexta às 18h eu te
+                  compras <CartIcon className="inline-block shrink-0" />
                 </span>
               </p>
+              <p className="mt-0.5 text-[15px] leading-snug text-[#212121]">• leite</p>
+              <p className="text-[15px] leading-snug text-[#212121]">• café</p>
+              <p className="mt-0.5 text-[15px] leading-snug text-[#212121]">Quando você pretende</p>
               <p className="mt-0.5 flex items-baseline justify-between gap-2 text-[15px] leading-snug text-[#212121]">
-                <span>aviso para enviar o relatório</span>
-                <span className="shrink-0 text-[11px] text-[#9e9e9e]">17:47</span>
+                <span>ir ao mercado?</span>
+                <span className="shrink-0 text-[11px] text-[#9e9e9e]">09:09</span>
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom row: avatar (entra primeiro) + green bubble (entrada 1s) */}
+      {/* Bottom: avatar + bolha verde (pedido) */}
       <div
         key={`sent-${playKey}`}
         className="mt-[10px] flex items-end gap-[6px]"
@@ -158,7 +172,7 @@ export function TaglineChatMockup({ playTrigger }: { playTrigger?: number }) {
       >
         <div className={`shrink-0 self-end ${playKey > 0 ? "chat-avatar-enter" : ""}`}>
           <img
-            src="/avatar-profile.png"
+            src="/avatar-profile-compras.png"
             alt=""
             width={36}
             height={36}
@@ -168,13 +182,13 @@ export function TaglineChatMockup({ playTrigger }: { playTrigger?: number }) {
         </div>
         <div className={`relative min-w-0 ${playKey > 0 ? "chat-sent-bubble-enter" : ""}`}>
           <div className="relative inline-block min-h-[54px] overflow-hidden rounded-[8px] bg-[#DCF7C5] shadow-[0_4px_4px_0_rgba(0,0,0,0.08)]">
-            <SpeechBlobSvg fill="#DCF7C5" filterId="filter_blob_green" className="absolute inset-0 h-full w-full" />
+            <SpeechBlobSvg fill="#DCF7C5" filterId="filter_blob_green_compras" className="absolute inset-0 h-full w-full" />
             <div className="relative z-10 flex min-h-[54px] flex-col justify-center px-[12px] py-[4px] text-left" style={{ transform: "translateY(-1px)" }}>
-              <p className="whitespace-nowrap text-[15px] leading-snug text-[#212121]">sexta às 18h enviar o relatório</p>
+              <p className="text-[15px] leading-snug text-[#212121]">adicione leite e café na minha</p>
               <p className="mt-0.5 flex items-baseline justify-between gap-2 text-[15px] leading-snug text-[#212121]">
-                <span>para o João</span>
+                <span>lista de compras</span>
                 <span className="flex shrink-0 items-center gap-1.5">
-                  <span className="text-[11px] text-[#9e9e9e]">17:47</span>
+                  <span className="text-[11px] text-[#9e9e9e]">09:09</span>
                   <span className="inline-flex shrink-0" aria-hidden>
                     <MessageReadCheckIcon />
                   </span>
