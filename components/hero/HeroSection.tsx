@@ -141,7 +141,7 @@ export function HeroSection() {
                 fontSize: 56,
                 fontWeight: 700,
                 lineHeight: "110%",
-                animationDelay: "0.15s",
+                animationDelay: "0.5s",
               }}
             >
               Suas mensagens viram{" "}
@@ -158,31 +158,32 @@ export function HeroSection() {
                 fontSize: 16,
                 fontWeight: 400,
                 lineHeight: "140%",
-                animationDelay: "0.4s",
+                animationDelay: "0.75s",
               }}
             >
               Escreva como sempre escreveu. Sem nada para
               <br />
               aprender, nem instalar.
             </Typography>
-            <span id="hero-cta" className="hero-entrance inline-block" style={{ animationDelay: "0.65s" }}>
+            <span id="hero-cta" className="hero-entrance inline-block" style={{ animationDelay: "1s" }}>
               <Button
                 href="/about"
                 variant="primary"
                 size="lg"
-                className="mt-8 flex w-fit items-center justify-center gap-1 rounded-[12px] px-4 text-center text-[14px] font-medium bg-emerald-600 text-white hover:bg-emerald-700 active:opacity-95"
-                style={{
-                  padding: "9px 16px 11px 16px",
-                  lineHeight: "20px",
-                }}
+                className="group mt-8 flex w-fit items-center justify-center gap-0 rounded-[12px] pl-4 pr-5 py-[9px] text-center text-[14px] font-medium leading-5 bg-emerald-600 text-white hover:bg-emerald-700 hover:pl-4 hover:pr-4 hover:gap-2 active:opacity-95 transition-[background-color,padding,gap] duration-500 ease-out"
               >
-                Começar agora
+                <span>Começar agora</span>
+                <span className="inline-flex shrink-0 w-0 overflow-hidden opacity-0 transition-[width,opacity,transform] duration-500 ease-out group-hover:w-5 group-hover:opacity-100 group-hover:translate-x-0.5" aria-hidden>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+                    <path d="M5 12h14M12 5l7 7-7 7" />
+                  </svg>
+                </span>
               </Button>
             </span>
           </div>
           <div
             className="hero-phone-entrance flex flex-1 items-center justify-center md:items-end md:justify-end min-w-0 pt-[328px] md:pt-[320px] pr-12 md:pr-20 lg:pr-24 overflow-visible"
-            style={{ animationDelay: "0.9s" }}
+            style={{ animationDelay: "1.2s" }}
           >
             <PhonePreview pointerRef={pointerRef} />
           </div>

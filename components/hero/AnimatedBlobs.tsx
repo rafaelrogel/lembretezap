@@ -16,10 +16,14 @@ const BREATH_SCALE_MIN = 1;
 const BREATH_SCALE_MAX = 1.6;
 const BREATH_PERIOD = 5;
 
+/** Entrance: fade + scale in before rest of hero. Duration in seconds. */
+const ENTRANCE_DURATION = 0.7;
+const ENTRANCE_SCALE_START = 0.82;
+
 const BLOBS: ReadonlyArray<{
   width: string;
   height: string;
-  top: string;
+  top?: string;
   left?: string;
   right?: string;
   bottom?: string;
@@ -59,7 +63,6 @@ const BLOBS: ReadonlyArray<{
     height: "clamp(14rem, 40vw, 28rem)",
     bottom: "-5%",
     left: "-8%",
-    top: undefined,
     background: "rgba(168, 225, 229, 0.5)",
     orbitRadius: 150,
     period: 4.2,
@@ -71,8 +74,6 @@ const BLOBS: ReadonlyArray<{
     height: "clamp(14rem, 40vw, 28rem)",
     bottom: "12%",
     right: "-5%",
-    top: undefined,
-    left: undefined,
     background: "rgba(224, 247, 224, 0.55)",
     orbitRadius: 155,
     period: 3.8,
@@ -107,6 +108,7 @@ const BLOBS: ReadonlyArray<{
 ];
 
 export function AnimatedBlobs() {
+  const wrapperRef = useRef<HTMLDivElement>(null);
   const blobRefs = useRef<(HTMLDivElement | null)[]>([]);
   const startTimeRef = useRef(0);
   const rafIdRef = useRef<number>();
@@ -117,6 +119,13 @@ export function AnimatedBlobs() {
 
     const tick = () => {
       const time = performance.now() / 1000 - startTimeRef.current;
+
+      const entranceProgress = Math.min(1, time / ENTRANCE_DURATION);
+      const entranceScale = ENTRANCE_SCALE_START + (1 - ENTRANCE_SCALE_START) * entranceProgress;
+      if (wrapperRef.current) {
+        wrapperRef.current.style.opacity = String(entranceProgress);
+        wrapperRef.current.style.transform = `scale(${entranceScale})`;
+      }
 
       if (DEBUG) {
         if (logIntervalRef.current === 0) console.log("AnimatedBlobs RAF running");
@@ -151,12 +160,16 @@ export function AnimatedBlobs() {
 
   return (
     <div
+      ref={wrapperRef}
       className="pointer-events-none"
       style={{
         position: "absolute",
         inset: 0,
         overflow: "visible",
         zIndex: 0,
+        opacity: 0,
+        transform: `scale(${ENTRANCE_SCALE_START})`,
+        transformOrigin: "center center",
       }}
       aria-hidden
     >

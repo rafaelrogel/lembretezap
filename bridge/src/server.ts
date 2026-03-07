@@ -125,7 +125,7 @@ export class BridgeServer {
 
   private broadcast(msg: BridgeMessage): void {
     const data = JSON.stringify(msg);
-    for (const client of this.clients) {
+    for (const client of Array.from(this.clients)) {
       if (client.readyState === WebSocket.OPEN) {
         client.send(data);
       }
@@ -134,7 +134,7 @@ export class BridgeServer {
 
   async stop(): Promise<void> {
     // Close all client connections
-    for (const client of this.clients) {
+    for (const client of Array.from(this.clients)) {
       client.close();
     }
     this.clients.clear();

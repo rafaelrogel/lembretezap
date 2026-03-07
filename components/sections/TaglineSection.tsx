@@ -1,5 +1,9 @@
 import { Container } from "@/components/layout";
-import { Typography } from "@/components/ui";
+import { Typography, WaveLettersText } from "@/components/ui";
+import { TaglineChatMockup } from "./TaglineChatMockup";
+
+const TAGLINE =
+  "Organize seus compromissos e listas em\nsegundos, direto no seu app de mensagens.";
 
 export function TaglineSection() {
   return (
@@ -20,9 +24,9 @@ export function TaglineSection() {
             lineHeight: "120%",
           }}
         >
-          Organize seus compromissos e listas em segundos, direto no seu app de
-          mensagens.
+          <WaveLettersText text={TAGLINE} triggerOncePerEntry />
         </Typography>
+        <TaglineChatMockup />
       </Container>
     </section>
   );

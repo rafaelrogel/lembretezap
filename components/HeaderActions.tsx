@@ -30,21 +30,21 @@ export function HeaderActions() {
         }`}
         style={{
           transitionProperty: "max-width",
-          transitionDuration: "600ms",
-          transitionTimingFunction: "cubic-bezier(0.34, 1.2, 0.64, 1)",
+          transitionDuration: "1200ms",
+          transitionTimingFunction: "cubic-bezier(0.34, 1.4, 0.64, 1)",
         }}
       >
         <Button
           href="#"
           variant="primary"
           size="sm"
-          className="whitespace-nowrap border-0 bg-emerald-600 text-white hover:bg-emerald-700 min-w-0"
+          className="whitespace-nowrap border-0 bg-emerald-600 text-white hover:bg-emerald-700 min-w-0 transition-colors duration-500 ease-out"
         >
           <span
             className={showAssinar ? "opacity-100" : "opacity-0"}
             style={{
-              transition: "opacity 0.2s ease-out",
-              transitionDelay: showAssinar ? "50ms" : "0ms",
+              transition: "opacity 700ms cubic-bezier(0.34, 1.4, 0.64, 1)",
+              transitionDelay: "0ms",
             }}
           >
             Assinar
