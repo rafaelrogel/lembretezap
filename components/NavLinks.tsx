@@ -11,7 +11,7 @@ const links = [
 ] as const;
 
 const baseClass =
-  "text-[14px] leading-[140%] transition-token hover:opacity-90";
+  "text-[14px] leading-[140%] transition-token hover:text-[var(--Text-900,#212121)]";
 const activeClass =
   "font-semibold text-[var(--Text-900,#212121)]";
 const inactiveClass =

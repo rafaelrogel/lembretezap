@@ -9,6 +9,14 @@ import { Button, Typography } from "@/components/ui";
 
 const DEBUG = false;
 
+/* Mesmos valores do PhonePreview para pan/parallax no mock 5 */
+const PAN_STRENGTH = 8;
+const TILT_DEG = 3;
+const PAN_SMOOTHING = 0.1;
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+
 const ROTATING_WORDS = ["lembretes", "listas", "eventos", "tarefas"] as const;
 const TICK_MS = 85;
 const HOLD_MS = 2400;
@@ -71,7 +79,34 @@ function HeroTypewriter() {
 export function HeroSection() {
   const heroRef = useRef<HTMLDivElement>(null);
   const pointerRef = useRef({ x: 0, y: 0, isHovering: false, clientX: 0, clientY: 0 });
+  const mock5WrapperRef = useRef<HTMLDivElement>(null);
+  const mock5MotionRef = useRef({ x: 0, y: 0, rotateX: 0, rotateY: 0 });
   const lastLogRef = useRef(0);
+
+  useEffect(() => {
+    let rafId: number;
+    const tick = () => {
+      const raw = pointerRef.current;
+      const pt = raw ? { x: raw.x, y: raw.y, isHovering: raw.isHovering } : { x: 0, y: 0, isHovering: false };
+      const on = pt.isHovering ? 1 : 0;
+      const targetX = pt.x * PAN_STRENGTH * on;
+      const targetY = pt.y * PAN_STRENGTH * on;
+      const targetRotateY = pt.x * TILT_DEG * on;
+      const targetRotateX = -pt.y * TILT_DEG * on;
+      const m = mock5MotionRef.current;
+      m.x = lerp(m.x, targetX, PAN_SMOOTHING);
+      m.y = lerp(m.y, targetY, PAN_SMOOTHING);
+      m.rotateX = lerp(m.rotateX, targetRotateX, PAN_SMOOTHING);
+      m.rotateY = lerp(m.rotateY, targetRotateY, PAN_SMOOTHING);
+      if (mock5WrapperRef.current) {
+        mock5WrapperRef.current.style.transform =
+          `translate(${m.x}px, ${m.y}px) rotateX(${m.rotateX}deg) rotateY(${m.rotateY}deg)`;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = heroRef.current;
     if (!el) return;
@@ -190,10 +225,14 @@ export function HeroSection() {
             <div className="hero-phone-and-mock relative flex items-center justify-end w-full max-w-[min(380px,42vw)] md:max-w-[min(420px,46vw)] -mt-16 ml-16">
               <PhonePreview pointerRef={pointerRef} />
               <div
-                className="absolute z-30 flex flex-shrink-0 items-end justify-end w-full max-w-[280px] sm:max-w-[320px] md:max-w-[min(380px,42vw)]"
+                ref={mock5WrapperRef}
+                className="absolute z-30 flex flex-shrink-0 items-end justify-end w-full max-w-[280px] sm:max-w-[320px] md:max-w-[min(380px,42vw)] will-change-transform"
                 style={{
                   right: 32,
                   bottom: "calc(38% - 80px)",
+                  transformStyle: "preserve-3d",
+                  transformOrigin: "50% 50%",
+                  perspective: 900,
                 }}
               >
                 <HeroChatMockup />
