@@ -1424,3 +1424,33 @@ VIEW_LABEL_HOJE: dict[LangCode, str] = {
     "en": "📅 **Today**",
 }
 
+# --- Pomodoro ---
+
+POMODORO_START_MSG: dict[LangCode, str] = {
+    "pt-PT": "🍅 **Pomodoro iniciado!** (Ciclo {cycle}/4)\n25 min de foco. Aviso às {end_time}.\nOs ciclos de pausa (5 min) e foco (25 min) serão automáticos.\nUsa /pomodoro stop para cancelar. 🍅",
+    "pt-BR": "🍅 **Pomodoro iniciado!** (Ciclo {cycle}/4)\n25 min de foco. Aviso às {end_time}.\nOs ciclos de pausa (5 min) e foco (25 min) serão automáticos.\nUse /pomodoro stop para cancelar. 🍅",
+    "es": "🍅 **¡Pomodoro iniciado!** (Ciclo {cycle}/4)\n25 min de foco. Aviso a las {end_time}.\nLos ciclos de descanso (5 min) y foco (25 min) serán automáticos.\nUsa /pomodoro stop para cancelar. 🍅",
+    "en": "🍅 **Pomodoro started!** (Cycle {cycle}/4)\n25 min focus. Alert at {end_time}.\nBreak (5 min) and focus (25 min) cycles will be automatic.\nUse /pomodoro stop to cancel. 🍅",
+}
+
+POMODORO_FOCUS_END_BREAK_START: dict[LangCode, str] = {
+    "pt-PT": "🍅 **Ciclo {cycle}/4 completo!** Hora de uma pausa de 5 min. ☕️\n\nEu aviso quando a pausa terminar.",
+    "pt-BR": "🍅 **Ciclo {cycle}/4 completo!** Hora de uma pausa de 5 min. ☕️\n\nEu aviso quando a pausa terminar.",
+    "es": "🍅 **¡Ciclo {cycle}/4 completado!** Hora de un descanso de 5 min. ☕️\n\nTe avisaré cuando termine el descanso.",
+    "en": "🍅 **Cycle {cycle}/4 complete!** Time for a 5-min break. ☕️\n\nI'll let you know when the break is over.",
+}
+
+POMODORO_BREAK_END_FOCUS_START: dict[LangCode, str] = {
+    "pt-PT": "☕️ **A pausa terminou!** A iniciar o **Ciclo {cycle}/4**. 🍅\n\nFoco por mais 25 minutos!",
+    "pt-BR": "☕️ **A pausa terminou!** Iniciando o **Ciclo {cycle}/4**. 🍅\n\nFoco por mais 25 minutos!",
+    "es": "☕️ **¡El descanso ha terminado!** Iniciando el **Ciclo {cycle}/4**. 🍅\n\n¡Foco por otros 25 minutos!",
+    "en": "☕️ **Break over!** Starting **Cycle {cycle}/4**. 🍅\n\nFocus for another 25 minutes!",
+}
+
+POMODORO_FINAL_END: dict[LangCode, str] = {
+    "pt-PT": "🍅 **Ciclo 4/4 completo!** 🍅\n\nEste foi o último ciclo planeado. Gostarias de continuar ou preferes fazer uma pausa maior agora? 😊",
+    "pt-BR": "🍅 **Ciclo 4/4 completo!** 🍅\n\nEste foi o último ciclo planejado. Gostaria de continuar ou prefere fazer uma pausa maior agora? 😊",
+    "es": "🍅 **¡Ciclo 4/4 completado!** 🍅\n\nEste fue el último ciclo planeado. ¿Te gustaría continuar o prefieres tomar un descanso más largo ahora? 😊",
+    "en": "🍅 **Cycle 4/4 complete!** 🍅\n\nThis was the last planned cycle. Would you like to continue or would you prefer a longer break now? 😊",
+}
+

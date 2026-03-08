@@ -411,13 +411,28 @@ def gateway(
             from zapista.bus.events import OutboundMessage
             from zapista.cron.types import CronSchedule
             
-            p_to = job.payload.to
-            p_ch = job.payload.channel or "whatsapp"
+            # Determinar idioma
+            from backend.database import SessionLocal
+            from backend.user_store import get_user_language
+            from backend.locale import (
+                POMODORO_FOCUS_END_BREAK_START,
+                POMODORO_BREAK_END_FOCUS_START,
+                POMODORO_FINAL_END
+            )
             
-            if p_phase == "focus":
+            user_lang = "pt-BR"
+            try:
+                db = SessionLocal()
+                user_lang = get_user_language(db, p_to, getattr(job.payload, "phone_for_locale", None)) or "pt-BR"
+                db.close()
+            except Exception:
+                pass
+
+            if p_phase == "focus" and job.payload.to and bus:
                 # Fim do foco -> Início da pausa
                 if p_cycle < 4:
-                    content = f"🍅 **Ciclo {p_cycle}/4 completo!** Hora de uma pausa de 5 min. ☕️\n\nEu aviso quando a pausa terminar."
+                    template = POMODORO_FOCUS_END_BREAK_START.get(user_lang, POMODORO_FOCUS_END_BREAK_START["pt-BR"])
+                    content = template.format(cycle=p_cycle)
                     await bus.publish_outbound(OutboundMessage(channel=p_ch, chat_id=p_to, content=content))
                     
                     # Agendar fim da pausa (5 min)
@@ -430,19 +445,21 @@ def gateway(
                         to=p_to,
                         delete_after_run=True,
                         pomodoro_cycle=p_cycle,
-                        pomodoro_phase="break"
+                        pomodoro_phase="break",
+                        phone_for_locale=getattr(job.payload, "phone_for_locale", None),
                     )
                 else:
                     # Fim do Ciclo 4
-                    content = "🍅 **Ciclo 4/4 completo!** 🍅\n\nEste foi o último ciclo planeado. Gostarias de continuar ou preferes fazer uma pausa maior agora? 😊"
+                    content = POMODORO_FINAL_END.get(user_lang, POMODORO_FINAL_END["pt-BR"])
                     await bus.publish_outbound(OutboundMessage(channel=p_ch, chat_id=p_to, content=content))
                 
                 return f"pomodoro_focus_end_cycle_{p_cycle}"
             
-            elif p_phase == "break":
+            elif p_phase == "break" and job.payload.to and bus:
                 # Fim da pausa -> Início do próximo bloco de foco
                 next_cycle = p_cycle + 1
-                content = f"☕️ **A pausa terminou!** A iniciar o **Ciclo {next_cycle}/4**. 🍅\n\nFoco por mais 25 minutos!"
+                template = POMODORO_BREAK_END_FOCUS_START.get(user_lang, POMODORO_BREAK_END_FOCUS_START["pt-BR"])
+                content = template.format(cycle=next_cycle)
                 await bus.publish_outbound(OutboundMessage(channel=p_ch, chat_id=p_to, content=content))
                 
                 # Agendar fim do foco (25 min)
@@ -455,7 +472,8 @@ def gateway(
                     to=p_to,
                     delete_after_run=True,
                     pomodoro_cycle=next_cycle,
-                    pomodoro_phase="focus"
+                    pomodoro_phase="focus",
+                    phone_for_locale=getattr(job.payload, "phone_for_locale", None),
                 )
                 return f"pomodoro_break_end_cycle_{p_cycle}"
 

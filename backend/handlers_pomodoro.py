@@ -139,8 +139,8 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
         getattr(j.payload, "to", None) == ctx.chat_id and _is_pomodoro_job(j)
         for j in jobs
     ):
-        from backend.user_store import get_user_language
         from backend.database import SessionLocal
+        from backend.user_store import get_user_language
         from backend.locale import POMODORO_ALREADY_ACTIVE
         lang = "pt-BR"
         try:
@@ -164,12 +164,15 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
         if "limite" in (result or "").lower() or "limit" in (result or "").lower():
             return result
         # Formatar resposta com hora de término
+        lang = "pt-BR"
         try:
             from backend.database import SessionLocal
-            from backend.user_store import get_user_timezone
+            from backend.user_store import get_user_language, get_user_timezone
             from backend.timezone import format_utc_timestamp_for_user
+            from backend.locale import POMODORO_START_MSG
             db = SessionLocal()
             try:
+                lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
                 tz = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
                 end_sec = int(time.time()) + POMODORO_WORK_SEC
                 end_str = format_utc_timestamp_for_user(end_sec, tz)
@@ -177,12 +180,10 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
                 db.close()
         except Exception:
             end_str = "em 25 min"
-        return (
-            f"🍅 **Pomodoro iniciado!** (Ciclo 1/4)\n"
-            f"25 min de foco. Aviso às {end_str}.\n"
-            f"Os ciclos de pausa (5 min) e foco (25 min) serão automáticos.\n"
-            f"Use /pomodoro stop para cancelar. 🍅"
-        )
+            from backend.locale import POMODORO_START_MSG
+        
+        template = POMODORO_START_MSG.get(lang, POMODORO_START_MSG["pt-BR"])
+        return template.format(cycle=1, end_time=end_str)
     except ValueError as e:
         if "MAX_REMINDERS_EXCEEDED" in str(e):
             from backend.locale import REMINDER_LIMIT_EXCEEDED
