@@ -523,6 +523,13 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     from backend.database import SessionLocal
 
     text = content.strip()
+    # Se parecer pedido de remoção / cancelamento, ignorar e deixar para o Agente ou handler específico
+    t_lower = text.lower()
+    if any(kw in t_lower for kw in ["remov", "delet", "apag", "cancel", "para", "stop", "tirar"]):
+        # A menos que seja um comando explícito /lembrete (mas mesmo assim o Agent é mais robusto para ID vs Nome)
+        if not text.startswith("/"):
+            return None
+
     if _looks_like_reminder_nl(text):
         text = "/lembrete " + text
 
