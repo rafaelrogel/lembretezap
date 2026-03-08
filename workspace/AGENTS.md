@@ -35,6 +35,14 @@ The product is built on **three pillars** (see `workspace/PRINCIPIOS_ORGANIZACAO
 
 **Reminder only (not agenda):** Examples: take medicine, drink water, turn off the stove, pick up the phone, buy beans. These are **reminders only** — do not put them in the agenda; just create the reminder that triggers at the requested time.
 
+## Third-Party Message Drafts (mandatory)
+
+- When a user asks for a reminder to send a message to someone else (e.g., "wish happy birthday", "send Christmas greetings", "congratulate on the new job"), you MUST:
+  1. Generate a friendly, contextual draft message.
+  2. Pass this draft in the `suggested_draft` parameter of the `cron` tool.
+  3. This applies to ANY message intended for a third party (birthdays, holidays, professional congratulations, etc.).
+  4. The system will deliver this draft as a separate message alongside the reminder, making it easy for the user to forward.
+
 ## Recurrence (events and reminders)
 
 - **Recognize recurrence:** When the user says a **recurring event or reminder** (e.g., "I need to go to the doctor every Monday at 5 PM", "drink water every day at 8 AM", "gym Monday and Wednesday 7 PM"), **detect** this (every Monday, every day, daily, etc.), **request the recurrence** if not fully specified (e.g., "When? Ex: every day at 8 AM, every Monday 5 PM"), and **register** with the correct cron (recurring agenda/reminder).

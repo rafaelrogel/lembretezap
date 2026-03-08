@@ -599,6 +599,18 @@ def gateway(
                 content=response or "",
                 metadata={"job_id": metadata_job_id, "priority": "high"},
             ))
+
+            # Se houver um draft sugerido (aniversário, felicitações, etc), enviar como mensagem SEPARADA
+            # para o cliente poder encaminhar com 1 clique sem ter de editar o texto.
+            suggested = getattr(job.payload, "suggested_draft", None)
+            if suggested and job.payload.to:
+                await bus.publish_outbound(OutboundMessage(
+                    channel=ch,
+                    chat_id=to,
+                    content=suggested.strip(),
+                    metadata={"priority": "high", "is_draft": True},
+                ))
+
             return response
         # Sem scope_provider ou job sem deliver: usa o agente completo (fallback)
         response = await agent.process_direct(

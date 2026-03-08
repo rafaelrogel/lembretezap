@@ -161,6 +161,10 @@ class CronTool(Tool):
                 "has_deadline": {
                     "type": "boolean",
                     "description": "If true: 'até X' = if not done by X, alert + remind 3x; no response = remove. Use when user says 'lembra até amanhã 18h' or 'se não fizer até X, alerta'."
+                },
+                "suggested_draft": {
+                    "type": "string",
+                    "description": "A draft message for the user to send/forward. Use this when the reminder is about sending a message (e.g., birthday, holiday). The draft will be delivered as a separate message alongside the reminder."
                 }
             },
             "required": ["action"]
@@ -182,6 +186,7 @@ class CronTool(Tool):
         remind_again_if_unconfirmed_seconds: int | None = None,
         depends_on_job_id: str | None = None,
         has_deadline: bool = False,
+        suggested_draft: str | None = None,
         **kwargs: Any
     ) -> str:
         logger.info(f"CronTool.execute inputs: action={action}, msg={message}, time_input={time_input}, target={target_at_iso}, in_seconds={in_seconds}, every={every_seconds}, cron={cron_expr}, chat_id={self._chat_id}, channel={self._channel}")
@@ -269,6 +274,7 @@ class CronTool(Tool):
                 remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
                 depends_on_job_id=depends_on_job_id,
                 has_deadline=has_deadline,
+                suggested_draft=suggested_draft,
                 audio_mode=getattr(self, "_audio_mode", False),
                 pomodoro_cycle=kwargs.get("pomodoro_cycle"),
                 pomodoro_phase=kwargs.get("pomodoro_phase"),
@@ -395,6 +401,7 @@ class CronTool(Tool):
         remind_again_if_unconfirmed_seconds: int | None = None,
         depends_on_job_id: str | None = None,
         has_deadline: bool = False,
+        suggested_draft: str | None = None,
         audio_mode: bool = False,
         pomodoro_cycle: int | None = None,
         pomodoro_phase: str | None = None,
@@ -607,6 +614,7 @@ class CronTool(Tool):
                 remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
                 depends_on_job_id=depends_on_job_id.strip().upper()[:16] if depends_on_job_id else None,
                 has_deadline=use_deadline,
+                suggested_draft=suggested_draft,
                 audio_mode=audio_mode,
                 pomodoro_cycle=pomodoro_cycle,
                 pomodoro_phase=pomodoro_phase,

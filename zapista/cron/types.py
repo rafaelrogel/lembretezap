@@ -53,6 +53,8 @@ class CronPayload:
     # Pomodoro cycles (1 to 4) and phase (focus or break)
     pomodoro_cycle: int | None = None
     pomodoro_phase: str | None = None
+    # Draft de mensagem pronto a encaminhar (aniversário, felicitações, etc)
+    suggested_draft: str | None = None
 
 
 @dataclass
