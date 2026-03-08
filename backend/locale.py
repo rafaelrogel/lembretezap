@@ -143,6 +143,16 @@ PREFERRED_NAME_QUESTION: dict[LangCode, str] = {
     "en": "What would you like me to call you?",
 }
 
+def preferred_name_acknowledge_message(lang: LangCode, name: str) -> str:
+    """Pergunta reconhecendo o nome vindo do WhatsApp."""
+    templates = {
+        "pt-PT": f"Vi que o teu nome é {name}. Está correto? 😊",
+        "pt-BR": f"Vi que seu nome é {name}. Está correto? 😊",
+        "es": f"Vi que tu nombre es {name}. ¿Está correcto? 😊",
+        "en": f"I noticed your name is {name}. Is that correct? 😊",
+    }
+    return templates.get(lang, templates["en"])
+
 
 AMBIGUOUS_CHOICE_MSG: dict[LangCode, str] = {
     "pt-PT": "Queres que eu crie uma *lista de afazeres* (to-do) com estes itens ou preferes registar cada um como *lembrete* com horário? Também posso fazer *os dois*. Responde: *lista*, *lembretes* ou *os dois*.",
@@ -246,10 +256,28 @@ ONBOARDING_RESET_HINT: dict[LangCode, str] = {
 
 # --- Onboarding simplificado: fuso primeiro (sem bloquear o sistema) ---
 # Intro: o mais importante é onde a pessoa está para lembretes na hora certa
-ONBOARDING_INTRO_TZ_FIRST: dict[LangCode, str] = {
-    "pt-PT": "Olá! Sou a tua assistente de organização — listas, lembretes e agenda. 📋",
-    "pt-BR": "Oi! Sou sua assistente de organização — listas, lembretes e agenda. 📋",
-    "es": "¡Hola! Soy tu asistente de organización — listas, recordatorios y agenda. 📋",
+def onboarding_intro_message(lang: LangCode, name: str | None = None) -> str:
+    """Mensagem de introdução, opcionalmente personalizada com o nome."""
+    if name:
+        templates = {
+            "pt-PT": f"Olá, {name}! Sou o teu assistente de organização — listas, lembretes e agenda. 📋",
+            "pt-BR": f"Oi, {name}! Sou seu assistente de organização — listas, lembretes e agenda. 📋",
+            "es": f"¡Hola, {name}! Soy tu asistente de organización — listas, recordatorios y agenda. 📋",
+            "en": f"Hi, {name}! I'm your organization assistant — lists, reminders and agenda. 📋",
+        }
+    else:
+        templates = {
+            "pt-PT": "Olá! Sou o teu assistente de organização — listas, lembretes e agenda. 📋",
+            "pt-BR": "Oi! Sou seu assistente de organização — listas, lembretes e agenda. 📋",
+            "es": "¡Hola! Soy tu asistente de organización — listas, recordatorios y agenda. 📋",
+            "en": "Hi! I'm your organization assistant — lists, reminders and agenda. 📋",
+        }
+    return templates.get(lang, templates["en"])
+
+ONBOARDING_INTRO_TZ_FIRST = {
+    "pt-PT": "Olá! Sou o teu assistente de organização — listas, lembretes e agenda. 📋",
+    "pt-BR": "Oi! Sou seu assistente de organização — listas, lembretes e agenda. 📋",
+    "es": "¡Hola! Soy tu asistente de organização — listas, recordatorios y agenda. 📋",
     "en": "Hi! I'm your organization assistant — lists, reminders and agenda. 📋",
 }
 # Pergunta única: cidade OU que horas são aí (informação mais importante = fuso)

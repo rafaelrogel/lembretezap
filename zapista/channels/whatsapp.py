@@ -332,8 +332,8 @@ class WhatsAppChannel(BaseChannel):
             # Deprecated by whatsapp: old phone number style typically: <phone>@s.whatsapp.net
             pn = data.get("pn", "")
             # New LID style typically:
-            sender = data.get("sender", "")
             content = data.get("content", "")
+            transcribed_text = None
 
             # Extract just the phone number or lid as chat_id
             user_id = pn if pn else sender
@@ -427,6 +427,7 @@ class WhatsAppChannel(BaseChannel):
                     transcribed = await transcribe(media_base64.strip())
                     if transcribed and transcribed.strip():
                         content = transcribed.strip()
+                        transcribed_text = content
                     else:
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
@@ -684,6 +685,8 @@ class WhatsAppChannel(BaseChannel):
                 meta["audio_mode"] = True
                 if audio_locale_override:
                     meta["audio_locale_override"] = audio_locale_override
+            if transcribed_text:
+                meta["transcribed_text"] = transcribed_text
             await self._handle_message(
                 sender_id=sender_id,
                 chat_id=user_id,  # Use stable chat_id (prioritizes JID over LID)

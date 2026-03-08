@@ -571,6 +571,36 @@ class AgentLoop:
 
         return city_name, tz_iana if (tz_iana and is_valid_iana(tz_iana)) else None
 
+    async def _extract_name_with_mimo(self, user_content: str, fallback_name: str | None = None) -> str | None:
+        """Usa Mimo para extrair o nome preferido do utilizador de uma frase ou correção."""
+        if not user_content or not user_content.strip():
+            return fallback_name
+        if self.scope_provider and self.scope_model:
+            try:
+                prompt = (
+                    "The user was asked how they would like to be called. "
+                    f"They replied: \"{user_content[:200]}\". "
+                    f"Their WhatsApp profile name is \"{fallback_name or 'unknown'}\". "
+                    "Extract the preferred name they want to be called. "
+                    "If they corrected the name, extract the new name. "
+                    "If they confirmed the WhatsApp name, return exactly that name. "
+                    "Return ONLY the name, nothing else. No punctuation unless part of the name."
+                )
+                r = await self.scope_provider.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.scope_model,
+                    profile="parser",
+                )
+                name = (r.content or "").strip().split("\n")[0].strip()
+                # Remover pontuação final se o LLM incluiu
+                if name.endswith(".") or name.endswith("!") or name.endswith("?"):
+                    name = name[:-1]
+                if name:
+                    return name[:128]
+            except Exception as e:
+                logger.debug(f"Mimo extract name failed: {e}")
+        return fallback_name
+
     async def _reply_calling_organizer_with_mimo(self, user_lang: str) -> str:
         """Resposta curta e proativa ao ser 'chamado' (Mimo, barato). Uma só frase, no idioma do utilizador."""
         lang_instruction = {
@@ -927,7 +957,16 @@ class AgentLoop:
         trace_id = msg.trace_id or uuid.uuid4().hex[:12]
         token = set_trace_id(trace_id)
         try:
-            return await self._process_message_impl(msg)
+            response = await self._process_message_impl(msg)
+            if response and response.content and msg.metadata:
+                transcribed_text = msg.metadata.get("transcribed_text")
+                if transcribed_text and msg.channel == "whatsapp":
+                    # Feedback visual: o utilizador enviou áudio, Zappelin diz o que ouviu.
+                    # Ajuda a dar contexto e confirmação no chat do WhatsApp.
+                    prefix = f"🎤 *Transcrição:* \"{transcribed_text}\"\n\n"
+                    if not response.content.startswith("🎤 *Transcrição:*"):
+                        response.content = prefix + response.content
+            return response
         finally:
             reset_trace_id(token)
 
@@ -1281,17 +1320,30 @@ class AgentLoop:
 
                     # Resposta à pergunta «Como gostarias de ser chamado?» (após fuso definido)
                     if has_tz_set and pending_preferred_name and not (msg.content or "").strip().startswith("/"):
+                        from backend.onboarding_skip import is_affirmation, is_rebuttal
                         content_name = (msg.content or "").strip()
+                        wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                        wa_name_valid = wa_name and len(wa_name) >= 2 and not wa_name.isdigit()
+                        
                         name_to_save = None
-                        if content_name and is_likely_valid_name(content_name):
-                            name_to_save = content_name[:128]
+                        
+                        if is_affirmation(content_name) and wa_name_valid:
+                            # Usuário confirmou o nome do WhatsApp
+                            name_to_save = wa_name[:128]
+                        elif content_name and is_likely_valid_name(content_name):
+                            # Se for uma negação ("Não, chama-me X") ou frase longa, usar MIMO
+                            if is_rebuttal(content_name) or len(content_name.split()) > 2:
+                                name_to_save = await self._extract_name_with_mimo(content_name, wa_name)
+                            else:
+                                name_to_save = content_name[:128]
+                        
+                        # Fallback final se nada acima funcionou
                         if name_to_save is None:
-                            # Fallback: nome do perfil WhatsApp (pushName)
-                            wa_name = (msg.metadata.get("sender_display_name") or "").strip()
-                            if wa_name and len(wa_name) >= 2 and not wa_name.isdigit():
+                            if wa_name_valid:
                                 name_to_save = wa_name[:128]
-                        if name_to_save is None:
-                            name_to_save = "utilizador"
+                            else:
+                                name_to_save = "utilizador"
+                                
                         set_user_preferred_name(db, msg.chat_id, name_to_save)
                         session.metadata.pop("pending_preferred_name", None)
                         self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
@@ -1346,7 +1398,14 @@ class AgentLoop:
                                 complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
                                 complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                 complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
-                                name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                # Personalizar pergunta do nome se viemos do WhatsApp
+                                wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                                if wa_name and len(wa_name) >= 2 and not wa_name.isdigit():
+                                    from backend.locale import preferred_name_acknowledge_message
+                                    name_q = preferred_name_acknowledge_message(user_lang, wa_name)
+                                else:
+                                    name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                
                                 complete_msg += "\n\n" + name_q
                                 session.metadata["pending_preferred_name"] = True
                                 session.add_message("user", msg.content)
@@ -1370,6 +1429,11 @@ class AgentLoop:
                             # 1a. Tentar auto-detectar fuso pelo DDD (Brasil)
                             _phone_for_ddd = msg.metadata.get("phone_for_locale") or msg.chat_id
                             _ddd_result = ddd_city_and_tz(_phone_for_ddd)
+                            
+                            # Obter nome do WhatsApp se disponível
+                            wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                            personalized_name = wa_name if (wa_name and len(wa_name) >= 2 and not wa_name.isdigit()) else None
+
                             if _ddd_result:
                                 _ddd_city, _ddd_iana = _ddd_result
                                 try:
@@ -1379,7 +1443,9 @@ class AgentLoop:
                                 except Exception:
                                     _time_str = "??"
                                 _lang_key = user_lang if user_lang in ("pt-PT", "pt-BR", "es", "en") else "pt-BR"
-                                intro = ONBOARDING_INTRO_TZ_FIRST.get(intro_lang, ONBOARDING_INTRO_TZ_FIRST["en"])
+                                
+                                from backend.locale import onboarding_intro_message
+                                intro = onboarding_intro_message(intro_lang, personalized_name)
                                 ddd_confirm = ddd_tz_confirm_message(_lang_key, _ddd_city, _time_str)
                                 full_msg = intro + "\n\n" + ddd_confirm
                                 session.metadata["onboarding_intro_sent"] = True
@@ -1392,8 +1458,10 @@ class AgentLoop:
                                 self.sessions.save(session)
                                 db.close()
                                 return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=full_msg)
+                            
                             # 1b. DDD não reconhecido: intro normal + pergunta cidade/hora
-                            intro = ONBOARDING_INTRO_TZ_FIRST.get(intro_lang, ONBOARDING_INTRO_TZ_FIRST["en"])
+                            from backend.locale import onboarding_intro_message
+                            intro = onboarding_intro_message(intro_lang, personalized_name)
                             ask = ONBOARDING_ASK_CITY_OR_TIME.get(intro_lang, ONBOARDING_ASK_CITY_OR_TIME["en"])
                             full_msg = intro + "\n\n" + ask
                             session.metadata["onboarding_intro_sent"] = True
@@ -1439,7 +1507,14 @@ class AgentLoop:
                                 complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
                                 complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                 complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
-                                name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                # Personalizar pergunta do nome se viemos do WhatsApp
+                                wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                                if wa_name and len(wa_name) >= 2 and not wa_name.isdigit():
+                                    from backend.locale import preferred_name_acknowledge_message
+                                    name_q = preferred_name_acknowledge_message(user_lang, wa_name)
+                                else:
+                                    name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                
                                 complete_msg += "\n\n" + name_q
                                 session.metadata["pending_preferred_name"] = True
                                 session.add_message("user", msg.content)
@@ -1462,7 +1537,14 @@ class AgentLoop:
                                 complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
                                 complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                 complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
-                                name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                # Personalizar pergunta do nome se viemos do WhatsApp
+                                wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                                if wa_name and len(wa_name) >= 2 and not wa_name.isdigit():
+                                    from backend.locale import preferred_name_acknowledge_message
+                                    name_q = preferred_name_acknowledge_message(user_lang, wa_name)
+                                else:
+                                    name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                
                                 complete_msg += "\n\n" + name_q
                                 session.metadata["pending_preferred_name"] = True
                                 session.add_message("user", msg.content)
@@ -1486,7 +1568,15 @@ class AgentLoop:
                                     complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
                                     complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                     complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
-                                    name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                    
+                                    # Personalizar pergunta do nome se viemos do WhatsApp
+                                    wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                                    if wa_name and len(wa_name) >= 2 and not wa_name.isdigit():
+                                        from backend.locale import preferred_name_acknowledge_message
+                                        name_q = preferred_name_acknowledge_message(user_lang, wa_name)
+                                    else:
+                                        name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                    
                                     complete_msg += "\n\n" + name_q
                                     session.metadata["pending_preferred_name"] = True
                                     session.add_message("user", msg.content)

@@ -61,6 +61,34 @@ def is_onboarding_refusal_or_skip(content: str | None) -> bool:
     return False
 
 
+def is_affirmation(content: str | None) -> bool:
+    """True se a mensagem parece ser uma confirmação positiva (Sim, Isso, Correto, OK)."""
+    if not content or not content.strip():
+        return False
+    t = content.strip().lower()
+    # Padrões comuns de afirmação
+    affirmation_patterns = (
+        r"^(s[im]|yes|ok|okay|concordo|isso|correto|cert[oa]|pode\s+ser)\b",
+        r"^(est[aá]\s+correto|é\s+isso|isso\s+mesmo)\b",
+    )
+    import re as _re
+    return any(_re.search(p, t, _re.I) for p in affirmation_patterns)
+
+
+def is_rebuttal(content: str | None) -> bool:
+    """True se a mensagem parece ser uma negação ou correção (Não, Errado, Na verdade)."""
+    if not content or not content.strip():
+        return False
+    t = content.strip().lower()
+    # Padrões comuns de negação/rebuttal
+    rebuttal_patterns = (
+        r"^(n[aã]o|no|errado|incorreto|nada\s+disso)\b",
+        r"^(na\s+verdade|pode\s+me\s+chamar\s+de|chama\s+de)\b",
+    )
+    import re as _re
+    return any(_re.search(p, t, _re.I) for p in rebuttal_patterns)
+
+
 def looks_like_url_or_off_topic(content: str | None) -> bool:
     """True se conteúdo é URL, link ou claramente off-topic."""
     if not content or not content.strip():
@@ -121,6 +149,9 @@ def is_likely_valid_name(content: str | None) -> bool:
     if len(t) > 60:  # Muito longo para nome
         return False
     if is_onboarding_refusal_or_skip(content):
+        return False
+    not_names = ("sim", "yes", "ok", "está", "esta", "correto", "correto.", "si", "sí")
+    if t.lower() in not_names:
         return False
     if looks_like_url_or_off_topic(content):
         return False

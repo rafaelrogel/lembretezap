@@ -1,6 +1,6 @@
 # Available Tools
 
-This document describes the tools available to zapista.
+This document describes the tools available to Zappelin.
 
 ## Communication
 
