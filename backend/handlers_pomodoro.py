@@ -14,8 +14,14 @@ POMODORO_WORK_SEC = POMODORO_WORK_MIN * 60
 
 # Padrões de linguagem natural para iniciar pomodoro (texto ou transcrição de áudio)
 _NL_POMODORO_START = re.compile(
-    r"\b(abre?|abrir|inicia|iniciar|come[çc]a|come[çc]ar|carrega|carregar|ativa|ativar|quero|start|open|begin)\b.*\bpomodoro\b|"
+    r"\b(abre?|abrir|inicia|iniciar|come[çc]a|come[çc]ar|carrega|carregar|ativ[ae][rm]?|p[õo]e|quero|start|open|begin)\b.*\bpomodoro\b|"
     r"\bpomodoro\b.*\b(agora|por\s+favor|pf)\b|^\s*pomodoro\s*$",
+    re.I,
+)
+# Padrão para saber se tem pomodoro ou o que é
+_NL_POMODORO_INFO = re.compile(
+    r"\b(voc[êe]|tu)\b.*\b(tem|tens)\b.*\bpomodoro\b|"
+    r"\bo\s+que\s+[ée]\s+pomodoro\b|\bexplica\s+pomodoro\b",
     re.I,
 )
 # Evitar confundir com lembrete futuro: "lembra de fazer pomodoro amanhã"
@@ -60,8 +66,19 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
     """
     t = (content or "").strip()
     is_nl = _is_nl_pomodoro_start(t)
-    if not t.lower().startswith("/pomodoro") and not is_nl:
+    is_info = _NL_POMODORO_INFO.search(t)
+    
+    if not t.lower().startswith("/pomodoro") and not is_nl and not is_info:
         return None
+
+    if is_info:
+        return (
+            "🍅 **Pomodoro no Zappelin** 🍅\n\n"
+            "Sim, eu tenho! É uma técnica de foco: **25 min** de trabalho + **5 min** de pausa.\n\n"
+            "• Para iniciar: diz \"inicia o pomodoro\" ou usa `/pomodoro`.\n"
+            "• Para parar: `/pomodoro stop`.\n"
+            "• Para ver o tempo: `/pomodoro status`."
+        )
 
     if is_nl:
         rest = ""

@@ -170,4 +170,8 @@ def normalize_nl_to_command(content: str) -> str:
     if lower in ("template", "modelo", "plantilla"):
         return "/template"
 
+    # Pomodoro / Foco
+    if lower in ("pomodoro", "foco", "focus", "timer"):
+        return "/pomodoro"
+
     return content

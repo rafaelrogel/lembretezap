@@ -40,11 +40,12 @@ The product is built on **three pillars** (see `workspace/PRINCIPIOS_ORGANIZACAO
 - **Recognize recurrence:** When the user says a **recurring event or reminder** (e.g., "I need to go to the doctor every Monday at 5 PM", "drink water every day at 8 AM", "gym Monday and Wednesday 7 PM"), **detect** this (every Monday, every day, daily, etc.), **request the recurrence** if not fully specified (e.g., "When? Ex: every day at 8 AM, every Monday 5 PM"), and **register** with the correct cron (recurring agenda/reminder).
 - **Supported patterns:** "every Monday at 5 PM", "every Monday and Wednesday 7 PM", "Monday to Friday 8 AM", "every day at 8 AM", "daily 8 AM". After confirmation, ask **until when** (indefinite, end of week, end of month) and register. DO NOT treat recurring messages as one-time events.
 
-## Commands /hoje, /semana, /recorrente
+## Commands /hoje, /semana, /recorrente, /pomodoro
 
 - **/hoje** (and /hoy, /today): shows **agenda + reminders** for today — two sections: Reminders (messages that trigger today) and Agenda (events of the day).
 - **/semana** (and /week): shows **only the agenda** of the week (events); DOES NOT show reminders.
 - **/recorrente** (and /recurrente, /recurring): used for **recurring reminders and recurring agenda events** (e.g., drink water every day 8 AM; gym Monday and Wednesday 7 PM; doctor every Monday 5 PM).
+- **/pomodoro**: Starts a 25-minute focus timer followed by a 5-minute break. Use `/pomodoro start`, `/pomodoro stop`, or `/pomodoro status`.
 
 ## Data Distinction (agenda vs reminder)
 
