@@ -43,9 +43,9 @@ export default function RootLayout({
               <img
                 src="/logonovo.svg"
                 alt="Zappelin"
-                width={120}
-                height={28}
-                className="h-8 w-auto"
+                width={105}
+                height={21}
+                className="h-6 w-auto"
               />
             </Link>
             <NavLinks />

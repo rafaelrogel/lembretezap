@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatedBlobs } from "./AnimatedBlobs";
 // import { BackgroundShapes } from "./BackgroundShapes"; // kept if we need to revert
+import { HeroChatMockup } from "./HeroChatMockup";
 import { PhonePreview } from "./PhonePreview";
 import { Button, Typography } from "@/components/ui";
 
@@ -182,10 +183,22 @@ export function HeroSection() {
             </span>
           </div>
           <div
-            className="hero-phone-entrance flex flex-1 items-center justify-center md:items-end md:justify-end min-w-0 pt-[328px] md:pt-[320px] pr-12 md:pr-20 lg:pr-24 overflow-visible"
+            className="hero-phone-entrance flex flex-1 items-center justify-center md:items-end md:justify-end min-w-0 pt-[328px] md:pt-[320px] pr-12 overflow-visible"
             style={{ animationDelay: "1.2s" }}
           >
-            <PhonePreview pointerRef={pointerRef} />
+            {/* Container único: celular + mock 5 – facilita editar posicionamento */}
+            <div className="hero-phone-and-mock relative flex items-center justify-end w-full max-w-[min(380px,42vw)] md:max-w-[min(420px,46vw)] -mt-16 ml-16">
+              <PhonePreview pointerRef={pointerRef} />
+              <div
+                className="absolute z-30 flex flex-shrink-0 items-end justify-end w-full max-w-[280px] sm:max-w-[320px] md:max-w-[min(380px,42vw)]"
+                style={{
+                  right: 32,
+                  bottom: "calc(38% - 80px)",
+                }}
+              >
+                <HeroChatMockup />
+              </div>
+            </div>
           </div>
         </div>
       </div>

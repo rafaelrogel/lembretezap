@@ -47,7 +47,7 @@ export function HeaderActions() {
               transitionDelay: "0ms",
             }}
           >
-            Assinar
+            Começar
           </span>
         </Button>
       </div>

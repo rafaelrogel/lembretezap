@@ -73,11 +73,11 @@ export function PhonePreview({ children, pointerRef }: PhonePreviewProps) {
         <img
           src="/phone-preview.svg"
           alt=""
-          width={280}
-          height={606}
+          width={454}
+          height={928}
           className="phone-mockup-img h-auto w-full max-w-[280px] sm:max-w-[320px] md:max-w-[min(380px,42vw)] object-contain object-top"
           style={{
-            aspectRatio: "9 / 19.5",
+            aspectRatio: "454 / 928",
             background: "transparent",
           }}
         />
