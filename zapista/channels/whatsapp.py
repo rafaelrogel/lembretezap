@@ -306,6 +306,7 @@ class WhatsAppChannel(BaseChannel):
             return
 
         if msg_type == "message":
+            sender = (data.get("sender") or "").strip()
             # Evitar processar o mesmo evento várias vezes (reduz chamadas LLM duplicadas)
             msg_id = (data.get("id") or "").strip()
             redis_url = getattr(self.bus, "redis_url", None) if self.bus else None
@@ -324,7 +325,7 @@ class WhatsAppChannel(BaseChannel):
                 return
 
             # Incoming message from WhatsApp — we only process chats, never groups
-            is_group = data.get("isGroup", False) or (data.get("sender") or "").strip().endswith(WHATSAPP_GROUP_SUFFIX)
+            is_group = data.get("isGroup", False) or sender.endswith(WHATSAPP_GROUP_SUFFIX)
             if is_group:
                 logger.debug("Ignoring message from group (we only respond in private chats)")
                 return
