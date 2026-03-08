@@ -1454,3 +1454,477 @@ POMODORO_FINAL_END: dict[LangCode, str] = {
     "en": "🍅 **Cycle 4/4 complete!** 🍅\n\nThis was the last planned cycle. Would you like to continue or would you prefer a longer break now? 😊",
 }
 
+
+# --- Resumos (Yearly, Weekly, Monthly) ---
+
+RECAP_LANG_INSTRUCTION: dict[LangCode, str] = {
+    "pt-PT": "em português de Portugal",
+    "pt-BR": "em português do Brasil",
+    "es": "en español",
+    "en": "in English",
+}
+
+YEARLY_RECAP_FALLBACK_PART1: dict[LangCode, str] = {
+    "pt-PT": "Feliz Ano Novo, {name}! 💙 Estamos muito contentes por teres estado connosco. Que a nossa parceria dure muitos anos! ✨",
+    "pt-BR": "Feliz Ano Novo, {name}! 💙 Estamos muito contentes por você ter estado conosco. Que a nossa parceria dure muitos anos! ✨",
+    "es": "¡Feliz Año Nuevo, {name}! 💙 Estamos muy contentos de que hayas estado con nosotros. ¡Que nuestra colaboración dure muchos años! ✨",
+    "en": "Happy New Year, {name}! 💙 We are very happy to have had you with us. May our partnership last for many years! ✨",
+}
+
+YEARLY_RECAP_STATS_TEXT: dict[LangCode, str] = {
+    "pt-PT": "Ano: {year}. Lembretes criados (agendados): {created}. Lembretes recebidos (entregues): {received}. Mensagens enviadas pelo utilizador: {user_msgs}. Mensagens enviadas por nós (respostas): {our_msgs}. Itens adicionados às listas: {items}. Tempo estimado de organização poupado (minutos): {time_saved}.",
+    "pt-BR": "Ano: {year}. Lembretes criados (agendados): {created}. Lembretes recebidos (entregues): {received}. Mensagens enviadas pelo usuário: {user_msgs}. Mensagens enviadas por nós (respostas): {our_msgs}. Itens adicionados às listas: {items}. Tempo estimado de organização poupado (minutos): {time_saved}.",
+    "es": "Año: {year}. Recordatorios creados: {created}. Recordatorios recibidos: {received}. Mensajes enviados por el usuario: {user_msgs}. Mensajes enviados por nosotros: {our_msgs}. Ítems añadidos a listas: {items}. Tiempo estimado de organización ahorrado (minutos): {time_saved}.",
+    "en": "Year: {year}. Reminders created: {created}. Reminders received: {received}. Messages sent by user: {user_msgs}. Messages sent by us: {our_msgs}. List items added: {items}. Estimated organization time saved (minutes): {time_saved}.",
+}
+
+YEARLY_RECAP_FALLBACK_PART2: dict[LangCode, str] = {
+    "pt-PT": "📊 No {year}: {created} lembretes criados ⏰ e {received} recebidos. 📋 {items} itens nas listas. ⏱️ Tempo de organização poupado: ~{time_saved} min. ✨",
+    "pt-BR": "📊 No {year}: {created} lembretes criados ⏰ e {received} recebidos. 📋 {items} itens nas listas. ⏱️ Tempo de organização poupado: ~{time_saved} min. ✨",
+    "es": "📊 En {year}: {created} recordatorios creados ⏰ y {received} recibidos. 📋 {items} ítems en listas. ⏱️ Tiempo de organización ahorrado: ~{time_saved} min. ✨",
+    "en": "📊 In {year}: {created} reminders created ⏰ and {received} received. 📋 {items} items in lists. ⏱️ Org time saved: ~{time_saved} min. ✨",
+}
+
+WEEKLY_RECAP_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📊 **Resumo da semana** ({inicio}–{fim})",
+    "pt-BR": "📊 **Resumo da semana** ({inicio}–{fim})",
+    "es": "📊 **Resumen de la semana** ({inicio}–{fim})",
+    "en": "📊 **Week summary** ({inicio}–{fim})",
+}
+
+WEEKLY_RECAP_INTRO: dict[LangCode, str] = {
+    "pt-PT": "Olá, {name}! Aqui vai o resumo da tua semana:",
+    "pt-BR": "Olá, {name}! Aqui vai o resumo da sua semana:",
+    "es": "¡Hola, {name}! Resumen de tu semana:",
+    "en": "Hi {name}! Here's your week in a nutshell:",
+}
+
+WEEKLY_RECAP_TASKS: dict[LangCode, str] = {
+    "pt-PT": "• {count} tarefas concluídas",
+    "pt-BR": "• {count} tarefas concluídas",
+    "es": "• {count} tareas completadas",
+    "en": "• {count} tasks completed",
+}
+
+WEEKLY_RECAP_REMINDERS: dict[LangCode, str] = {
+    "pt-PT": "• {count} lembretes recebidos",
+    "pt-BR": "• {count} lembretes recebidos",
+    "es": "• {count} recordatorios recibidos",
+    "en": "• {count} reminders received",
+}
+
+WEEKLY_RECAP_EVENTS: dict[LangCode, str] = {
+    "pt-PT": "• {count} eventos criados",
+    "pt-BR": "• {count} eventos criados",
+    "es": "• {count} eventos creados",
+    "en": "• {count} events created",
+}
+
+WEEKLY_RECAP_FOOTER: dict[LangCode, str] = {
+    "pt-PT": "Ótima semana! 💪",
+    "pt-BR": "Ótima semana! 💪",
+    "es": "¡Buena semana! 💪",
+    "en": "Great week! 💪",
+}
+
+MONTHLY_RECAP_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📊 **Resumo do mês** ({inicio}–{fim})",
+    "pt-BR": "📊 **Resumo do mês** ({inicio}–{fim})",
+    "es": "📊 **Resumen del mes** ({inicio}–{fim})",
+    "en": "📊 **Month summary** ({inicio}–{fim})",
+}
+
+MONTHLY_RECAP_INTRO: dict[LangCode, str] = {
+    "pt-PT": "Olá, {name}! Aqui vai o resumo do teu mês:",
+    "pt-BR": "Olá, {name}! Aqui vai o resumo do seu mês:",
+    "es": "¡Hola, {name}! Resumen de tu mes:",
+    "en": "Hi {name}! Here's your month in a nutshell:",
+}
+
+MONTHLY_RECAP_FOOTER: dict[LangCode, str] = {
+    "pt-PT": "Bom mês! 💪",
+    "pt-BR": "Bom mês! 💪",
+    "es": "¡Buen mes! 💪",
+    "en": "Great month! 💪",
+}
+
+# --- Organização (Metas, Projetos, Templates) ---
+
+META_NO_ACTIVE: dict[LangCode, str] = {
+    "pt-PT": "Nenhuma meta ativa. Usa /meta add Nome até DD/MM",
+    "pt-BR": "Nenhuma meta ativa. Use /meta add Nome até DD/MM",
+    "es": "Ninguna meta activa. Usa /meta add Nombre hasta DD/MM",
+    "en": "No active goals. Use /meta add Name until DD/MM",
+}
+
+META_HEADER: dict[LangCode, str] = {
+    "pt-PT": "🎯 **Metas**",
+    "pt-BR": "🎯 **Metas**",
+    "es": "🎯 **Metas**",
+    "en": "🎯 **Goals**",
+}
+
+META_NO_DEADLINE: dict[LangCode, str] = {
+    "pt-PT": "sem prazo",
+    "pt-BR": "sem prazo",
+    "es": "sin plazo",
+    "en": "no deadline",
+}
+
+META_USAGE_ADD: dict[LangCode, str] = {
+    "pt-PT": "Use: /meta add Nome até DD/MM (ex: /meta add correr 10km até 31/12)",
+    "pt-BR": "Use: /meta add Nome até DD/MM (ex: /meta add correr 10km até 31/12)",
+    "es": "Usa: /meta add Nombre hasta DD/MM (ej: /meta add correr 10km hasta 31/12)",
+    "en": "Use: /meta add Name until DD/MM (ex: /meta add run 10km until 31/12)",
+}
+
+META_USAGE_GENERAL: dict[LangCode, str] = {
+    "pt-PT": "Use: /meta add Nome até DD/MM | /metas",
+    "pt-BR": "Use: /meta add Nome até DD/MM | /metas",
+    "es": "Usa: /meta add Nombre hasta DD/MM | /metas",
+    "en": "Use: /meta add Name until DD/MM | /goals",
+}
+
+META_ADDED: dict[LangCode, str] = {
+    "pt-PT": "✅ Meta adicionada: {name}",
+    "pt-BR": "✅ Meta adicionada: {name}",
+    "es": "✅ Meta añadida: {name}",
+    "en": "✅ Goal added: {name}",
+}
+
+PROJECT_NO_PROJECTS: dict[LangCode, str] = {
+    "pt-PT": "Nenhum projeto. Usa /projeto add Nome",
+    "pt-BR": "Nenhum projeto. Use /projeto add Nome",
+    "es": "Ningún proyecto. Usa /proyecto add Nombre",
+    "en": "No projects. Use /projeto add Name",
+}
+
+PROJECT_LIST_PREFIX: dict[LangCode, str] = {
+    "pt-PT": "📁 Projetos: ",
+    "pt-BR": "📁 Projetos: ",
+    "es": "📁 Proyectos: ",
+    "en": "📁 Projects: ",
+}
+
+PROJECT_USAGE_ADD: dict[LangCode, str] = {
+    "pt-PT": "Use: /projeto add Nome (ex: /projeto add Casa)",
+    "pt-BR": "Use: /projeto add Nome (ex: /projeto add Casa)",
+    "es": "Usa: /proyecto add Nombre (ej: /proyecto add Casa)",
+    "en": "Use: /project add Name (ex: /project add House)",
+}
+
+PROJECT_ALREADY_EXISTS: dict[LangCode, str] = {
+    "pt-PT": "Projeto \"{name}\" já existe.",
+    "pt-BR": "Projeto \"{name}\" já existe.",
+    "es": "El proyecto \"{name}\" ya existe.",
+    "en": "Project \"{name}\" already exists.",
+}
+
+PROJECT_CREATED: dict[LangCode, str] = {
+    "pt-PT": "✅ Projeto criado: {name} (usa /list {name} add item para tarefas)",
+    "pt-BR": "✅ Projeto criado: {name} (use /list {name} add item para tarefas)",
+    "es": "✅ Proyecto creado: {name} (usa /list {name} add item para tareas)",
+    "en": "✅ Project created: {name} (use /list {name} add item for tasks)",
+}
+
+PROJECT_NOT_FOUND: dict[LangCode, str] = {
+    "pt-PT": "Projeto \"{name}\" não encontrado. Usa /projetos",
+    "pt-BR": "Projeto \"{name}\" não encontrado. Use /projetos",
+    "es": "Proyecto \"{name}\" no encontrado. Usa /proyectos",
+    "en": "Project \"{name}\" not found. Use /projects",
+}
+
+PROJECT_USAGE_ITEM: dict[LangCode, str] = {
+    "pt-PT": "Use: /projeto Nome add item",
+    "pt-BR": "Use: /projeto Nome add item",
+    "es": "Usa: /proyecto Nombre add item",
+    "en": "Use: /project Name add item",
+}
+
+PROJECT_NO_TASKS: dict[LangCode, str] = {
+    "pt-PT": "Projeto \"{name}\": sem tarefas. Usa /projeto {name} add item",
+    "pt-BR": "Projeto \"{name}\": sem tarefas. Use /projeto {name} add item",
+    "es": "Proyecto \"{name}\": sin tareas. Usa /proyecto {name} add item",
+    "en": "Project \"{name}\": no tasks. Use /project {name} add item",
+}
+
+PROJECT_ITEM_ADDED: dict[LangCode, str] = {
+    "pt-PT": "✅ Adicionado a \"{name}\": {text} (id: {id})",
+    "pt-BR": "✅ Adicionado a \"{name}\": {text} (id: {id})",
+    "es": "✅ Añadido a \"{name}\": {text} (id: {id})",
+    "en": "✅ Added to \"{name}\": {text} (id: {id})",
+}
+
+TEMPLATE_NO_TEMPLATES: dict[LangCode, str] = {
+    "pt-PT": "Nenhum template. Usa /template add Nome item1, item2",
+    "pt-BR": "Nenhum template. Use /template add Nome item1, item2",
+    "es": "Ninguna plantilla. Usa /template add Nombre item1, item2",
+    "en": "No templates. Use /template add Name item1, item2",
+}
+
+TEMPLATE_LIST_PREFIX: dict[LangCode, str] = {
+    "pt-PT": "📋 Templates: ",
+    "pt-BR": "📋 Templates: ",
+    "es": "📋 Plantillas: ",
+    "en": "📋 Templates: ",
+}
+
+TEMPLATE_USAGE_ADD: dict[LangCode, str] = {
+    "pt-PT": "Use: /template add Nome item1, item2 (ex: /template add mercado leite, pão, café)",
+    "pt-BR": "Use: /template add Nome item1, item2 (ex: /template add mercado leite, pão, café)",
+    "es": "Usa: /template add Nombre item1, item2 (ej: /template add mercado leche, pan, café)",
+    "en": "Use: /template add Name item1, item2 (ex: /template add market milk, bread, coffee)",
+}
+
+TEMPLATE_UPDATED: dict[LangCode, str] = {
+    "pt-PT": "✅ Template \"{name}\" atualizado ({count} itens)",
+    "pt-BR": "✅ Template \"{name}\" atualizado ({count} itens)",
+    "es": "✅ Plantilla \"{name}\" actualizada ({count} ítems)",
+    "en": "✅ Template \"{name}\" updated ({count} items)",
+}
+
+TEMPLATE_CREATED: dict[LangCode, str] = {
+    "pt-PT": "✅ Template criado: {name} ({count} itens). Usa /template {name} usar",
+    "pt-BR": "✅ Template criado: {name} ({count} itens). Use /template {name} usar",
+    "es": "✅ Plantilla creada: {name} ({count} ítems). Usa /template {name} usar",
+    "en": "✅ Template created: {name} ({count} items). Use /template {name} usar",
+}
+
+TEMPLATE_NOT_FOUND: dict[LangCode, str] = {
+    "pt-PT": "Template \"{name}\" não encontrado.",
+    "pt-BR": "Template \"{name}\" não encontrado.",
+    "es": "Plantilla \"{name}\" no encontrada.",
+    "en": "Template \"{name}\" not found.",
+}
+
+TEMPLATE_LIST_CREATED: dict[LangCode, str] = {
+    "pt-PT": "✅ Lista \"{name}\" criada com {count} itens.",
+    "pt-BR": "✅ Lista \"{name}\" criada com {count} itens.",
+    "es": "✅ Lista \"{name}\" creada con {count} ítems.",
+    "en": "✅ List \"{name}\" created with {count} items.",
+}
+
+TEMPLATE_USAGE_GENERAL: dict[LangCode, str] = {
+    "pt-PT": "Use: /template add Nome item1, item2 | /template Nome usar | /templates",
+    "pt-BR": "Use: /template add Nome item1, item2 | /template Nome usar | /templates",
+    "es": "Usa: /template add Nombre item1, item2 | /template Nombre usar | /templates",
+    "en": "Use: /template add Name item1, item2 | /template Name usar | /templates",
+}
+
+# --- Limpeza ---
+
+LIMPEZA_INTRO_PTPT: str = (
+    "🧹 **Limpeza da casa**\n\n"
+    "Posso ajudar a organizar as tarefas de limpeza com rotação entre pessoas. "
+    "Por exemplo: cozinha semanalmente, banheiro quinzenalmente.\n\n"
+    "**Como configurar:**\n"
+    "• /limpeza add cozinha weekly sábado 9h — adiciona tarefa semanal\n"
+    "• /limpeza add banheiro bi-weekly sábado 9h — quinzenal\n"
+    "• /limpeza pessoas add João, Maria — define quem participa da rotação\n"
+    "• /limpeza rotação on — ativa rotação entre as pessoas\n"
+    "• /limpeza catálogo — ver todas as tarefas disponíveis\n\n"
+    "Moras com alguém? Queres dividir e rotacionar as tarefas?"
+)
+
+LIMPEZA_INTRO_PTBR: str = (
+    "🧹 **Limpeza da casa**\n\n"
+    "Posso ajudar a organizar as tarefas de limpeza com rotação entre pessoas. "
+    "Por exemplo: cozinha semanalmente, banheiro quinzenalmente.\n\n"
+    "**Como configurar:**\n"
+    "• /limpeza add cozinha weekly sábado 9h — adiciona tarefa semanal\n"
+    "• /limpeza add banheiro bi-weekly sábado 9h — quinzenal\n"
+    "• /limpeza pessoas add João, Maria — define quem participa da rotação\n"
+    "• /limpeza rotação on — ativa rotação entre as pessoas\n"
+    "• /limpeza catálogo — ver todas as tarefas disponíveis\n\n"
+    "Mora com alguém? Quer dividir e rotacionar as tarefas?"
+)
+
+LIMPEZA_INTRO_ES: str = (
+    "🧹 **Limpieza de la casa**\n\n"
+    "Puedo ayudar a organizar las tareas de limpieza con rotación entre personas. "
+    "Por ejemplo: cocina semanalmente, baño quincenalmente.\n\n"
+    "**Como configurar:**\n"
+    "• /limpeza add cocina weekly sábado 9h — añade tarea semanal\n"
+    "• /limpeza add baño bi-weekly sábado 9h — quincenal\n"
+    "• /limpeza personas add Juan, María — define quién participa en la rotación\n"
+    "• /limpeza rotação on — activa la rotación entre las personas\n"
+    "• /limpeza catálogo — ver todas las tareas disponibles\n\n"
+    "¿Vives con alguien? ¿Quieres dividir y rotar las tareas?"
+)
+
+LIMPEZA_INTRO_EN: str = (
+    "🧹 **House cleaning**\n\n"
+    "I can help organize cleaning tasks with rotation between people. "
+    "For example: kitchen weekly, bathroom bi-weekly.\n\n"
+    "**How to configure:**\n"
+    "• /limpeza add kitchen weekly Saturday 9am — adds weekly task\n"
+    "• /limpeza add bathroom bi-weekly Saturday 9am — bi-weekly\n"
+    "• /limpeza personas add John, Mary — set focus who participates in rotation\n"
+    "• /limpeza rotação on — enable rotation between people\n"
+    "• /limpeza catálogo — see all available tasks\n\n"
+    "Do you live with someone? Do you want to divide and rotate tasks?"
+)
+
+LIMPEZA_INTRO: dict[LangCode, str] = {
+    "pt-PT": LIMPEZA_INTRO_PTPT,
+    "pt-BR": LIMPEZA_INTRO_PTBR,
+    "es": LIMPEZA_INTRO_ES,
+    "en": LIMPEZA_INTRO_EN,
+}
+
+LIMPEZA_HELP: dict[LangCode, str] = {
+    "pt-PT": (
+        "🧹 **Limpeza da casa**\n"
+        "• /limpeza add cozinha weekly sábado 9h — adiciona tarefa semanal\n"
+        "• /limpeza add banheiro bi-weekly sábado 9h — quinzenal\n"
+        "• /limpeza pessoas add João, Maria — define quem participa da rotação\n"
+        "• /limpeza rotação on — ativa rotação entre pessoas\n"
+        "• /limpeza list — ver tarefas e pessoas\n"
+        "• /limpeza remove cozinha — remove tarefa\n"
+        "• /limpeza catálogo — ver tarefas disponíveis"
+    ),
+    "pt-BR": (
+        "🧹 **Limpeza da casa**\n"
+        "• /limpeza add cozinha weekly sábado 9h — adiciona tarefa semanal\n"
+        "• /limpeza add banheiro bi-weekly sábado 9h — quinzenal\n"
+        "• /limpeza pessoas add João, Maria — define quem participa da rotação\n"
+        "• /limpeza rotação on — ativa rotação entre pessoas\n"
+        "• /limpeza list — ver tarefas e pessoas\n"
+        "• /limpeza remove cozinha — remove tarefa\n"
+        "• /limpeza catálogo — ver tarefas disponíveis"
+    ),
+    "es": (
+        "🧹 **Limpieza de la casa**\n"
+        "• /limpeza add cocina weekly sábado 9h — añade tarea semanal\n"
+        "• /limpeza add baño bi-weekly sábado 9h — quincenal\n"
+        "• /limpeza personas add Juan, María — define quién participa en la rotación\n"
+        "• /limpeza rotação on — activa rotación entre personas\n"
+        "• /limpeza list — ver tareas y personas\n"
+        "• /limpeza remove cocina — elimina tarea\n"
+        "• /limpeza catálogo — ver tareas disponibles"
+    ),
+    "en": (
+        "🧹 **House cleaning**\n"
+        "• /limpeza add kitchen weekly Saturday 9am — add weekly task\n"
+        "• /limpeza add bathroom bi-weekly Saturday 9am — bi-weekly\n"
+        "• /limpeza personas add John, Mary — set focus who participates in rotation\n"
+        "• /limpeza rotação on — enable rotation between people\n"
+        "• /limpeza list — see tasks and people\n"
+        "• /limpeza remove kitchen — remove task\n"
+        "• /limpeza catálogo — see available tasks"
+    ),
+}
+
+LIMPEZA_NO_TASKS: dict[LangCode, str] = {
+    "pt-PT": "Nenhuma tarefa. Usa /limpeza add cozinha weekly sábado 9h",
+    "pt-BR": "Nenhuma tarefa. Use /limpeza add cozinha weekly sábado 9h",
+    "es": "Ninguna tarea. Usa /limpeza add cocina weekly sábado 9h",
+    "en": "No tasks. Use /limpeza add kitchen weekly Saturday 9am",
+}
+
+LIMPEZA_LIST_HEADER: dict[LangCode, str] = {
+    "pt-PT": "🧹 **Tarefas de limpeza**",
+    "pt-BR": "🧹 **Tarefas de limpeza**",
+    "es": "🧹 **Tareas de limpieza**",
+    "en": "🧹 **Cleaning tasks**",
+}
+
+LIMPEZA_PERSONS_HEADER: dict[LangCode, str] = {
+    "pt-PT": "**Pessoas na rotação:** ",
+    "pt-BR": "**Pessoas na rotação:** ",
+    "es": "**Personas en la rotación:** ",
+    "en": "**People in rotation:** ",
+}
+
+LIMPEZA_CATALOG_HEADER: dict[LangCode, str] = {
+    "pt-PT": "🧹 **Catálogo de tarefas**",
+    "pt-BR": "🧹 **Catálogo de tarefas**",
+    "es": "🧹 **Catálogo de tareas**",
+    "en": "🧹 **Task catalogue**",
+}
+
+LIMPEZA_CATALOG_FOOTER: dict[LangCode, str] = {
+    "pt-PT": "Usa: /limpeza add slug frequency dia hora",
+    "pt-BR": "Use: /limpeza add slug frequency dia hora",
+    "es": "Usa: /limpeza add slug frequency día hora",
+    "en": "Use: /limpeza add slug frequency day hour",
+}
+
+LIMPEZA_TASK_NOT_FOUND: dict[LangCode, str] = {
+    "pt-PT": "Tarefa \"{slug}\" não encontrada. Usa /limpeza catálogo.",
+    "pt-BR": "Tarefa \"{slug}\" não encontrada. Use /limpeza catálogo.",
+    "es": "Tarea \"{slug}\" no encontrada. Usa /limpeza catálogo.",
+    "en": "Task \"{slug}\" not found. Use /limpeza catálogo.",
+}
+
+LIMPEZA_DAY_INVALID: dict[LangCode, str] = {
+    "pt-PT": "Dia \"{day}\" inválido. Ex.: segunda, sábado.",
+    "pt-BR": "Dia \"{day}\" inválido. Ex.: segunda, sábado.",
+    "es": "Día \"{day}\" inválido. Ej.: lunes, sábado.",
+    "en": "Day \"{day}\" invalid. E.g.: Monday, Saturday.",
+}
+
+LIMPEZA_TIME_INVALID: dict[LangCode, str] = {
+    "pt-PT": "Hora \"{time}\" inválida. Use 9h ou 09:00.",
+    "pt-BR": "Hora \"{time}\" inválida. Use 9h ou 09:00.",
+    "es": "Hora \"{time}\" inválida. Usa 9h o 09:00.",
+    "en": "Time \"{time}\" invalid. Use 9am or 09:00.",
+}
+
+LIMPEZA_TASK_EXISTS: dict[LangCode, str] = {
+    "pt-PT": "Tarefa \"{name}\" já existe.",
+    "pt-BR": "Tarefa \"{name}\" já existe.",
+    "es": "La tarea \"{name}\" ya existe.",
+    "en": "Task \"{name}\" already exists.",
+}
+
+LIMPEZA_TASK_ADDED: dict[LangCode, str] = {
+    "pt-PT": "✅ {name} adicionada ({freq}, {dia} {time})",
+    "pt-BR": "✅ {name} adicionada ({freq}, {dia} {time})",
+    "es": "✅ {name} añadida ({freq}, {dia} {time})",
+    "en": "✅ {name} added ({freq}, {dia} {time})",
+}
+
+LIMPEZA_TASK_REMOVED: dict[LangCode, str] = {
+    "pt-PT": "✅ Tarefa removida.",
+    "pt-BR": "✅ Tarefa removida.",
+    "es": "✅ Tarea eliminada.",
+    "en": "✅ Task removed.",
+}
+
+LIMPEZA_ROTATION_ON_NO_PEOPLE: dict[LangCode, str] = {
+    "pt-PT": "✅ Rotação ativada. Adicione pessoas: /limpeza pessoas add João, Maria",
+    "pt-BR": "✅ Rotação ativada. Adicione pessoas: /limpeza pessoas add João, Maria",
+    "es": "✅ Rotación activada. Añade personas: /limpeza personas add Juan, María",
+    "en": "✅ Rotation enabled. Add people: /limpeza personas add John, Mary",
+}
+
+LIMPEZA_ROTATION_STATUS: dict[LangCode, str] = {
+    "pt-PT": "✅ Rotação {status}.",
+    "pt-BR": "✅ Rotação {status}.",
+    "es": "✅ Rotación {status}.",
+    "en": "✅ Rotation {status}.",
+}
+
+LIMPEZA_PERSONS_ADDED: dict[LangCode, str] = {
+    "pt-PT": "✅ Pessoas adicionadas: {names}",
+    "pt-BR": "✅ Pessoas adicionadas: {names}",
+    "es": "✅ Personas añadidas: {names}",
+    "en": "✅ People added: {names}",
+}
+
+LIMPEZA_NO_PERSONS: dict[LangCode, str] = {
+    "pt-PT": "Nenhuma pessoa. Usa /limpeza pessoas add João, Maria",
+    "pt-BR": "Nenhuma pessoa. Use /limpeza pessoas add João, Maria",
+    "es": "Ninguna persona. Usa /limpeza personas add Juan, María",
+    "en": "No people. Use /limpeza personas add John, Mary",
+}
+
+# --- Misc ---
+
+USER_DEFAULT_NAME: dict[LangCode, str] = {
+    "pt-PT": "utilizador",
+    "pt-BR": "usuário",
+    "es": "usuario",
+    "en": "user",
+}

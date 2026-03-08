@@ -14,6 +14,7 @@ from loguru import logger
 
 from backend.models_db import ReminderHistory, AuditLog, Event
 from backend.user_store import get_or_create_user, get_user_language, get_user_preferred_name, get_user_timezone
+import backend.locale as locale
 
 
 def get_week_stats(db, chat_id: str, end_date_local, tz) -> dict[str, Any]:
@@ -182,41 +183,19 @@ def build_weekly_recap_text(
     """
     Constrói o texto do resumo semanal (sem LLM).
     """
-    name = (preferred_name or "").strip() or "utilizador"
+    name = (preferred_name or "").strip() or locale.USER_DEFAULT_NAME.get(user_lang, locale.USER_DEFAULT_NAME["en"])
     tf = stats.get("tarefas_feitas", 0)
     lr = stats.get("lembretes_recebidos", 0)
     ev = stats.get("eventos_criados", 0)
     inicio = stats.get("inicio", "")
     fim = stats.get("fim", "")
 
-    if user_lang == "pt-BR":
-        header = f"📊 **Resumo da semana** ({inicio}–{fim})"
-        line1 = f"Olá, {name}! Aqui vai o resumo da tua semana:"
-        line2 = f"• {tf} tarefas concluídas"
-        line3 = f"• {lr} lembretes recebidos"
-        line4 = f"• {ev} eventos criados"
-        footer = "Ótima semana! 💪"
-    elif user_lang == "es":
-        header = f"📊 **Resumen de la semana** ({inicio}–{fim})"
-        line1 = f"Hola, {name}! Resumen de tu semana:"
-        line2 = f"• {tf} tareas completadas"
-        line3 = f"• {lr} recordatorios recibidos"
-        line4 = f"• {ev} eventos creados"
-        footer = "¡Buena semana! 💪"
-    elif user_lang == "en":
-        header = f"📊 **Week summary** ({inicio}–{fim})"
-        line1 = f"Hi {name}! Here's your week in a nutshell:"
-        line2 = f"• {tf} tasks completed"
-        line3 = f"• {lr} reminders received"
-        line4 = f"• {ev} events created"
-        footer = "Great week! 💪"
-    else:
-        header = f"📊 **Resumo da semana** ({inicio}–{fim})"
-        line1 = f"Olá, {name}! Aqui vai o resumo da tua semana:"
-        line2 = f"• {tf} tarefas concluídas"
-        line3 = f"• {lr} lembretes recebidos"
-        line4 = f"• {ev} eventos criados"
-        footer = "Ótima semana! 💪"
+    header = locale.WEEKLY_RECAP_HEADER.get(user_lang, locale.WEEKLY_RECAP_HEADER["en"]).format(inicio=inicio, fim=fim)
+    line1 = locale.WEEKLY_RECAP_INTRO.get(user_lang, locale.WEEKLY_RECAP_INTRO["en"]).format(name=name)
+    line2 = locale.WEEKLY_RECAP_TASKS.get(user_lang, locale.WEEKLY_RECAP_TASKS["en"]).format(count=tf)
+    line3 = locale.WEEKLY_RECAP_REMINDERS.get(user_lang, locale.WEEKLY_RECAP_REMINDERS["en"]).format(count=lr)
+    line4 = locale.WEEKLY_RECAP_EVENTS.get(user_lang, locale.WEEKLY_RECAP_EVENTS["en"]).format(count=ev)
+    footer = locale.WEEKLY_RECAP_FOOTER.get(user_lang, locale.WEEKLY_RECAP_FOOTER["en"])
 
     lines = [header, "", line1, line2, line3, line4, "", footer]
     return "\n".join(lines)
@@ -231,41 +210,19 @@ def build_monthly_recap_text(
     """
     Constrói o texto do resumo do mês (sem LLM).
     """
-    name = (preferred_name or "").strip() or "utilizador"
+    name = (preferred_name or "").strip() or locale.USER_DEFAULT_NAME.get(user_lang, locale.USER_DEFAULT_NAME["en"])
     tf = stats.get("tarefas_feitas", 0)
     lr = stats.get("lembretes_recebidos", 0)
     ev = stats.get("eventos_criados", 0)
     inicio = stats.get("inicio", "")
     fim = stats.get("fim", "")
 
-    if user_lang == "pt-BR":
-        header = f"📊 **Resumo do mês** ({inicio}–{fim})"
-        line1 = f"Olá, {name}! Aqui vai o resumo do teu mês:"
-        line2 = f"• {tf} tarefas concluídas"
-        line3 = f"• {lr} lembretes recebidos"
-        line4 = f"• {ev} eventos criados"
-        footer = "Bom mês! 💪"
-    elif user_lang == "es":
-        header = f"📊 **Resumen del mes** ({inicio}–{fim})"
-        line1 = f"Hola, {name}! Resumen de tu mes:"
-        line2 = f"• {tf} tareas completadas"
-        line3 = f"• {lr} recordatorios recibidos"
-        line4 = f"• {ev} eventos creados"
-        footer = "¡Buen mes! 💪"
-    elif user_lang == "en":
-        header = f"📊 **Month summary** ({inicio}–{fim})"
-        line1 = f"Hi {name}! Here's your month in a nutshell:"
-        line2 = f"• {tf} tasks completed"
-        line3 = f"• {lr} reminders received"
-        line4 = f"• {ev} events created"
-        footer = "Great month! 💪"
-    else:
-        header = f"📊 **Resumo do mês** ({inicio}–{fim})"
-        line1 = f"Olá, {name}! Aqui vai o resumo do teu mês:"
-        line2 = f"• {tf} tarefas concluídas"
-        line3 = f"• {lr} lembretes recebidos"
-        line4 = f"• {ev} eventos criados"
-        footer = "Bom mês! 💪"
+    header = locale.MONTHLY_RECAP_HEADER.get(user_lang, locale.MONTHLY_RECAP_HEADER["en"]).format(inicio=inicio, fim=fim)
+    line1 = locale.MONTHLY_RECAP_INTRO.get(user_lang, locale.MONTHLY_RECAP_INTRO["en"]).format(name=name)
+    line2 = locale.WEEKLY_RECAP_TASKS.get(user_lang, locale.WEEKLY_RECAP_TASKS["en"]).format(count=tf)
+    line3 = locale.WEEKLY_RECAP_REMINDERS.get(user_lang, locale.WEEKLY_RECAP_REMINDERS["en"]).format(count=lr)
+    line4 = locale.WEEKLY_RECAP_EVENTS.get(user_lang, locale.WEEKLY_RECAP_EVENTS["en"]).format(count=ev)
+    footer = locale.MONTHLY_RECAP_FOOTER.get(user_lang, locale.MONTHLY_RECAP_FOOTER["en"])
 
     lines = [header, "", line1, line2, line3, line4, "", footer]
     return "\n".join(lines)
