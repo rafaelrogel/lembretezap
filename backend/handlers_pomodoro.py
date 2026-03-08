@@ -158,6 +158,8 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
             message=message,
             in_seconds=POMODORO_WORK_SEC,
             suggested_prefix="POM",
+            pomodoro_cycle=1,
+            pomodoro_phase="focus",
         )
         if "limite" in (result or "").lower() or "limit" in (result or "").lower():
             return result
@@ -176,8 +178,9 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
         except Exception:
             end_str = "em 25 min"
         return (
-            f"🍅 **Pomodoro iniciado!**\n"
+            f"🍅 **Pomodoro iniciado!** (Ciclo 1/4)\n"
             f"25 min de foco. Aviso às {end_str}.\n"
+            f"Os ciclos de pausa (5 min) e foco (25 min) serão automáticos.\n"
             f"Use /pomodoro stop para cancelar. 🍅"
         )
     except ValueError as e:

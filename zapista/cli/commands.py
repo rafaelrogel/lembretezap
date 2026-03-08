@@ -404,6 +404,61 @@ def gateway(
                 cron.remove_job_and_deadline_followups(main_id)
             return f"deadline_post_{post_idx}"
 
+        # Pomodoro Cycles: Transição automática entre foco e pausa (até 4 ciclos)
+        p_cycle = getattr(job.payload, "pomodoro_cycle", None)
+        p_phase = getattr(job.payload, "pomodoro_phase", None)
+        if p_cycle and p_phase and job.payload.to and bus:
+            from zapista.bus.events import OutboundMessage
+            from zapista.cron.types import CronSchedule
+            
+            p_to = job.payload.to
+            p_ch = job.payload.channel or "whatsapp"
+            
+            if p_phase == "focus":
+                # Fim do foco -> Início da pausa
+                if p_cycle < 4:
+                    content = f"🍅 **Ciclo {p_cycle}/4 completo!** Hora de uma pausa de 5 min. ☕️\n\nEu aviso quando a pausa terminar."
+                    await bus.publish_outbound(OutboundMessage(channel=p_ch, chat_id=p_to, content=content))
+                    
+                    # Agendar fim da pausa (5 min)
+                    cron.add_job(
+                        name=f"POM Pausa {p_cycle}",
+                        schedule=CronSchedule(kind="at", at_ms=int(time.time() * 1000) + 5 * 60 * 1000),
+                        message="Pausa",
+                        deliver=False,
+                        channel=p_ch,
+                        to=p_to,
+                        delete_after_run=True,
+                        pomodoro_cycle=p_cycle,
+                        pomodoro_phase="break"
+                    )
+                else:
+                    # Fim do Ciclo 4
+                    content = "🍅 **Ciclo 4/4 completo!** 🍅\n\nEste foi o último ciclo planeado. Gostarias de continuar ou preferes fazer uma pausa maior agora? 😊"
+                    await bus.publish_outbound(OutboundMessage(channel=p_ch, chat_id=p_to, content=content))
+                
+                return f"pomodoro_focus_end_cycle_{p_cycle}"
+            
+            elif p_phase == "break":
+                # Fim da pausa -> Início do próximo bloco de foco
+                next_cycle = p_cycle + 1
+                content = f"☕️ **A pausa terminou!** A iniciar o **Ciclo {next_cycle}/4**. 🍅\n\nFoco por mais 25 minutos!"
+                await bus.publish_outbound(OutboundMessage(channel=p_ch, chat_id=p_to, content=content))
+                
+                # Agendar fim do foco (25 min)
+                cron.add_job(
+                    name=f"POM Foco {next_cycle}",
+                    schedule=CronSchedule(kind="at", at_ms=int(time.time() * 1000) + 25 * 60 * 1000),
+                    message="Foco",
+                    deliver=False,
+                    channel=p_ch,
+                    to=p_to,
+                    delete_after_run=True,
+                    pomodoro_cycle=next_cycle,
+                    pomodoro_phase="focus"
+                )
+                return f"pomodoro_break_end_cycle_{p_cycle}"
+
         if job.payload.deliver and job.payload.to and provider and (config.agents.defaults.model or "").strip():
             try:
                 from backend.user_store import get_seconds_until_quiet_end

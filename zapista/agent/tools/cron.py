@@ -270,6 +270,8 @@ class CronTool(Tool):
                 depends_on_job_id=depends_on_job_id,
                 has_deadline=has_deadline,
                 audio_mode=getattr(self, "_audio_mode", False),
+                pomodoro_cycle=kwargs.get("pomodoro_cycle"),
+                pomodoro_phase=kwargs.get("pomodoro_phase"),
             )
         elif action == "list":
             return self._list_jobs()
@@ -394,6 +396,8 @@ class CronTool(Tool):
         depends_on_job_id: str | None = None,
         has_deadline: bool = False,
         audio_mode: bool = False,
+        pomodoro_cycle: int | None = None,
+        pomodoro_phase: str | None = None,
     ) -> str:
         message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
@@ -604,6 +608,8 @@ class CronTool(Tool):
                 depends_on_job_id=depends_on_job_id.strip().upper()[:16] if depends_on_job_id else None,
                 has_deadline=use_deadline,
                 audio_mode=audio_mode,
+                pomodoro_cycle=pomodoro_cycle,
+                pomodoro_phase=pomodoro_phase,
             )
         except ValueError as e:
             if "MAX_REMINDERS_EXCEEDED" in str(e):

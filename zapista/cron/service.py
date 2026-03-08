@@ -147,6 +147,8 @@ class CronService:
                             deadline_main_job_id=j["payload"].get("deadlineMainJobId"),
                             deadline_post_index=j["payload"].get("deadlinePostIndex"),
                             is_proactive_nudge=j["payload"].get("isProactiveNudge", False),
+                            pomodoro_cycle=j["payload"].get("pomodoroCycle"),
+                            pomodoro_phase=j["payload"].get("pomodoroPhase"),
                         ),
                         state=CronJobState(
                             next_run_at_ms=j.get("state", {}).get("nextRunAtMs"),
@@ -208,6 +210,8 @@ class CronService:
                         "deadlineMainJobId": getattr(j.payload, "deadline_main_job_id", None),
                         "deadlinePostIndex": getattr(j.payload, "deadline_post_index", None),
                         "isProactiveNudge": getattr(j.payload, "is_proactive_nudge", False),
+                        "pomodoroCycle": getattr(j.payload, "pomodoro_cycle", None),
+                        "pomodoroPhase": getattr(j.payload, "pomodoro_phase", None),
                     },
                     "state": {
                         "nextRunAtMs": j.state.next_run_at_ms,
@@ -438,6 +442,8 @@ class CronService:
         phone_for_locale: str | None = None,
         audio_mode: bool = False,
         is_proactive_nudge: bool = False,
+        pomodoro_cycle: int | None = None,
+        pomodoro_phase: str | None = None,
     ) -> CronJob:
         """Add a new job. suggested_prefix: quando dado (ex. pelo MIMO), usa para o ID em vez de derivar da mensagem."""
         logger.debug(
@@ -542,6 +548,8 @@ class CronService:
                 deadline_post_index=deadline_post_index,
                 audio_mode=audio_mode,
                 is_proactive_nudge=is_proactive_nudge,
+                pomodoro_cycle=pomodoro_cycle,
+                pomodoro_phase=pomodoro_phase,
             ),
             created_at_ms=now,
             updated_at_ms=now,
