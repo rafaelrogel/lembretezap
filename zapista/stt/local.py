@@ -6,12 +6,12 @@ from loguru import logger
 from zapista.stt.audio_utils import prepare_audio_for_whisper
 
 
-async def transcribe_local(audio_base64: str, base_url: str) -> str:
+async def transcribe_local(audio_base64: str, base_url: str, mimetype: str | None = None) -> str:
     """
     Envia áudio ao whisper.cpp e devolve texto transcrito.
     base_url: ex. http://stt:8080 (sem /inference)
     """
-    wav_path = prepare_audio_for_whisper(audio_base64)
+    wav_path = prepare_audio_for_whisper(audio_base64, mimetype=mimetype)
     if not wav_path:
         return ""
     try:

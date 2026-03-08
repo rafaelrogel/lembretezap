@@ -234,6 +234,7 @@ export class WhatsAppClient {
                 ...this.basePayload(msg),
                 content: '[Voice Message]',
                 mediaBase64,
+                mimetype: audioMsg.mimetype || 'audio/ogg',
               });
               continue;
             }

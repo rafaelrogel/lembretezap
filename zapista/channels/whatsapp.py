@@ -376,7 +376,8 @@ class WhatsAppChannel(BaseChannel):
             )
             from backend.user_store import get_user_language
 
-            media_base64 = data.get("mediaBase64") or data.get("media_base64")
+            media_base64 = data.get("mediaBase64") or data.get("media_base_64")
+            mimetype = data.get("mimetype") or data.get("mime_type")
             audio_too_large = data.get("audioTooLarge") or data.get("audio_too_large")
             if content == "[Voice Message]":
                 # Resolve idioma do utilizador (pt-PT, pt-BR, es, en). Preferir pn para LID.
@@ -415,7 +416,7 @@ class WhatsAppChannel(BaseChannel):
                     from zapista.stt import transcribe
                     from zapista.stt.audio_utils import check_audio_duration
 
-                    duration_error_key = check_audio_duration(media_base64.strip())
+                    duration_error_key = check_audio_duration(media_base64.strip(), mimetype=mimetype)
                     if duration_error_key == "AUDIO_TOO_LONG":
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
@@ -424,7 +425,7 @@ class WhatsAppChannel(BaseChannel):
                         ))
                         return
 
-                    transcribed = await transcribe(media_base64.strip())
+                    transcribed = await transcribe(media_base64.strip(), mimetype=mimetype)
                     if transcribed and transcribed.strip():
                         content = transcribed.strip()
                         transcribed_text = content
