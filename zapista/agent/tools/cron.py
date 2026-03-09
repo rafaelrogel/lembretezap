@@ -791,7 +791,7 @@ class CronTool(Tool):
         _lang = self._get_user_lang()
         if not jobs:
             return CRON_NO_REMINDERS.get(_lang, CRON_NO_REMINDERS["en"])
-        lines = [f"• {j.name} ({j.schedule.kind})" for j in jobs]
+        lines = [f"• {j.name} ({j.schedule.kind}) [id: {j.id}]" for j in jobs]
         return CRON_REMINDERS_HEADER.get(_lang, CRON_REMINDERS_HEADER["en"]) + "\n" + "\n".join(lines)
     
     def _remove_job(self, job_id: str | None) -> str:

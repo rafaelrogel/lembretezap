@@ -182,19 +182,36 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         return {"type": "data"}
 
     # Linguagem natural: mostre lista mercado, lista de mercado, qual minha lista, mercado
+    # Guard partilhado: palavras de lembretes/agenda não são nomes de lista
+    _REMINDER_AGENDA_WORDS_SHOW = {
+        "lembretes", "lembrete", "agenda", "agendas", "compromissos",
+        "compromisso", "eventos", "evento", "tarefas", "tarefa",
+        "reminders", "reminder", "calendar", "tasks", "task",
+        "recordatorios", "recordatorio",
+    }
     m = RE_NL_MOSTRE_LISTA.match(text)
     if m:
-        return {"type": "list_show", "list_name": m.group(1).strip()}
+        _name = m.group(1).strip().lower()
+        if _name in _REMINDER_AGENDA_WORDS_SHOW:
+            return None  # Deixa o LLM tratar como consulta de agenda/lembretes
+        return {"type": "list_show", "list_name": _name}
     m = RE_NL_LISTA_DE.match(text)
     if m:
-        return {"type": "list_show", "list_name": m.group(1).strip()}
+        _name = m.group(1).strip().lower()
+        if _name in _REMINDER_AGENDA_WORDS_SHOW:
+            return None
+        return {"type": "list_show", "list_name": _name}
     m = RE_NL_QUAL_LISTA.match(text)
     if m:
-        return {"type": "list_show", "list_name": m.group(1).strip()}
+        _name = m.group(1).strip().lower()
+        if _name in _REMINDER_AGENDA_WORDS_SHOW:
+            return None
+        return {"type": "list_show", "list_name": _name}
     m = RE_NL_LISTA_SOZINHA.match(text)
     if m:
         name = m.group(1).strip()
         return {"type": "list_show", "list_name": name if name != "lista" else None}
+
 
     # Atalhos: /filme X, /livro X, /musica X → list_add (dentro de /list)
     m = RE_EVENTO.match(text)
@@ -227,10 +244,21 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     m = RE_NL_CRIA_LISTA_DE.match(text)
     if m:
         list_name = m.group(1).strip().lower()
+        # Guard: palavras de lembretes/agenda nunca devem ser tratadas como nomes de lista
+        # Ex: "mostre lista de lembretes e agenda" não é um list_add
+        _REMINDER_AGENDA_WORDS = {
+            "lembretes", "lembrete", "agenda", "agendas", "compromissos",
+            "compromisso", "eventos", "evento", "tarefas", "tarefa",
+            "reminders", "reminder", "calendar", "tasks", "task",
+            "recordatorios", "recordatorio",
+        }
+        if list_name in _REMINDER_AGENDA_WORDS:
+            return None  # Deixa o LLM tratar como consulta de agenda/lembretes
         list_name = _CATEGORY_TO_LIST.get(list_name, list_name)
         item = (m.group(2) or "").strip()
         if item:  # Só registra se tiver item concreto; sem item → LLM pergunta o que adicionar
             return {"type": "list_add", "list_name": list_name, "item": item}
+
     # NL: "coloca X na lista" → list_add mercado (assumindo compras se não especificar)
     m = RE_NL_POR_LISTA.match(text)
     if m:
