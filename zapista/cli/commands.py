@@ -257,9 +257,12 @@ def gateway(
     def on_stale_removed(removals: list) -> None:
         try:
             from backend.stale_removal_notifications import add_removals
-            for ch, to, jobs in removals:
+            for entry in removals:
+                # Tuple: (channel, to, jobs) ou (channel, to, jobs, phone_for_locale)
+                ch, to, jobs = entry[0], entry[1], entry[2]
+                pfl = entry[3] if len(entry) > 3 else None
                 if ch and to and jobs:
-                    add_removals(ch, to, jobs)
+                    add_removals(ch, to, jobs, phone_for_locale=pfl)
         except Exception as e:
             logger.warning(f"stale_removal_notifications add_removals failed: {e}")
 

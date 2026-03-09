@@ -611,16 +611,19 @@ class CronService:
             self._arm_timer()
         return count
 
-    def remove_stale_at_jobs(self) -> list[tuple[str, str, list[tuple[str, str]]]]:
+    def remove_stale_at_jobs(self) -> list[tuple[str, str, list[tuple[str, str]], str | None]]:
         """
         Remove jobs com kind=\"at\" cujo at_ms já passou (ou next_run_at_ms é None).
-        Retorna lista de (channel, to, [(job_id, job_name), ...]) para notificar o utilizador.
+        Retorna lista de (channel, to, [(job_id, job_name), ...], phone_for_locale)
+        para notificar o utilizador no idioma correto (inclui phone_for_locale para resolver @lid).
         Deve ser chamado 1x por dia; a notificação é enviada só após 2 msgs do user (anti-spam).
         """
         store = self._load_store()
         now = _now_ms()
         to_remove: list[CronJob] = []
         notif_by_chat: dict[tuple[str | None, str | None], list[tuple[str, str]]] = {}
+        # Guarda phone_for_locale por chat key (último valor encontrado)
+        phone_by_chat: dict[tuple[str | None, str | None], str | None] = {}
         for j in store.jobs:
             if not j.enabled or j.schedule.kind != "at":
                 continue
@@ -639,6 +642,10 @@ class CronService:
                 if ch and to:
                     key = (ch, to)
                     notif_by_chat.setdefault(key, []).append((j.id, (j.name or j.id)[:80]))
+                    # Preserva phone_for_locale para resolver o idioma mesmo em @lid
+                    pfl = getattr(j.payload, "phone_for_locale", None)
+                    if pfl and not phone_by_chat.get(key):
+                        phone_by_chat[key] = pfl
         for j in to_remove:
             store.jobs = [x for x in store.jobs if x.id != j.id]
         if to_remove:
@@ -646,7 +653,7 @@ class CronService:
             self._arm_timer()
             logger.info(f"Cron: removed {len(to_remove)} stale at jobs")
         return [
-            (ch, to, jobs)
+            (ch, to, jobs, phone_by_chat.get((ch, to)))
             for (ch, to), jobs in notif_by_chat.items()
             if ch and to
         ]
