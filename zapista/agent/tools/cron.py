@@ -98,6 +98,9 @@ class CronTool(Tool):
             "IGNORE 'in_seconds' and 'target_at_iso' unless explicitly constructing a machine-generated timestamp. "
             "System will interpret 'time_input' in the User's Timezone. "
             "every_seconds = repeat; cron_expr = fixed times (interpreted in user timezone when stored). "
+            "BULK DELETE: if user says 'delete all', 'cancel all reminders', 'remove all my reminders' or equivalent, "
+            "use action='remove_all' (no job_id needed). "
+            "SINGLE DELETE: call action='list' first to get IDs, then action='remove' with the correct job_id. "
             "IMPORTANT: when the user lists multiple reminders in one message (e.g. 'lembre X em 6 min, depois Y em 7 min, depois Z'), "
             "register each one as a FULLY INDEPENDENT reminder with its own time_input. NEVER chain them with depends_on_job_id. "
             "depends_on_job_id is ONLY for when the user explicitly says 'só me lembra de B depois de eu confirmar A com 👍' or equivalent. "
@@ -111,8 +114,8 @@ class CronTool(Tool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["add", "list", "remove"],
-                    "description": "Action: add, list, or remove"
+                    "enum": ["add", "list", "remove", "remove_all"],
+                    "description": "Action: add, list, remove (one job_id), or remove_all (delete ALL reminders of this user)"
                 },
                 "message": {
                     "type": "string",
@@ -190,6 +193,13 @@ class CronTool(Tool):
         **kwargs: Any
     ) -> str:
         logger.info(f"CronTool.execute inputs: action={action}, msg={message}, time_input={time_input}, target={target_at_iso}, in_seconds={in_seconds}, every={every_seconds}, cron={cron_expr}, chat_id={self._chat_id}, channel={self._channel}")
+
+        if action == "list":
+            return self._list_jobs()
+        if action == "remove":
+            return self._remove_job(job_id)
+        if action == "remove_all":
+            return self._remove_all_jobs()
 
         if action == "add":
             # Phase 2: System-side time parsing via backend.time_parse
@@ -774,7 +784,37 @@ class CronTool(Tool):
         if self._channel == "cli":
             msg += CRON_CREATED_BY_CLI.get(_lang, CRON_CREATED_BY_CLI["en"])
         return msg
-    
+
+    def _remove_all_jobs(self) -> str:
+        """Remove todos os lembretes do utilizador atual. Chamado quando user diz 'delete all', 'remove all', etc."""
+        all_jobs = self._cron.list_jobs()
+        user_jobs = [
+            j for j in all_jobs
+            if getattr(j.payload, "to", None) == self._chat_id
+        ]
+        if not user_jobs:
+            _lang = self._get_user_lang()
+            from backend.locale import CRON_NO_REMINDERS
+            return CRON_NO_REMINDERS.get(_lang, CRON_NO_REMINDERS["en"])
+        # Remove cada job e todos os seus sub-jobs (prazos, avisos, etc.)
+        # Usa um set para evitar dupla remoção de sub-jobs já eliminados
+        removed_ids: set[str] = set()
+        count = 0
+        for j in user_jobs:
+            if j.id not in removed_ids:
+                n = self._cron.remove_job_and_deadline_followups(j.id)
+                if n > 0:
+                    removed_ids.add(j.id)
+                    count += 1
+        _lang = self._get_user_lang()
+        msgs = {
+            "pt-PT": f"{count} lembrete(s) removido(s). ✅",
+            "pt-BR": f"{count} lembrete(s) removido(s). ✅",
+            "es": f"{count} recordatorio(s) eliminado(s). ✅",
+            "en": f"{count} reminder(s) removed. ✅",
+        }
+        return msgs.get(_lang, msgs["en"])
+
     def _list_jobs(self) -> str:
         """Lista apenas os lembretes do usuário atual (payload.to == chat_id). Isolamento por conversa.
         Nudge proativo, avisos e prazos internos não aparecem — apenas lembretes principais."""
