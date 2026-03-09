@@ -8,13 +8,18 @@ def _get_lang(ctx: HandlerContext) -> str:
     try:
         from backend.database import SessionLocal
         from backend.user_store import get_user_language
+        from backend.locale import phone_to_default_language
         db = SessionLocal()
         try:
             return get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
         finally:
             db.close()
     except Exception:
-        return "pt-BR"
+        try:
+            from backend.locale import phone_to_default_language
+            return phone_to_default_language(ctx.phone_for_locale or ctx.chat_id) or "pt-BR"
+        except Exception:
+            return "pt-BR"
 
 
 async def handle_exportar(ctx: HandlerContext, content: str) -> str | None:

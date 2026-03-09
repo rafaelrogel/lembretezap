@@ -1683,6 +1683,81 @@ TEMPLATE_UPDATED: dict[LangCode, str] = {
     "en": "✅ Template \"{name}\" updated ({count} items)",
 }
 
+# --- Pomodoro ---
+
+POMODORO_UNAVAILABLE: dict[LangCode, str] = {
+    "pt-PT": "🍅 Pomodoro: o cron não está disponível neste canal. 🍅",
+    "pt-BR": "🍅 Pomodoro: o cron não está disponível inter canal. 🍅",
+    "es": "🍅 Pomodoro: cron no está disponible en este canal. 🍅",
+    "en": "🍅 Pomodoro: cron is not available in this channel. 🍅",
+}
+
+POMODORO_NONE_ACTIVE: dict[LangCode, str] = {
+    "pt-PT": "🍅 Nenhum Pomodoro ativo. Usa /pomodoro para iniciar. 🍅",
+    "pt-BR": "🍅 Nenhum Pomodoro ativo. Use /pomodoro para iniciar. 🍅",
+    "es": "🍅 Ningún Pomodoro activo. Usa /pomodoro para iniciar. 🍅",
+    "en": "🍅 No active Pomodoro. Use /pomodoro to start. 🍅",
+}
+
+POMODORO_STOPPED: dict[LangCode, str] = {
+    "pt-PT": "🍅 Pomodoro parado. {count} timer(s) cancelado(s). 🍅",
+    "pt-BR": "🍅 Pomodoro parado. {count} timer(s) cancelado(s). 🍅",
+    "es": "🍅 Pomodoro detenido. {count} temporizador(es) cancelado(s). 🍅",
+    "en": "🍅 Pomodoro stopped. {count} timer(s) canceled. 🍅",
+}
+
+POMODORO_STATUS_HEADER: dict[LangCode, str] = {
+    "pt-PT": "🍅 **Pomodoro(s) ativos:**",
+    "pt-BR": "🍅 **Pomodoro(s) ativos:**",
+    "es": "🍅 **Pomodoro(s) activos:**",
+    "en": "🍅 **Active Pomodoro(s):**",
+}
+
+POMODORO_FINISHED: dict[LangCode, str] = {
+    "pt-PT": "🍅 Pomodoro terminou! 5 min de pausa. (/pomodoro para o próximo) 🍅",
+    "pt-BR": "🍅 Pomodoro terminou! 5 min de pausa. (/pomodoro para próximo) 🍅",
+    "es": "🍅 ¡Pomodoro terminó! 5 min de pausa. (/pomodoro para el próximo) 🍅",
+    "en": "🍅 Pomodoro finished! 5 min break. (/pomodoro for next) 🍅",
+}
+
+POMODORO_FINISHED_TASK: dict[LangCode, str] = {
+    "pt-PT": "🍅 Pomodoro \"{task}\" terminou! 5 min de pausa. (/pomodoro para o próximo) 🍅",
+    "pt-BR": "🍅 Pomodoro \"{task}\" terminou! 5 min de pausa. (/pomodoro para próximo) 🍅",
+    "es": "🍅 ¡Pomodoro \"{task}\" terminó! 5 min de pausa. (/pomodoro para el próximo) 🍅",
+    "en": "🍅 Pomodoro \"{task}\" finished! 5 min break. (/pomodoro for next) 🍅",
+}
+
+POMODORO_INFO: dict[LangCode, str] = {
+    "pt-PT": (
+        "🍅 **Pomodoro no Zappelin** 🍅\n\n"
+        "Sim, eu tenho! É uma técnica de foco: **25 min** de trabalho + **5 min** de pausa.\n\n"
+        "• Para iniciar: diz \"inicia o pomodoro\" ou usa `/pomodoro`.\n"
+        "• Para parar: `/pomodoro stop`.\n"
+        "• Para ver o tempo: `/pomodoro status`."
+    ),
+    "pt-BR": (
+        "🍅 **Pomodoro no Zappelin** 🍅\n\n"
+        "Sim, eu tenho! É uma técnica de foco: **25 min** de trabalho + **5 min** de pausa.\n\n"
+        "• Para iniciar: diz \"inicia o pomodoro\" ou usa `/pomodoro`.\n"
+        "• Para parar: `/pomodoro stop`.\n"
+        "• Para ver o tempo: `/pomodoro status`."
+    ),
+    "es": (
+        "🍅 **Pomodoro en Zappelin** 🍅\n\n"
+        "¡Sí, lo tengo! Es una técnica de concentración: **25 min** de trabajo + **5 min** de pausa.\n\n"
+        "• Para iniciar: di \"inicia el pomodoro\" o usa `/pomodoro`.\n"
+        "• Para detener: `/pomodoro stop`.\n"
+        "• Para ver el tiempo: `/pomodoro status`."
+    ),
+    "en": (
+        "🍅 **Pomodoro in Zappelin** 🍅\n\n"
+        "Yes, I have it! It's a focus technique: **25 min** of work + **5 min** of break.\n\n"
+        "• To start: say \"start pomodoro\" or use `/pomodoro`.\n"
+        "• To stop: `/pomodoro stop`.\n"
+        "• To check time: `/pomodoro status`."
+    ),
+}
+
 TEMPLATE_CREATED: dict[LangCode, str] = {
     "pt-PT": "✅ Template criado: {name} ({count} itens). Usa /template {name} usar",
     "pt-BR": "✅ Template criado: {name} ({count} itens). Use /template {name} usar",

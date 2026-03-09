@@ -6,6 +6,13 @@ import re
 import time
 from zapista.clock_drift import get_effective_time, get_effective_time_ms
 from typing import TYPE_CHECKING
+from backend.database import SessionLocal
+from backend.user_store import get_user_language
+from backend.locale import (
+    POMODORO_INFO, POMODORO_UNAVAILABLE, POMODORO_NONE_ACTIVE, POMODORO_STOPPED,
+    POMODORO_STATUS_HEADER, POMODORO_FINISHED, POMODORO_FINISHED_TASK,
+    POMODORO_ALREADY_ACTIVE, POMODORO_START_MSG
+)
 
 if TYPE_CHECKING:
     from backend.handler_context import HandlerContext
@@ -72,14 +79,14 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
     if not t.lower().startswith("/pomodoro") and not is_nl and not is_info:
         return None
 
+    db = SessionLocal()
+    try:
+        lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+    finally:
+        db.close()
+
     if is_info:
-        return (
-            "🍅 **Pomodoro no Zappelin** 🍅\n\n"
-            "Sim, eu tenho! É uma técnica de foco: **25 min** de trabalho + **5 min** de pausa.\n\n"
-            "• Para iniciar: diz \"inicia o pomodoro\" ou usa `/pomodoro`.\n"
-            "• Para parar: `/pomodoro stop`.\n"
-            "• Para ver o tempo: `/pomodoro status`."
-        )
+        return POMODORO_INFO.get(lang, POMODORO_INFO["pt-BR"])
 
     if is_nl:
         rest = ""
@@ -89,7 +96,7 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
     arg = rest.split(None, 1)[1].strip() if rest and len(rest.split(None, 1)) > 1 else ""
 
     if not ctx.cron_service or not ctx.cron_tool:
-        return "🍅 Pomodoro: o cron não está disponível neste canal. 🍅"
+        return POMODORO_UNAVAILABLE.get(lang, POMODORO_UNAVAILABLE["pt-BR"])
 
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
 
@@ -101,10 +108,10 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
             if getattr(j.payload, "to", None) == ctx.chat_id and _is_pomodoro_job(j)
         ]
         if not pomo_jobs:
-            return "🍅 Nenhum Pomodoro ativo. 🍅"
+            return POMODORO_NONE_ACTIVE.get(lang, POMODORO_NONE_ACTIVE["pt-BR"]).replace(" Usa /pomodoro para iniciar.", "").replace(" Use /pomodoro para iniciar.", "").replace(" Usa /pomodoro para iniciar.", "").replace(" Use /pomodoro to start.", "")
         for j in pomo_jobs:
             ctx.cron_service.remove_job(j.id)
-        return f"🍅 Pomodoro parado. {len(pomo_jobs)} timer(s) cancelado(s). 🍅"
+        return POMODORO_STOPPED.get(lang, POMODORO_STOPPED["pt-BR"]).format(count=len(pomo_jobs))
 
     # /pomodoro status
     if sub == "status":
@@ -114,13 +121,14 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
             if getattr(j.payload, "to", None) == ctx.chat_id and _is_pomodoro_job(j)
         ]
         if not pomo_jobs:
-            return "🍅 Nenhum Pomodoro ativo. Usa /pomodoro para iniciar. 🍅"
-        lines = ["🍅 **Pomodoro(s) ativos:**"]
+            return POMODORO_NONE_ACTIVE.get(lang, POMODORO_NONE_ACTIVE["pt-BR"])
+        lines = [POMODORO_STATUS_HEADER.get(lang, POMODORO_STATUS_HEADER["pt-BR"])]
         for j in pomo_jobs:
             next_ms = j.state.next_run_at_ms if j.state else None
             if next_ms:
                 s = int((next_ms - get_effective_time_ms()) / 1000)
                 m = s // 60
+                # Could be localized, but keeping numbers is fine for now
                 lines.append(f"  • {j.id}: {m} min restantes")
             else:
                 lines.append(f"  • {j.id}: agendado")
@@ -130,9 +138,10 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
     if sub and sub != "start":
         arg = rest
     task_label = arg[:30] if arg else "foco"
-    message = f"🍅 Pomodoro terminou! 5 min de pausa. (/pomodoro para próximo) 🍅"
     if task_label and task_label != "foco":
-        message = f"🍅 Pomodoro \"{task_label}\" terminou! 5 min de pausa. (/pomodoro para próximo) 🍅"
+        message = POMODORO_FINISHED_TASK.get(lang, POMODORO_FINISHED_TASK["pt-BR"]).format(task=task_label)
+    else:
+        message = POMODORO_FINISHED.get(lang, POMODORO_FINISHED["pt-BR"])
 
     # Só um Pomodoro ativo por vez
     jobs = ctx.cron_service.list_jobs(include_disabled=False)
@@ -140,16 +149,6 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
         getattr(j.payload, "to", None) == ctx.chat_id and _is_pomodoro_job(j)
         for j in jobs
     ):
-        from backend.database import SessionLocal
-        from backend.user_store import get_user_language
-        from backend.locale import POMODORO_ALREADY_ACTIVE
-        lang = "pt-BR"
-        try:
-            db = SessionLocal()
-            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
-            db.close()
-        except Exception:
-            pass
         msg = POMODORO_ALREADY_ACTIVE.get(lang, POMODORO_ALREADY_ACTIVE["pt-BR"])
         return f"🍅 {msg} 🍅"
 
@@ -165,15 +164,12 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
         if "limite" in (result or "").lower() or "limit" in (result or "").lower():
             return result
         # Formatar resposta com hora de término
-        lang = "pt-BR"
         try:
             from backend.database import SessionLocal
-            from backend.user_store import get_user_language, get_user_timezone
+            from backend.user_store import get_user_timezone
             from backend.timezone import format_utc_timestamp_for_user
-            from backend.locale import POMODORO_START_MSG
             db = SessionLocal()
             try:
-                lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
                 tz = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
                 end_sec = int(get_effective_time()) + POMODORO_WORK_SEC
                 end_str = format_utc_timestamp_for_user(end_sec, tz)
@@ -181,21 +177,12 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
                 db.close()
         except Exception:
             end_str = "em 25 min"
-            from backend.locale import POMODORO_START_MSG
         
         template = POMODORO_START_MSG.get(lang, POMODORO_START_MSG["pt-BR"])
         return template.format(cycle=1, end_time=end_str)
     except ValueError as e:
         if "MAX_REMINDERS_EXCEEDED" in str(e):
             from backend.locale import REMINDER_LIMIT_EXCEEDED
-            from backend.user_store import get_user_language
-            from backend.database import SessionLocal
-            try:
-                db = SessionLocal()
-                lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
-                db.close()
-            except Exception:
-                lang = "pt-BR"
             msg = REMINDER_LIMIT_EXCEEDED.get(lang, REMINDER_LIMIT_EXCEEDED["pt-BR"])
             return f"🍅 {msg} 🍅" if msg else None
         raise
