@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import time
+from zapista.clock_drift import get_effective_time, get_effective_time_ms
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -118,7 +119,7 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
         for j in pomo_jobs:
             next_ms = j.state.next_run_at_ms if j.state else None
             if next_ms:
-                s = int((next_ms - time.time() * 1000) / 1000)
+                s = int((next_ms - get_effective_time_ms()) / 1000)
                 m = s // 60
                 lines.append(f"  • {j.id}: {m} min restantes")
             else:
@@ -174,7 +175,7 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
             try:
                 lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
                 tz = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
-                end_sec = int(time.time()) + POMODORO_WORK_SEC
+                end_sec = int(get_effective_time()) + POMODORO_WORK_SEC
                 end_str = format_utc_timestamp_for_user(end_sec, tz)
             finally:
                 db.close()

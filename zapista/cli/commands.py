@@ -242,6 +242,14 @@ def gateway(
     provider = _make_provider(config)
     scope_model = (config.agents.defaults.scope_model or "").strip() or None
     scope_provider = _make_provider_for_model(config, scope_model) if scope_model else None
+
+    def _now_ms() -> int:
+        """Hora UTC efectiva em ms (com drift correction)."""
+        try:
+            from zapista.clock_drift import get_effective_time_ms
+            return get_effective_time_ms()
+        except Exception:
+            return int(time.time() * 1000)
     
     # Create cron service: limpeza diária de jobs "at" no passado → notificação após 2 msgs (anti-spam)
     cron_store_path = get_data_dir() / "cron" / "jobs.json"
@@ -369,7 +377,7 @@ def gateway(
                         channel=ch, chat_id=to, content=alert,
                         metadata={"priority": "high"},
                     ))
-                    now_ms = int(time.time() * 1000)
+                    now_ms = _now_ms()
                     for i in range(1, 4):
                         at_ms = now_ms + (i * 30 * 60 * 1000)  # +30min, +1h, +1h30
                         cron.add_job(
@@ -407,75 +415,105 @@ def gateway(
         # Pomodoro Cycles: Transição automática entre foco e pausa (até 4 ciclos)
         p_cycle = getattr(job.payload, "pomodoro_cycle", None)
         p_phase = getattr(job.payload, "pomodoro_phase", None)
-        if p_cycle and p_phase and job.payload.to and bus:
-            from zapista.bus.events import OutboundMessage
-            from zapista.cron.types import CronSchedule
-            
-            # Determinar idioma
-            from backend.database import SessionLocal
-            from backend.user_store import get_user_language
-            from backend.locale import (
-                POMODORO_FOCUS_END_BREAK_START,
-                POMODORO_BREAK_END_FOCUS_START,
-                POMODORO_FINAL_END
-            )
-            
-            user_lang = "pt-BR"
+        if p_cycle is not None and p_phase and job.payload.to and bus:
             try:
-                db = SessionLocal()
-                user_lang = get_user_language(db, p_to, getattr(job.payload, "phone_for_locale", None)) or "pt-BR"
-                db.close()
-            except Exception:
-                pass
+                from zapista.bus.events import OutboundMessage
+                from zapista.cron.types import CronSchedule
+                from backend.database import SessionLocal
+                from backend.user_store import get_user_language
+                from backend.locale import (
+                    POMODORO_FOCUS_END_BREAK_START,
+                    POMODORO_BREAK_END_FOCUS_START,
+                    POMODORO_FINAL_END
+                )
+                
+                p_to = job.payload.to
+                p_ch = job.payload.channel or "whatsapp"
+                logger.debug(f"Cron [Pomodoro] Debug: Cycle={p_cycle} ({type(p_cycle)}), Phase={p_phase}, To={p_to}, Channel={p_ch}, Bus={bus is not None}")
 
-            if p_phase == "focus" and job.payload.to and bus:
-                # Fim do foco -> Início da pausa
-                if p_cycle < 4:
-                    template = POMODORO_FOCUS_END_BREAK_START.get(user_lang, POMODORO_FOCUS_END_BREAK_START["pt-BR"])
-                    content = template.format(cycle=p_cycle)
-                    await bus.publish_outbound(OutboundMessage(channel=p_ch, chat_id=p_to, content=content))
+                if not p_to or not bus:
+                    logger.warning(f"Cron [Pomodoro]: missing to={p_to} or bus={bus is not None}")
+                    return "pomodoro_missing_context"
+
+                try:
+                    p_cycle = int(p_cycle)
+                except (TypeError, ValueError):
+                    logger.error(f"Cron [Pomodoro]: invalid p_cycle type/value: {p_cycle}")
+                    return "pomodoro_invalid_cycle"
+
+                logger.info(f"Cron [Pomodoro]: Cycle {p_cycle}, Phase {p_phase}, To {p_to}")
+
+                user_lang = "pt-BR"
+                try:
+                    db = SessionLocal()
+                    user_lang = get_user_language(db, p_to, getattr(job.payload, "phone_for_locale", None)) or "pt-BR"
+                    db.close()
+                except Exception as e:
+                    logger.warning(f"Cron [Pomodoro] DB error: {e}")
+
+                if p_phase == "focus":
+                    # Fim do foco -> Início da pausa
+                    if p_cycle < 4:
+                        template = POMODORO_FOCUS_END_BREAK_START.get(user_lang, POMODORO_FOCUS_END_BREAK_START["pt-BR"])
+                        content = template.format(cycle=p_cycle)
+                        logger.info(f"Cron [Pomodoro]: sending focus end notification for cycle {p_cycle}")
+                        await bus.publish_outbound(OutboundMessage(
+                            channel=p_ch, chat_id=p_to, content=content,
+                            metadata={"priority": "high"} # Added priority
+                        ))
+                        
+                        # Agendar fim da pausa (5 min)
+                        cron.add_job(
+                            name=f"POM Pausa {p_cycle}",
+                            schedule=CronSchedule(kind="at", at_ms=_now_ms() + 5 * 60 * 1000),
+                            message="Pausa",
+                            deliver=False,
+                            channel=p_ch,
+                            to=p_to,
+                            delete_after_run=True,
+                            pomodoro_cycle=p_cycle,
+                            pomodoro_phase="break",
+                            phone_for_locale=getattr(job.payload, "phone_for_locale", None),
+                        )
+                        logger.info(f"Cron [Pomodoro]: scheduled break job for cycle {p_cycle}")
+                    else:
+                        # Fim do Ciclo 4
+                        content = POMODORO_FINAL_END.get(user_lang, POMODORO_FINAL_END["pt-BR"])
+                        await bus.publish_outbound(OutboundMessage(
+                            channel=p_ch, chat_id=p_to, content=content,
+                            metadata={"priority": "high"}
+                        ))
+                    return f"pomodoro_focus_end_cycle_{p_cycle}"
+                
+                elif p_phase == "break":
+                    # Fim da pausa -> Início do próximo bloco de foco
+                    next_cycle = p_cycle + 1
+                    template = POMODORO_BREAK_END_FOCUS_START.get(user_lang, POMODORO_BREAK_END_FOCUS_START["pt-BR"])
+                    content = template.format(cycle=next_cycle)
+                    logger.info(f"Cron [Pomodoro]: sending break end notification, entering cycle {next_cycle}")
+                    await bus.publish_outbound(OutboundMessage(
+                        channel=p_ch, chat_id=p_to, content=content,
+                        metadata={"priority": "high"}
+                    ))
                     
-                    # Agendar fim da pausa (5 min)
+                    # Agendar fim do foco (25 min)
                     cron.add_job(
-                        name=f"POM Pausa {p_cycle}",
-                        schedule=CronSchedule(kind="at", at_ms=int(time.time() * 1000) + 5 * 60 * 1000),
-                        message="Pausa",
+                        name=f"POM Foco {next_cycle}",
+                        schedule=CronSchedule(kind="at", at_ms=_now_ms() + 25 * 60 * 1000),
+                        message="Foco",
                         deliver=False,
                         channel=p_ch,
                         to=p_to,
                         delete_after_run=True,
-                        pomodoro_cycle=p_cycle,
-                        pomodoro_phase="break",
+                        pomodoro_cycle=next_cycle,
+                        pomodoro_phase="focus",
                         phone_for_locale=getattr(job.payload, "phone_for_locale", None),
                     )
-                else:
-                    # Fim do Ciclo 4
-                    content = POMODORO_FINAL_END.get(user_lang, POMODORO_FINAL_END["pt-BR"])
-                    await bus.publish_outbound(OutboundMessage(channel=p_ch, chat_id=p_to, content=content))
-                
-                return f"pomodoro_focus_end_cycle_{p_cycle}"
-            
-            elif p_phase == "break" and job.payload.to and bus:
-                # Fim da pausa -> Início do próximo bloco de foco
-                next_cycle = p_cycle + 1
-                template = POMODORO_BREAK_END_FOCUS_START.get(user_lang, POMODORO_BREAK_END_FOCUS_START["pt-BR"])
-                content = template.format(cycle=next_cycle)
-                await bus.publish_outbound(OutboundMessage(channel=p_ch, chat_id=p_to, content=content))
-                
-                # Agendar fim do foco (25 min)
-                cron.add_job(
-                    name=f"POM Foco {next_cycle}",
-                    schedule=CronSchedule(kind="at", at_ms=int(time.time() * 1000) + 25 * 60 * 1000),
-                    message="Foco",
-                    deliver=False,
-                    channel=p_ch,
-                    to=p_to,
-                    delete_after_run=True,
-                    pomodoro_cycle=next_cycle,
-                    pomodoro_phase="focus",
-                    phone_for_locale=getattr(job.payload, "phone_for_locale", None),
-                )
-                return f"pomodoro_break_end_cycle_{p_cycle}"
+                    logger.info(f"Cron [Pomodoro]: scheduled focus job for cycle {next_cycle}")
+                    return f"pomodoro_break_end_cycle_{p_cycle}"
+            except Exception as e:
+                logger.exception(f"Cron [Pomodoro] fatal error: {e}")
+                return f"pomodoro_error: {e}"
 
         if job.payload.deliver and job.payload.to and provider and (config.agents.defaults.model or "").strip():
             try:
@@ -596,7 +634,7 @@ def gateway(
             remind_max = getattr(job.payload, "remind_again_max_count", 10) or 0
             if remind_sec and remind_max > 0 and ch == "whatsapp":
                 from zapista.cron.types import CronSchedule
-                at_ms = int(time.time() * 1000) + remind_sec * 1000
+                at_ms = _now_ms() + remind_sec * 1000
                 follow_up = cron.add_job(
                     name=(job.name[:26] + " (de novo)"),
                     schedule=CronSchedule(kind="at", at_ms=at_ms),
