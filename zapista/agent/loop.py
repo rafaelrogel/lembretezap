@@ -337,7 +337,8 @@ class AgentLoop:
 
     def _set_tool_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
         """Define canal/chat (e phone_for_locale para agendamento) em todas as tools que suportam."""
-        for name, tool in (("message", MessageTool), ("cron", CronTool), ("list", ListTool)):
+        from zapista.agent.tools.event_tool import EventTool
+        for name, tool in (("message", MessageTool), ("cron", CronTool), ("list", ListTool), ("event", EventTool)):
             t = self.tools.get(name)
             if t and isinstance(t, tool):
                 t.set_context(channel, chat_id, phone_for_locale)
@@ -2122,6 +2123,15 @@ class AgentLoop:
                     args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
                     logger.info(f"Tool call: {tool_call.name}({args_str[:200]})")
                     result = await self.tools.execute(tool_call.name, tool_call.arguments)
+                    # Log result (shortened if too long)
+                    res_log = str(result)
+                    if len(res_log) > 500:
+                        res_log = res_log[:500] + "..."
+                    if res_log.lower().startswith("erro"):
+                        logger.error(f"Tool {tool_call.name} returned: {res_log}")
+                    else:
+                        logger.info(f"Tool {tool_call.name} result: {res_log}")
+                        
                     messages = self.context.add_tool_result(
                         messages, tool_call.id, tool_call.name, result
                     )

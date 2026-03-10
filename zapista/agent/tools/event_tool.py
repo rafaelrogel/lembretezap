@@ -53,13 +53,17 @@ class EventTool(Tool):
         self.chat_id: str | None = None
         self.phone: str | None = None
     
-    def set_context(self, chat_id: str, phone: str | None = None) -> None:
+    def set_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
         """Sets the user context for the session."""
         self.chat_id = chat_id
-        self.phone = phone
+        self.phone = phone_for_locale
 
     async def execute(self, **kwargs) -> str:
+        import logging
+        logger = logging.getLogger(__name__)
+
         if not self.chat_id:
+            logger.error("EventTool failed: Contexto (chat_id) não definido.")
             return "Erro: Contexto (chat_id) não definido na EventTool."
             
         action = kwargs.get("action")
@@ -78,6 +82,7 @@ class EventTool(Tool):
             if action == "add":
                 event_text = kwargs.get("event_text")
                 if not event_text:
+                    logger.error("EventTool add failed: event_text is missing")
                     return "Erro: 'event_text' é obrigatório para a ação 'add'."
                 
                 date_time_iso = kwargs.get("date_time_iso")
@@ -143,6 +148,7 @@ class EventTool(Tool):
             elif action == "remove":
                 event_id = kwargs.get("event_id")
                 if not event_id:
+                    logger.error("EventTool remove failed: event_id is missing")
                     return "Erro: 'event_id' é obrigatório para a ação 'remove'."
                 
                 from backend.models_db import Event
@@ -152,6 +158,7 @@ class EventTool(Tool):
                 try:
                     ev_id_int = int(str(event_id).replace("E", ""))
                 except ValueError:
+                    logger.error(f"EventTool remove failed: invalid event_id format {event_id}")
                     return f"Erro: 'event_id' inválido: {event_id}"
 
                 ev = db.query(Event).filter(
@@ -167,9 +174,11 @@ class EventTool(Tool):
                 return f"Erro: Evento [id: {event_id}] não encontrado na agenda."
 
             else:
+                logger.error(f"EventTool failed: unknown action {action}")
                 return f"Erro: Ação '{action}' desconhecida para event tool."
                 
         except Exception as e:
+            logger.exception(f"Erro interno ao executar a ferramenta event: {e}")
             return f"Erro interno ao executar a ferramenta event: {e}"
         finally:
             db.close()
