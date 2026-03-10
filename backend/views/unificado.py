@@ -27,6 +27,13 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
     if not _is_eventos_unificado_intent(content):
         return None
 
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
+
     parts = []
 
     if ctx.cron_tool:

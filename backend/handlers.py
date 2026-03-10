@@ -158,6 +158,13 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
     if not ctx.session_manager or not ctx.cron_tool or not content or not content.strip():
         return None
 
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
+
     session_key = f"{ctx.channel}:{ctx.chat_id}"
     session = ctx.session_manager.get_or_create(session_key)
     flow = session.metadata.get(FLOW_KEY)
@@ -533,6 +540,13 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     if _looks_like_reminder_nl(text):
         text = "/lembrete " + text
 
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
+
     tz_iana = "UTC"
     user_lang: LangCode = "pt-BR"
     try:
@@ -671,6 +685,14 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
     intent = parse(content)
     if not intent or intent.get("type") not in ("list_add", "list_show"):
         return None
+
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
+
     if not ctx.list_tool:
         logger.warning("handle_list: list_tool is None, chat_id=%s", (ctx.chat_id or "")[:24])
         return None
@@ -715,6 +737,14 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
 async def handle_add(ctx: HandlerContext, content: str) -> str | None:
     """/add [lista] [item]. Default lista=mercado. Aceita NL: adicione X, adiciona X."""
     content = _normalize_nl_to_command(content)
+    
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
+
     m = re.match(r"^/add\s+(.+)$", content.strip(), re.I)
     if not m:
         return None
