@@ -35,6 +35,19 @@ _HOUR_PATTERNS = (
 
 _HOUR_RE = re.compile("|".join(_HOUR_PATTERNS), re.I)
 
+# Padrões que indicam data explícita (dd/mm, dd-mm, dd de mês, dd mês)
+_EXPLICIT_DATE_PATTERNS = (
+    r"\d{1,2}\s*/\s*\d{1,2}",                   # 10/03, 10/03/2026
+    r"\d{1,2}\s*-\s*\d{1,2}",                   # 10-03, 10-03-2026
+    r"\d{1,2}\s+de\s+(?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)",  # 10 de março
+    r"\d{1,2}\s+(?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)",  # 10 março
+    r"\d{1,2}\s+de\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)",
+    r"\d{1,2}\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)",
+    r"\d{1,2}\s+de\s+(?:enero|febrero|marzo|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)",
+    r"\d{1,2}\s+(?:enero|febrero|marzo|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)",
+)
+_EXPLICIT_DATE_RE = re.compile("|".join(_EXPLICIT_DATE_PATTERNS), re.I)
+
 # Indicadores de pedido de lembrete/evento (conteúdo concreto) vindo de reminder_keywords.py
 _REMINDER_HINTS = (
     "ir ", "tenho ", "preciso ", "consulta", "reunião", "reuniao",
@@ -70,12 +83,16 @@ def has_vague_time(text: str) -> bool:
 
 def has_vague_date(text: str) -> bool:
     """
-    True se o texto tem hora explícita (10h, às 14h) mas NÃO palavra de data.
+    True se o texto tem hora explícita (10h, às 14h) mas NÃO palavra de data
+    NEM data explícita (dd/mm, dd-mm, dd de mês).
     """
     if not text or len(text.strip()) < 5:
         return False
     t = text.strip().lower()
     if not _HOUR_RE.search(t):
+        return False
+    # Explicit date format (10/03/2026, 10-03, 10 de março) → not vague
+    if _EXPLICIT_DATE_RE.search(t):
         return False
     words = set(re.findall(r"\b\w+\b", t))
     return not bool(words & _DATE_WORDS)
@@ -348,7 +365,9 @@ def has_full_event_datetime(text: str) -> bool:
     if not _HOUR_RE.search(text.strip()):
         return False
     words = set(re.findall(r"\b\w+\b", text.strip().lower()))
-    return bool(words & _DATE_WORDS)
+    has_date_word = bool(words & _DATE_WORDS)
+    has_explicit_date = bool(_EXPLICIT_DATE_RE.search(text.strip()))
+    return has_date_word or has_explicit_date
 
 
 def parse_full_event_datetime(
