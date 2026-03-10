@@ -15,7 +15,7 @@ from zapista.channels.base import BaseChannel
 from zapista.config.schema import Config
 
 _OUTBOUND_DEDUP_SECONDS = 90
-_sent_recently: dict[tuple[str, str, str], float] = {}  # (channel, chat_id, content_hash) -> timestamp
+_sent_recently: dict[tuple[str, str, str], tuple[float, int]] = {}  # (channel, chat_id, content_hash) -> (last_timestamp, count)
 
 
 def _outbound_dedup_key(msg: OutboundMessage) -> tuple[str, str, str]:
@@ -24,7 +24,7 @@ def _outbound_dedup_key(msg: OutboundMessage) -> tuple[str, str, str]:
 
 
 def _should_skip_duplicate_outbound(msg: OutboundMessage) -> bool:
-    """True se já enviamos esta mesma mensagem (canal + chat + conteúdo) recentemente."""
+    """True se já enviamos esta mesma mensagem (canal + chat + conteúdo) recentemente mais de 3 vezes."""
     try:
         from zapista.clock_drift import get_effective_time
         now = get_effective_time()
@@ -32,12 +32,20 @@ def _should_skip_duplicate_outbound(msg: OutboundMessage) -> bool:
         now = time.time()
     key = _outbound_dedup_key(msg)
     # Limpar entradas antigas
-    to_del = [k for k, t in _sent_recently.items() if now - t > _OUTBOUND_DEDUP_SECONDS]
+    to_del = [k for k, (t, c) in _sent_recently.items() if now - t > _OUTBOUND_DEDUP_SECONDS]
     for k in to_del:
         del _sent_recently[k]
+        
     if key in _sent_recently:
-        return True
-    _sent_recently[key] = now
+        last_t, count = _sent_recently[key]
+        if count >= 3:
+            _sent_recently[key] = (now, count + 1)
+            return True
+        else:
+            _sent_recently[key] = (now, count + 1)
+            return False
+            
+    _sent_recently[key] = (now, 1)
     return False
 
 
