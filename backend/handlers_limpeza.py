@@ -36,6 +36,12 @@ def _is_limpeza_nl_intent(content: str) -> bool:
     t = (content or "").strip().lower()
     if not t or len(t) < 6 or t.startswith("/"):
         return False
+    
+    # Se a frase já contém detalhes ou frequência, não travar no intro,
+    # deixar ir para o LLM que consegue processar o pedido específico.
+    if any(word in t for word in ("semanal", "weekly", "quinzenal", "bi-weekly", "todo", "toda", "sempre")):
+        return False
+        
     return any(re.search(p, t) for p in _LIMPEZA_NL_PATTERNS)
 
 
