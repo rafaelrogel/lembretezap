@@ -91,8 +91,8 @@ class MessageBus:
             prev = self._pending[key]
             count = prev.metadata.get("_buffer_count", 1)
             if count < max_msgs:
-                # Juntar conteúdo com nova linha (natural para o LLM)
-                joined = (prev.content or "").rstrip() + "\n" + content
+                # Juntar conteúdo com ponto e vírgula para o LLM perceber que são comandos separados
+                joined = (prev.content or "").rstrip() + " ; " + content
                 # Manter metadata do primeiro msg + atualizar com último
                 merged_meta = dict(prev.metadata)
                 merged_meta.update(msg.metadata)
