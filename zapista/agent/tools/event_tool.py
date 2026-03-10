@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -104,7 +104,7 @@ class EventTool(Tool):
                             # but EventTool usually gets ISO with offset or UTC from LLM.
                             # If it's naive, we'll treat it as UTC for a safe "past" check or better yet,
                             # if we have the user timezone, use it.
-                            user_tz_str = get_user_timezone(db, self._chat_id) or "UTC"
+                            user_tz_str = get_user_timezone(db, self.chat_id) or "UTC"
                             dt = dt.replace(tzinfo=ZoneInfo(user_tz_str))
                         
                         # Compare in UTC
@@ -211,7 +211,7 @@ class EventTool(Tool):
 
     def _get_user_lang(self) -> str:
         """Idioma do usuário para mensagens (pt-PT, pt-BR, es, en). Uses local DB preference; fallback to pt-BR."""
-        if not self._chat_id:
+        if not self.chat_id:
             return "pt-BR"
         try:
             from backend.database import SessionLocal
@@ -219,8 +219,8 @@ class EventTool(Tool):
             from backend.locale import resolve_response_language
             db = SessionLocal()
             try:
-                lang = get_user_language(db, self._chat_id) or "pt-BR"
-                return resolve_response_language(lang, self._chat_id)
+                lang = get_user_language(db, self.chat_id) or "pt-BR"
+                return resolve_response_language(lang, self.chat_id)
             finally:
                 db.close()
         except Exception:
