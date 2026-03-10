@@ -753,10 +753,10 @@ class AgentLoop:
             prompt = (
                 f"User message: \"{msg.content}\"\n"
                 f"Current UTC time (Server think): {utc_str}\n"
-                "Task: check if the user is complaining about the time/clock being wrong OR answering an onboarding question about time.\n"
+                "Task: check if the user is complaining about the time/clock being wrong.\n"
                 "1. If they say 'It is HH:MM' or 'Current time is HH:MM' (in any language), calculate the difference from UTC.\n"
-                "   - If difference matches their timezone (e.g. Europe/Lisbon), reply 'FIX|{timezone}'.\n"
-                "   - If difference DOES NOT match expected timezone (e.g. server is 4h off), reply 'FIX_OFFSET|{offset_in_seconds}|{reason}'.\n"
+                "   - If difference matches a known IANA timezone (e.g. America/Sao_Paulo for -3h), reply 'FIX|{timezone}'.\n"
+                "   - If difference DOES NOT match any standard timezone (e.g. server is 4h off), reply 'FIX_OFFSET|{offset_in_seconds}|{reason}'.\n"
                 "     Example: User says 'It is 16:00'. Server says '12:00'. Offset needed: +14400s (4h). Reply: 'FIX_OFFSET|14400|User reported 16:00 vs 12:00'.\n"
                 "2. If they just complain without time, reply 'ASK_CITY'.\n"
                 "3. If unrelated, reply 'NO'."
@@ -992,13 +992,7 @@ class AgentLoop:
             trace_id=msg.trace_id,
         )
 
-        # 0. Timezone Doctor (MIMO): verificar se o user está "perdido no tempo"
-        try:
-            tz_fix = await self._handle_time_confusion(msg)
-            if tz_fix:
-                return tz_fix
-        except Exception:
-            pass
+        # Analytics e contagem diária (lembrete inteligente só após >= 2 msgs no dia)
 
         # Regista mensagem do cliente para contagem diária (lembrete inteligente só após >= 2 msgs no dia)
         try:
@@ -1629,10 +1623,20 @@ class AgentLoop:
                             session.metadata.pop("pending_timezone", None)
                             session.metadata["onboarding_nudge_count"] = nudge_count + 1
                             self.sessions.save(session)
+
                 finally:
                     db.close()
             except Exception as e:
                 logger.debug(f"Onboarding (timezone) flow failed: {e}")
+
+        # Timezone Doctor (MIMO): verificar se o user já registrado está "perdido no tempo" (relógio ou fuso errado)
+        # Chamado após onboarding para não interferir nas perguntas iniciais de fuso.
+        try:
+            tz_fix = await self._handle_time_confusion(msg)
+            if tz_fix:
+                return tz_fix
+        except Exception:
+            pass
 
         # Handlers de comandos (README: /lembrete, /list, /feito, /add, /done, /start, etc.)
         # Confirmações sem botões: 1=sim 2=não. TODO: Após WhatsApp Business API, use buttons.
