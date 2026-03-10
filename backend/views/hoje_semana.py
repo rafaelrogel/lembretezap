@@ -9,46 +9,46 @@ if TYPE_CHECKING:
 
 
 def _events_in_period(db, user_id: int, today, end_date, tz) -> list:
-    """Eventos (agenda) do user no intervalo [today, end_date]. Agora lê da lista 'agenda'."""
-    from backend.models_db import List, ListItem
+    """Eventos (agenda) do user no intervalo [today, end_date]. Lê da tabela 'events'."""
+    from backend.models_db import Event
     from datetime import datetime, time
 
-    # Define the range in UTC for created_at (since list items don't have separate data_at)
-    # NOTA: Como ListItem não herda data_at do Event, vamos usar created_at como proxy para 'hoje'.
-    # No entanto, se o user quiser agendar para o futuro, o ListItem padrão não guarda data.
-    # Para o refactor 'simples', vamos mostrar itens criados no período.
-    start_dt = datetime.combine(today, time.min).replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
-    end_dt = datetime.combine(end_date, time.max).replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    # Construir limites de pesquisa para data_at na timezone do utilizador => UTC
+    local_start = datetime.combine(today, time.min).replace(tzinfo=tz)
+    local_end = datetime.combine(end_date, time.max).replace(tzinfo=tz)
+    
+    start_dt = local_start.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+    end_dt = local_end.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
 
-    # Encontrar a lista 'agenda' do user
-    lst = db.query(List).filter(List.user_id == user_id, List.name == "agenda").first()
-    if not lst:
-        return []
-
-    items = db.query(ListItem).filter(
-        ListItem.list_id == lst.id,
-        ListItem.done == False,
-        ListItem.created_at.between(start_dt, end_dt)
+    # Obter eventos do tipo "evento" que não estão deletados
+    # Também podemos querer listar os eventos que não têm data ("S/ Data"), mas
+    # "agenda na semana" tipicamente implica uma data, então filtramos pelo intervalo data_at.
+    # No entanto, se quiser que eventos sem data apareçam hoje, podemos adaptar.
+    events = db.query(Event).filter(
+        Event.user_id == user_id,
+        Event.tipo == "evento",
+        Event.deleted == False,
+        Event.data_at.between(start_dt, end_dt)
     ).all()
     
     out = []
     seen = set()
-    for it in items:
-        # Usamos created_at como data do evento
-        ev_date = it.created_at.replace(tzinfo=ZoneInfo("UTC"))
+    for ev in events:
+        nome = ev.payload.get("nome", "Evento Desconhecido").strip()
+        ev_date = ev.data_at.replace(tzinfo=ZoneInfo("UTC"))
         try:
             ev_local = ev_date.astimezone(tz).date()
         except Exception:
             ev_local = ev_date.date()
             
-        nome = it.text.strip()
         # Deduplicação: ignorar se já vimos (data, nome_lower)
         key = (ev_local, nome.lower())
         if key in seen:
             continue
         seen.add(key)
         
-        out.append((ev_local, it.created_at, nome[:40]))
+        out.append((ev_local, ev.data_at, nome[:40]))
+        
     out.sort(key=lambda x: (x[0], x[1] or datetime.min))
     return out
 

@@ -126,6 +126,11 @@ class AgentLoop:
             scope_provider=self.scope_provider,
             scope_model=self.scope_model or "",
         ))
+        
+        # Event tool (per-user DB agenda events)
+        from zapista.agent.tools.event_tool import EventTool
+        from backend.database import SessionLocal
+        self.tools.register(EventTool(db_session_factory=SessionLocal))
         # Search tool (Perplexity) — só quando API key disponível
         if self._perplexity_api_key:
             from zapista.agent.tools.search_tool import SearchTool
