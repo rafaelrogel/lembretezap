@@ -35,6 +35,9 @@ def _events_in_period(db, user_id: int, today, end_date, tz) -> list:
     seen = set()
     for ev in events:
         nome = ev.payload.get("nome", "Evento Desconhecido").strip()
+        if not ev.data_at:
+            continue
+            
         ev_date = ev.data_at.replace(tzinfo=ZoneInfo("UTC"))
         try:
             ev_local = ev_date.astimezone(tz).date()
@@ -269,6 +272,7 @@ async def handle_agenda(ctx: "HandlerContext", content: str) -> str | None:
 # Frases em texto/áudio que mostram a agenda do dia (mesma visão e contagem que /agenda)
 _AGENDA_NL_PHRASES = frozenset([
     "agenda", "minha agenda", "ver agenda", "mostra agenda", "mostrar agenda",
+    "mostrar minha agenda", "mostrar a minha agenda", "mostre minha agenda", "mostre a minha agenda", "ver a minha agenda",
     "o que tenho hoje", "que tenho hoje", "o que tenho para hoje", "o que é hoje",
     "what do i have today", "my agenda", "show agenda", "today's agenda",
     "qué tengo hoy", "mi agenda", "agenda del día",

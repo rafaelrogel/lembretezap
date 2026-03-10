@@ -44,8 +44,43 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
         else:
             parts.append("📅 **Lembretes:** Nenhum agendado.")
 
-    # As listas (filme, livro, música, agenda) agora são tratadas pelo ListTool
-    # e já aparecem na listagem de listas se o utilizador pedir para listar ou se
+    # Mostrar também eventos da Agenda
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import get_or_create_user, get_user_timezone
+        from backend.models_db import Event
+        from zoneinfo import ZoneInfo
+        
+        db = SessionLocal()
+        try:
+            user = get_or_create_user(db, ctx.chat_id, phone=ctx.phone_for_locale)
+            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale) or "UTC"
+            tz = ZoneInfo(tz_iana)
+            
+            events = db.query(Event).filter(
+                Event.user_id == user.id,
+                Event.tipo == "evento",
+                Event.deleted == False
+            ).all()
+            
+            if events:
+                lines = ["📆 **Eventos na Agenda:**"]
+                for ev in events:
+                    nome = ev.payload.get("nome", "Evento Desconhecido").strip()
+                    if ev.data_at:
+                        ev_local = ev.data_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+                        dt_str = ev_local.strftime("%d/%m %H:%M")
+                    else:
+                        dt_str = "S/ Data"
+                    lines.append(f"• {dt_str} — {nome}")
+                parts.append("\n".join(lines))
+        finally:
+            db.close()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+    # As listas (filme, livro, música) agora são tratadas pelo ListTool
     # o LLM decidir mostrar as listas.
     
     if not parts:

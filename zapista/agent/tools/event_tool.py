@@ -83,6 +83,10 @@ class EventTool(Tool):
                 date_time_iso = kwargs.get("date_time_iso")
                 data_at = None
                 if date_time_iso:
+                    # Support Python <= 3.10 where fromisoformat requires time segment
+                    if "T" not in date_time_iso.upper() and len(date_time_iso.strip()) <= 10:
+                        date_time_iso = f"{date_time_iso.strip()}T00:00:00"
+                        
                     try:
                         dt = datetime.fromisoformat(date_time_iso)
                         if dt.tzinfo is None:
