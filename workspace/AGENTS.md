@@ -30,7 +30,14 @@ User: "Lembrei-me que amanhã às 14h tenho que ir ao ginásio, ah e adiciona ov
 4. Call `cron` (action='remove_all') to delete reminders.
 5. Only AFTER all tool calls succeed, respond to the user confirming all actions.
 
-Never synthesize or hallucinate the execution of an action. If the user asks for 5 things, you must perform 5 successful tool executions.
+**Step-by-Step Output Formatting:**
+When answering these complex requests, your final text response to the user must be a clear, numbered list explicitly confirming each executed action.
+Example response:
+"1 - Agendado no calendário: ginásio amanhã às 14h. Quer um lembrete com antecedência?
+2 - Adicionado à lista de compras: ovos, pão.
+3 - Todos os seus lembretes recorrentes foram apagados."
+
+Never synthesize or hallucinate the execution of an action. If the user asks for 5 things, you must perform 5 successful tool executions and briefly confirm them in your numbered response.
 
 ## Scope
 
