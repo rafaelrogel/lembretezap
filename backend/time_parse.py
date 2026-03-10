@@ -236,19 +236,20 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
     _pat_data_hora = (
         r"(?:dia\s+)?(\d{1,2})[ºª]?\s*(?:de|/)\s*"
         r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
-        r"\s*(?:de\s+\d{4})?\s*(?:às?|as)\s*(\d{1,2})\s*h?\b"
+        r"\s*(?:(?:de\s+|/)(\d{4}))?\s*(?:às?|as)\s*(\d{1,2})\s*(?:h|:)\s*(\d{2})?\s*"
     )
     m = re.search(_pat_data_hora, text_lower, re.I)
     if m:
         dia = int(m.group(1))
         mes_str = m.group(2).lower()
         mes = int(mes_str) if mes_str.isdigit() else MESES.get(mes_str)
+        ano = int(m.group(3)) if m.group(3) else now.year
+        minute = int(m.group(5)) if m.group(5) else 0
         if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
-            hora = min(23, max(0, int(m.group(3))))
-            ano = now.year
+            hora = min(23, max(0, int(m.group(4))))
             try:
                 tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
-                target = datetime(ano, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                target = datetime(ano, mes, min(dia, 28), hora, minute, 0, tzinfo=tz)
                 delta = (target - now).total_seconds()
                 if target < now and target.date() == now.date() and delta >= -86400:
                     # Hoje mas o horário já passou: devolver in_seconds negativo para o cron avisar (não agendar ano seguinte)
@@ -256,7 +257,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                     return {"in_seconds": int(delta), "message": clean_message(message)}
                 if target < now:
                     # Data inteira no passado: não agendar; avisar e pedir confirmação para ano seguinte
-                    target_next = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                    target_next = datetime(ano + 1, mes, min(dia, 28), hora, minute, 0, tzinfo=tz)
                     delta_next = (target_next - now).total_seconds()
                     if delta_next > 0 and delta_next <= 86400 * 366:
                         message = strip_pattern(text, _pat_data_hora)
@@ -275,7 +276,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
     m = re.search(
         r"(?:dia\s+)?(\d{1,2})[ºª]?\s*(?:de|/)\s*"
         r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
-        r"\s*(?:de\s+\d{4})?\b",
+        r"\s*(?:(?:de\s+|/)(\d{4}))?\b",
         text_lower,
         re.I,
     )
@@ -283,9 +284,9 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         dia = int(m.group(1))
         mes_str = m.group(2).lower()
         mes = int(mes_str) if mes_str.isdigit() else MESES.get(mes_str)
+        ano = int(m.group(3)) if m.group(3) else now.year
         if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
             hora = 9
-            ano = now.year
             try:
                 tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
                 target = datetime(ano, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
@@ -294,7 +295,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                     target_next = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
                     delta_next = (target_next - now).total_seconds()
                     if delta_next > 0 and delta_next <= 86400 * 366:
-                        _pat_data = r"(?:dia\s+)?\d{1,2}[ºª]?\s*(?:de|/)\s*(?:\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de\s+\d{4})?\s*"
+                        _pat_data = r"(?:dia\s+)?\d{1,2}[ºª]?\s*(?:de|/)\s*(?:\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:(?:de\s+|/)\d{4})?\s*"
                         message = strip_pattern(text, _pat_data)
                         return {
                             "date_in_past": True,
@@ -304,7 +305,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                     return None
                 delta = (target - now).total_seconds()
                 if delta > 0 and delta <= 86400 * 365:
-                    _pat_data = r"(?:dia\s+)?\d{1,2}[ºª]?\s*(?:de|/)\s*(?:\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de\s+\d{4})?\s*"
+                    _pat_data = r"(?:dia\s+)?\d{1,2}[ºª]?\s*(?:de|/)\s*(?:\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:(?:de\s+|/)\d{4})?\s*"
                     message = strip_pattern(text, _pat_data)
                     return {"in_seconds": int(delta), "message": clean_message(message)}
             except (ValueError, TypeError):
