@@ -19,7 +19,7 @@ class EventTool(Tool):
     description = (
         "Adiciona, lista ou remove eventos/compromissos na agenda do utilizador. "
         "Ações válidas: 'add', 'list', 'remove'. "
-        "Para 'add': fornece 'event_text' e opcionalmente 'date_time_iso'. "
+        "Para 'add': fornece 'event_text' e opcionalmente 'date_time_iso' (pode ser apenas a data YYYY-MM-DD se não houver hora). "
         "Para 'remove': fornece 'event_id'."
     )
     
@@ -37,7 +37,7 @@ class EventTool(Tool):
             },
             "date_time_iso": {
                 "type": "string",
-                "description": "(add) Data/hora do evento no formato ISO, e.g., '2026-03-12T10:00:00'.",
+                "description": "(add) Data/hora do evento no formato ISO. Pode ser completo (e.g., '2026-03-12T10:00:00') ou apenas a data (e.g., '2026-03-12'). Não pergunte a hora se o utilizador der apenas a data.",
             },
             "event_id": {
                 "type": "integer",
