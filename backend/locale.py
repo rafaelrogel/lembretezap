@@ -1026,10 +1026,10 @@ CRON_REMINDER_SCHEDULED: dict[LangCode, str] = {
 }
 
 CRON_PRE_REMINDERS_ADDED: dict[LangCode, str] = {
-    "pt-PT": " + {count} aviso(s) antes do evento (conforme as tuas preferências).",
-    "pt-BR": " + {count} aviso(s) antes do evento (conforme as suas preferências).",
-    "es": " + {count} aviso(s) antes del evento (según tus preferencias).",
-    "en": " + {count} reminder(s) before the event (according to your preferences).",
+    "pt-PT": " + {count} aviso(s) automático(s) antes do evento.",
+    "pt-BR": " + {count} aviso(s) automático(s) antes do evento.",
+    "es": " + {count} aviso(s) automático(s) antes del evento.",
+    "en": " + {count} automatic reminder(s) before the event.",
 }
 
 CRON_UNCONFIRMED_RETRY: dict[LangCode, str] = {
