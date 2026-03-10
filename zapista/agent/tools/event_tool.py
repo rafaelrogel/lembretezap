@@ -68,7 +68,7 @@ class EventTool(Tool):
         
         db = self.db_session_factory()
         try:
-            user = get_or_create_user(db, self.chat_id, phone=self.phone)
+            user = get_or_create_user(db, self.chat_id)
             tz_str = get_user_timezone(db, self.chat_id, self.phone) or "UTC"
             try:
                 tz = ZoneInfo(tz_str)
@@ -94,7 +94,8 @@ class EventTool(Tool):
                             dt = dt.replace(tzinfo=tz).astimezone(ZoneInfo("UTC"))
                         data_at = dt.replace(tzinfo=None)
                     except ValueError:
-                        return f"Erro: Formato ISO inválido para date_time_iso: {date_time_iso}"
+                        # Se o LLM por acaso injetar "nenhum" ou "nao sei", apenas ignoramos e criamos sem hora
+                        data_at = None
 
                 from backend.models_db import Event
                 ev = Event(
