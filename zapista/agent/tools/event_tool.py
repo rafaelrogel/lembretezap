@@ -93,12 +93,38 @@ class EventTool(Tool):
                         date_time_iso = f"{date_time_iso.strip()}T00:00:00"
                         
                     try:
+                        # Validation: do not allow past dates (guardrails)
+                        from zapista.clock_drift import get_effective_time
+                        effective_ts = get_effective_time()
+                        now = datetime.fromtimestamp(effective_ts, tz=timezone.utc)
+                        
                         dt = datetime.fromisoformat(date_time_iso)
                         if dt.tzinfo is None:
-                            # Assume ISO was provided in the user's timezone, convert to UTC
-                            dt = dt.replace(tzinfo=tz).astimezone(ZoneInfo("UTC"))
+                            # If naive, assume it's in user's timezone and convert to UTC for comparison
+                            # but EventTool usually gets ISO with offset or UTC from LLM.
+                            # If it's naive, we'll treat it as UTC for a safe "past" check or better yet,
+                            # if we have the user timezone, use it.
+                            user_tz_str = get_user_timezone(db, self._chat_id) or "UTC"
+                            dt = dt.replace(tzinfo=ZoneInfo(user_tz_str))
+                        
+                        # Compare in UTC
+                        dt_utc = dt.astimezone(timezone.utc)
+                        
+                        # Grace period of 5 minutes (300s)
+                        if dt_utc < (now - timedelta(minutes=5)):
+                            from backend.locale import REMINDER_TIME_PAST_TODAY, REMINDER_DATE_PAST_ASK_NEXT_YEAR
+                            lang = self._get_user_lang()
+                            
+                            # If it's the same day, use "time past today" message
+                            if dt_utc.date() == now.date():
+                                return REMINDER_TIME_PAST_TODAY.get(lang, REMINDER_TIME_PAST_TODAY["pt-BR"])
+                            else:
+                                return REMINDER_DATE_PAST_ASK_NEXT_YEAR.get(lang, REMINDER_DATE_PAST_ASK_NEXT_YEAR["pt-BR"])
+
+                        # If validation passes, proceed to set data_at
                         data_at = dt.replace(tzinfo=None)
-                    except ValueError:
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"EventTool: invalid date_time_iso '{date_time_iso}': {e}")
                         # Se o LLM por acaso injetar "nenhum" ou "nao sei", apenas ignoramos e criamos sem hora
                         data_at = None
 
@@ -178,7 +204,24 @@ class EventTool(Tool):
                 return f"Erro: Ação '{action}' desconhecida para event tool."
                 
         except Exception as e:
-            logger.exception(f"Erro interno ao executar a ferramenta event: {e}")
-            return f"Erro interno ao executar a ferramenta event: {e}"
+            logger.error(f"EventTool: error in execute: {e}")
+            return f"Erro ao processar agenda: {e}"
         finally:
             db.close()
+
+    def _get_user_lang(self) -> str:
+        """Idioma do usuário para mensagens (pt-PT, pt-BR, es, en). Uses local DB preference; fallback to pt-BR."""
+        if not self._chat_id:
+            return "pt-BR"
+        try:
+            from backend.database import SessionLocal
+            from backend.user_store import get_user_language
+            from backend.locale import resolve_response_language
+            db = SessionLocal()
+            try:
+                lang = get_user_language(db, self._chat_id) or "pt-BR"
+                return resolve_response_language(lang, self._chat_id)
+            finally:
+                db.close()
+        except Exception:
+            return "pt-BR"
