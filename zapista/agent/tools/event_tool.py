@@ -96,36 +96,36 @@ class EventTool(Tool):
                         # Validation: do not allow past dates (guardrails)
                         from zapista.clock_drift import get_effective_time
                         effective_ts = get_effective_time()
+                        # now in UTC
                         now = datetime.fromtimestamp(effective_ts, tz=timezone.utc)
                         
                         dt = datetime.fromisoformat(date_time_iso)
                         if dt.tzinfo is None:
-                            user_tz_str = get_user_timezone(db, self.chat_id) or "UTC"
-                            dt = dt.replace(tzinfo=ZoneInfo(user_tz_str))
+                            # Use user timezone string from DB (cached or fetched)
+                            dt = dt.replace(tzinfo=ZoneInfo(tz_str))
                         
-                        # Compare in UTC
+                        # Convert to UTC for a consistent comparison
                         dt_utc = dt.astimezone(timezone.utc)
                         
-                        logger.info(f"EventTool check: now={now.isoformat()} dt_utc={dt_utc.isoformat()} (date_time_iso={date_time_iso})")
+                        logger.info(f"EventTool check: now={now} dt_utc={dt_utc} (iso_in={date_time_iso})")
                         
-                        # Grace period of 5 minutes (300s)
+                        # Grace period of 5 minutes (300s) to account for processing delay
                         if dt_utc < (now - timedelta(minutes=5)):
-                            logger.warning(f"EventTool: blocked past date {dt_utc.isoformat()} (now={now.isoformat()})")
+                            logger.error(f"EventTool VALIDATION FAILED: {dt_utc} is in the past compared to {now}")
                             from backend.locale import REMINDER_TIME_PAST_TODAY, REMINDER_DATE_PAST_ASK_NEXT_YEAR
                             lang = self._get_user_lang()
                             
-                            # If it's the same day, use "time past today" message
                             if dt_utc.date() == now.date():
                                 return REMINDER_TIME_PAST_TODAY.get(lang, REMINDER_TIME_PAST_TODAY["pt-BR"])
                             else:
                                 return REMINDER_DATE_PAST_ASK_NEXT_YEAR.get(lang, REMINDER_DATE_PAST_ASK_NEXT_YEAR["pt-BR"])
 
-                        # If validation passes, proceed to set data_at
-                        data_at = dt.replace(tzinfo=None)
-                        logger.info(f"EventTool: validation passed for {dt_utc.isoformat()}")
-                    except (ValueError, TypeError) as e:
-                        logger.error(f"EventTool: invalid date_time_iso '{date_time_iso}': {e}")
-                        # Se o LLM por acaso injetar "nenhum" ou "nao sei", apenas ignoramos e criamos sem hora
+                        # If validation passes, use naive UTC for DB storage
+                        data_at = dt_utc.replace(tzinfo=None)
+                        logger.info(f"EventTool VALIDATION PASSED for {dt_utc}")
+                    except Exception as e:
+                        logger.exception(f"EventTool: error validating date_time_iso '{date_time_iso}': {e}")
+                        # If parsing totally fails, we ignore it and create without a date (backwards compatibility)
                         data_at = None
 
                 from backend.models_db import Event
