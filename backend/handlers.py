@@ -658,6 +658,14 @@ async def handle_list_or_events_ambiguous(ctx: HandlerContext, content: str) -> 
     intent = parse(content)
     if not intent or intent.get("type") != "list_or_events_ambiguous":
         return None
+
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
+
     items = intent.get("items") or []
     if len(items) < 2:
         return None
@@ -1103,6 +1111,13 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
     text = content.strip()
     if re.match(r"^/lembrete\s+", text, re.I):
         text = re.sub(r"^/lembrete\s+", "", text, flags=re.I).strip()
+
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
 
     session_key = f"{ctx.channel}:{ctx.chat_id}"
     session = ctx.session_manager.get_or_create(session_key)
