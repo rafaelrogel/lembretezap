@@ -2004,6 +2004,49 @@ USER_DEFAULT_NAME: dict[LangCode, str] = {
     "en": "user",
 }
 
+# Áudio e Transcrição
+AUDIO_TOO_LARGE: dict[LangCode, str] = {
+    "pt-PT": "O áudio é demasiado grande para ser processado. 📂",
+    "pt-BR": "O áudio é muito grande para ser processado. 📂",
+    "es": "El audio es demasiado grande para ser procesado. 📂",
+    "en": "The audio is too large to be processed. 📂",
+}
+
+AUDIO_TOO_LONG: dict[LangCode, str] = {
+    "pt-PT": "O áudio é demasiado longo (máximo 2 minutos). ⏳",
+    "pt-BR": "O áudio é muito longo (máximo 2 minutos). ⏳",
+    "es": "El audio es demasiado largo (máximo 2 minutos). ⏳",
+    "en": "The audio is too long (maximum 2 minutes). ⏳",
+}
+
+AUDIO_NOT_ALLOWED: dict[LangCode, str] = {
+    "pt-PT": "Desculpa, não estou autorizado a processar áudios deste número. 🚫",
+    "pt-BR": "Desculpa, não estou autorizado a processar áudios deste número. 🚫",
+    "es": "Lo siento, no estoy autorizado para procesar audios de este número. 🚫",
+    "en": "Sorry, I'm not authorized to process audios from this number. 🚫",
+}
+
+AUDIO_FORWARDED: dict[LangCode, str] = {
+    "pt-PT": "Não consigo processar áudios reencaminhados para garantir a tua privacidade. Por favor, grava um áudio novo ou escreve. 🔒",
+    "pt-BR": "Não consigo processar áudios encaminhados para garantir sua privacidade. Por favor, grave um novo áudio ou escreva. 🔒",
+    "es": "No puedo procesar audios reenviados para garantizar tu privacidad. Por favor, graba un audio nuevo o escribe. 🔒",
+    "en": "I cannot process forwarded audios to ensure your privacy. Please record a new audio or type. 🔒",
+}
+
+AUDIO_TRANSCRIBE_FAILED: dict[LangCode, str] = {
+    "pt-PT": "Não consegui perceber o áudio. Podes repetir ou escrever? 🎙️",
+    "pt-BR": "Não consegui entender o áudio. Pode repetir ou escrever? 🎙️",
+    "es": "No pude entender el audio. ¿Puedes repetir o escribir? 🎙️",
+    "en": "I couldn't understand the audio. Can you repeat or type it? 🎙️",
+}
+
+AUDIO_NOT_RECEIVED: dict[LangCode, str] = {
+    "pt-PT": "Recebi o aviso de áudio mas o ficheiro não chegou. Tenta enviar de novo. 🔄",
+    "pt-BR": "Recebi o alerta de áudio mas o arquivo não chegou. Tente enviar de novo. 🔄",
+    "es": "Recibí el aviso de audio pero el archivo no llegó. Intenta enviarlo de nuevo. 🔄",
+    "en": "I received the audio alert but the file didn't arrive. Please try sending it again. 🔄",
+}
+
 # ==============================================================================
 # SYSTEM LOCALIZATION OVERRIDES (For hardcoded responses in logic modules)
 # ==============================================================================
@@ -2116,6 +2159,17 @@ SNOOZE_MAX: dict[LangCode, str] = {
     "es": "Máximo 3 repeticiones. ¿Quieres cambiar el horario? Dime el nuevo horario o *no* para cancelar.",
     "en": "Max 3 snoozes reached. Do you want to change the time? Give me the new time or say *no* to cancel.",
 }
+
+
+def format_snooze(lang: LangCode, count: int) -> str:
+    """Mensagem de confirmação de soneca (adiamento)."""
+    if lang == "pt-PT":
+        return f"⏰ Adiado ({count}/3). Volto a avisar em 5 minutos."
+    if lang == "pt-BR":
+        return f"⏰ Adiado ({count}/3). Volto a avisar em 5 minutos."
+    if lang == "es":
+        return f"⏰ Pospuesto ({count}/3). Te aviso de nuevo en 5 minutos."
+    return f"⏰ Snoozed ({count}/3). I'll remind you again in 5 minutes."
 
 # Novos itens de Polish Final
 QUIET_STATUS: dict[LangCode, str] = {
