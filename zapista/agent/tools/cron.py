@@ -114,8 +114,8 @@ class CronTool(Tool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["add", "list", "remove", "remove_all"],
-                    "description": "Action: add, list, remove (one job_id), or remove_all (delete ALL reminders of this user)"
+                    "enum": ["add", "list", "remove", "remove_all", "pomodoro"],
+                    "description": "Action: add, list, remove (one job_id), remove_all (delete ALL reminders of this user), or pomodoro (start a 25-min focus cycle)"
                 },
                 "message": {
                     "type": "string",
@@ -200,6 +200,35 @@ class CronTool(Tool):
             return self._remove_job(job_id)
         if action == "remove_all":
             return self._remove_all_jobs()
+            
+        if action == "pomodoro":
+            from backend.locale import POMODORO_FINISHED_TASK, POMODORO_FINISHED
+            _lang = self._get_user_lang()
+            if message:
+                msg = POMODORO_FINISHED_TASK.get(_lang, POMODORO_FINISHED_TASK["pt-BR"]).format(task=message[:30])
+            else:
+                msg = POMODORO_FINISHED.get(_lang, POMODORO_FINISHED["pt-BR"])
+                
+            return await self._add_job(
+                message=msg,
+                every_seconds=None,
+                in_seconds=25 * 60,
+                cron_expr=None,
+                target_at_iso=None,
+                start_date=None,
+                end_date=None,
+                suggested_prefix="POM",
+                use_pre_reminders=False,
+                long_event_24h=False,
+                allow_relaxed_interval=True,
+                remind_again_if_unconfirmed_seconds=None,
+                depends_on_job_id=None,
+                has_deadline=False,
+                suggested_draft=None,
+                audio_mode=False,
+                pomodoro_cycle=1,
+                pomodoro_phase="focus",
+            )
 
         if action == "add":
             # Phase 2: System-side time parsing via backend.time_parse
