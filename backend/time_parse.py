@@ -43,6 +43,27 @@ _MONTH_NAMES = (
 RE_LEMBRETE_DAQUI = re.compile(r"daqui\s+a\s+(\d+)\s*(min|minuto|hora|dia)s?", re.I)
 RE_LEMBRETE_EM = re.compile(r"em\s+(\d+)\s*(min|minuto|hora|dia)s?", re.I)
 
+# Modificadores de período (PT, ES, EN)
+_AM_PM_MODIFIERS = (
+    r"("
+    r"(?:da|de|na|[àa]s?)\s+(?:manh[ãa]|tarde|noite)|"
+    r"(?:de|por)\s+la\s+(?:ma[ñn]ana|tarde|noche)|"
+    r"in\s+the\s+(?:morning|afternoon|evening)|"
+    r"at\s+night|"
+    r"a\.?m\.?|p\.?m\.?"
+    r")"
+)
+
+def adjust_am_pm_hour(hora: int, period: str | None) -> int:
+    if not period:
+        return hora
+    p = period.lower()
+    if any(w in p for w in ("manh", "mañ", "morn", "am", "a.m")):
+        if hora == 12: return 0
+        if hora > 12: return hora - 12
+    if any(w in p for w in ("tarde", "noite", "noch", "after", "even", "night", "pm", "p.m")):
+        if 1 <= hora < 12: return hora + 12
+    return hora
 
 def strip_pattern(text: str, pattern: str | re.Pattern[str]) -> str:
     """Remove o padrão do texto e retorna limpo. pattern pode ser str ou re.Pattern."""
@@ -163,13 +184,12 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             return {"every_seconds": every, "message": clean_message(message)}
 
     m = re.search(
-        r"(?:(?:[àa]s?\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*(da\s+manh[ãa]|da\s+tarde|da\s+noite)?\s*(?:de\s+)?hoje|hoje\s+(?:[àa]s?\s*)?(\d{1,2})(?:h|:)?(\d{2})?)",
+        r"(?:(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*(?:de\s+)?(?:hoje|hoy|today)\b|"
+        r"(?:hoje|hoy|today)\s+(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b)",
         text_lower,
         re.I,
     )
     if m:
-        # m.group(1)/(2)/(3) se tempo vier ANTES de hoje
-        # m.group(4)/(5) se tempo vier DEPOIS de hoje
         if m.group(1):
             hora = int(m.group(1))
             minute = int(m.group(2) or 0)
@@ -177,14 +197,11 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         else:
             hora = int(m.group(4))
             minute = int(m.group(5) or 0)
-            period = None
+            period = m.group(6)
         
-        if period:
-             if "manh" in period.lower() and hora > 12: hora -= 12
-             if ("tarde" in period.lower() or "noite" in period.lower()) and hora < 12: hora += 12
-        elif hora < 12 and "h" in text_lower and not ("manh" in text_lower or "tarde" in text_lower):
-             # Heurística: se o user diz "às 8h" e agora são 10h, provavelmente quer amanhã ou é ambíguo, 
-             # mas se diz "às 8h de hoje" e são 10h, é passado.
+        hora = adjust_am_pm_hour(hora, period)
+
+        if not period and hora < 12 and "h" in text_lower and not ("manh" in text_lower or "tarde" in text_lower or "morn" in text_lower or "after" in text_lower):
              pass
 
         hora = min(23, max(0, hora))
@@ -197,17 +214,14 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         return {"in_seconds": int(delta), "message": clean_message(message)}
 
     m = re.search(
-        r"amanh[ãa]\s+(?:[àa]s?\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*(da\s+manh[ãa]|da\s+tarde|da\s+noite|am|pm)?\b",
+        r"(?:amanh[ãa]|ma[ñn]ana|tomorrow)\s+(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b",
         text_lower,
         re.I,
     )
     if m:
         hora = min(23, max(0, int(m.group(1))))
         minute = int(m.group(2) or 0)
-        period = m.group(3)
-        if period:
-             if "manh" in period.lower() and hora > 12: hora -= 12
-             if ("tarde" in period.lower() or "noite" in period.lower() or "pm" in period.lower()) and hora < 12: hora += 12
+        hora = adjust_am_pm_hour(hora, m.group(3))
         message = strip_pattern(text, m.group(0))
         tomorrow = (now + timedelta(days=1)).replace(
             hour=hora, minute=minute, second=0, microsecond=0
@@ -247,7 +261,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
     _pat_data_hora = (
         r"(?:dia\s+)?(\d{1,2})[ºª]?" + _SEP +
         r"(\d{1,2}|" + _MONTH_NAMES + r")"
-        r"(?:" + _SEP + r"(\d{4}))?\s*(?:às?|as|at)\s*(\d{1,2})\s*(?:h|:)\s*(\d{2})?\s*(da\s+manh[ãa]|da\s+tarde|da\s+noite|am|pm)?\s*"
+        r"(?:" + _SEP + r"(\d{4}))?\s*(?:às?|as|at|a\s+las?)\s*(\d{1,2})\s*(?:h|:)\s*(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*"
     )
     m = re.search(_pat_data_hora, text_lower, re.I)
     if m:
@@ -259,9 +273,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         period = m.group(6)
         if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
             hora = min(23, max(0, int(m.group(4))))
-            if period:
-                 if "manh" in period.lower() and hora > 12: hora -= 12
-                 if ("tarde" in period.lower() or "noite" in period.lower() or "pm" in period.lower()) and hora < 12: hora += 12
+            hora = adjust_am_pm_hour(hora, period)
             try:
                 tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
                 target = datetime(ano, mes, min(dia, 28), hora, minute, 0, tzinfo=tz)
