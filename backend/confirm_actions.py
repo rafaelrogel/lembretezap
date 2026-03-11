@@ -288,10 +288,14 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
         # 4. Apagar cron jobs do utilizador
         if ctx.cron_service:
             try:
+                user_id_base = ctx.chat_id.split("@")[0] if ctx.chat_id else ""
                 jobs = ctx.cron_service.list_jobs(include_disabled=True)
                 for job in jobs:
-                    if getattr(job, "to", None) == ctx.chat_id or getattr(job, "channel", None) and getattr(job, "to", None) == ctx.chat_id:
-                        ctx.cron_service.remove_job(job.id)
+                    p = getattr(job, "payload", None)
+                    if p:
+                        to_val = getattr(p, "to", "") or ""
+                        if to_val == ctx.chat_id or (user_id_base and to_val.split("@")[0] == user_id_base):
+                            ctx.cron_service.remove_job_and_deadline_followups(job.id)
             except Exception:
                 pass
 
