@@ -197,14 +197,18 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         return {"in_seconds": int(delta), "message": clean_message(message)}
 
     m = re.search(
-        r"amanh[ãa]\s+(?:[àa]s?\s*)?(\d{1,2})(?:h|:)?(\d{2})?\b",
+        r"amanh[ãa]\s+(?:[àa]s?\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*(da\s+manh[ãa]|da\s+tarde|da\s+noite|am|pm)?\b",
         text_lower,
         re.I,
     )
     if m:
         hora = min(23, max(0, int(m.group(1))))
         minute = int(m.group(2) or 0)
-        message = strip_pattern(text, r"amanh[ãa]\s+(?:[àa]s?\s*)?\d{1,2}(?:h|:)?(?:\d{2})?\s*")
+        period = m.group(3)
+        if period:
+             if "manh" in period.lower() and hora > 12: hora -= 12
+             if ("tarde" in period.lower() or "noite" in period.lower() or "pm" in period.lower()) and hora < 12: hora += 12
+        message = strip_pattern(text, m.group(0))
         tomorrow = (now + timedelta(days=1)).replace(
             hour=hora, minute=minute, second=0, microsecond=0
         )
@@ -243,7 +247,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
     _pat_data_hora = (
         r"(?:dia\s+)?(\d{1,2})[ºª]?" + _SEP +
         r"(\d{1,2}|" + _MONTH_NAMES + r")"
-        r"(?:" + _SEP + r"(\d{4}))?\s*(?:às?|as|at)\s*(\d{1,2})\s*(?:h|:)\s*(\d{2})?\s*"
+        r"(?:" + _SEP + r"(\d{4}))?\s*(?:às?|as|at)\s*(\d{1,2})\s*(?:h|:)\s*(\d{2})?\s*(da\s+manh[ãa]|da\s+tarde|da\s+noite|am|pm)?\s*"
     )
     m = re.search(_pat_data_hora, text_lower, re.I)
     if m:
@@ -252,8 +256,12 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         mes = int(mes_str) if mes_str.isdigit() else MESES.get(mes_str)
         ano = int(m.group(3)) if m.group(3) else now.year
         minute = int(m.group(5)) if m.group(5) else 0
+        period = m.group(6)
         if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
             hora = min(23, max(0, int(m.group(4))))
+            if period:
+                 if "manh" in period.lower() and hora > 12: hora -= 12
+                 if ("tarde" in period.lower() or "noite" in period.lower() or "pm" in period.lower()) and hora < 12: hora += 12
             try:
                 tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
                 target = datetime(ano, mes, min(dia, 28), hora, minute, 0, tzinfo=tz)
