@@ -27,7 +27,6 @@ RE_REMOVE_ID_ONLY = re.compile(r"^/remove\s+(\d+)\s*$", re.I)
 
 RE_HORA = re.compile(r"^/hora\s*$", re.I)
 RE_DATA = re.compile(r"^/data\s*$", re.I)
-RE_EVENTO = re.compile(r"^/(?:evento|agenda)\s+(.+)$", re.I)
 # Linguagem natural: mostre lista X, lista de X, minha lista X, qual lista, mercado, compras
 RE_NL_MOSTRE_LISTA = re.compile(
     r"^(?:mostr(?:e|ar)|ver|listar|mostra)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?(\w+)\s*$", re.I
@@ -214,9 +213,6 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
 
 
     # Atalhos: /filme X, /livro X, /musica X → list_add (dentro de /list)
-    m = RE_EVENTO.match(text)
-    if m:
-        return {"type": "list_add", "list_name": "agenda", "item": m.group(1).strip()}
     m = RE_FILME.match(text)
     if m:
         return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
