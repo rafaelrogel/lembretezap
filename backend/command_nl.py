@@ -101,7 +101,7 @@ def normalize_nl_to_command(content: str) -> str:
     if re.match(r"^(minha\s+agenda|o\s+que\s+tenho\s+agendado|what\s+is\s+on\s+my\s+agenda|mi\s+agenda)\s*$", lower):
         return "/agenda"
     # Agenda commands in PT, ES, EN
-    m = re.match(r"^(liste|listar|mostre|mostrar|ver|show|view|muestra)\s+(minha\s+|my\s+|mi\s+|the\s+|a\s+)?(agenda|calend[aá]rio|calendar|schedule)\s*(.*)$", lower)
+    m = re.match(r"^(liste|listar|mostre|mostrar|ver|show|view|muestra)\s+(minha\s+|my\s+|mi\s+|the\s+|a\s+|as\s+|las\s+)?(agendas?|calend[aá]rios?|calendars?|schedules?)\s*(.*)$", lower)
     if m:
         suffix = m.group(4).strip()
         if suffix:

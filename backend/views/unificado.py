@@ -42,8 +42,8 @@ def _is_eventos_unificado_intent(content: str) -> bool:
         r"mis?\s+(?:recordatorios?|eventos?|citas?)",
         r"(?:qué|que)\s+(?:recordatorios?|eventos?|citas?)\s+tengo",
         # Generic agenda queries falling through /agenda (which is day-only) -> "agenda mês", "agenda 2028"
-        r"agenda\s+(?:.+$)",
-        r"(?:calend[aá]rio|calendar|schedule)\s+(?:.+$)",
+        r"agendas?\s+(?:.+$)",
+        r"(?:calend[aá]rios?|calendars?|schedules?)\s+(?:.+$)",
     ]
     return any(re.search(p, t) for p in patterns)
 
