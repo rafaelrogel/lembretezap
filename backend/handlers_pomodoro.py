@@ -43,12 +43,23 @@ def _is_nl_pomodoro_start(content: str) -> bool:
     """True se a mensagem em texto/áudio pede para iniciar pomodoro agora (sem tempo futuro)."""
     if not content or len(content.strip()) > 120:
         return False
-    t = content.strip()
-    if "pomodoro" not in t.lower():
+    t = content.strip().lower()
+    if "pomodoro" not in t:
         return False
     if _NL_POMODORO_FUTURE_TIME.search(t):
         return False
-    return bool(_NL_POMODORO_START.search(t)) or t.lower().strip() == "pomodoro"
+        
+    # Evitar intercetar mensagens de multi-intenção, deixando o LLM processá-las
+    multi_intent_words = (
+        " e ", " and ", " y ", " também ", " also ", " también ",
+        " adiciona", " add ", " añade", " agenda", " lembra", " remind ", " recuerda ", 
+        " lista", " list ", " cria ", " create ", " apaga ", " remove ", " delete "
+    )
+    t_padded = f" {t} "
+    if any(word in t_padded for word in multi_intent_words):
+        return False
+        
+    return bool(_NL_POMODORO_START.search(t)) or t.strip() == "pomodoro"
 
 
 def _is_pomodoro_job(job) -> bool:
