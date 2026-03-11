@@ -61,6 +61,12 @@ _RE_THIS_WEEK = re.compile(
     re.I,
 )
 
+# This year: "este ano", "esse ano", "deste ano", "este año", "this year"
+_RE_THIS_YEAR = re.compile(
+    r"(?:para\s+)?(?:d?est[ea]\s+ano|this\s+year|este\s+a[nñ]o)",
+    re.I,
+)
+
 # Next week: "próxima semana", "proxima semana", "semana que vem", "next week", "próxima semana" (ES)
 _RE_NEXT_WEEK = re.compile(
     r"(?:para\s+)?(?:pr[oó]xima\s+semana|semana\s+que\s+vem|next\s+week)",
@@ -139,6 +145,10 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
         start = today - timedelta(days=today.weekday())  # Monday
         end = start + timedelta(days=6)  # Sunday
         return (start, end)
+
+    # This year
+    if _RE_THIS_YEAR.search(t):
+        return (date(today.year, 1, 1), date(today.year, 12, 31))
 
     # Next month (before this month)
     if _RE_NEXT_MONTH.search(t):
