@@ -41,7 +41,7 @@ _MONTH_NAMES: dict[str, int] = {
 # Year: "para 2027", "de 2027", "em 2027", "ano de 2027", "in 2027", "for 2027",
 #        "year 2027", "año 2027", "del 2027"
 _RE_YEAR = re.compile(
-    r"(?:para\s+o?\s*ano\s+(?:de\s+)?|ano\s+(?:de\s+)?|para\s+|de\s+|em\s+|in\s+|for\s+|year\s+|año\s+(?:de\s+)?|del\s+)"
+    r"(?:para\s+o?\s*ano\s+(?:de\s+)?|ano\s+(?:de\s+)?|para\s+|de\s+|em\s+|in\s+|for\s+|year\s+|año\s+(?:de\s+)?|del\s+|at[eé]\s+|until\s+|hasta\s+)"
     r"(\d{4})\b",
     re.I,
 )
@@ -57,13 +57,13 @@ _RE_MONTH = re.compile(
 
 # This week: "esta semana", "dessa semana", "para esta semana", "this week", "esta semana" (ES)
 _RE_THIS_WEEK = re.compile(
-    r"(?:para\s+)?(?:esta|dessa|d?esta)\s+semana|this\s+week",
+    r"(?:para\s+)?(?:esta|dessa|d?esta)\s+semana|this\s+week|\bsemana\b",
     re.I,
 )
 
 # This year: "este ano", "esse ano", "deste ano", "este año", "this year"
 _RE_THIS_YEAR = re.compile(
-    r"(?:para\s+)?(?:d?est[ea]\s+ano|this\s+year|este\s+a[nñ]o)",
+    r"(?:para\s+)?(?:d?est[ea]\s+ano|this\s+year|este\s+a[nñ]o|\bano\b|\ba[nñ]o\b|\byear\b)",
     re.I,
 )
 
@@ -75,7 +75,7 @@ _RE_NEXT_WEEK = re.compile(
 
 # This month: "este mês", "esse mês", "deste mês", "este mes", "this month"
 _RE_THIS_MONTH = re.compile(
-    r"(?:para\s+)?(?:d?est[ea]\s+m[eê]s|this\s+month)",
+    r"(?:para\s+)?(?:d?est[ea]\s+m[eê]s|this\s+month|\bm[eê]s\b|\bmonth\b)",
     re.I,
 )
 
