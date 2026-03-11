@@ -80,11 +80,14 @@ async def run_restart(
         logger.warning(f"Restart: session delete failed: {e}")
     # 2) Cron jobs cujo payload.to == chat_id e payload.channel == channel
     try:
+        user_id_base = chat_id.split("@")[0] if chat_id else ""
         for job in cron_service.list_jobs(include_disabled=True):
             p = getattr(job, "payload", None)
-            if p and getattr(p, "channel", None) == channel and getattr(p, "to", None) == chat_id:
-                cron_service.remove_job(job.id)
-                logger.info(f"Restart: cron job removed {job.id}")
+            if p and getattr(p, "channel", None) == channel:
+                to_val = getattr(p, "to", "") or ""
+                if to_val == chat_id or (user_id_base and to_val.split("@")[0] == user_id_base):
+                    cron_service.remove_job_and_deadline_followups(job.id)
+                    logger.info(f"Restart: cron job removed {job.id}")
     except Exception as e:
         logger.warning(f"Restart: cron remove failed: {e}")
     # 3) Listas e eventos do utilizador (backend DB)

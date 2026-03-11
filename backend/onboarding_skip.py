@@ -68,7 +68,7 @@ def is_affirmation(content: str | None) -> bool:
     t = content.strip().lower()
     # Padrões comuns de afirmação
     affirmation_patterns = (
-        r"^(s[im]|yes|ok|okay|concordo|isso|correto|cert[oa]|pode\s+ser)\b",
+        r"^(sim|s[ií]|yes|ok|okay|concordo|isso|correto|cert[oa]|pode\s+ser)\b",
         r"^(est[aá]\s+correto|é\s+isso|isso\s+mesmo)\b",
     )
     import re as _re
