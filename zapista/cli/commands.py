@@ -364,18 +364,30 @@ def gateway(
                 logger.exception(f"Smart reminder failed: {e}")
                 return f"Lembrete inteligente falhou: {e}"
 
-        # Lembrete com prazo: deadline_check verifica se main existe; se sim, alerta + 3 post-deadline
         if getattr(job.payload, "kind", None) == "deadline_check":
             main_id = getattr(job.payload, "deadline_check_for_job_id", None)
             main_job = cron.get_job(main_id) if main_id else None
             if main_job and bus:
                 from zapista.bus.events import OutboundMessage
                 from zapista.cron.types import CronSchedule
-                msg = main_job.payload.message or "Lembrete"
-                ch = main_job.payload.channel or "whatsapp"
+                from backend.database import SessionLocal
+                from backend.locale import phone_to_default_language, DEFAULT_REMINDER_MSG, format_deadline_alert
+                from backend.user_store import get_user_language
+                
                 to = main_job.payload.to or ""
+                user_lang = "pt-BR"
                 if to:
-                    alert = f"⚠️ Ainda não concluíste: {msg}"
+                    try:
+                        db = SessionLocal()
+                        user_lang = get_user_language(db, to, to) or phone_to_default_language(to)
+                        db.close()
+                    except Exception:
+                        pass
+                        
+                msg = main_job.payload.message or DEFAULT_REMINDER_MSG.get(user_lang, DEFAULT_REMINDER_MSG["en"])
+                ch = main_job.payload.channel or "whatsapp"
+                if to:
+                    alert = format_deadline_alert(user_lang, msg)
                     await bus.publish_outbound(OutboundMessage(
                         channel=ch, chat_id=to, content=alert,
                         metadata={"priority": "high"},
@@ -402,9 +414,24 @@ def gateway(
         main_id = getattr(job.payload, "deadline_main_job_id", None)
         if post_idx is not None and main_id and job.payload.deliver and job.payload.to and bus:
             from zapista.bus.events import OutboundMessage
-            msg = job.payload.message or "Lembrete"
+            from backend.database import SessionLocal
+            from backend.locale import phone_to_default_language, DEFAULT_REMINDER_MSG, format_deadline_alert_suffix
+            from backend.user_store import get_user_language
+
+            to = job.payload.to or ""
+            user_lang = "pt-BR"
+            if to:
+                try:
+                    db = SessionLocal()
+                    user_lang = get_user_language(db, to, to) or phone_to_default_language(to)
+                    db.close()
+                except Exception:
+                    pass
+
+            msg = job.payload.message or DEFAULT_REMINDER_MSG.get(user_lang, DEFAULT_REMINDER_MSG["en"])
             suffix = f" ({post_idx}/3)"
-            content = f"⚠️ Ainda não concluíste{suffix}: {msg}"
+            content = format_deadline_alert_suffix(user_lang, msg, suffix)
+            
             await bus.publish_outbound(OutboundMessage(
                 channel=job.payload.channel or "whatsapp",
                 chat_id=job.payload.to,

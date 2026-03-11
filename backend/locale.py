@@ -2003,3 +2003,116 @@ USER_DEFAULT_NAME: dict[LangCode, str] = {
     "es": "usuario",
     "en": "user",
 }
+
+# ==============================================================================
+# SYSTEM LOCALIZATION OVERRIDES (For hardcoded responses in logic modules)
+# ==============================================================================
+
+# Autorização Básica e Segura
+UNAUTHORIZED_USER: dict[LangCode, str] = {
+    "pt-PT": "Não estás autorizado a usar este bot. O teu número tem de estar na lista do administrador. Se és o dono, adiciona este número em allow_from no config e reinicia o gateway.",
+    "pt-BR": "Você não está autorizado a usar este bot. Seu número deve estar na lista do administrador. Se você é o dono, adicione este número em allow_from no config e reinicie o gateway.",
+    "es": "No estás autorizado para usar este bot. Tu número debe estar en la lista del administrador. Si eres el dueño, añade este número en allow_from en el config y reinicia el gateway.",
+    "en": "You are not authorized to use this bot. Your number must be in the administrator list. If you are the owner, add this number to allow_from in the config and restart the gateway.",
+}
+
+# Fluxo de Restart da Sessão
+RESTART_MSG_FIRST: dict[LangCode, str] = {
+    "pt-PT": "Queres reiniciar toda a tua sessão e voltar ao zero? Responde *sim* ou *não*.",
+    "pt-BR": "Quer reiniciar toda a sua sessão e voltar ao zero? Responda *sim* ou *não*.",
+    "es": "¿Quieres reiniciar toda tu sesión y empezar de cero? Responde *sí* o *no*.",
+    "en": "Do you want to reset your entire session and start from scratch? Reply *yes* or *no*.",
+}
+
+RESTART_MSG_SECOND: dict[LangCode, str] = {
+    "pt-PT": "⚠️ Última confirmação: vais reiniciar toda a conversa e apagar *todos os lembretes*, *compromissos agendados*, *tarefas*, *listas* — tudo volta à estaca zero. Esta ação não tem volta.\n\nConfirma com *sim* ou *não*.",
+    "pt-BR": "⚠️ Última confirmação: você vai reiniciar toda a conversa e apagar *todos os lembretes*, *compromissos agendados*, *tarefas*, *listas* — tudo volta ao Marco Zero. Esta ação não tem volta.\n\nConfirme com *sim* ou *não*.",
+    "es": "⚠️ Última confirmación: vas a reiniciar toda la conversación y borrar *todos los recordatorios*, *citas*, *tareas*, *listas* — todo vuelve a cero. Esta acción es irreversible.\n\nConfirma con *sí* o *no*.",
+    "en": "⚠️ Final confirmation: you are about to reset the entire conversation and delete *all reminders*, *scheduled events*, *tasks*, *lists* — everything goes back to square one. This action cannot be undone.\n\nConfirm with *yes* or *no*.",
+}
+
+RESTART_MSG_CANCELLED: dict[LangCode, str] = {
+    "pt-PT": "Reinício cancelado. Nada foi alterado.",
+    "pt-BR": "Reinício cancelado. Nada foi alterado.",
+    "es": "Reinicio cancelado. Nada ha cambiado.",
+    "en": "Reset cancelled. Everything remains as it was.",
+}
+
+RESTART_MSG_DONE: dict[LangCode, str] = {
+    "pt-PT": "Tudo reiniciado. É um novo começo.",
+    "pt-BR": "Tudo reiniciado. É um novo começo.",
+    "es": "Todo reiniciado. Es un nuevo comienzo.",
+    "en": "Everything has been reset. Fresh start.",
+}
+
+RESTART_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Erro ao reiniciar. Tenta de novo ou contacta o suporte.",
+    "pt-BR": "Erro ao reiniciar. Tente de novo ou contate o suporte.",
+    "es": "Error al reiniciar. Intenta de nuevo o contacta al soporte.",
+    "en": "Error during reset. Try again or contact support.",
+}
+
+# Modo Deus e Comandos Admin
+GOD_MODE_ACTIVE: dict[LangCode, str] = {
+    "pt-PT": "God-mode ativo. Comandos: #hora #ativos #erros #diagnostico #help #clientes #jobs #redis #whatsapp | #status #users #cron #server #system #add #remove #mute #quit",
+    "pt-BR": "God-mode ativo. Comandos: #hora #ativos #erros #diagnostico #help #clientes #jobs #redis #whatsapp | #status #users #cron #server #system #add #remove #mute #quit",
+    "es": "God-mode activo. Comandos: #hora #ativos #erros #diagnostico #help #clientes #jobs #redis #whatsapp | #status #users #cron #server #system #add #remove #mute #quit",
+    "en": "God-mode active. Commands: #hora #ativos #erros #diagnostico #help #clientes #jobs #redis #whatsapp | #status #users #cron #server #system #add #remove #mute #quit",
+}
+
+GOD_MODE_INACTIVE: dict[LangCode, str] = {
+    "pt-PT": "God-mode desativado.",
+    "pt-BR": "God-mode desativado.",
+    "es": "God-mode desactivado.",
+    "en": "God-mode disabled.",
+}
+
+MUTE_USAGE: dict[LangCode, str] = {
+    "pt-PT": "#mute\nUso: #mute <número de telefone>",
+    "pt-BR": "#mute\nUso: #mute <número de telefone>",
+    "es": "#mute\nUso: #mute <número de teléfono>",
+    "en": "#mute\nUsage: #mute <phone number>",
+}
+
+ADMIN_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Erro ao executar comando admin.",
+    "pt-BR": "Erro ao executar comando de admin.",
+    "es": "Error al ejecutar comando de administración.",
+    "en": "Error executing admin command.",
+}
+
+# Mensagens Recorrentes Adicionais
+CONFIRM_DONE: dict[LangCode, str] = {
+    "pt-PT": "Confirmas que concluíste? Responde *sim* ou *não*.",
+    "pt-BR": "Você confirma que concluiu? Responda *sim* ou *não*.",
+    "es": "¿Confirmas que terminaste? Responde *sí* o *no*.",
+    "en": "Do you confirm you're done? Reply *yes* or *no*.",
+}
+
+DEADLINE_ALERT: dict[LangCode, str] = {
+    "pt-PT": "⚠️ Ainda não concluíste:",
+    "pt-BR": "⚠️ Você ainda não concluiu:",
+    "es": "⚠️ Todavía no has terminado:",
+    "en": "⚠️ You still haven't completed:",
+}
+
+DEFAULT_REMINDER_MSG: dict[LangCode, str] = {
+    "pt-PT": "Lembrete",
+    "pt-BR": "Lembrete",
+    "es": "Recordatorio",
+    "en": "Reminder",
+}
+
+SCHEDULE_CHANGE_PROMPT: dict[LangCode, str] = {
+    "pt-PT": "Queres alterar o horário? Diz o novo horário (ex: em 1 hora, amanhã às 10h) ou *não* para cancelar.",
+    "pt-BR": "Quer alterar o horário? Mande o novo horário (ex: em 1 hora, amanhã às 10h) ou diga *não* para cancelar.",
+    "es": "¿Quieres cambiar el horario? Dime el nuevo horario (ej: en 1 hora, mañana a las 10) o *no* para cancelar.",
+    "en": "Would you like to change the schedule? Tell me the new time (e.g. in 1 hour, tomorrow at 10 AM) or say *no* to cancel.",
+}
+
+SNOOZE_MAX: dict[LangCode, str] = {
+    "pt-PT": "Máximo 3 sonecas. Queres alterar o horário? Diz o novo horário ou *não* para cancelar.",
+    "pt-BR": "Máximo de 3 sonecas. Quer alterar o horário? Fale o novo horário ou *não* para cancelar.",
+    "es": "Máximo 3 repeticiones. ¿Quieres cambiar el horario? Dime el nuevo horario o *no* para cancelar.",
+    "en": "Max 3 snoozes reached. Do you want to change the time? Give me the new time or say *no* to cancel.",
+}

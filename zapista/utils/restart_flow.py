@@ -43,21 +43,8 @@ def clear_restart_stage(channel: str, chat_id: str) -> None:
     _STATE.pop(_key(channel, chat_id), None)
 
 
-# Mensagens do fluxo (WhatsApp: * = negrito)
-MSG_FIRST = (
-    "Queres reiniciar toda a tua sessão e voltar ao zero? "
-    "Responde *sim* ou *não*."
-)
-MSG_SECOND = (
-    "⚠️ Última confirmação: vais reiniciar toda a conversa e apagar "
-    "*todos os lembretes*, *compromissos agendados*, *tarefas*, *listas* — "
-    "tudo volta à estaca zero. Esta ação não tem volta.\n\n"
-    "Confirma com *sim* ou *não*."
-)
-MSG_CANCELLED = "Reinício cancelado. Nada foi alterado."
-MSG_DONE = "Tudo reiniciado. É um novo começo."
-
-
+# Mensagens do fluxo foram migradas para backend.locale
+# e as chamadas no whatsapp.py já as obtêm diretamente.
 def is_confirm_reply(content: str) -> bool:
     t = (content or "").strip().lower()
     return t in ("sim", "s", "não", "nao", "n", "1", "2", "yes", "no", "y")
