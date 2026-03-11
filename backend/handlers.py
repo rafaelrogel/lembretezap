@@ -340,9 +340,11 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                     # 2 lembretes: aviso (in_sec - advance_sec) e na hora (in_sec)
                     advance_in_sec = max(60, in_sec - advance_sec)
+                    from backend.locale import REMINDER_ADVANCE_NOTICE_PREFIX
+                    prefix = REMINDER_ADVANCE_NOTICE_PREFIX.get(user_lang, REMINDER_ADVANCE_NOTICE_PREFIX["en"])
                     r1 = await ctx.cron_tool.execute(
                         action="add",
-                        message=f"(Aviso) {msg_content}",
+                        message=f"{prefix} {msg_content}",
                         in_seconds=advance_in_sec,
                     )
                     r2 = await ctx.cron_tool.execute(
@@ -365,9 +367,11 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                     ctx.session_manager.save(session)
                     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                     advance_in_sec = max(60, in_sec - advance_sec)
+                    from backend.locale import REMINDER_ADVANCE_NOTICE_PREFIX
+                    prefix = REMINDER_ADVANCE_NOTICE_PREFIX.get(user_lang, REMINDER_ADVANCE_NOTICE_PREFIX["en"])
                     r1 = await ctx.cron_tool.execute(
                         action="add",
-                        message=f"(Aviso) {msg_content}",
+                        message=f"{prefix} {msg_content}",
                         in_seconds=advance_in_sec,
                     )
                     r2 = await ctx.cron_tool.execute(

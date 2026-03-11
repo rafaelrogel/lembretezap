@@ -107,7 +107,8 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
     arg = rest.split(None, 1)[1].strip() if rest and len(rest.split(None, 1)) > 1 else ""
 
     if not ctx.cron_service or not ctx.cron_tool:
-        return POMODORO_UNAVAILABLE.get(lang, POMODORO_UNAVAILABLE["pt-BR"])
+        from backend.locale import POMODORO_UNAVAILABLE
+        return POMODORO_UNAVAILABLE.get(lang, POMODORO_UNAVAILABLE["en"])
 
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
 
@@ -122,7 +123,8 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
             return POMODORO_NONE_ACTIVE.get(lang, POMODORO_NONE_ACTIVE["pt-BR"]).replace(" Usa /pomodoro para iniciar.", "").replace(" Use /pomodoro para iniciar.", "").replace(" Usa /pomodoro para iniciar.", "").replace(" Use /pomodoro to start.", "")
         for j in pomo_jobs:
             ctx.cron_service.remove_job(j.id)
-        return POMODORO_STOPPED.get(lang, POMODORO_STOPPED["pt-BR"]).format(count=len(pomo_jobs))
+        from backend.locale import POMODORO_STOPPED
+        return POMODORO_STOPPED.get(lang, POMODORO_STOPPED["en"]).format(count=len(pomo_jobs))
 
     # /pomodoro status
     if sub == "status":
@@ -139,10 +141,13 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
             if next_ms:
                 s = int((next_ms - get_effective_time_ms()) / 1000)
                 m = s // 60
-                # Could be localized, but keeping numbers is fine for now
-                lines.append(f"  • {j.id}: {m} min restantes")
+                from backend.locale import POMODORO_TIME_REMAINING
+                label = POMODORO_TIME_REMAINING.get(lang, POMODORO_TIME_REMAINING["en"]).format(min=m)
+                lines.append(f"  • {j.id}: {label}")
             else:
-                lines.append(f"  • {j.id}: agendado")
+                from backend.locale import POMODORO_SCHEDULED
+                label = POMODORO_SCHEDULED.get(lang, POMODORO_SCHEDULED["en"])
+                lines.append(f"  • {j.id}: {label}")
         return "\n".join(lines) + " 🍅"
 
     # /pomodoro ou /pomodoro start [tarefa]

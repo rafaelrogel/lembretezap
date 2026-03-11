@@ -174,7 +174,8 @@ async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
         db = SessionLocal()
         try:
             if set_user_quiet(db, ctx.chat_id, start_hhmm, end_hhmm):
-                return f"🔇 Horário silencioso ativo: {start_hhmm}–{end_hhmm}. Não receberás lembretes nessa janela."
+                from backend.locale import QUIET_STATUS
+                return QUIET_STATUS.get(user_lang, QUIET_STATUS["en"]).format(start=start_hhmm, end=end_hhmm)
         finally:
             db.close()
     except Exception:
@@ -255,7 +256,8 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
     return out
 
     if abs(offset) > 60:
-        res.append("\n⚠️ *Aviso:* Relógio do servidor está muito desalinhado. O bot está a compensar automaticamente, mas recomenda-se acertar o NTP do VPS.")
+        from backend.locale import SERVER_CLOCK_SKEW_WARNING
+        res.append("\n" + SERVER_CLOCK_SKEW_WARNING.get(user_lang, SERVER_CLOCK_SKEW_WARNING["en"]))
     
     return "\n".join(res)
 

@@ -2116,3 +2116,53 @@ SNOOZE_MAX: dict[LangCode, str] = {
     "es": "Máximo 3 repeticiones. ¿Quieres cambiar el horario? Dime el nuevo horario o *no* para cancelar.",
     "en": "Max 3 snoozes reached. Do you want to change the time? Give me the new time or say *no* to cancel.",
 }
+
+# Novos itens de Polish Final
+QUIET_STATUS: dict[LangCode, str] = {
+    "pt-PT": "🔇 Horário silencioso ativo: {start}–{end}. Não receberás lembretes nessa janela.",
+    "pt-BR": "🔇 Horário silencioso ativo: {start}–{end}. Você não receberá lembretes nessa janela.",
+    "es": "🔇 Horario silencioso activo: {start}–{end}. No recibirás recordatorios en esta ventana.",
+    "en": "🔇 Quiet hours active: {start}–{end}. You won't receive reminders during this window.",
+}
+
+SERVER_CLOCK_SKEW_WARNING: dict[LangCode, str] = {
+    "pt-PT": "⚠️ *Aviso:* Relógio do servidor está muito desalinhado. O bot está a compensar automaticamente, mas recomenda-se acertar o NTP do VPS.",
+    "pt-BR": "⚠️ *Aviso:* Relógio do servidor está muito desalinhado. O bot está compensando automaticamente, mas recomenda-se acertar o NTP do VPS.",
+    "es": "⚠️ *Aviso:* El reloj del servidor está muy desalineado. El bot está compensando automáticamente, pero se recomienda ajustar el NTP del VPS.",
+    "en": "⚠️ *Warning:* Server clock is significantly skewed. The bot is compensating automatically, but it's recommended to fix the VPS NTP settings.",
+}
+
+REMINDER_ADVANCE_NOTICE_PREFIX: dict[LangCode, str] = {
+    "pt-PT": "(Aviso)",
+    "pt-BR": "(Aviso)",
+    "es": "(Aviso)",
+    "en": "(Advance Notice)",
+}
+
+POMODORO_TIME_REMAINING: dict[LangCode, str] = {
+    "pt-PT": "{min} min restantes",
+    "pt-BR": "{min} min restantes",
+    "es": "{min} min restantes",
+    "en": "{min} min remaining",
+}
+
+POMODORO_SCHEDULED: dict[LangCode, str] = {
+    "pt-PT": "agendado",
+    "pt-BR": "agendado",
+    "es": "programado",
+    "en": "scheduled",
+}
+
+POMODORO_UNAVAILABLE: dict[LangCode, str] = {
+    "pt-PT": "🍅 Pomodoro: o cron não está disponível neste canal.",
+    "pt-BR": "🍅 Pomodoro: o cron não está disponível neste canal.",
+    "es": "🍅 Pomodoro: el cron no está disponible en este canal.",
+    "en": "🍅 Pomodoro: cron is not available on this channel.",
+}
+
+POMODORO_STOPPED: dict[LangCode, str] = {
+    "pt-PT": "🍅 Pomodoro parado. {count} timer(s) cancelado(s).",
+    "pt-BR": "🍅 Pomodoro parado. {count} timer(s) cancelado(s).",
+    "es": "🍅 Pomodoro detenido. {count} temporizador(es) cancelado(s).",
+    "en": "🍅 Pomodoro stopped. {count} timer(s) cancelled.",
+}
