@@ -90,15 +90,18 @@ def normalize_nl_to_command(content: str) -> str:
     # Hoje / Semana / Agenda (views)
     if lower in ("hoje", "today", "hoy"):
         return "/hoje"
-    if re.match(r"^(o\s+que\s+tenho\s+hoje|tarefas?\s+de\s+hoje)\s*$", lower):
+    if re.match(r"^(o\s+que\s+tenho\s+hoje|tarefas?\s+de\s+hoje|what\s+is\s+on\s+my\s+agenda\s+today|what\s+do\s+i\s+have\s+today|qu[eé]\s+tengo\s+hoy)\s*$", lower):
         return "/hoje"
     if lower in ("semana", "week"):
         return "/semana"
-    if re.match(r"^esta\s+semana\s*$", lower):
+    if re.match(r"^(esta\s+semana|this\s+week|esta\s+semana)\s*$", lower):
         return "/semana"
     if lower == "agenda":
         return "/agenda"
-    if re.match(r"^(minha\s+agenda|o\s+que\s+tenho\s+agendado)\s*$", lower):
+    if re.match(r"^(minha\s+agenda|o\s+que\s+tenho\s+agendado|what\s+is\s+on\s+my\s+agenda|mi\s+agenda)\s*$", lower):
+        return "/agenda"
+    # Agenda commands in PT, ES, EN
+    if re.match(r"^(liste|listar|mostre|mostrar|ver|show|view|muestra)\s+(minha\s+|my\s+|mi\s+|the\s+|a\s+)?(agenda|calend[aá]rio|calendar|schedule)\s*(.*)$", lower):
         return "/agenda"
 
     # Timeline

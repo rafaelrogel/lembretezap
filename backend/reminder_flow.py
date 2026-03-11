@@ -103,6 +103,21 @@ def has_reminder_intent(text: str) -> bool:
     if not text or len(text.strip()) < 3:
         return False
     tl = text.strip().lower()
+    
+    # Se o utilizador está apenas a pedir para ver/listar lembretes ou agenda,
+    # NÃO é um intent de criação com tempo vago. Devemos ignorar para deixar o router ou o agente processar.
+    query_verbs = (
+        # PT
+        "liste", "listar", "mostre", "mostrar", "mostra", "quais", "ver", "cancelar", "apagar", "remover", "como", "esta", "está",
+        # EN
+        "list", "show", "what", "which", "view", "cancel", "delete", "remove", "how", "is", "are",
+        # ES
+        "listar", "muestra", "mostrar", "cuales", "cuáles", "ver", "cancelar", "borrar", "eliminar", "como", "esta", "está"
+    )
+    words = tl.split()
+    if any(q in words for q in query_verbs):
+        return False
+        
     return any(h in tl for h in _REMINDER_HINTS)
 
 
