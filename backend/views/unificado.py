@@ -163,6 +163,18 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
     today = now.date()
 
     period = parse_period(content, today=today)
+    
+    # If the user explicitly asked for a specific timeframe like "do biênio" but we couldn't parse it
+    from backend.command_nl import normalize_nl_to_command
+    original = normalize_nl_to_command(content)
+    if not period and original.startswith("/agenda ") and len(original) > 8:
+        _UNKNOWN_PERIOD = {
+            "pt-BR": "Desculpa, não consegui entender o período que pediste (ex: 'do biênio'). Podes tentar 'este mês', 'esta semana' ou um ano específico?",
+            "pt-PT": "Desculpa, não consegui perceber o período que pediste (ex: 'do biênio'). Podes tentar 'este mês', 'esta semana' ou um ano específico?",
+            "es": "Lo siento, no pude entender el período que solicitaste. ¿Puedes intentar 'este mes', 'esta semana' o un año en específico?",
+            "en": "Sorry, I couldn't understand the timeframe you requested. Could you try 'this month', 'this week', or a specific year?"
+        }
+        return _UNKNOWN_PERIOD.get(lang, _UNKNOWN_PERIOD["en"])
 
     parts = []
 
@@ -265,7 +277,7 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
 
         db = SessionLocal()
         try:
-            user = get_or_create_user(db, ctx.chat_id, phone=ctx.phone_for_locale)
+            user = get_or_create_user(db, ctx.chat_id)
 
             if period:
                 start_d, end_d = period
@@ -319,6 +331,7 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
             start_d, end_d = period
             label = period_label(start_d, end_d, lang)
             return f"📅 **{label}** — " + _EMPTY_PERIOD.get(lang, _EMPTY_PERIOD["en"])
+            
         return _EMPTY_ALL.get(lang, _EMPTY_ALL["en"])
 
     return "\n".join(parts)
