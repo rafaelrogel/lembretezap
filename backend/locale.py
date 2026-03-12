@@ -766,6 +766,15 @@ PROACTIVE_NUDGE_12H_MSG: dict[LangCode, str] = {
     "en": "🫶 I know you didn't ask me to remind you, but I'm a proactive robot and this event seems special to me: *{event_name}*. Don't forget! 😊",
 }
 
+# Follow-up automático de lembrete importante (quando user não respondeu 1ª vez)
+# Usado quando job.payload.is_important=True e é um re-envio (parent_job_id setado)
+IMPORTANT_FOLLOWUP_MSG: dict[LangCode, str] = {
+    "pt-PT": "{message} parece ser muito importante, como não respondeste por mensagem ou emoji, estou a relembrar mais uma vez. 😊",
+    "pt-BR": "{message} parece ser bem importante, como você não me respondeu por mensagem ou emoji, estou relembrando mais uma vez. 😊",
+    "es": "{message} parece ser muy importante, como no respondiste por mensaje o emoji, te lo recuerdo una vez más. 😊",
+    "en": "{message} seems quite important, since you haven't replied via message or emoji, I'm reminding you once more. 😊",
+}
+
 # Resposta inválida — insistir (X de 3 tentativas)
 REMINDER_ASK_AGAIN: dict[LangCode, str] = {
     "pt-PT": "Não percebi. Tenta novamente — preciso de evento, data e hora para registrar.",

@@ -55,6 +55,8 @@ class CronPayload:
     pomodoro_phase: str | None = None
     # Draft de mensagem pronto a encaminhar (aniversário, felicitações, etc)
     suggested_draft: str | None = None
+    # Lembrete importante que requer confirmação/follow-up
+    is_important: bool = False
 
 
 @dataclass

@@ -150,6 +150,7 @@ class CronService:
                             pomodoro_cycle=j["payload"].get("pomodoroCycle"),
                             pomodoro_phase=j["payload"].get("pomodoroPhase"),
                             suggested_draft=j["payload"].get("suggestedDraft"),
+                            is_important=j["payload"].get("isImportant", False),
                         ),
                         state=CronJobState(
                             next_run_at_ms=j.get("state", {}).get("nextRunAtMs"),
@@ -214,6 +215,7 @@ class CronService:
                         "pomodoroCycle": getattr(j.payload, "pomodoro_cycle", None),
                         "pomodoroPhase": getattr(j.payload, "pomodoro_phase", None),
                         "suggestedDraft": getattr(j.payload, "suggested_draft", None),
+                        "isImportant": getattr(j.payload, "is_important", False),
                     },
                     "state": {
                         "nextRunAtMs": j.state.next_run_at_ms,
@@ -447,6 +449,7 @@ class CronService:
         pomodoro_cycle: int | None = None,
         pomodoro_phase: str | None = None,
         suggested_draft: str | None = None,
+        is_important: bool = False,
     ) -> CronJob:
         """Add a new job. suggested_prefix: quando dado (ex. pelo MIMO), usa para o ID em vez de derivar da mensagem."""
         logger.debug(
@@ -554,6 +557,7 @@ class CronService:
                 pomodoro_cycle=pomodoro_cycle,
                 pomodoro_phase=pomodoro_phase,
                 suggested_draft=suggested_draft,
+                is_important=is_important,
             ),
             created_at_ms=now,
             updated_at_ms=now,

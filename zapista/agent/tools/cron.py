@@ -317,6 +317,7 @@ class CronTool(Tool):
                 audio_mode=getattr(self, "_audio_mode", False),
                 pomodoro_cycle=kwargs.get("pomodoro_cycle"),
                 pomodoro_phase=kwargs.get("pomodoro_phase"),
+                is_important=use_pre_reminders and in_seconds is not None and in_seconds > 0,
             )
         elif action == "list":
             return self._list_jobs()
@@ -444,6 +445,7 @@ class CronTool(Tool):
         audio_mode: bool = False,
         pomodoro_cycle: int | None = None,
         pomodoro_phase: str | None = None,
+        is_important: bool = False,
     ) -> str:
         message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
@@ -639,6 +641,14 @@ class CronTool(Tool):
                 return f"Não encontrei o lembrete \"{depends_on_job_id}\" para encadear. Verifica o id em /lembrete (lista)."
         # has_deadline: apenas para lembretes pontuais (in_seconds); main não remove até confirmar ou 3 lembretes pós-prazo
         use_deadline = has_deadline and in_seconds is not None and in_seconds > 0
+        # Lembretes importantes (pontuais): se o user não especificou reenvio, 
+        # agendamos 1 follow-up automático em 1h se for importante.
+        if is_important and remind_again_if_unconfirmed_seconds is None and delete_after_run:
+             remind_again_if_unconfirmed_seconds = 3600 # 1h
+             remind_again_max_count = 1
+        else:
+             remind_again_max_count = 10 # default original para recorrência/deadline se setado
+
         try:
             job = self._cron.add_job(
                 name=message[:30],
@@ -651,12 +661,14 @@ class CronTool(Tool):
                 delete_after_run=delete_after_run and not use_deadline,
                 suggested_prefix=suggested_prefix,
                 remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
+                remind_again_max_count=remind_again_max_count,
                 depends_on_job_id=depends_on_job_id.strip().upper()[:16] if depends_on_job_id else None,
                 has_deadline=use_deadline,
                 suggested_draft=suggested_draft,
                 audio_mode=audio_mode,
                 pomodoro_cycle=pomodoro_cycle,
                 pomodoro_phase=pomodoro_phase,
+                is_important=is_important,
             )
         except ValueError as e:
             if "MAX_REMINDERS_EXCEEDED" in str(e):

@@ -615,6 +615,16 @@ def gateway(
                         response = None
                 except Exception:
                     response = None
+
+                # Follow-up de lembrete importante: usar mensagem especializada
+                is_imp = getattr(job.payload, "is_important", False)
+                is_followup = getattr(job.payload, "parent_job_id", None) is not None
+                if is_imp and is_followup and response is None:
+                    from backend.locale import IMPORTANT_FOLLOWUP_MSG
+                    response = IMPORTANT_FOLLOWUP_MSG.get(user_lang, IMPORTANT_FOLLOWUP_MSG["en"]).format(
+                        message=job.payload.message or ""
+                    )
+
                 if response is None:
                     # DeepSeek: mensagem criativa e variada a partir do contexto do lembrete (sem frases fixas)
                     prompt = (
@@ -677,6 +687,7 @@ def gateway(
                     remind_again_if_unconfirmed_seconds=remind_sec,
                     remind_again_max_count=remind_max - 1,
                     parent_job_id=job.id,
+                    is_important=getattr(job.payload, "is_important", False),
                 )
                 metadata_job_id = follow_up.id
             await bus.publish_outbound(OutboundMessage(
