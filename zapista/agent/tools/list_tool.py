@@ -62,6 +62,7 @@ class ListTool(Tool):
                 "list_name": {"type": "string", "description": "List name (e.g. mercado, pendentes)"},
                 "item_text": {"type": "string", "description": "Item text (for add)"},
                 "item_id": {"type": "integer", "description": "Item id (for remove/feito)"},
+                "no_split": {"type": "boolean", "description": "If true, do not split item_text by commas even if short."},
             },
             "required": ["action"],
         }
@@ -72,6 +73,7 @@ class ListTool(Tool):
         list_name: str = "",
         item_text: str = "",
         item_id: int | None = None,
+        no_split: bool = False,
         **kwargs: Any,
     ) -> str:
         if not self._chat_id:
@@ -90,7 +92,7 @@ class ListTool(Tool):
                 )
                 if corrected:
                     item_clean = sanitize_string(corrected, MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
-                return self._add(db, user.id, list_clean, item_clean)
+                return self._add(db, user.id, list_clean, item_clean, no_split=no_split)
             if action == "habitual":
                 return await self._habitual(db, user.id, list_name or "")
             if action == "list":
@@ -161,7 +163,7 @@ class ListTool(Tool):
                 return s[:-1]
         return s
 
-    def _add(self, db, user_id: int, list_name: str, item_text: str) -> str:
+    def _add(self, db, user_id: int, list_name: str, item_text: str, no_split: bool = False) -> str:
         list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
         item_text = sanitize_string(item_text or "", MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
         if not list_name:
@@ -183,7 +185,10 @@ class ListTool(Tool):
             return "Por política de privacidade (RGPD/LGPD), não guardamos dados confidenciais em listas (ex.: CPF, números de cartão). Pode guardar receitas, compras e outros textos sem dados pessoais sensíveis."
 
         # Auto-split: se LLM passou múltiplos itens numa string, dividir e adicionar cada um
-        items_to_add = self._split_items(item_text)
+        if no_split:
+            items_to_add = [item_text]
+        else:
+            items_to_add = self._split_items(item_text)
         
         from backend.locale import CONFIRM_ITEMS_ADDED_TO_LIST
         from backend.database import SessionLocal
