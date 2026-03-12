@@ -73,19 +73,19 @@ def normalize_nl_to_command(content: str) -> str:
         return "/stop"
 
     # Add: "adicione X", "adiciona X" (sem "lista"/"listas") → /add mercado X
-    m = re.match(r"^(adicione|adiciona|adicionar)\s+(.+)$", lower)
+    m = re.match(r"^(adicione|adiciona|adicionar|add|anyadir|anadir)\s+(.+)$", lower_ascii)
     if m:
         rest = m.group(2).strip()
-        if rest and "lista" not in lower and "listas" not in lower:
-            return f"/add mercado {rest}"
+        if rest and "lista" not in lower_ascii and "listas" not in lower_ascii:
+            return f"/add {rest}"
 
     # Recorrente: "lembrete recorrente X" ou "todo dia X" / "toda semana X"
     m = re.match(r"^lembrete\s+recorrente\s+(.+)$", lower)
     if m and m.group(1).strip():
         return f"/recorrente {m.group(1).strip()}"
-    m = re.match(r"^(todo\s+dia|toda\s+semana|todos\s+os\s+dias)\s+(.+)$", lower)
+    m = re.match(r"^(todo\s+dia|toda\s+semana|todos\s+os\s+dias|toda\s+(?:segunda|terça|quarta|quinta|sexta|sábado|domingo)|cada\s+\d+\s+(?:dias|horas|minutos|semanas))\s+(.+)$", lower)
     if m and m.group(2).strip():
-        return f"/recorrente {m.group(2).strip()}"
+        return f"/recorrente {lower}"
 
     # Hoje / Semana / Agenda (views)
     if lower in ("hoje", "today", "hoy"):
@@ -139,6 +139,20 @@ def normalize_nl_to_command(content: str) -> str:
     if lower in ("mês", "mes", "month"):
         return "/mes"
 
+    # List shortcuts (NL)
+    _LIST_NL_CAT = (
+        "pelicula", "peliculas", "movie", "movies", "film", "films",
+        "libro", "libros", "book", "books", "note", "notes", "notas", "nota",
+        "shopping", "market", "mercado", "compras", "ingredients", "ingredientes",
+        "recipe", "recipes", "receita", "receitas"
+    )
+    if lower_ascii in _LIST_NL_CAT:
+        return f"/list {lower_ascii}"
+    # "movie Matrix" -> /list movie Matrix
+    for cat in _LIST_NL_CAT:
+        if lower_ascii.startswith(cat + " "):
+            return f"/list {lower_ascii}"
+
     # Produtividade
     if lower in ("produtividade", "productividad", "productivity"):
         return "/produtividade"
@@ -184,5 +198,14 @@ def normalize_nl_to_command(content: str) -> str:
     # Pomodoro / Foco
     if lower in ("pomodoro", "foco", "focus", "timer"):
         return "/pomodoro"
+    m = re.match(r"^(?:foco|focus|timer)\s+(\d+)$", lower)
+    if m:
+        return f"/pomodoro {m.group(1)}"
+
+    # Hora e Data
+    if lower in ("hora", "horas", "time", "qué hora", "que hora", "qual a hora", "me diga a hora"):
+        return "/hora"
+    if lower in ("data", "date", "fecha", "que dia", "qué día", "que dia é hoje"):
+        return "/data"
 
     return content

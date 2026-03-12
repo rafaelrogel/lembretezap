@@ -41,6 +41,11 @@ RE_FILME = re.compile(r"^/filmes?\s+(.+)$", re.I)
 RE_LIVRO = re.compile(r"^/livros?\s+(.+)$", re.I)
 RE_MUSICA = re.compile(r"^/(?:musica|m[uú]sica)s?\s+(.+)$", re.I)
 RE_RECEITA = re.compile(r"^/receita\s+(.+)$", re.I)
+# Atalhos ES/EN
+RE_PELICULA = re.compile(r"^/pel[ií]culas?\s+(.+)$", re.I)
+RE_LIBRO = re.compile(r"^/libros?\s+(.+)$", re.I)
+RE_MOVIE = re.compile(r"^/movies?\s+(.+)$", re.I)
+RE_BOOK = re.compile(r"^/books?\s+(.+)$", re.I)
 # NL: "adicione ovos bacon e queijos a listas" → list_add mercado
 RE_NL_ADICIONE_LISTA = re.compile(
     r"^(?:adicione|adiciona|adicionar|coloca|coloque|colocar)\s+(.+?)\s+(?:a|à|nas?)\s+listas?\s*$",
@@ -48,7 +53,7 @@ RE_NL_ADICIONE_LISTA = re.compile(
 )
 # NL: "add lista filmes X", "add list filmes X" → list_add filme
 RE_NL_ADD_LISTA_CATEGORIA = re.compile(
-    r"^(?:add|adicione|adiciona)\s+listas?\s+(filmes?|livros?|m[uú]sicas?|receitas?|notas?|sites?|links?)\s+(.+)$",
+    r"^(?:add|adicione|adiciona|a[ñn]adir)\s+(?:listas?\s+)?(filmes?|livros?|m[uú]sicas?|receitas?|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+(.+)$",
     re.I,
 )
 # NL: "cria/faça/mostre uma lista de X ..." (PT) + equivalentes ES/EN → list_add
@@ -223,9 +228,23 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     m = RE_LIVRO.match(text)
     if m:
         return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
-    m = RE_MUSICA.match(text)
+    m = re.match(r"^/(?:musica|m[uú]sica)s?\s+(.+)$", text, re.I)
     if m:
         return {"type": "list_add", "list_name": "musica", "item": m.group(1).strip()}
+    
+    # ES/EN Shortcuts
+    m = RE_PELICULA.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+    m = RE_LIBRO.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
+    m = RE_MOVIE.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+    m = RE_BOOK.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
     
     # Receita continua como lista por enquanto (ou pode mover para event se quiser)
     m = RE_RECEITA.match(text)
@@ -256,8 +275,9 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
             return None  # Deixa o LLM tratar como consulta de agenda/lembretes
         list_name = _CATEGORY_TO_LIST.get(list_name, list_name)
         item = (m.group(2) or "").strip()
-        if item:  # Só registra se tiver item concreto; sem item → LLM pergunta o que adicionar
+        if item:  # Só registra se tiver item concreto
             return {"type": "list_add", "list_name": list_name, "item": item}
+        return {"type": "list_show", "list_name": list_name}
 
     # NL: "coloca X na lista" → list_add mercado (assumindo compras se não especificar)
     m = RE_NL_POR_LISTA.match(text)
