@@ -151,6 +151,27 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
         if _is_recipe_list_cancel(content) or is_confirm_no(content):
             clear_pending(ctx.channel, ctx.chat_id)
             return CONFIRM_RECIPE_CANCEL.get(_get_lang(ctx), CONFIRM_RECIPE_CANCEL["en"])
+
+    if pending and pending.get("action") == "add_items_from_search":
+        if _is_recipe_list_confirm(content) or is_confirm_yes(content):
+            clear_pending(ctx.channel, ctx.chat_id)
+            payload = pending.get("payload") or {}
+            items = payload.get("items") or []
+            list_name = payload.get("list_name") or "filme"
+            if items and ctx.list_tool:
+                ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
+                for item in items:
+                    await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
+                from backend.locale import CONFIRM_SEARCH_LIST_CREATED
+                _lang = _get_lang(ctx)
+                lines = [CONFIRM_SEARCH_LIST_CREATED.get(_lang, CONFIRM_SEARCH_LIST_CREATED["en"]).format(list_name=list_name, count=len(items))]
+                for i, it in enumerate(items[:15], 1):
+                    lines.append(f"{i}. {it}")
+                return "\n".join(lines)
+        if _is_recipe_list_cancel(content) or is_confirm_no(content):
+            clear_pending(ctx.channel, ctx.chat_id)
+            from backend.locale import CONFIRM_SEARCH_CANCEL
+            return CONFIRM_SEARCH_CANCEL.get(_get_lang(ctx), CONFIRM_SEARCH_CANCEL["en"])
     # Data no passado: agendar para o ano que vem se confirmar
     if pending and pending.get("action") == "date_past_next_year":
         from backend.locale import CONFIRM_DATE_PAST_CANCEL, CONFIRM_DATE_PAST_SCHEDULE_ERROR

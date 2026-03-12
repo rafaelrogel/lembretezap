@@ -775,8 +775,21 @@ async def handle_add(ctx: HandlerContext, content: str) -> str | None:
         return None
     rest = m.group(2).strip()
     parts = rest.split(None, 1)
+    
+    # Lista de "stop words" que não devem ser extraídas como nome de lista se estiverem no início.
+    # Ex: "adiciona os mais famosos" -> "os" é artigo, não nome de lista.
+    _GENERIC_BEGINNINGS = {
+        "os", "as", "um", "uns", "uma", "umas", "o", "a", "de", "do", "da", "em", "nas", "nos", # PT
+        "los", "las", "un", "unos", "una", "unas", "el", "la", "de", "del", "en",              # ES
+        "the", "a", "an", "some", "of", "in",                                                 # EN
+    }
+    
     if len(parts) == 1:
         list_name, item = "mercado", parts[0]
+    elif parts[0].lower() in _GENERIC_BEGINNINGS:
+        # Se a primeira palavra for um artigo/preposição, assumimos que faz parte do item texto
+        # e a lista padrão é 'mercado' (shopping)
+        list_name, item = "mercado", rest
     else:
         list_name, item = parts[0], parts[1]
     if not ctx.list_tool:

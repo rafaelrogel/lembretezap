@@ -56,15 +56,19 @@ RE_NL_ADD_LISTA_CATEGORIA = re.compile(
     r"^(?:add|adicione|adiciona|a[ñn]adir)\s+(?:listas?\s+)?(filmes?|livros?|m[uú]sicas?|receitas?|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+(.+)$",
     re.I,
 )
-# NL: "cria/faça/mostre uma lista de X ..." (PT) + equivalentes ES/EN → list_add
-# PT: cria, crie, faça, faz, me dê, me de, de-me, dê-me, mostre, mostra, exiba
-# ES: crea, crear, haz, dame, muéstrame, muestra, exhibe
-# EN: create, make, give me, show me, show, display
-# Último grupo opcional: "lista de livros" sem resto → item vazio (handler usa placeholder)
+# PT: cria, crie, faça, faz, me dê, me de, de-me, dê-me
+# ES: crea, crear, haz, dame
+# EN: create, make, give me
 RE_NL_CRIA_LISTA_DE = re.compile(
-    r"^(?:cria|crie|faça|faz|me\s+d[êe]|de-me|dê-me|mostre|mostra|exiba"
-    r"|crea|crear|haz|dame|muéstrame|muestra|exhibe"
-    r"|create|make|give\s+me|show\s+me|show|display)\s+"
+    r"^(?:cria|crie|faça|faz|me\s+d[êe]|de-me|dê-me"
+    r"|crea|crear|haz|dame"
+    r"|create|make|give\s+me)\s+"
+    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?(\w+)(?:\s+(.+))?$",
+    re.I,
+)
+# Verbos de visualização: mostre, mostra, exiba, muéstrame, muestra, exhibe, show me, show, display
+RE_NL_MOSTRE_LISTA_DE = re.compile(
+    r"^(?:mostre|mostra|exiba|mu[eé]strame|muestra|exhibe|show\s+me|show|display)\s+"
     r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?(\w+)(?:\s+(.+))?$",
     re.I,
 )
@@ -264,7 +268,6 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     if m:
         list_name = m.group(1).strip().lower()
         # Guard: palavras de lembretes/agenda nunca devem ser tratadas como nomes de lista
-        # Ex: "mostre lista de lembretes e agenda" não é um list_add
         _REMINDER_AGENDA_WORDS = {
             "lembretes", "lembrete", "agenda", "agendas", "compromissos",
             "compromisso", "eventos", "evento", "tarefas", "tarefa",
@@ -272,11 +275,22 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
             "recordatorios", "recordatorio",
         }
         if list_name in _REMINDER_AGENDA_WORDS:
-            return None  # Deixa o LLM tratar como consulta de agenda/lembretes
+            return None
         list_name = _CATEGORY_TO_LIST.get(list_name, list_name)
         item = (m.group(2) or "").strip()
-        if item:  # Só registra se tiver item concreto
+        if item:
             return {"type": "list_add", "list_name": list_name, "item": item}
+        return {"type": "list_show", "list_name": list_name}
+
+    m = RE_NL_MOSTRE_LISTA_DE.match(text)
+    if m:
+        list_name = m.group(1).strip().lower()
+        if list_name in _REMINDER_AGENDA_WORDS_SHOW:
+            return None
+        list_name = _CATEGORY_TO_LIST.get(list_name, list_name)
+        # Se tem o resto (m.group(2)), pode ser um pedido de busca
+        # Ex: "mostre lista de filmes de David Lynch"
+        # Devolver show por enquanto, o Router vai tentar o search_handler primeiro se detectarmos busca.
         return {"type": "list_show", "list_name": list_name}
 
     # NL: "coloca X na lista" → list_add mercado (assumindo compras se não especificar)

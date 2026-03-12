@@ -1256,6 +1256,20 @@ CONFIRM_RECIPE_CANCEL: dict[LangCode, str] = {
     "en": "Ok, shopping list cancelled.",
 }
 
+CONFIRM_SEARCH_LIST_CREATED: dict[LangCode, str] = {
+    "pt-PT": "Lista de {list_name} atualizada com {count} itens encontrados! 🍿",
+    "pt-BR": "Lista de {list_name} atualizada com {count} itens encontrados! 🍿",
+    "es": "¡Lista de {list_name} actualizada con {count} elementos encontrados! 🍿",
+    "en": "{list_name} list updated with {count} items found! 🍿",
+}
+
+CONFIRM_SEARCH_CANCEL: dict[LangCode, str] = {
+    "pt-PT": "Ok, não adicionei nada à tua lista.",
+    "pt-BR": "Ok, não adicionei nada à sua lista.",
+    "es": "Ok, no he añadido nada a tu lista.",
+    "en": "Ok, nothing was added to your list.",
+}
+
 CONFIRM_DATE_PAST_CANCEL: dict[LangCode, str] = {
     "pt-PT": "Ok, não agendei. Quando quiseres, diz a data e hora de novo.",
     "pt-BR": "Ok, não agendei. Quando quiser, diga a data e hora de novo.",

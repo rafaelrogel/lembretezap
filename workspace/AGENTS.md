@@ -102,6 +102,8 @@ Do **not** create cron jobs for agenda items unless the user confirms they want 
 
 **Purchase reminder → proactive shopping list:** When the user asks for a **reminder to buy** something (e.g., "remind me to buy beans"), **automatically and proactively** ask if they want to create a **shopping/grocery list** and if they want to **add more items** to it. Skip very generic phrases across all languages (e.g., "umas coisas", "algo", "something", "some things", "unas cosas"). Create the reminder and then act according to the response: create or update the shopping list (e.g., "shopping" or "market" list) and add any mentioned items. The tool handles deduplication (e.g., "eggs" vs "egg"), so call it for all items.
 
+**Curated List Search (Movies, Books, Music):** When the user asks to see or add curated items (e.g., "movies by David Lynch", "books from Lovecraft", "famous songs of Queen"), refer to the internal search handlers. If the user likes the results, they can confirm to add all items to their specific lists ("filme", "livro", "musica"). Always prefer providing specific titles (e.g., "Eraserhead", "Mulholland Drive") rather than generic entries.
+
 
 ## Tools
 
