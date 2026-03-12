@@ -60,7 +60,7 @@
 
 ## Ordem sugerida
 
-1. **Soneca (4)** – extensão directa das reações
+1. **Removed/Cancelled: Soneca (4)** – instrução removida para evitar frustração
 2. **Lembrete com adiamento (1)** – base para 5 e 6
 3. **Lembrete encadeado (2)** – usa o mesmo evento de "feito"
 4. **Confirmar conclusão (5)** – variação de 1
