@@ -22,9 +22,9 @@ _RECIPE_PATTERNS = (
     r"fazer\s+uma\s+lista\s+de\s+ingredientes",
     r"lista\s+de\s+ingredientes\s+para",
     r"ingredientes\s+para\s+fazer",
-    r"ingredientes\s+(?:de|da)\s+\w+",
-    r"receita\s+(?:de|da)\s+",
-    r"como\s+fazer\s+\w+\s+(?:de\s+)?\w*",
+    r"ingredientes\s+(?:de|da|para)\s+\w+",
+    r"receita\s+(?:de|da|para)\s+",
+    r"como\s+fazer\s+\w+",
     r"passo\s+a\s+passo\s+para\s+fazer",
 )
 
@@ -47,17 +47,28 @@ def _parse_ingredients_from_recipe(text: str) -> list[str]:
     if not text or not text.strip():
         return []
     ingredients: list[str] = []
+    found_start = False
     for line in text.split("\n"):
         line = line.strip()
         if not line or len(line) < 2:
             continue
         if _STOP_AT_PATTERNS.match(line):
             break
+        
+        # Só começar a extrair se vir um marcador de lista (número ou bullet)
         m = re.match(r"^[\d]+[\.\)\-]\s*(.+)$", line)
         if m:
+            found_start = True
             line = m.group(1).strip()
         elif line.startswith(("•", "◦", "-", "*")):
+            found_start = True
             line = line.lstrip("•◦-*").strip()
+        elif found_start:
+            # Se já começamos e a linha não tem marcador, mas é texto curto, pode ser continuação ou item sem bullet
+            pass
+        else:
+            continue
+
         if line and len(line) >= 2 and not _STOP_AT_PATTERNS.match(line):
             ingredients.append(line[:256])
     return ingredients[:30]
@@ -104,12 +115,14 @@ def _get_perplexity_key() -> str | None:
 async def _call_perplexity_chat(api_key: str, user_message: str, lang: str = "pt-BR") -> str | None:
     """Chama a Perplexity Chat API (sonar) e retorna a resposta."""
     import httpx
-    system = (
-        "Responde com uma lista de ingredientes ou passos da receita. "
-        "Formato: lista numerada clara. Seja conciso. Responde em português."
-    )
-    if "pt-PT" in (lang or ""):
-        system += " Usa português de Portugal."
+    # Instruções de sistema localizadas
+    instructions = {
+        "pt-BR": "Responda com uma lista de ingredientes e passos da receita. Formato: lista numerada clara. Seja conciso. Responda em português do Brasil.",
+        "pt-PT": "Responda com uma lista de ingredientes e passos da receita. Formato: lista numerada clara. Seja conciso. Responda em português de Portugal.",
+        "es": "Responde con una lista de ingredientes y pasos de la receta. Formato: lista numerada clara. Sé conciso. Responde en español.",
+        "en": "Respond with a list of ingredients and recipe steps. Format: clear numbered list. Be concise. Respond in English.",
+    }
+    system = instructions.get(lang, instructions["en"])
     try:
         async with httpx.AsyncClient(timeout=PERPLEXITY_TIMEOUT) as client:
             r = await client.post(
@@ -149,12 +162,14 @@ async def _call_llm_recipe(
     """Chama qualquer LLM (Mimo ou DeepSeek) para gerar receita."""
     if not provider or not (model or "").strip():
         return None
-    system = (
-        "O utilizador pede uma receita ou lista de ingredientes. Responde com ingredientes e passos. "
-        "Formato: lista numerada clara. Seja conciso. Português."
-    )
-    if "pt-PT" in (lang or ""):
-        system += " Usa português de Portugal."
+    # Instruções de sistema localizadas
+    instructions = {
+        "pt-BR": "O utilizador pede uma receita ou lista de ingredientes. Responda com ingredientes e passos. Formato: lista numerada clara. Seja conciso. Português do Brasil.",
+        "pt-PT": "O utilizador pede uma receita ou lista de ingredientes. Responda com ingredientes e passos. Formato: lista numerada clara. Seja conciso. Português de Portugal.",
+        "es": "El usuario solicita una receta o lista de ingredientes. Responde con ingredientes y pasos. Formato: lista numerada clara. Sé conciso. Español.",
+        "en": "User asks for a recipe or list of ingredients. Respond with ingredients and steps. Format: clear numbered list. Be concise. English.",
+    }
+    system = instructions.get(lang, instructions["en"])
     try:
         r = await provider.chat(
             messages=[
@@ -181,9 +196,7 @@ async def handle_recipe(ctx: "HandlerContext", content: str) -> str | None:
         return None
 
     api_key = _get_perplexity_key()
-    if not api_key:
-        return None  # Sem chave → agent trata
-
+    
     user_lang = "pt-BR"
     try:
         from backend.user_store import get_user_language
