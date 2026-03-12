@@ -266,24 +266,35 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
         try:
             from backend.database import SessionLocal
             from backend.user_store import get_or_create_user, clear_onboarding_data
-            from backend.models_db import List, ListItem, Event
+            from backend.models_db import List, ListItem, Event, Bookmark, Note, Habit, HabitCheck, Goal, Project, ListTemplate, ReminderHistory, AuditLog
 
             db = SessionLocal()
             try:
                 user = get_or_create_user(db, ctx.chat_id)
+                uid = user.id
                 # 1. Apagar itens e listas
-                for lst in db.query(List).filter(List.user_id == user.id).all():
+                for lst in db.query(List).filter(List.user_id == uid).all():
                     db.query(ListItem).filter(ListItem.list_id == lst.id).delete()
                     db.delete(lst)
-                # 2. Apagar eventos
-                db.query(Event).filter(Event.user_id == user.id).delete()
+                # 2. Apagar eventos e outros dados
+                db.query(Event).filter(Event.user_id == uid).delete()
+                db.query(Bookmark).filter(Bookmark.user_id == uid).delete()
+                db.query(Note).filter(Note.user_id == uid).delete()
+                db.query(Habit).filter(Habit.user_id == uid).delete()
+                db.query(HabitCheck).join(Habit).filter(Habit.user_id == uid).delete()
+                db.query(Goal).filter(Goal.user_id == uid).delete()
+                db.query(Project).filter(Project.user_id == uid).delete()
+                db.query(ListTemplate).filter(ListTemplate.user_id == uid).delete()
+                db.query(ReminderHistory).filter(ReminderHistory.user_id == uid).delete()
+                db.query(AuditLog).filter(AuditLog.user_id == uid).delete()
+                
                 # 3. Limpar dados de onboarding (nome, cidade, tz voltará ao padrão)
                 clear_onboarding_data(db, ctx.chat_id)
                 db.commit()
             finally:
                 db.close()
         except Exception as exc:
-            return f"Erro ao apagar dados: {exc}"
+            return f"Erro ao apagar dados da BD: {exc}"
 
         # 4. Apagar cron jobs do utilizador
         if ctx.cron_service:
@@ -299,13 +310,14 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
             except Exception:
                 pass
 
-        # 5. Limpar sessão/memória da conversa
+        # 5. Limpar sessão/memória da conversa (INCLUINDO HISTÓRICO)
         if ctx.session_manager:
             try:
                 key = f"{ctx.channel}:{ctx.chat_id}"
                 session = ctx.session_manager.get_or_create(key)
-                # Limpar metadata de onboarding e fluxos
+                # Limpar metadata e mensagens
                 session.metadata.clear()
+                session.messages = []
                 ctx.session_manager.save(session)
             except Exception:
                 pass

@@ -132,7 +132,7 @@ class ListTool(Tool):
         Divide texto em múltiplos itens quando separados por vírgula ou ' e '.
         Só divide se todas as partes forem curtas (< 80 chars) — evita dividir
         títulos longos de livros/filmes que contenham vírgulas intercaladas.
-        Ex.: 'ovo, pão e leite' -> ['ovo', 'pão', 'leite']
+        Ex.: '[item A], [item B] e [item C]' -> ['[item A]', '[item B]', '[item C]']
              'Paulo Coelho - O Alquimista' -> ['Paulo Coelho - O Alquimista'] (não divide)
         """
         import re
@@ -315,7 +315,7 @@ class ListTool(Tool):
             out = (r.content or "").strip().strip(".'\"")
             if not out:
                 return []
-            # Parse: "leite, pão, manteiga" -> ["leite", "pão", "manteiga"]
+            # Parse: "[item A], [item B], [item C]" -> ["[item A]", "[item B]", "[item C]"]
             parts = [p.strip() for p in out.split(",") if p.strip()]
             cand_lower = {c.strip().lower(): c.strip() for c in candidates}
             result: list[str] = []

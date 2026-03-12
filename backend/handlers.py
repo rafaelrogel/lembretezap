@@ -1025,8 +1025,7 @@ _NOT_REMINDER_PATTERNS = (
     r"e\s+(a\s+)?(lista|receita|os?\s+ingredientes)",
     r"^(cad[eê]|cad[eê]\s+a)\b", r"fa[cç]a\s+uma\s+lista", r"fazer\s+uma\s+lista",
     # Compras = lista (não lembrete recorrente)
-    r"preciso\s+comprar", r"quero\s+comprar", r"comprar\s+(leite|pão|ovo|arroz)",
-    r"adicion[eia](?:r)?\s+", r"(?:a|à|nas?)\s+listas?\b",  # "adicione X a listas"
+    r"preciso\s+comprar", r"quero\s+comprar",    r"comprar\s+(?:[a-zA-ZáéíóúÁÉÍÓÚçÇñÑ\s]+)", r"adicion[eia](?:r)?\s+", r"(?:a|à|nas?)\s+listas?\b",  # "adicione algo a listas"
     r"preciso\s+(mercado|compras)\b", r"quero\s+(mercado|compras)\b",
     r"lista\s+(do\s+)?mercado", r"lista\s+mercado", r"itens?\s+(do\s+)?mercado",
     # Perguntas gerais (não pedido de lembrete)

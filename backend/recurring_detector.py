@@ -175,8 +175,8 @@ async def _mimo_is_reminder_without_time(
             f"O utilizador escreveu: «{content[:200]}». "
             "Isto é um pedido de NOVO LEMBRETE ou evento agendado (sem data/hora explícita)? "
             "Responde NAO se for um pedido para REMOVER, DELETAR, CANCELAR ou PARAR um lembrete existente. "
-            "Exemplos SIM: 'lembrar de tomar remédio', 'quero beber água', 'preciso de exercício'. "
-            "Exemplos NAO: 'remova o lembrete', 'deleta o lembrete de água', 'para o timer', 'já fiz', 'cancelar'. "
+            "Exemplos SIM: 'lembrar de [tarefa]', 'quero [ação]', 'preciso de [atividade]'. "
+            "Exemplos NAO: 'remova o lembrete', 'deleta o lembrete de [item]', 'para o timer', 'já fiz', 'cancelar'. "
             "Responde APENAS: SIM ou NAO."
         )
         r = await scope_provider.chat(
