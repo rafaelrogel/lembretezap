@@ -130,7 +130,7 @@ class ListTool(Tool):
     def _split_items(item_text: str) -> list[str]:
         """
         Divide texto em múltiplos itens quando separados por vírgula ou ' e '.
-        Só divide se todas as partes forem curtas (< 80 chars) — evita dividir
+        Só divide se todas as partes forem curtas (< 120 chars) — evita dividir
         títulos longos de livros/filmes que contenham vírgulas intercaladas.
         Ex.: '[item A], [item B] e [item C]' -> ['[item A]', '[item B]', '[item C]']
              'Paulo Coelho - O Alquimista' -> ['Paulo Coelho - O Alquimista'] (não divide)
@@ -143,10 +143,23 @@ class ListTool(Tool):
         if len(parts) <= 1:
             return [text]
         # Só dividir se todas as partes forem curtas (itens simples, não títulos com vírgula)
-        max_part_len = 80
+        max_part_len = 120
         if all(len(p) <= max_part_len for p in parts):
             return parts
         return [text]
+
+    @staticmethod
+    def _normalize_for_dedup(text: str) -> str:
+        """Lowercase, sem espaços extras e tenta normalizar plural básico (ex: ovos -> ovo)."""
+        import unicodedata
+        s = (text or "").lower().strip()
+        s = "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+        # Heurística simples de plural (pt/es): termina em 's' e tem pelo menos 3 chars
+        if len(s) > 3 and s.endswith("s"):
+            # Só remove o 's' se não for uma palavra que normalmente termina em 's' (ex: tênis, ônibus - simplificado)
+            if not s.endswith(("ss", "is", "us")):
+                return s[:-1]
+        return s
 
     def _add(self, db, user_id: int, list_name: str, item_text: str) -> str:
         list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
@@ -171,24 +184,47 @@ class ListTool(Tool):
 
         # Auto-split: se LLM passou múltiplos itens numa string, dividir e adicionar cada um
         items_to_add = self._split_items(item_text)
-        if len(items_to_add) > 1:
-            results = []
-            for single_item in items_to_add:
-                single_clean = sanitize_string(single_item, MAX_LIST_ITEM_TEXT_LEN)
-                if single_clean:
-                    results.append(self._add_single(db, user_id, list_name, single_clean))
-            return "\n".join(results)
+        
+        from backend.locale import CONFIRM_ITEMS_ADDED_TO_LIST
+        from backend.database import SessionLocal
+        from backend.user_store import get_user_language
+        _db = SessionLocal()
+        try:
+            _lg = get_user_language(_db, self._chat_id) or "pt-BR"
+        finally:
+            _db.close()
 
-        return self._add_single(db, user_id, list_name, item_text)
+        added_count = 0
+        for single_item in items_to_add:
+            single_clean = sanitize_string(single_item, MAX_LIST_ITEM_TEXT_LEN)
+            if single_clean:
+                if self._add_single(db, user_id, list_name, single_clean):
+                    added_count += 1
+        
+        # Obter contagem total de itens pendentes
+        lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
+        total_count = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.done.is_(False)).count() if lst else 0
+        
+        return CONFIRM_ITEMS_ADDED_TO_LIST.get(_lg, CONFIRM_ITEMS_ADDED_TO_LIST["en"]).format(
+            list_name=list_name, count=total_count
+        )
 
-    def _add_single(self, db, user_id: int, list_name: str, item_text: str) -> str:
-        """Adiciona um único item à lista (uso interno; list_name e item_text já sanitizados)."""
+    def _add_single(self, db, user_id: int, list_name: str, item_text: str) -> bool:
+        """Adiciona um único item à lista (uso interno; deduplica). Retorna True se adicionou."""
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
             proj = db.query(Project).filter(Project.user_id == user_id, Project.name == list_name).first()
             lst = List(user_id=user_id, name=list_name, project_id=proj.id if proj else None)
             db.add(lst)
             db.flush()
+        
+        # Deduplicação: verifica se já existe item pendente idêntico ou muito similar
+        norm_new = self._normalize_for_dedup(item_text)
+        existing_items = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.done.is_(False)).all()
+        for ex in existing_items:
+            if self._normalize_for_dedup(ex.text) == norm_new:
+                return False
+
         max_pos = (
             db.query(func.max(ListItem.position))
             .filter(ListItem.list_id == lst.id)
@@ -201,7 +237,7 @@ class ListTool(Tool):
         audit_payload = json.dumps({"list_name": list_name, "item_text": item_text, "item_id": item.id})
         db.add(AuditLog(user_id=user_id, action="list_add", resource=list_name, payload_json=audit_payload))
         db.commit()
-        return f"Adicionado a '{list_name}': {item_text} (id: {item.id})"
+        return True
 
     async def _habitual(self, db, user_id: int, list_name: str) -> str:
         """Adiciona itens habituais à lista. Mimo sugere com base no contexto (dia, época); fallback: top frequentes."""

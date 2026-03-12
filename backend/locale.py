@@ -1190,10 +1190,17 @@ EVENT_REMOVED: dict[LangCode, str] = {
 # ---------------------------------------------------------------------------
 
 LIST_EMPTY_ITEM_ERROR: dict[LangCode, str] = {
-    "pt-PT": "Para criar ou adicionar à lista '{list_name}', preciso de pelo menos um item! Qual item queres adicionar?",
-    "pt-BR": "Para criar ou adicionar à lista '{list_name}', preciso de pelo menos um item! Qual item deseja adicionar?",
-    "es": "Para crear o añadir a la lista '{list_name}', ¡necesito al menos un ítem! ¿Qué ítem quieres añadir?",
-    "en": "To create or add to the list '{list_name}', I need at least one item! What item would you like to add?",
+    "pt-PT": "Queres especificar os itens para a lista '{list_name}'? (Diz o que queres adicionar)",
+    "pt-BR": "Queres especificar os itens para a lista '{list_name}'? (Diga o que você quer adicionar)",
+    "es": "¿Quieres especificar los artículos para la lista '{list_name}'? (Dime qué quieres añadir)",
+    "en": "Do you want to specify the items for the list '{list_name}'? (Tell me what to add)",
+}
+
+CONFIRM_ITEMS_ADDED_TO_LIST: dict[LangCode, str] = {
+    "pt-PT": "Adicionei todos os itens à lista '{list_name}'. Tens {count} itens agora.",
+    "pt-BR": "Adicionei todos os itens à lista '{list_name}'. Você tem {count} itens agora.",
+    "es": "Añadí todos los artículos a la lista '{list_name}'. Tienes {count} artículos ahora.",
+    "en": "Added all items to the '{list_name}' list. You have {count} items now.",
 }
 
 # ---------------------------------------------------------------------------

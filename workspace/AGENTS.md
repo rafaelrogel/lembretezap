@@ -100,7 +100,8 @@ Do **not** create cron jobs for agenda items unless the user confirms they want 
   - "Radio Gaga" → recognize as music (Queen) → **ask** if the user wants to add to the **music** list, then add.
 - When there is ambiguity, **ask** which list they want, or suggest the most likely category and confirm.
 
-**Purchase reminder → proactive shopping list:** When the user asks for a **reminder to buy** something (e.g., "remind me to buy beans"), **automatically and proactively** ask if they want to create a **shopping/grocery list** and if they want to **add more items** to it. Create the reminder and then act according to the response: create or update the shopping list (e.g., "shopping" or "market" list) and add any mentioned items.
+**Purchase reminder → proactive shopping list:** When the user asks for a **reminder to buy** something (e.g., "remind me to buy beans"), **automatically and proactively** ask if they want to create a **shopping/grocery list** and if they want to **add more items** to it. Skip very generic phrases across all languages (e.g., "umas coisas", "algo", "something", "some things", "unas cosas"). Create the reminder and then act according to the response: create or update the shopping list (e.g., "shopping" or "market" list) and add any mentioned items. The tool handles deduplication (e.g., "eggs" vs "egg"), so call it for all items.
+
 
 ## Tools
 
