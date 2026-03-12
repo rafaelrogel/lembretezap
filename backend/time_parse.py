@@ -40,8 +40,8 @@ _MONTH_NAMES = (
     r"|enero|febrero|marzo|mayo|junio|julio|septiembre|octubre|noviembre|diciembre"
 )
 
-RE_LEMBRETE_DAQUI = re.compile(r"daqui\s+a\s+(\d+)\s*(min|minuto|hora|dia)s?", re.I)
-RE_LEMBRETE_EM = re.compile(r"em\s+(\d+)\s*(min|minuto|hora|dia)s?", re.I)
+RE_LEMBRETE_DAQUI = re.compile(r"daqui\s+a\s+(\d+)\s*(minutos?|minuto?|min|horas?|hora?|dias?|dia?)\b", re.I)
+RE_LEMBRETE_EM = re.compile(r"em\s+(\d+)\s*(minutos?|minuto?|min|horas?|hora?|dias?|dia?)\b", re.I)
 
 # Modificadores de período (PT, ES, EN)
 _AM_PM_MODIFIERS = (
@@ -77,7 +77,12 @@ def clean_message(t: str) -> str:
     t = t.strip()
     while t.startswith("/"):
         t = t.lstrip("/").strip()
-    for prefix in ("de ", "para ", "a ", "sobre "):
+    for prefix in (
+        "de ", "para ", "a ", "sobre ", 
+        "lembre-me que ", "lembrar que ", "lembra-me que ",
+        "lembre me que ", "lembra me que ",
+        "lembrar de ", "lembra de ", "lembre de "
+    ):
         if t.lower().startswith(prefix) and len(t) > len(prefix):
             t = t[len(prefix):].strip()
     t = re.sub(r"\s+at[eé]\s*$", "", t, flags=re.I)

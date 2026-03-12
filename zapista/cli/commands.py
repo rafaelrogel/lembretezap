@@ -674,7 +674,10 @@ def gateway(
             remind_max = getattr(job.payload, "remind_again_max_count", 10) or 0
             if remind_sec and remind_max > 0 and ch == "whatsapp":
                 from zapista.cron.types import CronSchedule
-                at_ms = _now_ms() + remind_sec * 1000
+                # Usar last_run_at_ms (ou now) para garantir que múltiplas instâncias agendem para o MESMO ms
+                # (permitindo que a detecção de duplicatas no .add_job funcione corretamente)
+                base_time = job.state.last_run_at_ms or _now_ms()
+                at_ms = base_time + remind_sec * 1000
                 follow_up = cron.add_job(
                     name=(job.name[:26] + " (de novo)"),
                     schedule=CronSchedule(kind="at", at_ms=at_ms),
