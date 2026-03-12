@@ -773,7 +773,7 @@ async def handle_add(ctx: HandlerContext, content: str) -> str | None:
     m = re.match(r"^/(add|añadir)\s+(.+)$", content.strip(), re.I)
     if not m:
         return None
-    rest = m.group(1).strip()
+    rest = m.group(2).strip()
     parts = rest.split(None, 1)
     if len(parts) == 1:
         list_name, item = "mercado", parts[0]
