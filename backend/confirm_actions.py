@@ -280,8 +280,13 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                 db.query(Event).filter(Event.user_id == uid).delete()
                 db.query(Bookmark).filter(Bookmark.user_id == uid).delete()
                 db.query(Note).filter(Note.user_id == uid).delete()
+                
+                # Apagar HabitCheck antes de Habit
+                db.query(HabitCheck).filter(HabitCheck.habit_id.in_(
+                    db.query(Habit.id).filter(Habit.user_id == uid)
+                )).delete(synchronize_session=False)
                 db.query(Habit).filter(Habit.user_id == uid).delete()
-                db.query(HabitCheck).join(Habit).filter(Habit.user_id == uid).delete()
+                
                 db.query(Goal).filter(Goal.user_id == uid).delete()
                 db.query(Project).filter(Project.user_id == uid).delete()
                 db.query(ListTemplate).filter(ListTemplate.user_id == uid).delete()
