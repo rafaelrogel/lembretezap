@@ -28,7 +28,7 @@ _HOUR_PATTERNS = (
     r"as\s*\d{1,2}(?:[:h]\d{2})?",
     r"(?:às?|as)\s*\d{4}\b",
     r"\b\d{2}h\d{2}?\b", # 12h, 12h00
-    r"\b\d{4}\b",        # 1200
+    r"\b(?![2][0][2-9][0-9])\d{4}\b", # 1200 (evita anos 2020-2099)
     r"\d{1,2}\s*(?:am|pm)\b",
     r"\d{1,2}:\d{2}\s*(?:am|pm)\b",  # 3:25 PM, 10:30 AM
 )
@@ -108,11 +108,11 @@ def has_reminder_intent(text: str) -> bool:
     # NÃO é um intent de criação com tempo vago. Devemos ignorar para deixar o router ou o agente processar.
     query_verbs = (
         # PT
-        "liste", "listar", "mostre", "mostrar", "mostra", "quais", "ver", "cancelar", "apagar", "remover", "como", "esta", "está",
+        "liste", "listar", "mostre", "mostrar", "mostra", "quais", "ver", "cancelar", "apagar", "remover", "como", "esta", "está", "agenda", "agendas",
         # EN
-        "list", "show", "what", "which", "view", "cancel", "delete", "remove", "how", "is", "are",
+        "list", "show", "what", "which", "view", "cancel", "delete", "remove", "how", "is", "are", "agenda",
         # ES
-        "listar", "muestra", "mostrar", "cuales", "cuáles", "ver", "cancelar", "borrar", "eliminar", "como", "esta", "está"
+        "listar", "muestra", "mostrar", "cuales", "cuáles", "ver", "cancelar", "borrar", "eliminar", "como", "esta", "está", "agenda"
     )
     words = tl.split()
     if any(q in words for q in query_verbs):

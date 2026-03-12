@@ -126,6 +126,10 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     if not text:
         return None
 
+    # Guard: comandos de agenda/evento não são listas
+    if text.lower().startswith(("/agenda", "/evento", "/compromisso", "/cita")):
+        return None
+
     m = RE_LEMBRETE.match(text)
     if m:
         rest = m.group(1).strip()
