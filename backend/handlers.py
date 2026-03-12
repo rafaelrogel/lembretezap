@@ -182,10 +182,10 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
     session = ctx.session_manager.get_or_create(session_key)
     flow = session.metadata.get(FLOW_KEY)
 
-    # Normalizar: /lembrete X → X
+    # Normalizar: /lembrete X → X (aliases: reminder, recordatorio)
     text = content.strip()
-    if re.match(r"^/lembrete\s+", text, re.I):
-        text = re.sub(r"^/lembrete\s+", "", text, flags=re.I).strip()
+    if re.match(r"^/(lembrete|reminder|recordatorio)\s+", text, re.I):
+        text = re.sub(r"^/(lembrete|reminder|recordatorio)\s+", "", text, flags=re.I).strip()
 
     user_lang: LangCode = "pt-BR"
     tz_iana = "UTC"
@@ -770,7 +770,7 @@ async def handle_add(ctx: HandlerContext, content: str) -> str | None:
     except Exception:
         pass
 
-    m = re.match(r"^/add\s+(.+)$", content.strip(), re.I)
+    m = re.match(r"^/(add|añadir)\s+(.+)$", content.strip(), re.I)
     if not m:
         return None
     rest = m.group(1).strip()
@@ -1125,8 +1125,8 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
         return None
 
     text = content.strip()
-    if re.match(r"^/lembrete\s+", text, re.I):
-        text = re.sub(r"^/lembrete\s+", "", text, flags=re.I).strip()
+    if re.match(r"^/(lembrete|reminder|recordatorio)\s+", text, re.I):
+        text = re.sub(r"^/(lembrete|reminder|recordatorio)\s+", "", text, flags=re.I).strip()
 
     # --- Cancelar fluxo se o usuário pedir ---
     t_clean = content.strip().lower()

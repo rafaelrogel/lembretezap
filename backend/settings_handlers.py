@@ -6,7 +6,7 @@ from backend.handler_context import HandlerContext
 
 
 async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
-    """/tz Cidade ou /tz IANA (ex: /tz Lisboa, /tz Europe/Lisbon)."""
+    """/tz Cidade, /fuso ou /timezone IANA."""
     from backend.database import SessionLocal
     from backend.user_store import get_user_language, get_user_timezone
     from backend.locale import (
@@ -23,8 +23,8 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
         except Exception:
             return "pt-BR"
     
-    # Se for apenas /tz ou /fuso, mostrar o atual
-    if re.match(r"^/(tz|fuso)\s*$", content.strip(), re.I):
+    # Se for apenas /tz ou /fuso ou /timezone, mostrar o atual
+    if re.match(r"^/(tz|fuso|timezone)\s*$", content.strip(), re.I):
         try:
             db = SessionLocal()
             try:
@@ -43,7 +43,7 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
             pass
         return None
 
-    m = re.match(r"^/(tz|fuso)\s+(.+)$", content.strip(), re.I)
+    m = re.match(r"^/(tz|fuso|timezone)\s+(.+)$", content.strip(), re.I)
     if not m:
         return None
     raw = m.group(1).strip()
@@ -137,13 +137,13 @@ def _is_nl_quiet_off(content: str) -> bool:
 
 
 async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
-    """/quiet 22:00-08:00 ou /quiet off. Aceita NL: silêncio, quiet, parar horário silencioso."""
+    """/quiet 22:00-08:00, /silencio ou /silent off. Aceita NL: silêncio, quiet, parar horário silencioso."""
     from backend.command_nl import normalize_nl_to_command
     content = normalize_nl_to_command(content)
     t = content.strip()
     t_lower = t.lower()
     is_nl_off = _is_nl_quiet_off(t)
-    if not t_lower.startswith("/quiet") and not is_nl_off:
+    if not re.match(r"^/(quiet|silencio|silent)", t_lower) and not is_nl_off:
         return None
     if is_nl_off:
         rest = ""
@@ -204,11 +204,11 @@ def _format_current_time_for_user(chat_id: str, lang: str) -> str:
 
 
 async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
-    """/reset: limpa dados do onboarding. Aceita NL: reiniciar, reset."""
+    """/reset, /reiniciar ou /reboot: limpa dados do onboarding. Aceita NL: reiniciar, reset."""
     from backend.command_nl import normalize_nl_to_command
     content = normalize_nl_to_command(content)
     c = content.strip().lower()
-    if not (c.startswith("/reset") or c.startswith("/reboot")):
+    if not (c.startswith("/reset") or c.startswith("/reboot") or c.startswith("/reiniciar")):
         return None
     try:
         from backend.database import SessionLocal

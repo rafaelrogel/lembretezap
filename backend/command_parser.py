@@ -9,24 +9,24 @@ from typing import Any
 
 from backend.time_parse import extract_start_date, parse_lembrete_time
 
-# Padrões
-RE_LEMBRETE = re.compile(r"^/lembrete\s+(.+)$", re.I)
-RE_LIST_ADD = re.compile(r"^/list\s+(\S+)\s+add\s+(.+)$", re.I)
+# Padrões com aliases internacionais (PT, ES, EN)
+RE_LEMBRETE = re.compile(r"^/(?:lembrete|reminder|recordatorio)\s+(.+)$", re.I)
+RE_LIST_ADD = re.compile(r"^/(?:list|lista)\s+(\S+)\s+add\s+(.+)$", re.I)
 # /list filme|livro|musica|receita|notas|nota|sites|site|links|link <item> (categorias; sem "add")
 RE_LIST_CATEGORY_ADD = re.compile(
-    r"^/list\s+(filme|filmes|livro|livros|musica|musicas|m[uú]sicas?|receita|receitas|notas?|sites?|links?)\s+(.+)$",
+    r"^/(?:list|lista)\s+(filme|filmes|livro|livros|musica|musicas|m[uú]sicas?|receita|receitas|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+(.+)$",
     re.I,
 )
-RE_LIST_SHOW = re.compile(r"^/list\s+(\S+)\s*$", re.I)
-RE_LIST_ALL = re.compile(r"^/list\s*$", re.I)
-RE_FEITO_LIST_ID = re.compile(r"^/feito\s+(\S+)\s+(\d+)\s*$", re.I)
-RE_FEITO_ID_ONLY = re.compile(r"^/feito\s+(\d+)\s*$", re.I)
+RE_LIST_SHOW = re.compile(r"^/(?:list|lista)\s+(\S+)\s*$", re.I)
+RE_LIST_ALL = re.compile(r"^/(?:list|lista)\s*$", re.I)
+RE_FEITO_LIST_ID = re.compile(r"^/(?:feito|done|hecho)\s+(\S+)\s+(\d+)\s*$", re.I)
+RE_FEITO_ID_ONLY = re.compile(r"^/(?:feito|done|hecho)\s+(\d+)\s*$", re.I)
 # /remove
-RE_REMOVE_LIST_ID = re.compile(r"^/remove\s+(\S+)\s+(\d+)\s*$", re.I)
-RE_REMOVE_ID_ONLY = re.compile(r"^/remove\s+(\d+)\s*$", re.I)
+RE_REMOVE_LIST_ID = re.compile(r"^/(?:remove|delete|quitar|borrar)\s+(\S+)\s+(\d+)\s*$", re.I)
+RE_REMOVE_ID_ONLY = re.compile(r"^/(?:remove|delete|quitar|borrar)\s+(\d+)\s*$", re.I)
 
-RE_HORA = re.compile(r"^/hora\s*$", re.I)
-RE_DATA = re.compile(r"^/data\s*$", re.I)
+RE_HORA = re.compile(r"^/(?:hora|time)\s*$", re.I)
+RE_DATA = re.compile(r"^/(?:data|date|fecha)\s*$", re.I)
 # Linguagem natural: mostre lista X, lista de X, minha lista X, qual lista, mercado, compras
 RE_NL_MOSTRE_LISTA = re.compile(
     r"^(?:mostr(?:e|ar)|ver|listar|mostra)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?(\w+)\s*$", re.I
@@ -132,7 +132,7 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         return None
 
     # Guard: comandos de agenda/evento não são listas
-    if text.lower().startswith(("/agenda", "/evento", "/compromisso", "/cita")):
+    if text.lower().startswith(("/agenda", "/evento", "/compromisso", "/cita", "/calendar", "/tasks")):
         return None
 
     m = RE_LEMBRETE.match(text)
