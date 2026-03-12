@@ -130,7 +130,7 @@ zapista gateway
 
 Com o bridge e o gateway a correr e o número no `allow_from` (ou `allow_from` vazio):
 
-1. Envie uma mensagem para o número/contato que está ligado ao bridge (o “zapista” no WhatsApp).
+1. Envie uma mensagem para o número/contato que está ligado ao bridge (o “Zappelin” no WhatsApp).
 2. Exemplos:
    - **"Olá"** → resposta do agente (organizador).
    - **"Me lembre em 2 minutos de tomar o remédio"** → deve confirmar e, 2 minutos depois, enviar o lembrete no mesmo chat (se o gateway continuar ligado).

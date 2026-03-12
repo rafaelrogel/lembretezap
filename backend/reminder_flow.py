@@ -294,6 +294,7 @@ _ADVANCE_PATTERNS = (
     (r"meia\s*hora", lambda m: 1800),
     (r"30\s*min", lambda m: 1800),
     (r"1\s*hora", lambda m: 3600),
+    (r"1\s*hr", lambda m: 3600),
 )
 
 
@@ -302,6 +303,8 @@ def parse_advance_seconds(text: str) -> int | None:
     if not text or not text.strip():
         return None
     t = text.strip().lower()
+    # Remover "antes" ou "before" ou "atrás" para simplificar o match
+    t = re.sub(r"\b(antes|before|atrás|atras)\b", "", t).strip()
     for pattern, extractor in _ADVANCE_PATTERNS:
         m = re.search(pattern, t, re.I)
         if m:

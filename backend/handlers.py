@@ -158,6 +158,19 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
     if not ctx.session_manager or not ctx.cron_tool or not content or not content.strip():
         return None
 
+    # --- Cancelar fluxo se o usuário pedir (esc, cancel, sair, stop) ---
+    t_clean = content.strip().lower()
+    if t_clean in ("esc", "cancel", "cancelar", "sair", "stop", "para", "parar", "nvm"):
+        session_key = f"{ctx.channel}:{ctx.chat_id}"
+        session = ctx.session_manager.get_or_create(session_key)
+        if session.metadata.get(FLOW_KEY):
+            session.metadata.pop(FLOW_KEY, None)
+            ctx.session_manager.save(session)
+            # Retornar uma confirmação discreta ou deixar o Agente lidar?
+            # Se retornarmos None, o Agente assume a mensagem.
+            # Mas aqui queremos confirmar que o fluxo "parou".
+            return "Ok, cancelado. 👍" if user_lang.startswith("pt") else ("Vale, cancelado. 👍" if user_lang == "es" else "Okay, cancelled. 👍")
+
     try:
         from backend.guardrails import is_complex_request
         if is_complex_request(content):
@@ -876,7 +889,7 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
     if not content.strip().lower().startswith("/start"):
         return None
     return (
-        "👋 Olá! Sou o Zapista: lembretes, listas e eventos.\n\n"
+        "👋 Olá! Sou o Zappelin: lembretes, listas e eventos.\n\n"
         "📌 Comandos: /lembrete, /list (filme, livro, musica, receita, notas, compras…).\n"
         "🌍 Timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.\n\n"
         "Digite /help para ver tudo — ou escreve/envia áudio para conversar. 😊"
@@ -1115,6 +1128,16 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
     text = content.strip()
     if re.match(r"^/lembrete\s+", text, re.I):
         text = re.sub(r"^/lembrete\s+", "", text, flags=re.I).strip()
+
+    # --- Cancelar fluxo se o usuário pedir ---
+    t_clean = content.strip().lower()
+    if t_clean in ("esc", "cancel", "cancelar", "sair", "stop", "para", "parar", "nvm"):
+        session_key = f"{ctx.channel}:{ctx.chat_id}"
+        session = ctx.session_manager.get_or_create(session_key)
+        if session.metadata.get(FLOW_KEY):
+            session.metadata.pop(FLOW_KEY, None)
+            ctx.session_manager.save(session)
+            return "Ok, cancelado. 👍" if user_lang.startswith("pt") else ("Vale, cancelado. 👍" if user_lang == "es" else "Okay, cancelled. 👍")
 
     try:
         from backend.guardrails import is_complex_request

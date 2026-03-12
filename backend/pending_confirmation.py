@@ -22,15 +22,19 @@ _CONFIRM_PATTERNS = [
 _TIME_RESPONSE_PATTERNS = (
     r"a\s+cada\s+\d+\s*(min|minuto|hora|dia)",
     r"every\s+\d+\s*(min|hour|day)",
+    r"cada\s+d[ií]a\s+(?:a\s+las?|as)?\s*\d+",
     r"em\s+\d+\s*(min|minuto|hora|dia)",
     r"daqui\s+a\s+\d+",
     r"(?:todo\s+dia|diariamente)\s+(?:às?|as)?\s*\d+",
     r"toda\s+(?:segunda|terça|quarta|quinta|sexta|sábado|domingo)",
     r"todos?\s+os?\s+dias?\s+(?:às?|as)?\s*\d+",
     r"amanh[ãa]\s+(?:às?|as)?\s*\d+",
+    r"ma[nñ]ana\s+(?:a\s+las?|as)?\s*\d+",
+    r"tomorrow\s+(?:at\s+)?\s*\d+",
     r"\d{1,2}\s*h\b",
     r"\d{1,2}:\d{2}",
     r"(?:segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|domingo)\s+\d{1,2}\s*h",
+    r"at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?",
 )
 
 
@@ -61,10 +65,28 @@ def last_assistant_asked_when(last_assistant: str) -> bool:
     """True se a última mensagem do assistente foi a pergunta «Quando quer o lembrete?»."""
     if not last_assistant or len(last_assistant.strip()) < 10:
         return False
-    t = last_assistant.strip().lower()
+    # Normalizar: remover acentos e caracteres especiais para comparação robusta
+    import unicodedata
+    def normalize_text(text: str) -> str:
+        t = text.lower()
+        # Remover acentos
+        t = "".join(c for c in unicodedata.normalize('NFD', t) if unicodedata.category(c) != 'Mn')
+        # Remover ¿, ¡ e ?
+        t = t.replace("¿", "").replace("?", "").replace("¡", "").replace("!", "")
+        return t
+
+    t = normalize_text(last_assistant.strip())
+    
     return (
-        "quando" in t and ("lembrete" in t or "reminder" in t or "recordatorio" in t or "recordatório" in t)
-    ) or ("when" in t and "reminder" in t)
+        ("quando" in t or "when" in t or "cuando" in t) and 
+        ("lembrete" in t or "reminder" in t or "recordatorio" in t or "remember" in t)
+    ) or (
+        # REMINDER_ASK_TIME_GENERIC / CONSULTA
+        "que horas" in t or "what time" in t or "que hora" in t or "a que hora" in t
+    ) or (
+        # REMINDER_ASK_DATE_GENERIC / CONSULTA
+        "que dia" in t or "what day" in t or "que dia" in t
+    )
 
 
 async def try_extract_pending_cron(

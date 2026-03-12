@@ -5,4 +5,4 @@ CLI: zapista
 
 __version__ = "0.1.0"
 __logo__ = "📱"
-__title__ = "Zapista"
+__title__ = "Zappelin"

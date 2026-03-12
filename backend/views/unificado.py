@@ -169,10 +169,10 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
     original = normalize_nl_to_command(content)
     if not period and original.startswith("/agenda ") and len(original) > 8:
         _UNKNOWN_PERIOD = {
-            "pt-BR": "Desculpa, não consegui entender o período que pediste (ex: 'do biênio'). Podes tentar 'este mês', 'esta semana' ou um ano específico?",
-            "pt-PT": "Desculpa, não consegui perceber o período que pediste (ex: 'do biênio'). Podes tentar 'este mês', 'esta semana' ou um ano específico?",
-            "es": "Lo siento, no pude entender el período que solicitaste. ¿Puedes intentar 'este mes', 'esta semana' o un año en específico?",
-            "en": "Sorry, I couldn't understand the timeframe you requested. Could you try 'this month', 'this week', or a specific year?"
+            "pt-BR": "Desculpa, não consegui entender o período que pediste (ex: 'este mês', 'esta semana' ou um ano específico).",
+            "pt-PT": "Desculpa, não consegui perceber o período que pediste (ex: 'este mês', 'esta semana' ou um ano específico).",
+            "es": "Lo siento, no pude entender el período que solicitaste (ej: 'este mes', 'esta semana' o un año específico).",
+            "en": "Sorry, I couldn't understand the timeframe you requested (e.g., 'this month', 'this week', or a specific year)."
         }
         return _UNKNOWN_PERIOD.get(lang, _UNKNOWN_PERIOD["en"])
 

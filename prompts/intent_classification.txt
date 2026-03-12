@@ -42,8 +42,8 @@ Output: {"task_type": "list", "confidence": 0.9, "entities": [{"type": "media_ti
 Input: "me lembra toda segunda de malhar"
 Output: {"task_type": "recurring", "confidence": 0.95, "entities": [{"type": "recurrence", "value": "toda segunda", "confidence": 0.95}, {"type": "item_name", "value": "malhar", "confidence": 0.9}], "requires_clarification": false, "clarification_options": null, "follow_up_suggestion": null}
 
-Input: "lembra de comprar leite"
-Output: {"task_type": "reminder", "confidence": 0.6, "entities": [{"type": "item_name", "value": "comprar leite", "confidence": 0.95}], "requires_clarification": true, "clarification_options": ["reminder", "list"], "follow_up_suggestion": null}
+Input: "lembra de comprar algo"
+Output: {"task_type": "reminder", "confidence": 0.6, "entities": [{"type": "item_name", "value": "comprar algo", "confidence": 0.95}], "requires_clarification": true, "clarification_options": ["reminder", "list"], "follow_up_suggestion": null}
 
 Input: "cria uma lista de filmes e me lembra de ver amanhã"
 Output: {"task_type": "list", "confidence": 0.65, "entities": [{"type": "category", "value": "filmes", "confidence": 0.9}, {"type": "datetime", "value": "amanhã", "confidence": 0.9}], "requires_clarification": true, "clarification_options": ["list", "reminder"], "follow_up_suggestion": null}

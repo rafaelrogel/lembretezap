@@ -14,7 +14,7 @@ from zapista import __version__, __logo__, __title__
 logger = logging.getLogger(__name__)
 
 app = typer.Typer(
-    name="Zapista",
+    name="Zappelin",
     help=f"{__logo__} {__title__} - WhatsApp AI Organizer",
     no_args_is_help=True,
 )
@@ -34,7 +34,7 @@ def main(
         None, "--version", "-v", callback=version_callback, is_eager=True
     ),
 ):
-    """Zapista - WhatsApp AI Organizer."""
+    """Zappelin - WhatsApp AI Organizer."""
     pass
 
 
@@ -45,7 +45,7 @@ def main(
 
 @app.command()
 def onboard():
-    """Initialize zapista configuration and workspace."""
+    """Initialize Zappelin configuration and workspace."""
     from zapista.config.loader import get_config_path, save_config
     from zapista.config.schema import Config
     from zapista.utils.helpers import get_workspace_path
@@ -96,7 +96,7 @@ We only operate in private chats; we never respond in groups.
 """,
         "SOUL.md": """# Soul
 
-I am Zapista, your WhatsApp AI organizer.
+I am Zappelin, your WhatsApp AI organizer.
 
 ## Personality
 
