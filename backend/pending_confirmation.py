@@ -9,12 +9,13 @@ from typing import Any
 
 # Frases curtas que indicam confirmação (pt, es, en)
 _CONFIRM_PATTERNS = [
-    r"^(sim|s[ií]|yes|s[ií]m)\s*$",
+    r"^(sim|s[ií]|yes|s[ií]m|ok|okay|pode|puede|can)\s*$",
     r"^(quero\s+)?(sim|s[ií])\s*$",
-    r"^(ok|okay|pode|puede|can)\s*$",
     r"^(faz|fa[cç]a|manda|envia|do\s+it)\s*$",
-    r"^(claro|certeza|certo|combinado|deal)\s*$",
-    r"^(confirma|confirmo|confirmado)\s*$",
+    r"^(claro|certeza|certo|combinado|deal|exacto|exato|corret[íi]ssimo)\b",
+    r"^(confirma|confirmo|confirmado|is\s+correct|correct|correto|corretamente)\b",
+    r"^(por\s+supuesto|of\s+course|ma\s+vale)\b",
+    r"^(anda|dale|venga|bora|partiu)\b",
     r"^(\d)\s*=\s*sim\s*$",  # 1=sim
 ]
 

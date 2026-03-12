@@ -584,25 +584,33 @@ class AgentLoop:
         if self.scope_provider and self.scope_model:
             try:
                 prompt = (
-                    "The user was asked how they would like to be called. "
-                    f"They replied: \"{user_content[:200]}\". "
-                    f"Their WhatsApp profile name is \"{fallback_name or 'unknown'}\". "
-                    "Extract the preferred name they want to be called. "
-                    "If they corrected the name, extract the new name. "
-                    "If they confirmed the WhatsApp name, return exactly that name. "
-                    "Return ONLY the name, nothing else. No punctuation unless part of the name."
+                    "The user was asked to confirm their name or provide a new one. "
+                    f"User Message: \"{user_content[:200]}\". "
+                    f"Default WhatsApp Name: \"{fallback_name or 'unknown'}\".\n\n"
+                    "Task: Determine the name they want to be called by.\n\n"
+                    "Rules:\n"
+                    "1. If the message matches a positive confirmation (e.g., 'Sim', 'Yes', 'Si', 'Corretíssimo', 'Isso', 'Correct', 'Yep', 'Certo', 'OK', 'Vale', 'Perfecto'), return the Default WhatsApp Name.\n"
+                    "2. If the user provides a specific name (e.g., 'Chama-me Bob', 'No, use Alice', 'Marcos', 'Pode ser João'), return ONLY that specific name.\n"
+                    "3. If the user corrects or changes the name, prioritize the new name.\n"
+                    "4. If the message is ambiguous or just a confirmation, return the Default WhatsApp Name.\n\n"
+                    "Reply ONLY with the name string. No punctuation, no quotes, no extra text."
                 )
                 r = await self.scope_provider.chat(
                     messages=[{"role": "user", "content": prompt}],
                     model=self.scope_model,
                     profile="parser",
+                    temperature=0.0,
                 )
                 name = (r.content or "").strip().split("\n")[0].strip()
-                # Remover pontuação final se o LLM incluiu
-                if name.endswith(".") or name.endswith("!") or name.endswith("?"):
-                    name = name[:-1]
-                if name:
+                # Clean up punctuation
+                name = name.strip(" .!?\"'")
+                
+                # Secondary Guard: Ensure the extracted name is actually valid
+                from backend.onboarding_skip import is_likely_valid_name
+                if name and is_likely_valid_name(name):
                     return name[:128]
+                elif fallback_name and is_likely_valid_name(fallback_name):
+                    return fallback_name[:128]
             except Exception as e:
                 logger.debug(f"Mimo extract name failed: {e}")
         return fallback_name
@@ -1327,22 +1335,14 @@ class AgentLoop:
                         
                         name_to_save = None
                         
-                        if is_affirmation(content_name) and wa_name_valid:
-                            # Usuário confirmou o nome do WhatsApp
-                            name_to_save = wa_name[:128]
-                        elif content_name and is_likely_valid_name(content_name):
-                            # Se for uma negação ("Não, chama-me X") ou frase longa, usar MIMO
-                            if is_rebuttal(content_name) or len(content_name.split()) > 2:
-                                name_to_save = await self._extract_name_with_mimo(content_name, wa_name)
-                            else:
-                                name_to_save = content_name[:128]
+                        # Usar MIMO para entender se o usuário confirmou o nome do WhatsApp ou deu um novo
+                        wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                        name_to_save = await self._extract_name_with_mimo(content_name, wa_name)
                         
-                        # Fallback final se nada acima funcionou
-                        if name_to_save is None:
-                            if wa_name_valid:
-                                name_to_save = wa_name[:128]
-                            else:
-                                name_to_save = "utilizador"
+                        # Fallback se MIMO falhar ou retornar vazio
+                        if not name_to_save:
+                            wa_name_valid = wa_name and len(wa_name) >= 2 and not wa_name.isdigit()
+                            name_to_save = wa_name if wa_name_valid else "utilizador"
                                 
                         set_user_preferred_name(db, msg.chat_id, name_to_save)
                         session.metadata.pop("pending_preferred_name", None)
