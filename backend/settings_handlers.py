@@ -231,13 +231,7 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
     out = msgs.get(lang, msgs["pt-BR"])
     time_str = _format_current_time_for_user(ctx.chat_id, lang)
     if time_str:
-        hint_clock = {
-            "pt-PT": "Se a hora estiver errada, no servidor define a variável CLOCK_OFFSET_SECONDS (segundos a somar ao relógio do servidor).",
-            "pt-BR": "Se a hora estiver errada, no servidor defina a variável CLOCK_OFFSET_SECONDS (segundos a somar ao relógio do servidor).",
-            "es": "Si la hora es incorrecta, en el servidor define la variable CLOCK_OFFSET_SECONDS (segundos a sumar al reloj del servidor).",
-            "en": "If the time is wrong, on the server set CLOCK_OFFSET_SECONDS (seconds to add to server clock).",
-        }
-        out = out + "\n\n*Hora atual (no teu fuso):* " + time_str + "\n\n" + hint_clock.get(lang, hint_clock["en"])
+        out = out + "\n\n*Hora atual (no seu fuso):* " + time_str
     if ctx.session_manager:
         try:
             key = f"{ctx.channel}:{ctx.chat_id}"
