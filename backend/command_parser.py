@@ -77,6 +77,22 @@ RE_NL_POR_LISTA = re.compile(
     r"^(?:coloca|coloque|p[oô]e|põe|anota|anotar|inclui|incluir|marca)\s+(.+?)\s+(?:na|no|à|a)\s+(?:lista|listas)\s*$",
     re.I,
 )
+# NL (4 idiomas): "coloca na lista: X", "adiciona à lista: X", "pon en la lista: X", "add to list: X"
+# PT-BR/PT-PT: coloca/adiciona/põe na lista: X
+# ES: pon/añade/agrega en la lista: X
+# EN: add/put to the list: X
+RE_NL_LISTA_DOIS_PONTOS = re.compile(
+    r"^(?:"
+    # PT-BR/PT-PT
+    r"(?:coloca|coloque|p[oô]e|põe|adiciona|adicione|inclui|incluir)\s+(?:na|à|a)\s+lista"
+    r"|(?:adiciona|adicione|coloca|coloque)\s+(?:à|a|na)\s+lista"
+    # ES
+    r"|(?:pon|pone|a[ñn]ade|a[ñn]adir|agrega|agregar)\s+(?:en\s+la|a\s+la)\s+lista"
+    # EN
+    r"|(?:add|put)\s+(?:to\s+(?:the\s+)?|on\s+(?:the\s+)?)?list"
+    r")\s*:\s*(.+)$",
+    re.I,
+)
 # NL: "anota X" / "anotar X" (sem "na lista") → list_add notas
 RE_NL_ANOTA = re.compile(r"^(?:anota|anotar)\s+(.+)$", re.I)
 # NL: "hoje tenho muita coisa para fazer, X, Y e Z" → sempre list_add hoje (to-do)
@@ -159,7 +175,10 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
 
     m = RE_LIST_ADD.match(text)
     if m:
-        return {"type": "list_add", "list_name": m.group(1).strip(), "item": m.group(2).strip()}
+        list_name_raw = m.group(1).strip().lower()
+        # Normalizar nome da lista (compras/shopping → mercado, etc.)
+        list_name = _CATEGORY_TO_LIST.get(list_name_raw, list_name_raw)
+        return {"type": "list_add", "list_name": list_name, "item": m.group(2).strip()}
     m = RE_LIST_CATEGORY_ADD.match(text)
     if m:
         cat = m.group(1).strip().lower()
@@ -299,6 +318,18 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         item = m.group(1).strip()
         if item:
             return {"type": "list_add", "list_name": "mercado", "item": item}
+    # NL (4 idiomas): "coloca na lista: X, Y, Z" → list_add mercado
+    m = RE_NL_LISTA_DOIS_PONTOS.match(text)
+    if m:
+        raw_items = m.group(1).strip()
+        if raw_items:
+            # Split por vírgula e conectores (e/y/and)
+            parts = re.split(r"\s*,\s*|\s+(?:e|y|and)\s+", raw_items, flags=re.IGNORECASE)
+            items = [p.strip() for p in parts if p.strip()]
+            if items:
+                if len(items) == 1:
+                    return {"type": "list_add", "list_name": "mercado", "item": items[0]}
+                return {"type": "list_add", "list_name": "mercado", "items": items}
     # NL: "anota X" / "anotar X" (sem "na lista") → list_add notas
     m = RE_NL_ANOTA.match(text)
     if m:

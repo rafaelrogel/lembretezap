@@ -131,21 +131,21 @@ class ListTool(Tool):
     @staticmethod
     def _split_items(item_text: str) -> list[str]:
         """
-        Divide texto em múltiplos itens quando separados por vírgula ou ' e '.
-        Só divide se todas as partes forem curtas (< 120 chars) — evita dividir
+        Divide texto em múltiplos itens quando separados por vírgula ou ' e ' (PT/ES) ou ' and ' (EN) ou ' y ' (ES).
+        Só divide se todas as partes forem curtas (< 200 chars) — evita dividir
         títulos longos de livros/filmes que contenham vírgulas intercaladas.
         Ex.: '[item A], [item B] e [item C]' -> ['[item A]', '[item B]', '[item C]']
              'Paulo Coelho - O Alquimista' -> ['Paulo Coelho - O Alquimista'] (não divide)
         """
         import re
         text = item_text.strip()
-        # Primeiro substituir " e " por vírgula para uniformizar
-        normalized = re.sub(r"\s+e\s+", ", ", text)
+        # Substituir conectores por vírgula para uniformizar (PT: " e ", ES: " y ", EN: " and ")
+        normalized = re.sub(r"\s+(?:e|y|and)\s+", ", ", text, flags=re.IGNORECASE)
         parts = [p.strip() for p in re.split(r",\s*", normalized) if p.strip()]
         if len(parts) <= 1:
             return [text]
         # Só dividir se todas as partes forem curtas (itens simples, não títulos com vírgula)
-        max_part_len = 120
+        max_part_len = 200
         if all(len(p) <= max_part_len for p in parts):
             return parts
         return [text]
