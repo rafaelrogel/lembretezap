@@ -108,7 +108,6 @@ HANDLERS = [
     handle_exportar,
     handle_deletar_tudo,
     handle_nuke,
-    handle_nuke,
 ]
 
 
