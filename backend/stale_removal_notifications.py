@@ -43,10 +43,16 @@ def _save(data: dict[str, Any]) -> None:
     p.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def add_removals(channel: str, chat_id: str, removed_jobs: list[tuple[str, str]]) -> None:
+def add_removals(
+    channel: str,
+    chat_id: str,
+    removed_jobs: list[tuple[str, str]],
+    phone_for_locale: str | None = None,
+) -> None:
     """
     Regista que foram removidos lembretes para (channel, chat_id).
     removed_jobs: [(job_id, job_name), ...]
+    phone_for_locale: número real do utilizador (para resolver idioma de @lid).
     A notificação será enviada após 2 mensagens do cliente.
     """
     if not removed_jobs:
@@ -56,6 +62,9 @@ def add_removals(channel: str, chat_id: str, removed_jobs: list[tuple[str, str]]
     existing = data.get(key, {"removed": [], "messages_until_send": _MESSAGES_UNTIL_SEND})
     existing["removed"] = existing.get("removed", []) + [list(r) for r in removed_jobs]
     existing["messages_until_send"] = _MESSAGES_UNTIL_SEND
+    # Guardar phone_for_locale para resolver idioma de @lid
+    if phone_for_locale and not existing.get("phone_for_locale"):
+        existing["phone_for_locale"] = phone_for_locale
     data[key] = existing
     _save(data)
 
@@ -80,29 +89,37 @@ def consume(channel: str, chat_id: str) -> tuple[bool, str | None]:
         return False, None
     # Enviar agora
     removed = entry.get("removed", [])
+    phone_for_locale = entry.get("phone_for_locale")
     del data[key]
     _save(data)
     if not removed:
         return False, None
-    return True, _build_apology_message(channel, chat_id, removed)
+    return True, _build_apology_message(channel, chat_id, removed, phone_for_locale=phone_for_locale)
 
 
-def _build_apology_message(channel: str, chat_id: str, removed: list[list[str]]) -> str:
+def _build_apology_message(
+    channel: str,
+    chat_id: str,
+    removed: list[list[str]],
+    phone_for_locale: str | None = None,
+) -> str:
     """Mensagem de desculpa no idioma do utilizador."""
     lang = "pt-BR"
     try:
         from backend.database import SessionLocal
         from backend.user_store import get_user_language
-        from backend.locale import phone_to_default_language, STALE_REMOVAL_APOLOGY, LangCode
+        from backend.locale import STALE_REMOVAL_APOLOGY
         db = SessionLocal()
         try:
-            lang = get_user_language(db, chat_id) or "pt-BR"
+            # Passa phone_for_locale para resolver @lid → idioma correto (ex.: +351 → pt-PT)
+            lang = get_user_language(db, chat_id, phone_for_locale) or "pt-BR"
         finally:
             db.close()
     except Exception:
         try:
             from backend.locale import phone_to_default_language
-            lang = phone_to_default_language(chat_id) or "pt-BR"
+            # Tenta pelo número real; fallback ao chat_id
+            lang = phone_to_default_language(phone_for_locale or chat_id) or "pt-BR"
         except Exception:
             pass
     from backend.locale import STALE_REMOVAL_APOLOGY

@@ -44,7 +44,7 @@ def test_normalize_command_non_commands_unchanged():
 
     unchanged = [
         "olá, tudo bem?",
-        "lembra de comprar leite amanhã",
+        "lembra de comprar algo amanhã",
         "lista mercado add leite",  # sem barra
         "",
         "   ",

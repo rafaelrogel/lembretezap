@@ -126,6 +126,11 @@ class AgentLoop:
             scope_provider=self.scope_provider,
             scope_model=self.scope_model or "",
         ))
+        
+        # Event tool (per-user DB agenda events)
+        from zapista.agent.tools.event_tool import EventTool
+        from backend.database import SessionLocal
+        self.tools.register(EventTool(db_session_factory=SessionLocal))
         # Search tool (Perplexity) — só quando API key disponível
         if self._perplexity_api_key:
             from zapista.agent.tools.search_tool import SearchTool
@@ -332,7 +337,8 @@ class AgentLoop:
 
     def _set_tool_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
         """Define canal/chat (e phone_for_locale para agendamento) em todas as tools que suportam."""
-        for name, tool in (("message", MessageTool), ("cron", CronTool), ("list", ListTool)):
+        from zapista.agent.tools.event_tool import EventTool
+        for name, tool in (("message", MessageTool), ("cron", CronTool), ("list", ListTool), ("event", EventTool)):
             t = self.tools.get(name)
             if t and isinstance(t, tool):
                 t.set_context(channel, chat_id, phone_for_locale)
@@ -571,6 +577,44 @@ class AgentLoop:
 
         return city_name, tz_iana if (tz_iana and is_valid_iana(tz_iana)) else None
 
+    async def _extract_name_with_mimo(self, user_content: str, fallback_name: str | None = None) -> str | None:
+        """Usa Mimo para extrair o nome preferido do utilizador de uma frase ou correção."""
+        if not user_content or not user_content.strip():
+            return fallback_name
+        if self.scope_provider and self.scope_model:
+            try:
+                prompt = (
+                    "The user was asked to confirm their name or provide a new one. "
+                    f"User Message: \"{user_content[:200]}\". "
+                    f"Default WhatsApp Name: \"{fallback_name or 'unknown'}\".\n\n"
+                    "Task: Determine the name they want to be called by.\n\n"
+                    "Rules:\n"
+                    "1. If the message matches a positive confirmation (e.g., 'Sim', 'Yes', 'Si', 'Corretíssimo', 'Isso', 'Correct', 'Yep', 'Certo', 'OK', 'Vale', 'Perfecto'), return the Default WhatsApp Name.\n"
+                    "2. If the user provides a specific name (e.g., 'Chama-me Bob', 'No, use Alice', 'Marcos', 'Pode ser João'), return ONLY that specific name.\n"
+                    "3. If the user corrects or changes the name, prioritize the new name.\n"
+                    "4. If the message is ambiguous or just a confirmation, return the Default WhatsApp Name.\n\n"
+                    "Reply ONLY with the name string. No punctuation, no quotes, no extra text."
+                )
+                r = await self.scope_provider.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    model=self.scope_model,
+                    profile="parser",
+                    temperature=0.0,
+                )
+                name = (r.content or "").strip().split("\n")[0].strip()
+                # Clean up punctuation
+                name = name.strip(" .!?\"'")
+                
+                # Secondary Guard: Ensure the extracted name is actually valid
+                from backend.onboarding_skip import is_likely_valid_name
+                if name and is_likely_valid_name(name):
+                    return name[:128]
+                elif fallback_name and is_likely_valid_name(fallback_name):
+                    return fallback_name[:128]
+            except Exception as e:
+                logger.debug(f"Mimo extract name failed: {e}")
+        return fallback_name
+
     async def _reply_calling_organizer_with_mimo(self, user_lang: str) -> str:
         """Resposta curta e proativa ao ser 'chamado' (Mimo, barato). Uma só frase, no idioma do utilizador."""
         lang_instruction = {
@@ -717,10 +761,10 @@ class AgentLoop:
             prompt = (
                 f"User message: \"{msg.content}\"\n"
                 f"Current UTC time (Server think): {utc_str}\n"
-                "Task: check if the user is complaining about the time/clock being wrong OR answering an onboarding question about time.\n"
+                "Task: check if the user is complaining about the time/clock being wrong.\n"
                 "1. If they say 'It is HH:MM' or 'Current time is HH:MM' (in any language), calculate the difference from UTC.\n"
-                "   - If difference matches their timezone (e.g. Europe/Lisbon), reply 'FIX|{timezone}'.\n"
-                "   - If difference DOES NOT match expected timezone (e.g. server is 4h off), reply 'FIX_OFFSET|{offset_in_seconds}|{reason}'.\n"
+                "   - If difference matches a known IANA timezone (e.g. America/Sao_Paulo for -3h), reply 'FIX|{timezone}'.\n"
+                "   - If difference DOES NOT match any standard timezone (e.g. server is 4h off), reply 'FIX_OFFSET|{offset_in_seconds}|{reason}'.\n"
                 "     Example: User says 'It is 16:00'. Server says '12:00'. Offset needed: +14400s (4h). Reply: 'FIX_OFFSET|14400|User reported 16:00 vs 12:00'.\n"
                 "2. If they just complain without time, reply 'ASK_CITY'.\n"
                 "3. If unrelated, reply 'NO'."
@@ -927,7 +971,16 @@ class AgentLoop:
         trace_id = msg.trace_id or uuid.uuid4().hex[:12]
         token = set_trace_id(trace_id)
         try:
-            return await self._process_message_impl(msg)
+            response = await self._process_message_impl(msg)
+            if response and response.content and msg.metadata:
+                transcribed_text = msg.metadata.get("transcribed_text")
+                if transcribed_text and msg.channel == "whatsapp":
+                    # Feedback visual: o utilizador enviou áudio, Zappelin diz o que ouviu.
+                    # Ajuda a dar contexto e confirmação no chat do WhatsApp.
+                    prefix = f"🎤 *Transcrição:* \"{transcribed_text}\"\n\n"
+                    if not response.content.startswith("🎤 *Transcrição:*"):
+                        response.content = prefix + response.content
+            return response
         finally:
             reset_trace_id(token)
 
@@ -947,13 +1000,7 @@ class AgentLoop:
             trace_id=msg.trace_id,
         )
 
-        # 0. Timezone Doctor (MIMO): verificar se o user está "perdido no tempo"
-        try:
-            tz_fix = await self._handle_time_confusion(msg)
-            if tz_fix:
-                return tz_fix
-        except Exception:
-            pass
+        # Analytics e contagem diária (lembrete inteligente só após >= 2 msgs no dia)
 
         # Regista mensagem do cliente para contagem diária (lembrete inteligente só após >= 2 msgs no dia)
         try:
@@ -1281,17 +1328,22 @@ class AgentLoop:
 
                     # Resposta à pergunta «Como gostarias de ser chamado?» (após fuso definido)
                     if has_tz_set and pending_preferred_name and not (msg.content or "").strip().startswith("/"):
+                        from backend.onboarding_skip import is_affirmation, is_rebuttal
                         content_name = (msg.content or "").strip()
+                        wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                        wa_name_valid = wa_name and len(wa_name) >= 2 and not wa_name.isdigit()
+                        
                         name_to_save = None
-                        if content_name and is_likely_valid_name(content_name):
-                            name_to_save = content_name[:128]
-                        if name_to_save is None:
-                            # Fallback: nome do perfil WhatsApp (pushName)
-                            wa_name = (msg.metadata.get("sender_display_name") or "").strip()
-                            if wa_name and len(wa_name) >= 2 and not wa_name.isdigit():
-                                name_to_save = wa_name[:128]
-                        if name_to_save is None:
-                            name_to_save = "utilizador"
+                        
+                        # Usar MIMO para entender se o usuário confirmou o nome do WhatsApp ou deu um novo
+                        wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                        name_to_save = await self._extract_name_with_mimo(content_name, wa_name)
+                        
+                        # Fallback se MIMO falhar ou retornar vazio
+                        if not name_to_save:
+                            wa_name_valid = wa_name and len(wa_name) >= 2 and not wa_name.isdigit()
+                            name_to_save = wa_name if wa_name_valid else "utilizador"
+                                
                         set_user_preferred_name(db, msg.chat_id, name_to_save)
                         session.metadata.pop("pending_preferred_name", None)
                         self._sync_onboarding_to_memory(db, msg.chat_id, msg.session_key)
@@ -1346,7 +1398,14 @@ class AgentLoop:
                                 complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
                                 complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                 complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
-                                name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                # Personalizar pergunta do nome se viemos do WhatsApp
+                                wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                                if wa_name and len(wa_name) >= 2 and not wa_name.isdigit():
+                                    from backend.locale import preferred_name_acknowledge_message
+                                    name_q = preferred_name_acknowledge_message(user_lang, wa_name)
+                                else:
+                                    name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                
                                 complete_msg += "\n\n" + name_q
                                 session.metadata["pending_preferred_name"] = True
                                 session.add_message("user", msg.content)
@@ -1370,6 +1429,11 @@ class AgentLoop:
                             # 1a. Tentar auto-detectar fuso pelo DDD (Brasil)
                             _phone_for_ddd = msg.metadata.get("phone_for_locale") or msg.chat_id
                             _ddd_result = ddd_city_and_tz(_phone_for_ddd)
+                            
+                            # Obter nome do WhatsApp se disponível
+                            wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                            personalized_name = wa_name if (wa_name and len(wa_name) >= 2 and not wa_name.isdigit()) else None
+
                             if _ddd_result:
                                 _ddd_city, _ddd_iana = _ddd_result
                                 try:
@@ -1379,7 +1443,9 @@ class AgentLoop:
                                 except Exception:
                                     _time_str = "??"
                                 _lang_key = user_lang if user_lang in ("pt-PT", "pt-BR", "es", "en") else "pt-BR"
-                                intro = ONBOARDING_INTRO_TZ_FIRST.get(intro_lang, ONBOARDING_INTRO_TZ_FIRST["en"])
+                                
+                                from backend.locale import onboarding_intro_message
+                                intro = onboarding_intro_message(intro_lang, personalized_name)
                                 ddd_confirm = ddd_tz_confirm_message(_lang_key, _ddd_city, _time_str)
                                 full_msg = intro + "\n\n" + ddd_confirm
                                 session.metadata["onboarding_intro_sent"] = True
@@ -1392,8 +1458,10 @@ class AgentLoop:
                                 self.sessions.save(session)
                                 db.close()
                                 return OutboundMessage(channel=msg.channel, chat_id=msg.chat_id, content=full_msg)
+                            
                             # 1b. DDD não reconhecido: intro normal + pergunta cidade/hora
-                            intro = ONBOARDING_INTRO_TZ_FIRST.get(intro_lang, ONBOARDING_INTRO_TZ_FIRST["en"])
+                            from backend.locale import onboarding_intro_message
+                            intro = onboarding_intro_message(intro_lang, personalized_name)
                             ask = ONBOARDING_ASK_CITY_OR_TIME.get(intro_lang, ONBOARDING_ASK_CITY_OR_TIME["en"])
                             full_msg = intro + "\n\n" + ask
                             session.metadata["onboarding_intro_sent"] = True
@@ -1439,7 +1507,14 @@ class AgentLoop:
                                 complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
                                 complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                 complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
-                                name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                # Personalizar pergunta do nome se viemos do WhatsApp
+                                wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                                if wa_name and len(wa_name) >= 2 and not wa_name.isdigit():
+                                    from backend.locale import preferred_name_acknowledge_message
+                                    name_q = preferred_name_acknowledge_message(user_lang, wa_name)
+                                else:
+                                    name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                
                                 complete_msg += "\n\n" + name_q
                                 session.metadata["pending_preferred_name"] = True
                                 session.add_message("user", msg.content)
@@ -1462,7 +1537,14 @@ class AgentLoop:
                                 complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
                                 complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                 complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
-                                name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                # Personalizar pergunta do nome se viemos do WhatsApp
+                                wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                                if wa_name and len(wa_name) >= 2 and not wa_name.isdigit():
+                                    from backend.locale import preferred_name_acknowledge_message
+                                    name_q = preferred_name_acknowledge_message(user_lang, wa_name)
+                                else:
+                                    name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                
                                 complete_msg += "\n\n" + name_q
                                 session.metadata["pending_preferred_name"] = True
                                 session.add_message("user", msg.content)
@@ -1486,7 +1568,15 @@ class AgentLoop:
                                     complete_msg += ONBOARDING_DAILY_USE_APPEAL.get(user_lang, ONBOARDING_DAILY_USE_APPEAL["en"])
                                     complete_msg += ONBOARDING_EMOJI_TIP.get(user_lang, ONBOARDING_EMOJI_TIP["en"])
                                     complete_msg += ONBOARDING_RESET_HINT.get(user_lang, ONBOARDING_RESET_HINT["en"])
-                                    name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                    
+                                    # Personalizar pergunta do nome se viemos do WhatsApp
+                                    wa_name = (msg.metadata.get("sender_display_name") or "").strip()
+                                    if wa_name and len(wa_name) >= 2 and not wa_name.isdigit():
+                                        from backend.locale import preferred_name_acknowledge_message
+                                        name_q = preferred_name_acknowledge_message(user_lang, wa_name)
+                                    else:
+                                        name_q = PREFERRED_NAME_QUESTION.get(user_lang, PREFERRED_NAME_QUESTION["en"])
+                                    
                                     complete_msg += "\n\n" + name_q
                                     session.metadata["pending_preferred_name"] = True
                                     session.add_message("user", msg.content)
@@ -1533,10 +1623,20 @@ class AgentLoop:
                             session.metadata.pop("pending_timezone", None)
                             session.metadata["onboarding_nudge_count"] = nudge_count + 1
                             self.sessions.save(session)
+
                 finally:
                     db.close()
             except Exception as e:
                 logger.debug(f"Onboarding (timezone) flow failed: {e}")
+
+        # Timezone Doctor (MIMO): verificar se o user já registrado está "perdido no tempo" (relógio ou fuso errado)
+        # Chamado após onboarding para não interferir nas perguntas iniciais de fuso.
+        try:
+            tz_fix = await self._handle_time_confusion(msg)
+            if tz_fix:
+                return tz_fix
+        except Exception:
+            pass
 
         # Handlers de comandos (README: /lembrete, /list, /feito, /add, /done, /start, etc.)
         # Confirmações sem botões: 1=sim 2=não. TODO: Após WhatsApp Business API, use buttons.
@@ -2027,6 +2127,15 @@ class AgentLoop:
                     args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
                     logger.info(f"Tool call: {tool_call.name}({args_str[:200]})")
                     result = await self.tools.execute(tool_call.name, tool_call.arguments)
+                    # Log result (shortened if too long)
+                    res_log = str(result)
+                    if len(res_log) > 500:
+                        res_log = res_log[:500] + "..."
+                    if res_log.lower().startswith("erro"):
+                        logger.error(f"Tool {tool_call.name} returned: {res_log}")
+                    else:
+                        logger.info(f"Tool {tool_call.name} result: {res_log}")
+                        
                     messages = self.context.add_tool_result(
                         messages, tool_call.id, tool_call.name, result
                     )

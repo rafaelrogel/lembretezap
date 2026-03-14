@@ -18,6 +18,29 @@ from zapista.bus.queue import MessageBus
 from zapista.channels.base import BaseChannel
 from zapista.config.schema import WhatsAppConfig
 
+from backend.locale import (
+    LangCode,
+    AUDIO_TOO_LARGE,
+    AUDIO_TOO_LONG,
+    AUDIO_NOT_ALLOWED,
+    AUDIO_FORWARDED,
+    AUDIO_TRANSCRIBE_FAILED,
+    AUDIO_NOT_RECEIVED,
+    GOD_MODE_ACTIVE,
+    GOD_MODE_INACTIVE,
+    MUTE_USAGE,
+    ADMIN_ERROR,
+    RESTART_MSG_FIRST,
+    RESTART_MSG_SECOND,
+    RESTART_MSG_CANCELLED,
+    RESTART_MSG_DONE,
+    RESTART_ERROR,
+    CONFIRM_DONE,
+    SCHEDULE_CHANGE_PROMPT,
+    SNOOZE_MAX,
+    format_snooze,
+)
+
 # JID suffix for WhatsApp groups; we only process chats (e.g. @s.whatsapp.net or LID), never groups
 WHATSAPP_GROUP_SUFFIX = "@g.us"
 
@@ -306,6 +329,7 @@ class WhatsAppChannel(BaseChannel):
             return
 
         if msg_type == "message":
+            sender = (data.get("sender") or "").strip()
             # Evitar processar o mesmo evento várias vezes (reduz chamadas LLM duplicadas)
             msg_id = (data.get("id") or "").strip()
             redis_url = getattr(self.bus, "redis_url", None) if self.bus else None
@@ -324,7 +348,7 @@ class WhatsAppChannel(BaseChannel):
                 return
 
             # Incoming message from WhatsApp — we only process chats, never groups
-            is_group = data.get("isGroup", False) or (data.get("sender") or "").strip().endswith(WHATSAPP_GROUP_SUFFIX)
+            is_group = data.get("isGroup", False) or sender.endswith(WHATSAPP_GROUP_SUFFIX)
             if is_group:
                 logger.debug("Ignoring message from group (we only respond in private chats)")
                 return
@@ -332,8 +356,8 @@ class WhatsAppChannel(BaseChannel):
             # Deprecated by whatsapp: old phone number style typically: <phone>@s.whatsapp.net
             pn = data.get("pn", "")
             # New LID style typically:
-            sender = data.get("sender", "")
             content = data.get("content", "")
+            transcribed_text = None
 
             # Extract just the phone number or lid as chat_id
             user_id = pn if pn else sender
@@ -365,18 +389,12 @@ class WhatsAppChannel(BaseChannel):
             from backend.database import SessionLocal
             from zapista.bus.events import OutboundMessage
             from backend.locale import (
-                AUDIO_FORWARDED,
-                AUDIO_NOT_ALLOWED,
-                AUDIO_NOT_RECEIVED,
-                AUDIO_TOO_LARGE,
-                AUDIO_TOO_LONG,
-                AUDIO_TRANSCRIBE_FAILED,
-                LangCode,
                 phone_to_default_language,
             )
             from backend.user_store import get_user_language
 
-            media_base64 = data.get("mediaBase64") or data.get("media_base64")
+            media_base64 = data.get("mediaBase64") or data.get("media_base_64")
+            mimetype = data.get("mimetype") or data.get("mime_type")
             audio_too_large = data.get("audioTooLarge") or data.get("audio_too_large")
             if content == "[Voice Message]":
                 # Resolve idioma do utilizador (pt-PT, pt-BR, es, en). Preferir pn para LID.
@@ -415,7 +433,7 @@ class WhatsAppChannel(BaseChannel):
                     from zapista.stt import transcribe
                     from zapista.stt.audio_utils import check_audio_duration
 
-                    duration_error_key = check_audio_duration(media_base64.strip())
+                    duration_error_key = check_audio_duration(media_base64.strip(), mimetype=mimetype)
                     if duration_error_key == "AUDIO_TOO_LONG":
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
@@ -424,9 +442,10 @@ class WhatsAppChannel(BaseChannel):
                         ))
                         return
 
-                    transcribed = await transcribe(media_base64.strip())
+                    transcribed = await transcribe(media_base64.strip(), mimetype=mimetype)
                     if transcribed and transcribed.strip():
                         content = transcribed.strip()
+                        transcribed_text = content
                     else:
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
@@ -507,7 +526,7 @@ class WhatsAppChannel(BaseChannel):
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=user_id,
-                        content="God-mode ativo. Comandos: #hora #ativos #erros #diagnostico #help #clientes #jobs #redis #whatsapp | #status #users #cron #server #system #add #remove #mute #quit",
+                        content=GOD_MODE_ACTIVE.get(user_lang, GOD_MODE_ACTIVE["en"]) if 'user_lang' in locals() else GOD_MODE_ACTIVE["pt-PT"],
                     ))
                     return
                 cmd, arg = parse_admin_command_arg(raw)
@@ -525,7 +544,7 @@ class WhatsAppChannel(BaseChannel):
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=user_id,
-                        content="God-mode desativado.",
+                        content=GOD_MODE_INACTIVE.get(user_lang, GOD_MODE_INACTIVE["en"]) if 'user_lang' in locals() else GOD_MODE_INACTIVE["pt-PT"],
                     ))
                     return
                 # #mute <número>: aplicar punição e enviar mensagem ao utilizador
@@ -534,7 +553,7 @@ class WhatsAppChannel(BaseChannel):
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
                             chat_id=user_id,
-                            content="#mute\nUso: #mute <número de telefone>",
+                            content=MUTE_USAGE.get(user_lang, MUTE_USAGE["en"]) if 'user_lang' in locals() else MUTE_USAGE["pt-PT"],
                         ))
                         return
                     user_msg, count, admin_msg = apply_mute(arg)
@@ -575,7 +594,7 @@ class WhatsAppChannel(BaseChannel):
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=user_id,
-                        content="Erro ao executar comando admin.",
+                        content=ADMIN_ERROR.get(user_lang, ADMIN_ERROR["en"]) if 'user_lang' in locals() else ADMIN_ERROR["pt-PT"],
                     ))
                 return
 
@@ -584,10 +603,6 @@ class WhatsAppChannel(BaseChannel):
                 get_restart_stage,
                 set_restart_stage,
                 clear_restart_stage,
-                MSG_FIRST,
-                MSG_SECOND,
-                MSG_CANCELLED,
-                MSG_DONE,
                 is_confirm_reply,
                 is_confirm_no,
                 run_restart,
@@ -600,7 +615,7 @@ class WhatsAppChannel(BaseChannel):
                 await self.bus.publish_outbound(OutboundMessage(
                     channel=self.name,
                     chat_id=user_id,
-                    content=MSG_FIRST,
+                    content=RESTART_MSG_FIRST.get(user_lang, RESTART_MSG_FIRST["en"]) if 'user_lang' in locals() else RESTART_MSG_FIRST["pt-PT"],
                 ))
                 return
             if stage and is_confirm_reply(raw_content):
@@ -609,7 +624,7 @@ class WhatsAppChannel(BaseChannel):
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=user_id,
-                        content=MSG_CANCELLED,
+                        content=RESTART_MSG_CANCELLED.get(user_lang, RESTART_MSG_CANCELLED["en"]) if 'user_lang' in locals() else RESTART_MSG_CANCELLED["pt-PT"],
                     ))
                     return
                 if stage == "1":
@@ -617,7 +632,7 @@ class WhatsAppChannel(BaseChannel):
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=user_id,
-                        content=MSG_SECOND,
+                        content=RESTART_MSG_SECOND.get(user_lang, RESTART_MSG_SECOND["en"]) if 'user_lang' in locals() else RESTART_MSG_SECOND["pt-PT"],
                     ))
                     return
                 if stage == "2":
@@ -630,13 +645,13 @@ class WhatsAppChannel(BaseChannel):
                             await self.bus.publish_outbound(OutboundMessage(
                                 channel=self.name,
                                 chat_id=user_id,
-                                content="Erro ao reiniciar. Tenta de novo ou contacta o suporte.",
+                                content=RESTART_ERROR.get(user_lang, RESTART_ERROR["en"]) if 'user_lang' in locals() else RESTART_ERROR["pt-PT"],
                             ))
                             return
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=user_id,
-                        content=MSG_DONE,
+                        content=RESTART_MSG_DONE.get(user_lang, RESTART_MSG_DONE["en"]) if 'user_lang' in locals() else RESTART_MSG_DONE["pt-PT"],
                     ))
                     return
             if stage:
@@ -684,6 +699,8 @@ class WhatsAppChannel(BaseChannel):
                 meta["audio_mode"] = True
                 if audio_locale_override:
                     meta["audio_locale_override"] = audio_locale_override
+            if transcribed_text:
+                meta["transcribed_text"] = transcribed_text
             await self._handle_message(
                 sender_id=sender_id,
                 chat_id=user_id,  # Use stable chat_id (prioritizes JID over LID)
@@ -757,34 +774,69 @@ class WhatsAppChannel(BaseChannel):
                         "completed_job_id": completed_job_id,
                     })
                     logger.info(f"Reação positiva: pedindo confirmação para job {job_id}")
+                
+                # We need user language here if available, fallback to pt-BR
+                user_lang = "pt-BR"
+                db = SessionLocal()
+                try:
+                    from backend.user_store import get_user_language
+                    from backend.locale import phone_to_default_language
+                    user_lang = get_user_language(db, user_id, user_id) or phone_to_default_language(user_id)
+                except Exception:
+                    pass
+                finally:
+                    db.close()
+
                 await self.bus.publish_outbound(OutboundMessage(
                     channel=self.name,
                     chat_id=user_id,
-                    content="Confirmas que concluíste? Responde *sim* ou *não*.",
+                    content=CONFIRM_DONE.get(user_lang, CONFIRM_DONE["en"]),
                 ))
             elif is_snooze_emoji(emoji):
+                user_lang = "pt-BR"
+                db = SessionLocal()
+                try:
+                    from backend.user_store import get_user_language
+                    from backend.locale import phone_to_default_language
+                    user_lang = get_user_language(db, user_id, user_id) or phone_to_default_language(user_id)
+                except Exception:
+                    pass
+                finally:
+                    db.close()
+
                 if self._cron_service:
                     ok, count = self._cron_service.snooze_job(job_id)
                     if ok:
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
                             chat_id=user_id,
-                            content=f"⏰ Adiado 5 min! (soneca {count}/3)",
+                            content=format_snooze(user_lang, count),
                         ))
                     elif count >= self._cron_service.SNOOZE_MAX_COUNT:
                         await self.bus.publish_outbound(OutboundMessage(
                             channel=self.name,
                             chat_id=user_id,
-                            content="Máximo 3 sonecas. Queres alterar o horário? Diz o novo horário ou *não* para cancelar.",
+                            content=SNOOZE_MAX.get(user_lang, SNOOZE_MAX["en"]),
                         ))
                     # count==0 e ok==False: job já não existe (ex.: follow-up já executou), ignora
             elif is_negative_emoji(emoji):
+                user_lang = "pt-BR"
+                db = SessionLocal()
+                try:
+                    from backend.user_store import get_user_language
+                    from backend.locale import phone_to_default_language
+                    user_lang = get_user_language(db, user_id, user_id) or phone_to_default_language(user_id)
+                except Exception:
+                    pass
+                finally:
+                    db.close()
+
                 if self._cron_service:
                     self._cron_service.remove_job(job_id)
                 await self.bus.publish_outbound(OutboundMessage(
                     channel=self.name,
                     chat_id=user_id,
-                    content="Queres alterar o horário? Diz o novo horário (ex: em 1 hora, amanhã às 10h) ou *não* para cancelar.",
+                    content=SCHEDULE_CHANGE_PROMPT.get(user_lang, SCHEDULE_CHANGE_PROMPT["en"]),
                 ))
         except Exception as e:
             logger.debug(f"Reaction handler failed: {e}")

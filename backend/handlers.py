@@ -158,14 +158,34 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
     if not ctx.session_manager or not ctx.cron_tool or not content or not content.strip():
         return None
 
+    # --- Cancelar fluxo se o usuário pedir (esc, cancel, sair, stop) ---
+    t_clean = content.strip().lower()
+    if t_clean in ("esc", "cancel", "cancelar", "sair", "stop", "para", "parar", "nvm"):
+        session_key = f"{ctx.channel}:{ctx.chat_id}"
+        session = ctx.session_manager.get_or_create(session_key)
+        if session.metadata.get(FLOW_KEY):
+            session.metadata.pop(FLOW_KEY, None)
+            ctx.session_manager.save(session)
+            # Retornar uma confirmação discreta ou deixar o Agente lidar?
+            # Se retornarmos None, o Agente assume a mensagem.
+            # Mas aqui queremos confirmar que o fluxo "parou".
+            return "Ok, cancelado. 👍" if user_lang.startswith("pt") else ("Vale, cancelado. 👍" if user_lang == "es" else "Okay, cancelled. 👍")
+
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
+
     session_key = f"{ctx.channel}:{ctx.chat_id}"
     session = ctx.session_manager.get_or_create(session_key)
     flow = session.metadata.get(FLOW_KEY)
 
-    # Normalizar: /lembrete X → X
+    # Normalizar: /lembrete X → X (aliases: reminder, recordatorio)
     text = content.strip()
-    if re.match(r"^/lembrete\s+", text, re.I):
-        text = re.sub(r"^/lembrete\s+", "", text, flags=re.I).strip()
+    if re.match(r"^/(lembrete|reminder|recordatorio)\s+", text, re.I):
+        text = re.sub(r"^/(lembrete|reminder|recordatorio)\s+", "", text, flags=re.I).strip()
 
     user_lang: LangCode = "pt-BR"
     tz_iana = "UTC"
@@ -333,9 +353,11 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                     # 2 lembretes: aviso (in_sec - advance_sec) e na hora (in_sec)
                     advance_in_sec = max(60, in_sec - advance_sec)
+                    from backend.locale import REMINDER_ADVANCE_NOTICE_PREFIX
+                    prefix = REMINDER_ADVANCE_NOTICE_PREFIX.get(user_lang, REMINDER_ADVANCE_NOTICE_PREFIX["en"])
                     r1 = await ctx.cron_tool.execute(
                         action="add",
-                        message=f"(Aviso) {msg_content}",
+                        message=f"{prefix} {msg_content}",
                         in_seconds=advance_in_sec,
                     )
                     r2 = await ctx.cron_tool.execute(
@@ -358,9 +380,11 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                     ctx.session_manager.save(session)
                     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                     advance_in_sec = max(60, in_sec - advance_sec)
+                    from backend.locale import REMINDER_ADVANCE_NOTICE_PREFIX
+                    prefix = REMINDER_ADVANCE_NOTICE_PREFIX.get(user_lang, REMINDER_ADVANCE_NOTICE_PREFIX["en"])
                     r1 = await ctx.cron_tool.execute(
                         action="add",
-                        message=f"(Aviso) {msg_content}",
+                        message=f"{prefix} {msg_content}",
                         in_seconds=advance_in_sec,
                     )
                     r2 = await ctx.cron_tool.execute(
@@ -523,8 +547,22 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     from backend.database import SessionLocal
 
     text = content.strip()
+    # Se parecer pedido de remoção / cancelamento, ignorar e deixar para o Agente ou handler específico
+    t_lower = text.lower()
+    if any(kw in t_lower for kw in ["remov", "delet", "apag", "cancel", "para", "stop", "tirar"]):
+        # A menos que seja um comando explícito /lembrete (mas mesmo assim o Agent é mais robusto para ID vs Nome)
+        if not text.startswith("/"):
+            return None
+
     if _looks_like_reminder_nl(text):
         text = "/lembrete " + text
+
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
 
     tz_iana = "UTC"
     user_lang: LangCode = "pt-BR"
@@ -637,6 +675,14 @@ async def handle_list_or_events_ambiguous(ctx: HandlerContext, content: str) -> 
     intent = parse(content)
     if not intent or intent.get("type") != "list_or_events_ambiguous":
         return None
+
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
+
     items = intent.get("items") or []
     if len(items) < 2:
         return None
@@ -664,6 +710,14 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
     intent = parse(content)
     if not intent or intent.get("type") not in ("list_add", "list_show"):
         return None
+
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
+
     if not ctx.list_tool:
         logger.warning("handle_list: list_tool is None, chat_id=%s", (ctx.chat_id or "")[:24])
         return None
@@ -708,13 +762,34 @@ async def handle_list(ctx: HandlerContext, content: str) -> str | None:
 async def handle_add(ctx: HandlerContext, content: str) -> str | None:
     """/add [lista] [item]. Default lista=mercado. Aceita NL: adicione X, adiciona X."""
     content = _normalize_nl_to_command(content)
-    m = re.match(r"^/add\s+(.+)$", content.strip(), re.I)
+    
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
+
+    m = re.match(r"^/(add|añadir)\s+(.+)$", content.strip(), re.I)
     if not m:
         return None
-    rest = m.group(1).strip()
+    rest = m.group(2).strip()
     parts = rest.split(None, 1)
+    
+    # Lista de "stop words" que não devem ser extraídas como nome de lista se estiverem no início.
+    # Ex: "adiciona os mais famosos" -> "os" é artigo, não nome de lista.
+    _GENERIC_BEGINNINGS = {
+        "os", "as", "um", "uns", "uma", "umas", "o", "a", "de", "do", "da", "em", "nas", "nos", # PT
+        "los", "las", "un", "unos", "una", "unas", "el", "la", "de", "del", "en",              # ES
+        "the", "a", "an", "some", "of", "in",                                                 # EN
+    }
+    
     if len(parts) == 1:
         list_name, item = "mercado", parts[0]
+    elif parts[0].lower() in _GENERIC_BEGINNINGS:
+        # Se a primeira palavra for um artigo/preposição, assumimos que faz parte do item texto
+        # e a lista padrão é 'mercado' (shopping)
+        list_name, item = "mercado", rest
     else:
         list_name, item = parts[0], parts[1]
     if not ctx.list_tool:
@@ -827,7 +902,7 @@ async def handle_start(ctx: HandlerContext, content: str) -> str | None:
     if not content.strip().lower().startswith("/start"):
         return None
     return (
-        "👋 Olá! Sou o Zapista: lembretes, listas e eventos.\n\n"
+        "👋 Olá! Sou o Zappelin: lembretes, listas e eventos.\n\n"
         "📌 Comandos: /lembrete, /list (filme, livro, musica, receita, notas, compras…).\n"
         "🌍 Timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.\n\n"
         "Digite /help para ver tudo — ou escreve/envia áudio para conversar. 😊"
@@ -963,8 +1038,7 @@ _NOT_REMINDER_PATTERNS = (
     r"e\s+(a\s+)?(lista|receita|os?\s+ingredientes)",
     r"^(cad[eê]|cad[eê]\s+a)\b", r"fa[cç]a\s+uma\s+lista", r"fazer\s+uma\s+lista",
     # Compras = lista (não lembrete recorrente)
-    r"preciso\s+comprar", r"quero\s+comprar", r"comprar\s+(leite|pão|ovo|arroz)",
-    r"adicion[eia](?:r)?\s+", r"(?:a|à|nas?)\s+listas?\b",  # "adicione X a listas"
+    r"preciso\s+comprar", r"quero\s+comprar",    r"comprar\s+(?:[a-zA-ZáéíóúÁÉÍÓÚçÇñÑ\s]+)", r"adicion[eia](?:r)?\s+", r"(?:a|à|nas?)\s+listas?\b",  # "adicione algo a listas"
     r"preciso\s+(mercado|compras)\b", r"quero\s+(mercado|compras)\b",
     r"lista\s+(do\s+)?mercado", r"lista\s+mercado", r"itens?\s+(do\s+)?mercado",
     # Perguntas gerais (não pedido de lembrete)
@@ -1064,8 +1138,25 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
         return None
 
     text = content.strip()
-    if re.match(r"^/lembrete\s+", text, re.I):
-        text = re.sub(r"^/lembrete\s+", "", text, flags=re.I).strip()
+    if re.match(r"^/(lembrete|reminder|recordatorio)\s+", text, re.I):
+        text = re.sub(r"^/(lembrete|reminder|recordatorio)\s+", "", text, flags=re.I).strip()
+
+    # --- Cancelar fluxo se o usuário pedir ---
+    t_clean = content.strip().lower()
+    if t_clean in ("esc", "cancel", "cancelar", "sair", "stop", "para", "parar", "nvm"):
+        session_key = f"{ctx.channel}:{ctx.chat_id}"
+        session = ctx.session_manager.get_or_create(session_key)
+        if session.metadata.get(FLOW_KEY):
+            session.metadata.pop(FLOW_KEY, None)
+            ctx.session_manager.save(session)
+            return "Ok, cancelado. 👍" if user_lang.startswith("pt") else ("Vale, cancelado. 👍" if user_lang == "es" else "Okay, cancelled. 👍")
+
+    try:
+        from backend.guardrails import is_complex_request
+        if is_complex_request(content):
+            return None
+    except Exception:
+        pass
 
     session_key = f"{ctx.channel}:{ctx.chat_id}"
     session = ctx.session_manager.get_or_create(session_key)

@@ -21,11 +21,49 @@ MESES = {
     "janeiro": 1, "fevereiro": 2, "março": 3, "marco": 3, "abril": 4, "maio": 5,
     "junho": 6, "julho": 7, "agosto": 8, "setembro": 9, "outubro": 10,
     "novembro": 11, "dezembro": 12,
+    # EN
+    "january": 1, "february": 2, "march": 3, "april": 4, "may": 5,
+    "june": 6, "july": 7, "august": 8, "september": 9, "october": 10,
+    "november": 11, "december": 12,
+    # ES
+    "enero": 1, "febrero": 2, "marzo": 3, "mayo": 5,
+    "junio": 6, "julio": 7, "septiembre": 9, "octubre": 10,
+    "noviembre": 11, "diciembre": 12,
 }
 
-RE_LEMBRETE_DAQUI = re.compile(r"daqui\s+a\s+(\d+)\s*(min|minuto|hora|dia)s?", re.I)
-RE_LEMBRETE_EM = re.compile(r"em\s+(\d+)\s*(min|minuto|hora|dia)s?", re.I)
+# Common separator between day↔month and month↔year: de, /, -, or whitespace
+_SEP = r"(?:\s*(?:de|/|-)\s*|\s+)"
+# Month names for regex (all languages)
+_MONTH_NAMES = (
+    r"janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro"
+    r"|january|february|march|april|may|june|july|august|september|october|november|december"
+    r"|enero|febrero|marzo|mayo|junio|julio|septiembre|octubre|noviembre|diciembre"
+)
 
+RE_LEMBRETE_DAQUI = re.compile(r"daqui\s+a\s+(\d+)\s*(minutos?|minuto?|min|horas?|hora?|dias?|dia?)\b", re.I)
+RE_LEMBRETE_EM = re.compile(r"em\s+(\d+)\s*(minutos?|minuto?|min|horas?|hora?|dias?|dia?)\b", re.I)
+
+# Modificadores de período (PT, ES, EN)
+_AM_PM_MODIFIERS = (
+    r"("
+    r"(?:da|de|na|[àa]s?)\s+(?:manh[ãa]|tarde|noite)|"
+    r"(?:de|por)\s+la\s+(?:ma[ñn]ana|tarde|noche)|"
+    r"in\s+the\s+(?:morning|afternoon|evening)|"
+    r"at\s+night|"
+    r"a\.?m\.?|p\.?m\.?"
+    r")"
+)
+
+def adjust_am_pm_hour(hora: int, period: str | None) -> int:
+    if not period:
+        return hora
+    p = period.lower()
+    if any(w in p for w in ("manh", "mañ", "morn", "am", "a.m")):
+        if hora == 12: return 0
+        if hora > 12: return hora - 12
+    if any(w in p for w in ("tarde", "noite", "noch", "after", "even", "night", "pm", "p.m")):
+        if 1 <= hora < 12: return hora + 12
+    return hora
 
 def strip_pattern(text: str, pattern: str | re.Pattern[str]) -> str:
     """Remove o padrão do texto e retorna limpo. pattern pode ser str ou re.Pattern."""
@@ -39,7 +77,12 @@ def clean_message(t: str) -> str:
     t = t.strip()
     while t.startswith("/"):
         t = t.lstrip("/").strip()
-    for prefix in ("de ", "para ", "a ", "sobre "):
+    for prefix in (
+        "de ", "para ", "a ", "sobre ", 
+        "lembre-me que ", "lembrar que ", "lembra-me que ",
+        "lembre me que ", "lembra me que ",
+        "lembrar de ", "lembra de ", "lembre de "
+    ):
         if t.lower().startswith(prefix) and len(t) > len(prefix):
             t = t[len(prefix):].strip()
     t = re.sub(r"\s+at[eé]\s*$", "", t, flags=re.I)
@@ -62,9 +105,9 @@ def extract_start_date(text: str, tz_iana: str = "UTC") -> str | None:
     except Exception:
         current_year = datetime.fromtimestamp(_now_ts).year
     m = re.search(
-        r"a\s+partir\s+de\s+(\d{1,2})[ºª]?\s*(?:de\s+)?"
-        r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
-        r"(?:\s+de\s+(\d{4}))?\b",
+        r"a\s+partir\s+de\s+(\d{1,2})[ºª]?" + _SEP +
+        r"(\d{1,2}|" + _MONTH_NAMES + r")"
+        r"(?:" + _SEP + r"(\d{4}))?\b",
         text_lower,
         re.I,
     )
@@ -74,16 +117,6 @@ def extract_start_date(text: str, tz_iana: str = "UTC") -> str | None:
         mes = int(mes_str) if mes_str.isdigit() else MESES.get(mes_str)
         ano = int(m.group(3)) if m.group(3) else current_year
         if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
-            try:
-                dt = datetime(ano, mes, min(dia, 28))
-                return dt.strftime("%Y-%m-%d")
-            except (ValueError, TypeError):
-                pass
-    m = re.search(r"a\s+partir\s+de\s+(\d{1,2})/(\d{1,2})(?:/(\d{4}))?\b", text_lower, re.I)
-    if m:
-        dia, mes = int(m.group(1)), int(m.group(2))
-        ano = int(m.group(3)) if m.group(3) else current_year
-        if 1 <= dia <= 31 and 1 <= mes <= 12:
             try:
                 dt = datetime(ano, mes, min(dia, 28))
                 return dt.strftime("%Y-%m-%d")
@@ -156,13 +189,12 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             return {"every_seconds": every, "message": clean_message(message)}
 
     m = re.search(
-        r"(?:(?:[àa]s?\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*(da\s+manh[ãa]|da\s+tarde|da\s+noite)?\s*(?:de\s+)?hoje|hoje\s+(?:[àa]s?\s*)?(\d{1,2})(?:h|:)?(\d{2})?)",
+        r"(?:(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*(?:de\s+)?(?:hoje|hoy|today)\b|"
+        r"(?:hoje|hoy|today)\s+(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b)",
         text_lower,
         re.I,
     )
     if m:
-        # m.group(1)/(2)/(3) se tempo vier ANTES de hoje
-        # m.group(4)/(5) se tempo vier DEPOIS de hoje
         if m.group(1):
             hora = int(m.group(1))
             minute = int(m.group(2) or 0)
@@ -170,14 +202,11 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         else:
             hora = int(m.group(4))
             minute = int(m.group(5) or 0)
-            period = None
+            period = m.group(6)
         
-        if period:
-             if "manh" in period.lower() and hora > 12: hora -= 12
-             if ("tarde" in period.lower() or "noite" in period.lower()) and hora < 12: hora += 12
-        elif hora < 12 and "h" in text_lower and not ("manh" in text_lower or "tarde" in text_lower):
-             # Heurística: se o user diz "às 8h" e agora são 10h, provavelmente quer amanhã ou é ambíguo, 
-             # mas se diz "às 8h de hoje" e são 10h, é passado.
+        hora = adjust_am_pm_hour(hora, period)
+
+        if not period and hora < 12 and "h" in text_lower and not ("manh" in text_lower or "tarde" in text_lower or "morn" in text_lower or "after" in text_lower):
              pass
 
         hora = min(23, max(0, hora))
@@ -190,14 +219,15 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         return {"in_seconds": int(delta), "message": clean_message(message)}
 
     m = re.search(
-        r"amanh[ãa]\s+(?:[àa]s?\s*)?(\d{1,2})(?:h|:)?(\d{2})?\b",
+        r"(?:amanh[ãa]|ma[ñn]ana|tomorrow)\s+(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b",
         text_lower,
         re.I,
     )
     if m:
         hora = min(23, max(0, int(m.group(1))))
         minute = int(m.group(2) or 0)
-        message = strip_pattern(text, r"amanh[ãa]\s+(?:[àa]s?\s*)?\d{1,2}(?:h|:)?(?:\d{2})?\s*")
+        hora = adjust_am_pm_hour(hora, m.group(3))
+        message = strip_pattern(text, m.group(0))
         tomorrow = (now + timedelta(days=1)).replace(
             hour=hora, minute=minute, second=0, microsecond=0
         )
@@ -234,21 +264,24 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                 return out
 
     _pat_data_hora = (
-        r"(?:dia\s+)?(\d{1,2})[ºª]?\s*(?:de|/)\s*"
-        r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
-        r"\s*(?:de\s+\d{4})?\s*(?:às?|as)\s*(\d{1,2})\s*h?\b"
+        r"(?:dia\s+)?(\d{1,2})[ºª]?" + _SEP +
+        r"(\d{1,2}|" + _MONTH_NAMES + r")"
+        r"(?:" + _SEP + r"(\d{4}))?\s*(?:às?|as|at|a\s+las?)\s*(\d{1,2})\s*(?:h|:)\s*(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*"
     )
     m = re.search(_pat_data_hora, text_lower, re.I)
     if m:
         dia = int(m.group(1))
         mes_str = m.group(2).lower()
         mes = int(mes_str) if mes_str.isdigit() else MESES.get(mes_str)
+        ano = int(m.group(3)) if m.group(3) else now.year
+        minute = int(m.group(5)) if m.group(5) else 0
+        period = m.group(6)
         if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
-            hora = min(23, max(0, int(m.group(3))))
-            ano = now.year
+            hora = min(23, max(0, int(m.group(4))))
+            hora = adjust_am_pm_hour(hora, period)
             try:
                 tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
-                target = datetime(ano, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                target = datetime(ano, mes, min(dia, 28), hora, minute, 0, tzinfo=tz)
                 delta = (target - now).total_seconds()
                 if target < now and target.date() == now.date() and delta >= -86400:
                     # Hoje mas o horário já passou: devolver in_seconds negativo para o cron avisar (não agendar ano seguinte)
@@ -256,7 +289,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                     return {"in_seconds": int(delta), "message": clean_message(message)}
                 if target < now:
                     # Data inteira no passado: não agendar; avisar e pedir confirmação para ano seguinte
-                    target_next = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                    target_next = datetime(ano + 1, mes, min(dia, 28), hora, minute, 0, tzinfo=tz)
                     delta_next = (target_next - now).total_seconds()
                     if delta_next > 0 and delta_next <= 86400 * 366:
                         message = strip_pattern(text, _pat_data_hora)
@@ -272,20 +305,24 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             except (ValueError, TypeError):
                 pass
 
-    m = re.search(
-        r"(?:dia\s+)?(\d{1,2})[ºª]?\s*(?:de|/)\s*"
-        r"(\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)"
-        r"\s*(?:de\s+\d{4})?\b",
-        text_lower,
-        re.I,
+    _pat_data = (
+        r"(?:dia\s+)?(\d{1,2})[ºª]?" + _SEP +
+        r"(\d{1,2}|" + _MONTH_NAMES + r")"
+        r"(?:" + _SEP + r"(\d{4}))?\b"
     )
+    _pat_data_strip = (
+        r"(?:dia\s+)?\d{1,2}[ºª]?" + _SEP +
+        r"(?:\d{1,2}|" + _MONTH_NAMES + r")"
+        r"(?:" + _SEP + r"\d{4})?\s*"
+    )
+    m = re.search(_pat_data, text_lower, re.I)
     if m:
         dia = int(m.group(1))
         mes_str = m.group(2).lower()
         mes = int(mes_str) if mes_str.isdigit() else MESES.get(mes_str)
+        ano = int(m.group(3)) if m.group(3) else now.year
         if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
             hora = 9
-            ano = now.year
             try:
                 tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
                 target = datetime(ano, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
@@ -294,8 +331,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                     target_next = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
                     delta_next = (target_next - now).total_seconds()
                     if delta_next > 0 and delta_next <= 86400 * 366:
-                        _pat_data = r"(?:dia\s+)?\d{1,2}[ºª]?\s*(?:de|/)\s*(?:\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de\s+\d{4})?\s*"
-                        message = strip_pattern(text, _pat_data)
+                        message = strip_pattern(text, _pat_data_strip)
                         return {
                             "date_in_past": True,
                             "in_seconds": int(delta_next),
@@ -304,8 +340,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                     return None
                 delta = (target - now).total_seconds()
                 if delta > 0 and delta <= 86400 * 365:
-                    _pat_data = r"(?:dia\s+)?\d{1,2}[ºª]?\s*(?:de|/)\s*(?:\d{1,2}|janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\s*(?:de\s+\d{4})?\s*"
-                    message = strip_pattern(text, _pat_data)
+                    message = strip_pattern(text, _pat_data_strip)
                     return {"in_seconds": int(delta), "message": clean_message(message)}
             except (ValueError, TypeError):
                 pass

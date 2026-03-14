@@ -8,8 +8,9 @@ from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from backend.database import SessionLocal
-from backend.user_store import get_or_create_user, get_user_timezone
+from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
 from backend.models_db import HouseChoreTask, HouseChorePerson
+import backend.locale as locale
 from backend.house_chores_catalog import (
     CHORE_CATALOG,
     get_chore_name,
@@ -35,6 +36,17 @@ def _is_limpeza_nl_intent(content: str) -> bool:
     t = (content or "").strip().lower()
     if not t or len(t) < 6 or t.startswith("/"):
         return False
+    
+    # Se a frase já contém detalhes ou frequência, não travar no intro,
+    # deixar ir para o LLM que consegue processar o pedido específico.
+    # Suporte para 4 idiomas: PT, EN, ES
+    frequency_words = (
+        "semanal", "weekly", "quinzenal", "bi-weekly", "todo", "toda", "sempre",
+        "quincenal", "diario", "mensual", "cada", "siempre", "diariamente"
+    )
+    if any(word in t for word in frequency_words):
+        return False
+        
     return any(re.search(p, t) for p in _LIMPEZA_NL_PATTERNS)
 
 
@@ -65,33 +77,6 @@ def _parse_time_hhmm(s: str) -> str | None:
     return None
 
 
-def _get_limpeza_intro(lang: str = "pt-BR") -> str:
-    """Mensagem de boas-vindas ao fluxo de limpeza (linguagem natural)."""
-    if "pt-PT" in (lang or ""):
-        return (
-            "🧹 **Limpeza da casa**\n\n"
-            "Posso ajudar a organizar as tarefas de limpeza com rotação entre pessoas. "
-            "Por exemplo: cozinha semanalmente, banheiro quinzenalmente.\n\n"
-            "**Como configurar:**\n"
-            "• /limpeza add cozinha weekly sábado 9h — adiciona tarefa semanal\n"
-            "• /limpeza add banheiro bi-weekly sábado 9h — quinzenal\n"
-            "• /limpeza pessoas add João, Maria — define quem participa da rotação\n"
-            "• /limpeza rotação on — ativa rotação entre as pessoas\n"
-            "• /limpeza catálogo — ver todas as tarefas disponíveis\n\n"
-            "Moras com alguém? Queres dividir e rotacionar as tarefas?"
-        )
-    return (
-        "🧹 **Limpeza da casa**\n\n"
-        "Posso ajudar a organizar as tarefas de limpeza com rotação entre pessoas. "
-        "Por exemplo: cozinha semanalmente, banheiro quinzenalmente.\n\n"
-        "**Como configurar:**\n"
-        "• /limpeza add cozinha weekly sábado 9h — adiciona tarefa semanal\n"
-        "• /limpeza add banheiro bi-weekly sábado 9h — quinzenal\n"
-        "• /limpeza pessoas add João, Maria — define quem participa da rotação\n"
-        "• /limpeza rotação on — ativa rotação entre as pessoas\n"
-        "• /limpeza catálogo — ver todas as tarefas disponíveis\n\n"
-        "Mora com alguém? Quer dividir e rotacionar as tarefas?"
-    )
 
 
 async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
@@ -104,41 +89,29 @@ async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
     t = content.strip()
     # Linguagem natural: "preciso limpar a casa", "limpar banheiro", etc.
     if not t.lower().startswith("/limpeza") and _is_limpeza_nl_intent(t):
+        db = SessionLocal()
         try:
-            from backend.user_store import get_user_language
-            db = SessionLocal()
-            try:
-                user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
-            finally:
-                db.close()
-        except Exception:
-            user_lang = "pt-BR"
-        return _get_limpeza_intro(user_lang)
+            user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+            return locale.LIMPEZA_INTRO.get(user_lang, locale.LIMPEZA_INTRO["en"])
+        finally:
+            db.close()
     if not t.lower().startswith("/limpeza"):
         return None
     rest = t[8:].strip().lower()
     db = SessionLocal()
     try:
+        user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
         user = get_or_create_user(db, ctx.chat_id)
 
         if not rest or rest == "help":
-            return (
-                "🧹 **Limpeza da casa**\n"
-                "• /limpeza add cozinha weekly sábado 9h — adiciona tarefa semanal\n"
-                "• /limpeza add banheiro bi-weekly sábado 9h — quinzenal\n"
-                "• /limpeza pessoas add João, Maria — define quem participa da rotação\n"
-                "• /limpeza rotação on — ativa rotação entre pessoas\n"
-                "• /limpeza list — ver tarefas e pessoas\n"
-                "• /limpeza remove cozinha — remove tarefa\n"
-                "• /limpeza catálogo — ver tarefas disponíveis"
-            )
+            return locale.LIMPEZA_HELP.get(user_lang, locale.LIMPEZA_HELP["en"])
 
         if rest == "list":
             tasks = db.query(HouseChoreTask).filter(HouseChoreTask.user_id == user.id).order_by(HouseChoreTask.id).all()
             persons = db.query(HouseChorePerson).filter(HouseChorePerson.user_id == user.id).order_by(HouseChorePerson.order_idx).all()
-            lines = ["🧹 **Tarefas de limpeza**"]
+            lines = [locale.LIMPEZA_LIST_HEADER.get(user_lang, locale.LIMPEZA_LIST_HEADER["en"])]
             if not tasks:
-                lines.append("Nenhuma tarefa. Use /limpeza add cozinha weekly sábado 9h")
+                lines.append(locale.LIMPEZA_NO_TASKS.get(user_lang, locale.LIMPEZA_NO_TASKS["en"]))
             else:
                 for tsk in tasks:
                     name = tsk.custom_name or get_chore_name(tsk.catalog_slug)
@@ -148,12 +121,16 @@ async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
                     lines.append(f"• {name} ({freq}, {dia} {tsk.time_hhmm}){rot}")
             if persons:
                 lines.append("")
-                lines.append("**Pessoas na rotação:** " + ", ".join(p.name for p in persons))
+                lines.append(locale.LIMPEZA_PERSONS_HEADER.get(user_lang, locale.LIMPEZA_PERSONS_HEADER["en"]) + ", ".join(p.name for p in persons))
             return "\n".join(lines)
 
         if rest == "catálogo" or rest == "catalogo":
             by_cat = list_catalog_by_category()
-            lines = ["🧹 **Catálogo de tarefas**", "Use: /limpeza add slug frequency dia hora", ""]
+            lines = [
+                locale.LIMPEZA_CATALOG_HEADER.get(user_lang, locale.LIMPEZA_CATALOG_HEADER["en"]),
+                locale.LIMPEZA_CATALOG_FOOTER.get(user_lang, locale.LIMPEZA_CATALOG_FOOTER["en"]),
+                ""
+            ]
             for cat, items in sorted(by_cat.items(), key=lambda x: x[0]):
                 cat_name = CATEGORY_NAMES.get(cat, cat)
                 lines.append(f"**{cat_name}**")
@@ -169,29 +146,33 @@ async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
             slug, freq_raw, dia_raw, time_raw = m.group(1), m.group(2), m.group(3), m.group(4)
             slug_lower = slug.lower().replace("-", "_")
             if slug_lower not in CHORE_CATALOG:
-                return f"Tarefa \"{slug}\" não encontrada. Use /limpeza catálogo."
+                return locale.LIMPEZA_TASK_NOT_FOUND.get(user_lang, locale.LIMPEZA_TASK_NOT_FOUND["en"]).format(slug=slug)
             freq = "weekly" if freq_raw in ("weekly", "semanal") else "bi-weekly"
             weekday = WEEKDAY_MAP.get(dia_raw.lower(), None)
             if weekday is None:
-                return f"Dia \"{dia_raw}\" inválido. Ex.: segunda, sábado."
+                return locale.LIMPEZA_DAY_INVALID.get(user_lang, locale.LIMPEZA_DAY_INVALID["en"]).format(day=dia_raw)
             time_hhmm = _parse_time_hhmm(time_raw)
             if not time_hhmm:
-                return f"Hora \"{time_raw}\" inválida. Use 9h ou 09:00."
+                return locale.LIMPEZA_TIME_INVALID.get(user_lang, locale.LIMPEZA_TIME_INVALID["en"]).format(time=time_raw)
             existing = db.query(HouseChoreTask).filter(
                 HouseChoreTask.user_id == user.id,
                 HouseChoreTask.catalog_slug == slug_lower,
             ).first()
             if existing:
-                return f"Tarefa \"{get_chore_name(slug_lower)}\" já existe."
+                return locale.LIMPEZA_TASK_EXISTS.get(user_lang, locale.LIMPEZA_TASK_EXISTS["en"]).format(name=get_chore_name(slug_lower))
             db.add(HouseChoreTask(
                 user_id=user.id,
                 catalog_slug=slug_lower,
-                frequency=freq,
                 weekday=weekday,
                 time_hhmm=time_hhmm,
             ))
             db.commit()
-            return f"✅ {get_chore_name(slug_lower)} adicionada ({freq}, {dia_raw} {time_hhmm})"
+            return locale.LIMPEZA_TASK_ADDED.get(user_lang, locale.LIMPEZA_TASK_ADDED["en"]).format(
+                name=get_chore_name(slug_lower),
+                freq=freq,
+                dia=dia_raw,
+                time=time_hhmm
+            )
 
         m = re.match(r"^remove\s+(.+)$", rest)
         if m:
@@ -201,10 +182,10 @@ async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
                 HouseChoreTask.catalog_slug == slug,
             ).first()
             if not task:
-                return f"Tarefa \"{slug}\" não encontrada."
+                return locale.LIMPEZA_TASK_NOT_FOUND.get(user_lang, locale.LIMPEZA_TASK_NOT_FOUND["en"]).format(slug=slug)
             db.delete(task)
             db.commit()
-            return f"✅ Tarefa removida."
+            return locale.LIMPEZA_TASK_REMOVED.get(user_lang, locale.LIMPEZA_TASK_REMOVED["en"])
 
         m = re.match(r"^rota[cç][aã]o\s+(on|off|sim|n[aã]o)$", rest)
         if m:
@@ -213,29 +194,31 @@ async def handle_limpeza(ctx: "HandlerContext", content: str) -> str | None:
             for tsk in tasks:
                 tsk.rotation_enabled = on
             db.commit()
-            persons = db.query(HouseChorePerson).filter(HouseChorePerson.user_id == user.id).count()
-            if on and persons == 0:
-                return "✅ Rotação ativada. Adicione pessoas: /limpeza pessoas add João, Maria"
-            return f"✅ Rotação {'ativada' if on else 'desativada'}."
+            persons_count = db.query(HouseChorePerson).filter(HouseChorePerson.user_id == user.id).count()
+            if on and persons_count == 0:
+                return locale.LIMPEZA_ROTATION_ON_NO_PEOPLE.get(user_lang, locale.LIMPEZA_ROTATION_ON_NO_PEOPLE["en"])
+            status_word = "ativada" if on else "desativada"
+            return locale.LIMPEZA_ROTATION_STATUS.get(user_lang, locale.LIMPEZA_ROTATION_STATUS["en"]).format(status=status_word)
 
         m = re.match(r"^pessoas\s+add\s+(.+)$", rest)
         if m:
             names = [n.strip() for n in m.group(1).split(",") if n.strip()]
             if not names:
-                return "Use: /limpeza pessoas add João, Maria, Pedro"
+                return locale.LIMPEZA_NO_PERSONS.get(user_lang, locale.LIMPEZA_NO_PERSONS["en"])
             max_idx = db.query(HouseChorePerson).filter(HouseChorePerson.user_id == user.id).count()
             for i, name in enumerate(names):
                 if len(name) > 60:
                     name = name[:60]
                 db.add(HouseChorePerson(user_id=user.id, name=name, order_idx=max_idx + i))
             db.commit()
-            return f"✅ Pessoas adicionadas: {', '.join(names)}"
+            return locale.LIMPEZA_PERSONS_ADDED.get(user_lang, locale.LIMPEZA_PERSONS_ADDED["en"]).format(names=", ".join(names))
 
         if rest == "pessoas":
             persons = db.query(HouseChorePerson).filter(HouseChorePerson.user_id == user.id).order_by(HouseChorePerson.order_idx).all()
             if not persons:
-                return "Nenhuma pessoa. Use /limpeza pessoas add João, Maria"
-            return "**Pessoas na rotação:** " + ", ".join(p.name for p in persons)
+                return locale.LIMPEZA_NO_PERSONS.get(user_lang, locale.LIMPEZA_NO_PERSONS["en"])
+            header = locale.LIMPEZA_PERSONS_HEADER.get(user_lang, locale.LIMPEZA_PERSONS_HEADER["en"])
+            return header + ", ".join(p.name for p in persons)
 
         return None
     finally:

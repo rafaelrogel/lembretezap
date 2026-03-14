@@ -98,6 +98,9 @@ class CronTool(Tool):
             "IGNORE 'in_seconds' and 'target_at_iso' unless explicitly constructing a machine-generated timestamp. "
             "System will interpret 'time_input' in the User's Timezone. "
             "every_seconds = repeat; cron_expr = fixed times (interpreted in user timezone when stored). "
+            "BULK DELETE: if user says 'delete all', 'cancel all reminders', 'remove all my reminders' or equivalent, "
+            "use action='remove_all' (no job_id needed). "
+            "SINGLE DELETE: call action='list' first to get IDs, then action='remove' with the correct job_id. "
             "IMPORTANT: when the user lists multiple reminders in one message (e.g. 'lembre X em 6 min, depois Y em 7 min, depois Z'), "
             "register each one as a FULLY INDEPENDENT reminder with its own time_input. NEVER chain them with depends_on_job_id. "
             "depends_on_job_id is ONLY for when the user explicitly says 'só me lembra de B depois de eu confirmar A com 👍' or equivalent. "
@@ -111,8 +114,8 @@ class CronTool(Tool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["add", "list", "remove"],
-                    "description": "Action: add, list, or remove"
+                    "enum": ["add", "list", "remove", "remove_all", "pomodoro"],
+                    "description": "Action: add, list, remove (one job_id), remove_all (delete ALL reminders of this user), or pomodoro (start a 25-min focus cycle)"
                 },
                 "message": {
                     "type": "string",
@@ -161,6 +164,10 @@ class CronTool(Tool):
                 "has_deadline": {
                     "type": "boolean",
                     "description": "If true: 'até X' = if not done by X, alert + remind 3x; no response = remove. Use when user says 'lembra até amanhã 18h' or 'se não fizer até X, alerta'."
+                },
+                "suggested_draft": {
+                    "type": "string",
+                    "description": "A draft message for the user to send/forward. Use this when the reminder is about sending a message (e.g., birthday, holiday). The draft will be delivered as a separate message alongside the reminder."
                 }
             },
             "required": ["action"]
@@ -182,9 +189,46 @@ class CronTool(Tool):
         remind_again_if_unconfirmed_seconds: int | None = None,
         depends_on_job_id: str | None = None,
         has_deadline: bool = False,
+        suggested_draft: str | None = None,
         **kwargs: Any
     ) -> str:
         logger.info(f"CronTool.execute inputs: action={action}, msg={message}, time_input={time_input}, target={target_at_iso}, in_seconds={in_seconds}, every={every_seconds}, cron={cron_expr}, chat_id={self._chat_id}, channel={self._channel}")
+
+        if action == "list":
+            return self._list_jobs()
+        if action == "remove":
+            return self._remove_job(job_id)
+        if action == "remove_all":
+            return self._remove_all_jobs()
+            
+        if action == "pomodoro":
+            from backend.locale import POMODORO_FINISHED_TASK, POMODORO_FINISHED
+            _lang = self._get_user_lang()
+            if message:
+                msg = POMODORO_FINISHED_TASK.get(_lang, POMODORO_FINISHED_TASK["pt-BR"]).format(task=message[:30])
+            else:
+                msg = POMODORO_FINISHED.get(_lang, POMODORO_FINISHED["pt-BR"])
+                
+            return await self._add_job(
+                message=msg,
+                every_seconds=None,
+                in_seconds=25 * 60,
+                cron_expr=None,
+                target_at_iso=None,
+                start_date=None,
+                end_date=None,
+                suggested_prefix="POM",
+                use_pre_reminders=False,
+                long_event_24h=False,
+                allow_relaxed_interval=True,
+                remind_again_if_unconfirmed_seconds=None,
+                depends_on_job_id=None,
+                has_deadline=False,
+                suggested_draft=None,
+                audio_mode=False,
+                pomodoro_cycle=1,
+                pomodoro_phase="focus",
+            )
 
         if action == "add":
             # Phase 2: System-side time parsing via backend.time_parse
@@ -269,7 +313,11 @@ class CronTool(Tool):
                 remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
                 depends_on_job_id=depends_on_job_id,
                 has_deadline=has_deadline,
+                suggested_draft=suggested_draft,
                 audio_mode=getattr(self, "_audio_mode", False),
+                pomodoro_cycle=kwargs.get("pomodoro_cycle"),
+                pomodoro_phase=kwargs.get("pomodoro_phase"),
+                is_important=use_pre_reminders and in_seconds is not None and in_seconds > 0,
             )
         elif action == "list":
             return self._list_jobs()
@@ -393,7 +441,11 @@ class CronTool(Tool):
         remind_again_if_unconfirmed_seconds: int | None = None,
         depends_on_job_id: str | None = None,
         has_deadline: bool = False,
+        suggested_draft: str | None = None,
         audio_mode: bool = False,
+        pomodoro_cycle: int | None = None,
+        pomodoro_phase: str | None = None,
+        is_important: bool = False,
     ) -> str:
         message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
@@ -589,6 +641,14 @@ class CronTool(Tool):
                 return f"Não encontrei o lembrete \"{depends_on_job_id}\" para encadear. Verifica o id em /lembrete (lista)."
         # has_deadline: apenas para lembretes pontuais (in_seconds); main não remove até confirmar ou 3 lembretes pós-prazo
         use_deadline = has_deadline and in_seconds is not None and in_seconds > 0
+        # Lembretes importantes (pontuais): se o user não especificou reenvio, 
+        # agendamos 1 follow-up automático em 1h se for importante.
+        if is_important and remind_again_if_unconfirmed_seconds is None and delete_after_run:
+             remind_again_if_unconfirmed_seconds = 3600 # 1h
+             remind_again_max_count = 1
+        else:
+             remind_again_max_count = 10 # default original para recorrência/deadline se setado
+
         try:
             job = self._cron.add_job(
                 name=message[:30],
@@ -601,9 +661,14 @@ class CronTool(Tool):
                 delete_after_run=delete_after_run and not use_deadline,
                 suggested_prefix=suggested_prefix,
                 remind_again_if_unconfirmed_seconds=remind_again_if_unconfirmed_seconds,
+                remind_again_max_count=remind_again_max_count,
                 depends_on_job_id=depends_on_job_id.strip().upper()[:16] if depends_on_job_id else None,
                 has_deadline=use_deadline,
+                suggested_draft=suggested_draft,
                 audio_mode=audio_mode,
+                pomodoro_cycle=pomodoro_cycle,
+                pomodoro_phase=pomodoro_phase,
+                is_important=is_important,
             )
         except ValueError as e:
             if "MAX_REMINDERS_EXCEEDED" in str(e):
@@ -760,7 +825,37 @@ class CronTool(Tool):
         if self._channel == "cli":
             msg += CRON_CREATED_BY_CLI.get(_lang, CRON_CREATED_BY_CLI["en"])
         return msg
-    
+
+    def _remove_all_jobs(self) -> str:
+        """Remove todos os lembretes do utilizador atual. Chamado quando user diz 'delete all', 'remove all', etc."""
+        all_jobs = self._cron.list_jobs()
+        user_jobs = [
+            j for j in all_jobs
+            if getattr(j.payload, "to", None) == self._chat_id
+        ]
+        if not user_jobs:
+            _lang = self._get_user_lang()
+            from backend.locale import CRON_NO_REMINDERS
+            return CRON_NO_REMINDERS.get(_lang, CRON_NO_REMINDERS["en"])
+        # Remove cada job e todos os seus sub-jobs (prazos, avisos, etc.)
+        # Usa um set para evitar dupla remoção de sub-jobs já eliminados
+        removed_ids: set[str] = set()
+        count = 0
+        for j in user_jobs:
+            if j.id not in removed_ids:
+                n = self._cron.remove_job_and_deadline_followups(j.id)
+                if n > 0:
+                    removed_ids.add(j.id)
+                    count += 1
+        _lang = self._get_user_lang()
+        msgs = {
+            "pt-PT": f"{count} lembrete(s) removido(s). ✅",
+            "pt-BR": f"{count} lembrete(s) removido(s). ✅",
+            "es": f"{count} recordatorio(s) eliminado(s). ✅",
+            "en": f"{count} reminder(s) removed. ✅",
+        }
+        return msgs.get(_lang, msgs["en"])
+
     def _list_jobs(self) -> str:
         """Lista apenas os lembretes do usuário atual (payload.to == chat_id). Isolamento por conversa.
         Nudge proativo, avisos e prazos internos não aparecem — apenas lembretes principais."""
@@ -777,7 +872,7 @@ class CronTool(Tool):
         _lang = self._get_user_lang()
         if not jobs:
             return CRON_NO_REMINDERS.get(_lang, CRON_NO_REMINDERS["en"])
-        lines = [f"• {j.name} ({j.schedule.kind})" for j in jobs]
+        lines = [f"• {j.name} ({j.schedule.kind}) [id: {j.id}]" for j in jobs]
         return CRON_REMINDERS_HEADER.get(_lang, CRON_REMINDERS_HEADER["en"]) + "\n" + "\n".join(lines)
     
     def _remove_job(self, job_id: str | None) -> str:

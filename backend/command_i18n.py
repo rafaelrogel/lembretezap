@@ -19,11 +19,11 @@ COMMAND_ALIASES: Sequence[tuple[str, Sequence[str]]] = (
     # Lembrete
     ("/lembrete", ("/lembrete", "/recordatorio", "/recordar", "/remind", "/reminder")),
     # Hoje / Semana / Timeline
-    ("/hoje", ("/hoje", "/hoy", "/today")),
-    ("/semana", ("/semana", "/week")),
-    ("/agenda", ("/agenda", "/schedule", "/programação", "/programacion")),
+    ("/hoje", ("/hoje", "/hoy", "/today", "hoje", "hoy", "today")),
+    ("/semana", ("/semana", "/week", "semana", "week")),
+    ("/agenda", ("/agenda", "/schedule", "/programação", "/programacion", "agenda", "agendas", "schedule", "calendário", "calendario", "calendar")),
     ("/timeline", ("/timeline", "/cronologia", "/cronología", "/linha", "/histórico", "/historico", "/history")),
-    ("/mes", ("/mes", "/mês", "/month")),
+    ("/mes", ("/mes", "/mês", "/month", "mes", "mês", "month")),
     # Estatísticas
     ("/stats", ("/stats", "/estatísticas", "/estatisticas", "/est", "/estadísticas", "/estadisticas", "/estd", "/statistics")),
     # Resumo

@@ -38,6 +38,7 @@ from backend.handlers_limpeza import handle_limpeza
 from backend.handlers_agenda_remove import handle_agenda_remove
 from backend.handlers_pomodoro import handle_pomodoro
 from backend.recipe_handler import handle_recipe
+from backend.search_handler import handle_curated_search
 from backend.command_i18n import normalize_command
 from backend.views import (
     handle_eventos_unificado,
@@ -59,6 +60,7 @@ from backend.views import (
 HANDLERS = [
     handle_atendimento_request,
     handle_pending_confirmation,
+    handle_curated_search,  # Busca filmes/livros/música — antes de list
     handle_list,  # primeiro: "cria lista de X", "mostre lista" → evita cair no LLM com histórico de erro
     handle_list_or_events_ambiguous,  # "tenho de X, Y" → pergunta lista ou lembretes
     handle_vague_time_reminder,
@@ -105,7 +107,6 @@ HANDLERS = [
     handle_reset,
     handle_exportar,
     handle_deletar_tudo,
-    handle_nuke,
     handle_nuke,
 ]
 

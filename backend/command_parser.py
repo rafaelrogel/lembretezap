@@ -9,25 +9,24 @@ from typing import Any
 
 from backend.time_parse import extract_start_date, parse_lembrete_time
 
-# Padrões
-RE_LEMBRETE = re.compile(r"^/lembrete\s+(.+)$", re.I)
-RE_LIST_ADD = re.compile(r"^/list\s+(\S+)\s+add\s+(.+)$", re.I)
+# Padrões com aliases internacionais (PT, ES, EN)
+RE_LEMBRETE = re.compile(r"^/(?:lembrete|reminder|recordatorio)\s+(.+)$", re.I)
+RE_LIST_ADD = re.compile(r"^/(?:list|lista)\s+(\S+)\s+add\s+(.+)$", re.I)
 # /list filme|livro|musica|receita|notas|nota|sites|site|links|link <item> (categorias; sem "add")
 RE_LIST_CATEGORY_ADD = re.compile(
-    r"^/list\s+(filme|filmes|livro|livros|musica|musicas|m[uú]sicas?|receita|receitas|notas?|sites?|links?)\s+(.+)$",
+    r"^/(?:list|lista)\s+(filme|filmes|livro|livros|musica|musicas|m[uú]sicas?|receita|receitas|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+(.+)$",
     re.I,
 )
-RE_LIST_SHOW = re.compile(r"^/list\s+(\S+)\s*$", re.I)
-RE_LIST_ALL = re.compile(r"^/list\s*$", re.I)
-RE_FEITO_LIST_ID = re.compile(r"^/feito\s+(\S+)\s+(\d+)\s*$", re.I)
-RE_FEITO_ID_ONLY = re.compile(r"^/feito\s+(\d+)\s*$", re.I)
+RE_LIST_SHOW = re.compile(r"^/(?:list|lista)\s+(\S+)\s*$", re.I)
+RE_LIST_ALL = re.compile(r"^/(?:list|lista)\s*$", re.I)
+RE_FEITO_LIST_ID = re.compile(r"^/(?:feito|done|hecho)\s+(\S+)\s+(\d+)\s*$", re.I)
+RE_FEITO_ID_ONLY = re.compile(r"^/(?:feito|done|hecho)\s+(\d+)\s*$", re.I)
 # /remove
-RE_REMOVE_LIST_ID = re.compile(r"^/remove\s+(\S+)\s+(\d+)\s*$", re.I)
-RE_REMOVE_ID_ONLY = re.compile(r"^/remove\s+(\d+)\s*$", re.I)
+RE_REMOVE_LIST_ID = re.compile(r"^/(?:remove|delete|quitar|borrar)\s+(\S+)\s+(\d+)\s*$", re.I)
+RE_REMOVE_ID_ONLY = re.compile(r"^/(?:remove|delete|quitar|borrar)\s+(\d+)\s*$", re.I)
 
-RE_HORA = re.compile(r"^/hora\s*$", re.I)
-RE_DATA = re.compile(r"^/data\s*$", re.I)
-RE_EVENTO = re.compile(r"^/(?:evento|agenda)\s+(.+)$", re.I)
+RE_HORA = re.compile(r"^/(?:hora|time)\s*$", re.I)
+RE_DATA = re.compile(r"^/(?:data|date|fecha)\s*$", re.I)
 # Linguagem natural: mostre lista X, lista de X, minha lista X, qual lista, mercado, compras
 RE_NL_MOSTRE_LISTA = re.compile(
     r"^(?:mostr(?:e|ar)|ver|listar|mostra)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?(\w+)\s*$", re.I
@@ -42,6 +41,11 @@ RE_FILME = re.compile(r"^/filmes?\s+(.+)$", re.I)
 RE_LIVRO = re.compile(r"^/livros?\s+(.+)$", re.I)
 RE_MUSICA = re.compile(r"^/(?:musica|m[uú]sica)s?\s+(.+)$", re.I)
 RE_RECEITA = re.compile(r"^/receita\s+(.+)$", re.I)
+# Atalhos ES/EN
+RE_PELICULA = re.compile(r"^/pel[ií]culas?\s+(.+)$", re.I)
+RE_LIBRO = re.compile(r"^/libros?\s+(.+)$", re.I)
+RE_MOVIE = re.compile(r"^/movies?\s+(.+)$", re.I)
+RE_BOOK = re.compile(r"^/books?\s+(.+)$", re.I)
 # NL: "adicione ovos bacon e queijos a listas" → list_add mercado
 RE_NL_ADICIONE_LISTA = re.compile(
     r"^(?:adicione|adiciona|adicionar|coloca|coloque|colocar)\s+(.+?)\s+(?:a|à|nas?)\s+listas?\s*$",
@@ -49,24 +53,44 @@ RE_NL_ADICIONE_LISTA = re.compile(
 )
 # NL: "add lista filmes X", "add list filmes X" → list_add filme
 RE_NL_ADD_LISTA_CATEGORIA = re.compile(
-    r"^(?:add|adicione|adiciona)\s+listas?\s+(filmes?|livros?|m[uú]sicas?|receitas?|notas?|sites?|links?)\s+(.+)$",
+    r"^(?:add|adicione|adiciona|a[ñn]adir)\s+(?:listas?\s+)?(filmes?|livros?|m[uú]sicas?|receitas?|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+(.+)$",
     re.I,
 )
-# NL: "cria/faça/mostre uma lista de X ..." (PT) + equivalentes ES/EN → list_add
-# PT: cria, crie, faça, faz, me dê, me de, de-me, dê-me, mostre, mostra, exiba
-# ES: crea, crear, haz, dame, muéstrame, muestra, exhibe
-# EN: create, make, give me, show me, show, display
-# Último grupo opcional: "lista de livros" sem resto → item vazio (handler usa placeholder)
+# PT: cria, crie, faça, faz, me dê, me de, de-me, dê-me
+# ES: crea, crear, haz, dame
+# EN: create, make, give me
 RE_NL_CRIA_LISTA_DE = re.compile(
-    r"^(?:cria|crie|faça|faz|me\s+d[êe]|de-me|dê-me|mostre|mostra|exiba"
-    r"|crea|crear|haz|dame|muéstrame|muestra|exhibe"
-    r"|create|make|give\s+me|show\s+me|show|display)\s+"
+    r"^(?:cria|crie|faça|faz|me\s+d[êe]|de-me|dê-me"
+    r"|crea|crear|haz|dame"
+    r"|create|make|give\s+me)\s+"
+    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?(\w+)(?:\s+(.+))?$",
+    re.I,
+)
+# Verbos de visualização: mostre, mostra, exiba, muéstrame, muestra, exhibe, show me, show, display
+RE_NL_MOSTRE_LISTA_DE = re.compile(
+    r"^(?:mostre|mostra|exiba|mu[eé]strame|muestra|exhibe|show\s+me|show|display)\s+"
     r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?(\w+)(?:\s+(.+))?$",
     re.I,
 )
 # NL: "coloca/põe/anota X na lista", "põe leite na lista" → list_add mercado
 RE_NL_POR_LISTA = re.compile(
     r"^(?:coloca|coloque|p[oô]e|põe|anota|anotar|inclui|incluir|marca)\s+(.+?)\s+(?:na|no|à|a)\s+(?:lista|listas)\s*$",
+    re.I,
+)
+# NL (4 idiomas): "coloca na lista: X", "adiciona à lista: X", "pon en la lista: X", "add to list: X"
+# PT-BR/PT-PT: coloca/adiciona/põe na lista: X
+# ES: pon/añade/agrega en la lista: X
+# EN: add/put to the list: X
+RE_NL_LISTA_DOIS_PONTOS = re.compile(
+    r"^(?:"
+    # PT-BR/PT-PT
+    r"(?:coloca|coloque|p[oô]e|põe|adiciona|adicione|inclui|incluir)\s+(?:na|à|a)\s+lista"
+    r"|(?:adiciona|adicione|coloca|coloque)\s+(?:à|a|na)\s+lista"
+    # ES
+    r"|(?:pon|pone|a[ñn]ade|a[ñn]adir|agrega|agregar)\s+(?:en\s+la|a\s+la)\s+lista"
+    # EN
+    r"|(?:add|put)\s+(?:to\s+(?:the\s+)?|on\s+(?:the\s+)?)?list"
+    r")\s*:\s*(.+)$",
     re.I,
 )
 # NL: "anota X" / "anotar X" (sem "na lista") → list_add notas
@@ -127,6 +151,10 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     if not text:
         return None
 
+    # Guard: comandos de agenda/evento não são listas
+    if text.lower().startswith(("/agenda", "/evento", "/compromisso", "/cita", "/calendar", "/tasks")):
+        return None
+
     m = RE_LEMBRETE.match(text)
     if m:
         rest = m.group(1).strip()
@@ -147,7 +175,10 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
 
     m = RE_LIST_ADD.match(text)
     if m:
-        return {"type": "list_add", "list_name": m.group(1).strip(), "item": m.group(2).strip()}
+        list_name_raw = m.group(1).strip().lower()
+        # Normalizar nome da lista (compras/shopping → mercado, etc.)
+        list_name = _CATEGORY_TO_LIST.get(list_name_raw, list_name_raw)
+        return {"type": "list_add", "list_name": list_name, "item": m.group(2).strip()}
     m = RE_LIST_CATEGORY_ADD.match(text)
     if m:
         cat = m.group(1).strip().lower()
@@ -182,33 +213,61 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         return {"type": "data"}
 
     # Linguagem natural: mostre lista mercado, lista de mercado, qual minha lista, mercado
+    # Guard partilhado: palavras de lembretes/agenda não são nomes de lista
+    _REMINDER_AGENDA_WORDS_SHOW = {
+        "lembretes", "lembrete", "agenda", "agendas", "compromissos",
+        "compromisso", "eventos", "evento", "tarefas", "tarefa",
+        "reminders", "reminder", "calendar", "tasks", "task",
+        "recordatorios", "recordatorio",
+    }
     m = RE_NL_MOSTRE_LISTA.match(text)
     if m:
-        return {"type": "list_show", "list_name": m.group(1).strip()}
+        _name = m.group(1).strip().lower()
+        if _name in _REMINDER_AGENDA_WORDS_SHOW:
+            return None  # Deixa o LLM tratar como consulta de agenda/lembretes
+        return {"type": "list_show", "list_name": _name}
     m = RE_NL_LISTA_DE.match(text)
     if m:
-        return {"type": "list_show", "list_name": m.group(1).strip()}
+        _name = m.group(1).strip().lower()
+        if _name in _REMINDER_AGENDA_WORDS_SHOW:
+            return None
+        return {"type": "list_show", "list_name": _name}
     m = RE_NL_QUAL_LISTA.match(text)
     if m:
-        return {"type": "list_show", "list_name": m.group(1).strip()}
+        _name = m.group(1).strip().lower()
+        if _name in _REMINDER_AGENDA_WORDS_SHOW:
+            return None
+        return {"type": "list_show", "list_name": _name}
     m = RE_NL_LISTA_SOZINHA.match(text)
     if m:
         name = m.group(1).strip()
         return {"type": "list_show", "list_name": name if name != "lista" else None}
 
+
     # Atalhos: /filme X, /livro X, /musica X → list_add (dentro de /list)
-    m = RE_EVENTO.match(text)
-    if m:
-        return {"type": "list_add", "list_name": "agenda", "item": m.group(1).strip()}
     m = RE_FILME.match(text)
     if m:
         return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
     m = RE_LIVRO.match(text)
     if m:
         return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
-    m = RE_MUSICA.match(text)
+    m = re.match(r"^/(?:musica|m[uú]sica)s?\s+(.+)$", text, re.I)
     if m:
         return {"type": "list_add", "list_name": "musica", "item": m.group(1).strip()}
+    
+    # ES/EN Shortcuts
+    m = RE_PELICULA.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+    m = RE_LIBRO.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
+    m = RE_MOVIE.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+    m = RE_BOOK.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
     
     # Receita continua como lista por enquanto (ou pode mover para event se quiser)
     m = RE_RECEITA.match(text)
@@ -227,16 +286,50 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     m = RE_NL_CRIA_LISTA_DE.match(text)
     if m:
         list_name = m.group(1).strip().lower()
+        # Guard: palavras de lembretes/agenda nunca devem ser tratadas como nomes de lista
+        _REMINDER_AGENDA_WORDS = {
+            "lembretes", "lembrete", "agenda", "agendas", "compromissos",
+            "compromisso", "eventos", "evento", "tarefas", "tarefa",
+            "reminders", "reminder", "calendar", "tasks", "task",
+            "recordatorios", "recordatorio",
+        }
+        if list_name in _REMINDER_AGENDA_WORDS:
+            return None
         list_name = _CATEGORY_TO_LIST.get(list_name, list_name)
         item = (m.group(2) or "").strip()
-        if item:  # Só registra se tiver item concreto; sem item → LLM pergunta o que adicionar
+        if item:
             return {"type": "list_add", "list_name": list_name, "item": item}
+        return {"type": "list_show", "list_name": list_name}
+
+    m = RE_NL_MOSTRE_LISTA_DE.match(text)
+    if m:
+        list_name = m.group(1).strip().lower()
+        if list_name in _REMINDER_AGENDA_WORDS_SHOW:
+            return None
+        list_name = _CATEGORY_TO_LIST.get(list_name, list_name)
+        # Se tem o resto (m.group(2)), pode ser um pedido de busca
+        # Ex: "mostre lista de filmes de David Lynch"
+        # Devolver show por enquanto, o Router vai tentar o search_handler primeiro se detectarmos busca.
+        return {"type": "list_show", "list_name": list_name}
+
     # NL: "coloca X na lista" → list_add mercado (assumindo compras se não especificar)
     m = RE_NL_POR_LISTA.match(text)
     if m:
         item = m.group(1).strip()
         if item:
             return {"type": "list_add", "list_name": "mercado", "item": item}
+    # NL (4 idiomas): "coloca na lista: X, Y, Z" → list_add mercado
+    m = RE_NL_LISTA_DOIS_PONTOS.match(text)
+    if m:
+        raw_items = m.group(1).strip()
+        if raw_items:
+            # Split por vírgula e conectores (e/y/and)
+            parts = re.split(r"\s*,\s*|\s+(?:e|y|and)\s+", raw_items, flags=re.IGNORECASE)
+            items = [p.strip() for p in parts if p.strip()]
+            if items:
+                if len(items) == 1:
+                    return {"type": "list_add", "list_name": "mercado", "item": items[0]}
+                return {"type": "list_add", "list_name": "mercado", "items": items}
     # NL: "anota X" / "anotar X" (sem "na lista") → list_add notas
     m = RE_NL_ANOTA.match(text)
     if m:

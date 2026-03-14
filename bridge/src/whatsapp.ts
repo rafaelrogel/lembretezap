@@ -37,6 +37,8 @@ export interface InboundMessage {
   audioTooLarge?: boolean;
   /** True when audio was rejected for being forwarded (we only accept original voice recordings). */
   audioForwarded?: boolean;
+  /** Mimetype of the audio (e.g. audio/ogg; codecs=opus or audio/mp4). Used for better format detection. */
+  mimetype?: string;
 }
 
 export interface ReactionEvent {
@@ -234,6 +236,7 @@ export class WhatsAppClient {
                 ...this.basePayload(msg),
                 content: '[Voice Message]',
                 mediaBase64,
+                mimetype: audioMsg.mimetype || 'audio/ogg',
               });
               continue;
             }

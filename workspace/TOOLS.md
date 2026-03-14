@@ -1,6 +1,6 @@
 # Available Tools
 
-This document describes the tools available to zapista.
+This document describes the tools available to Zappelin.
 
 ## Communication
 
@@ -34,6 +34,19 @@ zapista cron add --name "meeting" --message "Meeting starts now!" --at "2025-01-
 zapista cron list              # List all jobs
 zapista cron remove <job_id>   # Remove a job
 ```
+
+## Pomodoro
+
+Starts a 25-minute focus timer followed by a 5-minute break.
+
+```bash
+/pomodoro          # Start 25-minute timer
+/pomodoro start    # Start 25-minute timer with label
+/pomodoro status   # See remaining time
+/pomodoro stop     # Cancel active pomodoro
+```
+
+Natural language like "inicia o pomodoro" or "ative o pomodoro" is also supported and handled by the system.
 
 ## Heartbeat
 

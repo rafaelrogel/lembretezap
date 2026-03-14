@@ -13,9 +13,16 @@ MAX_DURATION_SEC = 60
 
 
 def decode_base64_to_temp(
-    b64: str, suffix: str = ".ogg"
+    b64: str, suffix: str = ".ogg", mimetype: str | None = None
 ) -> Path | None:
     """Decodifica base64 e grava num ficheiro temporário. Retorna o path ou None."""
+    if mimetype:
+        import mimetypes
+        # Sanitize mimetype (e.g. "audio/ogg; codecs=opus" -> "audio/ogg")
+        clean_mime = mimetype.split(";")[0].strip().lower()
+        ext = mimetypes.guess_extension(clean_mime)
+        if ext:
+            suffix = ext
     try:
         data = base64.b64decode(b64, validate=True)
     except Exception as e:
@@ -71,12 +78,12 @@ def convert_to_wav_mono_16k(path: Path, out_path: Path) -> bool:
         return False
 
 
-def check_audio_duration(audio_base64: str) -> str | None:
+def check_audio_duration(audio_base64: str, mimetype: str | None = None) -> str | None:
     """
     Valida duração do áudio. Retorna None se OK, ou chave de erro ("AUDIO_TOO_LONG")
     para o gateway mapear ao idioma do utilizador.
     """
-    inp = decode_base64_to_temp(audio_base64)
+    inp = decode_base64_to_temp(audio_base64, mimetype=mimetype)
     if not inp:
         return None  # erro técnico; gateway usa mensagem genérica
     try:
@@ -91,12 +98,12 @@ def check_audio_duration(audio_base64: str) -> str | None:
             pass
 
 
-def prepare_audio_for_whisper(audio_base64: str) -> Path | None:
+def prepare_audio_for_whisper(audio_base64: str, mimetype: str | None = None) -> Path | None:
     """
     Base64 -> temp OGG -> (opcional) valida duração -> converte para WAV mono 16kHz.
     Retorna path do WAV ou None.
     """
-    inp = decode_base64_to_temp(audio_base64)
+    inp = decode_base64_to_temp(audio_base64, mimetype=mimetype)
     if not inp:
         return None
     try:
