@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 const links = [
   { href: "/about", label: "Sobre nós", sectionId: "sobre" as const },
-  { href: "#", label: "Funcionalidades", sectionId: null },
+  { href: "#funcionalidades", label: "Funcionalidades", sectionId: "funcionalidades" as const },
   { href: "#", label: "FAQ", sectionId: null },
 ] as const;
 
@@ -20,6 +20,7 @@ const inactiveClass =
 export function NavLinks() {
   const pathname = usePathname();
   const [sobreInView, setSobreInView] = useState(false);
+  const [featuresInView, setFeaturesInView] = useState(false);
 
   useEffect(() => {
     if (pathname !== "/") return;
@@ -33,18 +34,36 @@ export function NavLinks() {
     return () => observer.disconnect();
   }, [pathname]);
 
+  useEffect(() => {
+    if (pathname !== "/") return;
+    const el = document.getElementById("funcionalidades");
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setFeaturesInView(entry.isIntersecting),
+      { threshold: 0.2, rootMargin: "-80px 0px -40% 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pathname]);
+
   return (
     <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-10 md:flex">
       {links.map(({ href, label, sectionId }) => {
         const isActive =
           href !== "#" && pathname === href;
         const isSectionActive =
-          sectionId === "sobre" && pathname === "/" && sobreInView;
+          pathname === "/" &&
+          ((sectionId === "sobre" && sobreInView) ||
+            (sectionId === "funcionalidades" && featuresInView));
         const showActive = isActive || isSectionActive;
         return (
           <Link
             key={href + label}
-            href={pathname === "/" && sectionId === "sobre" ? "#sobre" : href}
+            href={
+              pathname === "/" && sectionId === "sobre"
+                ? "#sobre"
+                : href
+            }
             className={`${baseClass} ${
               showActive ? activeClass : inactiveClass
             }`}
