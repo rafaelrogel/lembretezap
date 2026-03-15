@@ -324,12 +324,20 @@ async def handle_ics_payload(
                 # Para o item da lista, incluímos data/hora no texto para não perder a informação
                 # já que ListItem não tem data_at.
                 item_text = f"{summary} ({dtstart.strftime('%d/%m %H:%M')})"
+                
+                # Converter data_at para UTC naive (a DB espera UTC sem timezone)
+                from zoneinfo import ZoneInfo
+                if dtstart.tzinfo:
+                    data_at_utc = dtstart.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+                else:
+                    data_at_utc = dtstart
+                
                 # Criar Event para auditoria e lógica de agenda estruturada
                 ev = Event(
                     user_id=user_id,
                     tipo="evento",
                     payload=payload,
-                    data_at=dtstart,
+                    data_at=data_at_utc,
                 )
                 db.add(ev)
                 db.add(AuditLog(user_id=user_id, action="event_add", resource="agenda"))
