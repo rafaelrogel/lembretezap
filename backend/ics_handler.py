@@ -25,9 +25,10 @@ def _normalize_ics_content(raw: str) -> str:
         raw = raw[1:]
     # Fins de linha: CRLF e CR -> LF
     raw = raw.replace("\r\n", "\n").replace("\r", "\n")
-    # Desdobrar linhas continuadas (ex.: "DTSTART;TZID=...\n :20260217T120000" -> uma só linha)
-    while "\n " in raw:
-        raw = raw.replace("\n ", " ")
+    # Desdobrar linhas continuadas (RFC 5545: linha continua com \n + espaço/tab)
+    # O espaço/tab é removido ao juntar as linhas
+    while "\n " in raw or "\n\t" in raw:
+        raw = raw.replace("\n ", "").replace("\n\t", "")
     # Bytes nulos (podem vir de ficheiros mal formados)
     raw = raw.replace("\x00", "")
     return raw.strip()
