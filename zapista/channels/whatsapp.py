@@ -485,9 +485,31 @@ class WhatsAppChannel(BaseChannel):
                     ))
                 except Exception as e:
                     logger.exception(f"ICS handler failed: {e}")
-                    ics_err = (
-                        "Erro ao processar o calendário. Tenta exportar o .ics de novo (UTF-8) ou outro ficheiro."
-                    )
+                    error_str = str(e).lower()
+                    error_type = type(e).__name__
+                    
+                    # Mensagem de erro específica baseada no tipo de erro
+                    if "icalendar" in error_str or "import" in error_str or "module" in error_str:
+                        ics_err = "Suporte a calendários temporariamente indisponível. Tenta novamente mais tarde."
+                    elif "encoding" in error_str or "decode" in error_str or "codec" in error_str or "utf" in error_str:
+                        ics_err = (
+                            "Erro de encoding no ficheiro .ics. "
+                            "O Gmail às vezes exporta com formato incorreto. "
+                            "Tenta abrir no Google Calendar (calendar.google.com) e exportar de lá."
+                        )
+                    elif "parse" in error_str or "invalid" in error_str or "calendar" in error_str:
+                        ics_err = (
+                            "Calendário inválido ou mal formado. "
+                            "Verifica se o ficheiro .ics está completo e tenta novamente."
+                        )
+                    elif "database" in error_str or "db" in error_str or "sql" in error_str:
+                        ics_err = "Erro ao guardar eventos. Tenta novamente em alguns segundos."
+                    else:
+                        ics_err = (
+                            f"Erro ao processar calendário ({error_type}). "
+                            "Tenta exportar o .ics de outra forma ou de outro serviço."
+                        )
+                    
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=self.name,
                         chat_id=user_id,

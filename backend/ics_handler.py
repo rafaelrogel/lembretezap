@@ -45,6 +45,49 @@ def _try_decode_utf8_from_latin1(s: str) -> str | None:
         return None
 
 
+def _try_fix_encoding(raw: str) -> list[str]:
+    """
+    Tenta múltiplos encodings para ficheiros .ics problemáticos.
+    Gmail, Outlook e outros clientes podem usar encodings diferentes.
+    Retorna lista de tentativas (strings) para tentar parse.
+    """
+    attempts = [raw]  # Original primeiro
+    
+    # Tentativa 1: Latin-1 → UTF-8 (comum em exports do Outlook)
+    try:
+        decoded = raw.encode("latin-1").decode("utf-8", errors="strict")
+        if decoded != raw:
+            attempts.append(decoded)
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        pass
+    
+    # Tentativa 2: Windows-1252 → UTF-8 (comum em Windows/Gmail)
+    try:
+        decoded = raw.encode("cp1252").decode("utf-8", errors="strict")
+        if decoded != raw and decoded not in attempts:
+            attempts.append(decoded)
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        pass
+    
+    # Tentativa 3: Forçar UTF-8 com replace (último recurso)
+    try:
+        decoded = raw.encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+        if decoded not in attempts:
+            attempts.append(decoded)
+    except Exception:
+        pass
+    
+    # Tentativa 4: Remover caracteres não-ASCII problemáticos
+    try:
+        cleaned = "".join(c if ord(c) < 128 or c in "áàâãéèêíìîóòôõúùûçÁÀÂÃÉÈÊÍÌÎÓÒÔÕÚÙÛÇñÑ" else "?" for c in raw)
+        if cleaned not in attempts:
+            attempts.append(cleaned)
+    except Exception:
+        pass
+    
+    return attempts
+
+
 def _to_datetime(dt: date | datetime) -> datetime:
     """Converte date ou datetime para datetime (date -> 00:00:00)."""
     if isinstance(dt, datetime):
@@ -150,25 +193,45 @@ async def handle_ics_payload(
 
     cal = None
     parse_error: Exception | None = None
-    try:
-        cal = icalendar.Calendar.from_ical(raw)
-    except Exception as e:
-        parse_error = e
-        logger.warning(f"ics parse failed: {e}. Preview: {raw[:300]!r}")
-        # Fallback: ficheiro pode ter sido interpretado como Latin-1 mas ser UTF-8 (ex.: export do Outlook)
-        decoded = _try_decode_utf8_from_latin1(raw)
-        if decoded is not None:
-            try:
-                cal = icalendar.Calendar.from_ical(decoded)
-            except Exception as e2:
-                parse_error = e2
-                logger.debug(f"ics parse (latin1 fallback) failed: {e2}")
+    parse_error_detail: str = ""
+    
+    # Tentar múltiplos encodings (Gmail, Outlook, etc. usam encodings diferentes)
+    encoding_attempts = _try_fix_encoding(raw)
+    
+    for i, attempt in enumerate(encoding_attempts):
+        try:
+            cal = icalendar.Calendar.from_ical(attempt)
+            if cal is not None:
+                if i > 0:
+                    logger.info(f"ics parse succeeded on encoding attempt {i+1}")
+                break
+        except Exception as e:
+            parse_error = e
+            if i == 0:
+                parse_error_detail = str(e)[:100]
+                logger.warning(f"ics parse failed (attempt {i+1}): {e}. Preview: {attempt[:200]!r}")
+            else:
+                logger.debug(f"ics parse failed (attempt {i+1}): {e}")
 
     if cal is None:
-        err_msg = (
-            "Calendário inválido ou encoding incorreto. "
-            "Tenta exportar o .ics de novo (UTF-8) ou usar outro ficheiro."
-        )
+        # Tentar identificar o problema específico
+        if "VCALENDAR" not in raw.upper():
+            err_msg = "Ficheiro não parece ser um calendário .ics válido (falta VCALENDAR)."
+        elif "VEVENT" not in raw.upper():
+            err_msg = "Calendário não contém eventos (falta VEVENT)."
+        elif "encoding" in parse_error_detail.lower() or "decode" in parse_error_detail.lower() or "codec" in parse_error_detail.lower():
+            err_msg = (
+                "Erro de encoding no ficheiro. O Gmail às vezes exporta com encoding incorreto. "
+                "Tenta: 1) Abrir no Google Calendar e exportar de lá, ou "
+                "2) Abrir o .ics num editor de texto e salvar como UTF-8."
+            )
+        elif "parse" in parse_error_detail.lower() or "invalid" in parse_error_detail.lower():
+            err_msg = f"Calendário mal formado: {parse_error_detail}"
+        else:
+            err_msg = (
+                f"Erro ao processar calendário: {parse_error_detail or 'formato desconhecido'}. "
+                "Tenta exportar o .ics de outra forma."
+            )
         return _summary_message(0, [], lang, error=err_msg)
 
     events_created: list[dict[str, Any]] = []
