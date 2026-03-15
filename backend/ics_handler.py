@@ -421,11 +421,12 @@ def _summary_message(
             data_str = "—"
         lines.append(f"• \"{nome}\" {data_str}")
     if with_reminder:
-        suffix = {
+        suffix_map = {
             "pt-PT": " Vou lembrar-te 15 min antes de cada um.",
             "pt-BR": " Vou te lembrar 15 min antes de cada um.",
             "es": " Te recordaré 15 min antes de cada uno.",
             "en": " I'll remind you 15 min before each.",
-        }.get(user_lang, suffix["en"])
+        }
+        suffix = suffix_map.get(user_lang, suffix_map["en"])
         lines[0] = lines[0].rstrip(".") + "." + suffix
     return "\n".join(lines)
