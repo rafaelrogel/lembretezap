@@ -255,11 +255,16 @@ async def handle_ics_payload(
             if count >= MAX_EVENTS_PER_ICS:
                 break
             try:
-                summary_val = component.get("SUMMARY") or ""
-                if isinstance(summary_val, bytes):
+                summary_val = component.get("SUMMARY")
+                if not summary_val:
+                    summary = "Evento"
+                elif isinstance(summary_val, str):
+                    summary = summary_val.strip() or "Evento"
+                elif isinstance(summary_val, bytes):
                     summary = summary_val.decode("utf-8", errors="replace").strip() or "Evento"
                 else:
-                    summary = (summary_val if isinstance(summary_val, str) else str(summary_val)).strip() or "Evento"
+                    # vText ou outro tipo do icalendar
+                    summary = str(summary_val).strip() or "Evento"
                 if is_absurd_request(summary):
                     continue
                 summary = sanitize_string(summary, 256)[:256]
@@ -269,17 +274,33 @@ async def handle_ics_payload(
                 dtend = _get_dt_from_vevent(component, "DTEND")
                 description = component.get("DESCRIPTION")
                 if description:
-                    description = (description if isinstance(description, str) else description.decode("utf-8", errors="replace")).strip()[:1024]
+                    if isinstance(description, str):
+                        description = description.strip()[:1024]
+                    elif isinstance(description, bytes):
+                        description = description.decode("utf-8", errors="replace").strip()[:1024]
+                    else:
+                        # vText ou outro tipo do icalendar
+                        description = str(description).strip()[:1024]
                 else:
                     description = ""
                 location = component.get("LOCATION")
                 if location:
-                    location = (location if isinstance(location, str) else location.decode("utf-8", errors="replace")).strip()[:256]
+                    if isinstance(location, str):
+                        location = location.strip()[:256]
+                    elif isinstance(location, bytes):
+                        location = location.decode("utf-8", errors="replace").strip()[:256]
+                    else:
+                        location = str(location).strip()[:256]
                 else:
                     location = ""
                 url = component.get("URL")
                 if url:
-                    url = (url if isinstance(url, str) else url.decode("utf-8", errors="replace")).strip()[:512]
+                    if isinstance(url, str):
+                        url = url.strip()[:512]
+                    elif isinstance(url, bytes):
+                        url = url.decode("utf-8", errors="replace").strip()[:512]
+                    else:
+                        url = str(url).strip()[:512]
                 else:
                     url = ""
 
