@@ -97,27 +97,48 @@ _RE_TOMORROW = re.compile(
     re.I,
 )
 
-# Next N weeks: "próximas 2 semanas", "next 3 weeks", "próximos 14 dias"
+# Next N weeks: PT "próximas 2 semanas", EN "next 3 weeks", ES "próximas 2 semanas"
 _RE_NEXT_N_WEEKS = re.compile(
-    r"(?:pr[oó]xim[ao]s?\s+)?(\d{1,2})\s+semanas?|next\s+(\d{1,2})\s+weeks?",
+    r"(?:"
+    r"(?:pr[oó]xim[ao]s?|las?\s+pr[oó]xim[ao]s?)\s+(\d{1,2})\s+semanas?"  # PT/ES: próximas 2 semanas
+    r"|(\d{1,2})\s+semanas?\s+(?:que\s+vem|siguientes?)"  # PT: 2 semanas que vem, ES: 2 semanas siguientes
+    r"|next\s+(\d{1,2})\s+weeks?"  # EN: next 2 weeks
+    r"|(?:for\s+)?(\d{1,2})\s+weeks?"  # EN: for 2 weeks, 2 weeks
+    r")",
     re.I,
 )
 
-# Next N days: "próximos 7 dias", "next 10 days"
+# Next N days: PT "próximos 7 dias", EN "next 10 days", ES "próximos 7 días"
 _RE_NEXT_N_DAYS = re.compile(
-    r"(?:pr[oó]xim[ao]s?\s+)?(\d{1,3})\s+dias?|next\s+(\d{1,3})\s+days?",
+    r"(?:"
+    r"(?:pr[oó]xim[ao]s?|l[ao]s?\s+pr[oó]xim[ao]s?)\s+(\d{1,3})\s+d[ií]as?"  # PT/ES: próximos 7 dias/días
+    r"|(\d{1,3})\s+d[ií]as?\s+(?:que\s+vem|siguientes?)"  # PT: 7 dias que vem, ES: 7 días siguientes
+    r"|next\s+(\d{1,3})\s+days?"  # EN: next 7 days
+    r"|(?:for\s+)?(\d{1,3})\s+days?"  # EN: for 7 days, 7 days
+    r")",
     re.I,
 )
 
-# Specific date: "17/03", "17-03", "17/03/2026", "dia 17/03", "no dia 17"
+# Specific date: "17/03", "17-03", "17/03/2026", "dia 17/03", "el día 17/03", "on 17/03"
 _RE_SPECIFIC_DATE = re.compile(
-    r"(?:(?:para\s+)?(?:o\s+)?dia\s+)?(\d{1,2})[/\-](\d{1,2})(?:[/\-](\d{2,4}))?",
+    r"(?:"
+    r"(?:para\s+)?(?:o\s+|el\s+)?d[ií]a\s+"  # PT/ES: dia/día
+    r"|(?:para\s+|for\s+|on\s+)?"  # EN: for/on
+    r")?"
+    r"(\d{1,2})[/\-](\d{1,2})(?:[/\-](\d{2,4}))?",
     re.I,
 )
 
-# Day only: "dia 17", "no dia 17", "on the 17th", "el día 17"
+# Day only: PT "dia 17", EN "on the 17th", ES "el día 17"
+# Requires a prefix keyword to avoid matching random numbers
 _RE_DAY_ONLY = re.compile(
-    r"(?:(?:para\s+)?(?:o\s+|el\s+)?dia\s+|on\s+(?:the\s+)?)(\d{1,2})(?:st|nd|rd|th)?(?:\s+(?:de\s+)?(?:este\s+)?m[eê]s)?",
+    r"(?:"
+    r"(?:para\s+)?(?:o\s+|el\s+)?d[ií]a\s+"  # PT/ES: dia 17, el día 17
+    r"|on\s+(?:the\s+)?"  # EN: on the 17th
+    r"|for\s+(?:the\s+)?day\s+"  # EN: for the day 17
+    r")"
+    r"(\d{1,2})(?:st|nd|rd|th|º|°)?"  # Day number with optional ordinal
+    r"(?:\s+(?:de\s+)?(?:est[ea]\s+)?m[eê]s)?",  # Optional "deste mês"
     re.I,
 )
 
@@ -147,6 +168,32 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
 
     # Order: most specific first to avoid partial matches
 
+    # Next N weeks: "próximas 2 semanas", "next 2 weeks" (check BEFORE day only)
+    m = _RE_NEXT_N_WEEKS.search(t)
+    if m:
+        # Multiple capture groups - find the one that matched
+        weeks = None
+        for g in m.groups():
+            if g:
+                weeks = int(g)
+                break
+        if weeks and 1 <= weeks <= 52:
+            end = today + timedelta(days=weeks * 7)
+            return (today, end)
+
+    # Next N days: "próximos 7 dias", "next 7 days" (check BEFORE day only)
+    m = _RE_NEXT_N_DAYS.search(t)
+    if m:
+        # Multiple capture groups - find the one that matched
+        days = None
+        for g in m.groups():
+            if g:
+                days = int(g)
+                break
+        if days and 1 <= days <= 365:
+            end = today + timedelta(days=days)
+            return (today, end)
+
     # Specific date: "17/03", "17/03/2026"
     m = _RE_SPECIFIC_DATE.search(t)
     if m:
@@ -172,7 +219,7 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
         except ValueError:
             pass  # Data inválida, continua
 
-    # Day only: "dia 17"
+    # Day only: "dia 17" (requires prefix keyword)
     m = _RE_DAY_ONLY.search(t)
     if m:
         day = int(m.group(1))
@@ -189,22 +236,6 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
                 return (target, target)
             except ValueError:
                 pass  # Dia inválido para este mês
-
-    # Next N weeks: "próximas 2 semanas"
-    m = _RE_NEXT_N_WEEKS.search(t)
-    if m:
-        weeks = int(m.group(1) or m.group(2))
-        if 1 <= weeks <= 52:
-            end = today + timedelta(days=weeks * 7)
-            return (today, end)
-
-    # Next N days: "próximos 7 dias"
-    m = _RE_NEXT_N_DAYS.search(t)
-    if m:
-        days = int(m.group(1) or m.group(2))
-        if 1 <= days <= 365:
-            end = today + timedelta(days=days)
-            return (today, end)
 
     # Today
     if _RE_TODAY.search(t):
