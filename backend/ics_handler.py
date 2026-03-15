@@ -341,7 +341,11 @@ async def handle_ics_payload(
                 )
                 db.add(ev)
                 db.add(AuditLog(user_id=user_id, action="event_add", resource="agenda"))
-                db.flush()
+                
+                # Commit IMEDIATAMENTE para garantir que o evento é salvo antes do cron
+                db.commit()
+                logger.info(f"ics_handler: saved event '{summary}' to database (id={ev.id})")
+                
                 events_created.append({"nome": summary, "data_at": dtstart})
                 count += 1
 
@@ -365,9 +369,8 @@ async def handle_ics_payload(
                 logger.debug(f"ics single event failed: {e}")
                 continue
         
-        # Commit ANTES de criar lembretes cron (para garantir que eventos são salvos)
-        db.commit()
-        logger.info(f"ics_handler: committed {len(events_created)} event(s) to database")
+        # Commit final já não é necessário pois cada evento é commitado individualmente
+        logger.info(f"ics_handler: processed {len(events_created)} event(s) total")
     except Exception as e:
         logger.exception(f"ics_handler failed: {e}")
         if db:
