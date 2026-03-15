@@ -129,6 +129,30 @@ class EventTool(Tool):
                         data_at = None
 
                 from backend.models_db import Event
+                
+                # GUARDRAIL: Verificar se já existe evento duplicado (mesmo nome + data_at)
+                if data_at:
+                    existing = db.query(Event).filter(
+                        Event.user_id == user.id,
+                        Event.tipo == "evento",
+                        Event.deleted == False,
+                        Event.data_at == data_at,
+                    ).all()
+                    
+                    for ex in existing:
+                        if ex.payload.get("nome", "").lower().strip() == event_text.lower().strip():
+                            logger.info(f"EventTool: skipping duplicate event '{event_text}' at {data_at}")
+                            local_dt = data_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+                            dt_str = local_dt.strftime("%d/%m/%Y às %H:%M") if self._get_user_lang() != "en" else local_dt.strftime("%Y-%m-%d at %H:%M")
+                            lang = self._get_user_lang()
+                            msgs = {
+                                "pt-PT": f"Evento '{event_text}' já existe na agenda ({dt_str}) [id: E{ex.id}].",
+                                "pt-BR": f"Evento '{event_text}' já existe na agenda ({dt_str}) [id: E{ex.id}].",
+                                "es": f"El evento '{event_text}' ya existe en la agenda ({dt_str}) [id: E{ex.id}].",
+                                "en": f"Event '{event_text}' already exists in the agenda ({dt_str}) [id: E{ex.id}].",
+                            }
+                            return msgs.get(lang, msgs["en"])
+                
                 ev = Event(
                     user_id=user.id,
                     tipo="evento",
