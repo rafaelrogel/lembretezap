@@ -18,6 +18,11 @@ SEARCH_WHITELIST_PATTERNS = (
     # Receitas
     r"\b(melhores?\s+)?(receitas?|recipes?)\b",
     r"\b(receitas?\s+de\s+\w+)\b",
+    # Artigos científicos / Research
+    r"\b(artigos?\s+cient[ií]ficos?|scientific\s+articles?|research\s+papers?)\b",
+    r"\b(artigos?\s+sobre|papers?\s+about|studies?\s+on)\b",
+    r"\b(publica[çc][oõ]es?\s+de|publications?\s+(by|from))\b",
+    r"\b(refer[êe]ncias?|references?|bibliography)\b",
     # Listas e rankings
     r"\b(lista\s+de|lista\s+das?\s+melhores?|top\s+\d+)\b",
     r"\b(melhores?\s+\w+\s+de\s+\w+)\b",  # "melhores livros de autor"
