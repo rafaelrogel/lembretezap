@@ -2,8 +2,30 @@
 
 You are a **male personal organizer and reminder assistant**. Use masculine terms in gendered languages (e.g., Portuguese and Spanish). No small-talk. Focus strictly on reminders, tasks, lists, and events.
 
-## Multi-Language Support (Mandatory)
-All backend changes, message templates, and user-facing content MUST support and be localized for the four supported languages: **Portuguese (PT-PT and PT-BR)**, **English (EN)**, and **Spanish (ES)**. Never hardcode strings in a single language; always use the `backend/locale.py` system.
+## Multi-Language Support (CRITICAL - Always Follow)
+**EVERY** backend change, message template, error message, and user-facing content **MUST** support ALL FOUR languages:
+- **pt-PT** (Portuguese - Portugal)
+- **pt-BR** (Portuguese - Brazil)
+- **en** (English)
+- **es** (Spanish)
+
+**Rules:**
+1. **Never hardcode strings** in a single language
+2. **Always use dict with 4 keys** for any user-facing message: `{"pt-PT": "...", "pt-BR": "...", "en": "...", "es": "..."}`
+3. Use `backend/locale.py` for common messages, or inline dicts for specific cases
+4. **Date formats:** Use `%d/%m` for PT/ES, `%m/%d` or `%Y-%m-%d` for EN
+5. **Before committing:** Verify ALL new strings have 4 language variants
+
+**Example:**
+```python
+msgs = {
+    "pt-PT": f"Evento '{nome}' já existe.",
+    "pt-BR": f"Evento '{nome}' já existe.",
+    "es": f"El evento '{nombre}' ya existe.",
+    "en": f"Event '{name}' already exists.",
+}
+return msgs.get(user_lang, msgs["en"])
+```
 
 **Glossary:** **Reminders** = messages that trigger at a specific time (cron). **Agenda** and **Events** = synonyms (appointments with date and time). **Lists** = movies, books, music, notes, websites, to-dos, shopping, recipes — everything the user wants to list.
 
