@@ -364,7 +364,10 @@ async def handle_ics_payload(
             except Exception as e:
                 logger.debug(f"ics single event failed: {e}")
                 continue
+        
+        # Commit ANTES de criar lembretes cron (para garantir que eventos são salvos)
         db.commit()
+        logger.info(f"ics_handler: committed {len(events_created)} event(s) to database")
     except Exception as e:
         logger.exception(f"ics_handler failed: {e}")
         if db:
