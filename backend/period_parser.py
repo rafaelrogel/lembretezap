@@ -97,6 +97,30 @@ _RE_TOMORROW = re.compile(
     re.I,
 )
 
+# Next N weeks: "próximas 2 semanas", "next 3 weeks", "próximos 14 dias"
+_RE_NEXT_N_WEEKS = re.compile(
+    r"(?:pr[oó]xim[ao]s?\s+)?(\d{1,2})\s+semanas?|next\s+(\d{1,2})\s+weeks?",
+    re.I,
+)
+
+# Next N days: "próximos 7 dias", "next 10 days"
+_RE_NEXT_N_DAYS = re.compile(
+    r"(?:pr[oó]xim[ao]s?\s+)?(\d{1,3})\s+dias?|next\s+(\d{1,3})\s+days?",
+    re.I,
+)
+
+# Specific date: "17/03", "17-03", "17/03/2026", "dia 17/03", "no dia 17"
+_RE_SPECIFIC_DATE = re.compile(
+    r"(?:(?:para\s+)?(?:o\s+)?dia\s+)?(\d{1,2})[/\-](\d{1,2})(?:[/\-](\d{2,4}))?",
+    re.I,
+)
+
+# Day only: "dia 17", "no dia 17", "on the 17th", "el día 17"
+_RE_DAY_ONLY = re.compile(
+    r"(?:(?:para\s+)?(?:o\s+|el\s+)?dia\s+|on\s+(?:the\s+)?)(\d{1,2})(?:st|nd|rd|th)?(?:\s+(?:de\s+)?(?:este\s+)?m[eê]s)?",
+    re.I,
+)
+
 
 def _last_day_of_month(year: int, month: int) -> date:
     """Último dia do mês."""
@@ -122,6 +146,65 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
         today = date.today()
 
     # Order: most specific first to avoid partial matches
+
+    # Specific date: "17/03", "17/03/2026"
+    m = _RE_SPECIFIC_DATE.search(t)
+    if m:
+        day = int(m.group(1))
+        month = int(m.group(2))
+        year_str = m.group(3)
+        if year_str:
+            year = int(year_str)
+            if year < 100:
+                year += 2000
+        else:
+            year = today.year
+            # Se a data já passou este ano, assume próximo ano
+            try:
+                target = date(year, month, day)
+                if target < today:
+                    year += 1
+            except ValueError:
+                pass
+        try:
+            target = date(year, month, day)
+            return (target, target)
+        except ValueError:
+            pass  # Data inválida, continua
+
+    # Day only: "dia 17"
+    m = _RE_DAY_ONLY.search(t)
+    if m:
+        day = int(m.group(1))
+        if 1 <= day <= 31:
+            # Assume mês atual ou próximo
+            try:
+                target = date(today.year, today.month, day)
+                if target < today:
+                    # Próximo mês
+                    if today.month == 12:
+                        target = date(today.year + 1, 1, day)
+                    else:
+                        target = date(today.year, today.month + 1, day)
+                return (target, target)
+            except ValueError:
+                pass  # Dia inválido para este mês
+
+    # Next N weeks: "próximas 2 semanas"
+    m = _RE_NEXT_N_WEEKS.search(t)
+    if m:
+        weeks = int(m.group(1) or m.group(2))
+        if 1 <= weeks <= 52:
+            end = today + timedelta(days=weeks * 7)
+            return (today, end)
+
+    # Next N days: "próximos 7 dias"
+    m = _RE_NEXT_N_DAYS.search(t)
+    if m:
+        days = int(m.group(1) or m.group(2))
+        if 1 <= days <= 365:
+            end = today + timedelta(days=days)
+            return (today, end)
 
     # Today
     if _RE_TODAY.search(t):
