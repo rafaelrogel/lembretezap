@@ -332,6 +332,19 @@ async def handle_ics_payload(
                 else:
                     data_at_utc = dtstart
                 
+                # GUARDRAIL: Verificar se já existe evento duplicado (mesmo nome + data_at)
+                existing = db.query(Event).filter(
+                    Event.user_id == user_id,
+                    Event.tipo == "evento",
+                    Event.deleted == False,
+                    Event.data_at == data_at_utc,
+                ).first()
+                
+                if existing and existing.payload.get("nome", "").lower() == summary.lower():
+                    logger.info(f"ics_handler: skipping duplicate event '{summary}' at {data_at_utc}")
+                    events_created.append({"nome": summary, "data_at": dtstart, "duplicate": True})
+                    continue  # Pular evento duplicado
+                
                 # Criar Event para auditoria e lógica de agenda estruturada
                 ev = Event(
                     user_id=user_id,
@@ -350,6 +363,7 @@ async def handle_ics_payload(
                 count += 1
 
                 # Lembrete opcional: 15 min antes (se cron_tool disponível e evento no futuro)
+                # Só cria se o evento NÃO é duplicado
                 if cron_tool and dtstart and count <= 10:
                     try:
                         from datetime import timezone
@@ -385,7 +399,17 @@ async def handle_ics_payload(
         except Exception:
             pass
 
-    return _summary_message(len(events_created), events_created[:5], lang, with_reminder=bool(cron_tool))
+    # Contar novos vs duplicados
+    new_events = [e for e in events_created if not e.get("duplicate")]
+    duplicates = [e for e in events_created if e.get("duplicate")]
+    
+    return _summary_message(
+        len(new_events), 
+        new_events[:5], 
+        lang, 
+        with_reminder=bool(cron_tool) and len(new_events) > 0,
+        duplicates_skipped=len(duplicates)
+    )
 
 
 def _summary_message(
@@ -394,6 +418,7 @@ def _summary_message(
     user_lang: str,
     error: str | None = None,
     with_reminder: bool = False,
+    duplicates_skipped: int = 0,
 ) -> str:
     """Mensagem de resumo no idioma do utilizador."""
     if error:
@@ -405,12 +430,21 @@ def _summary_message(
         }
         return msgs.get(user_lang, error)
 
-    if total == 0:
+    if total == 0 and duplicates_skipped == 0:
         msgs = {
             "pt-PT": "Nenhum evento encontrado neste calendário.",
             "pt-BR": "Nenhum evento encontrado neste calendário.",
             "es": "No se encontró ningún evento en este calendario.",
             "en": "No events found in this calendar.",
+        }
+        return msgs.get(user_lang, msgs["en"])
+    
+    if total == 0 and duplicates_skipped > 0:
+        msgs = {
+            "pt-PT": f"Evento(s) já registado(s) anteriormente ({duplicates_skipped} duplicado(s) ignorado(s)).",
+            "pt-BR": f"Evento(s) já registado(s) anteriormente ({duplicates_skipped} duplicado(s) ignorado(s)).",
+            "es": f"Evento(s) ya registrado(s) anteriormente ({duplicates_skipped} duplicado(s) ignorado(s)).",
+            "en": f"Event(s) already registered ({duplicates_skipped} duplicate(s) skipped).",
         }
         return msgs.get(user_lang, msgs["en"])
 
