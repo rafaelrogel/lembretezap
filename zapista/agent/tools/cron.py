@@ -190,6 +190,7 @@ class CronTool(Tool):
         depends_on_job_id: str | None = None,
         has_deadline: bool = False,
         suggested_draft: str | None = None,
+        skip_pre_reminders: bool = False,  # Para ICS: apenas 1 lembrete, sem "antes"
         **kwargs: Any
     ) -> str:
         logger.info(f"CronTool.execute inputs: action={action}, msg={message}, time_input={time_input}, target={target_at_iso}, in_seconds={in_seconds}, every={every_seconds}, cron={cron_expr}, chat_id={self._chat_id}, channel={self._channel}")
@@ -295,7 +296,11 @@ class CronTool(Tool):
                 prefix = await self._ask_mimo_abbreviation(message or "")
             use_pre_reminders = True
             long_event_24h = False
-            if in_seconds is not None and in_seconds > 0:
+            if skip_pre_reminders:
+                # ICS imports or explicit request: only single reminder, no "antes"
+                use_pre_reminders = False
+                long_event_24h = False
+            elif in_seconds is not None and in_seconds > 0:
                 from backend.reminder_lead_classifier import needs_advance_alert, is_long_duration
                 long_event_24h = is_long_duration(in_seconds)
                 use_pre_reminders = long_event_24h or await needs_advance_alert(

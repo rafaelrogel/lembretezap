@@ -376,7 +376,8 @@ async def handle_ics_payload(
                         if 60 < delta < 86400 * 30:  # entre 1 min e 30 dias
                             cron_tool.set_context(cron_channel, chat_id)
                             msg_reminder = f"Lembrete: {summary}"
-                            await cron_tool.execute(action="add", message=msg_reminder, in_seconds=int(delta))
+                            # skip_pre_reminders=True: ICS só cria 1 lembrete (15 min antes), sem "antes" extra
+                            await cron_tool.execute(action="add", message=msg_reminder, in_seconds=int(delta), skip_pre_reminders=True)
                     except Exception as e:
                         logger.debug(f"ics cron reminder failed: {e}")
             except Exception as e:
