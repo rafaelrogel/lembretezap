@@ -129,6 +129,34 @@
   }
 }
 
+.day-pill {
+  opacity: 0.6;
+}
+
+@keyframes day-pill-activate {
+  0% {
+    opacity: 0.6;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes day-pill-activate-last {
+  0% {
+    opacity: 0.6;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
 @keyframes chat-bubble-grey-enter {
   from {
     opacity: 0;
@@ -294,24 +322,20 @@
     }
   }
 
-  /* Features section cards – subtle, high-end entrance (Apple-like) */
+  /* Features section cards – entrance suave (fade + slide) */
   @media (prefers-reduced-motion: no-preference) {
     .animate-features-card-in {
-      animation: features-card-in 0.5s var(--ease-out-expo) both;
+      animation: features-card-in 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
     }
   }
   @keyframes features-card-in {
     from {
       opacity: 0;
-      transform: translateY(12px) scale(0.98);
-    }
-    60% {
-      opacity: 1;
-      transform: translateY(0) scale(1.015);
+      transform: translateY(16px);
     }
     to {
       opacity: 1;
-      transform: translateY(0) scale(1);
+      transform: translateY(0);
     }
   }
 
@@ -350,6 +374,7 @@
   }
 }
 
+
 /* Features cards – hover +40px on card, −40px on neighbor; group width unchanged; Apple-like transition */
 .features-row {
   width: 100%;
@@ -370,24 +395,25 @@
       flex 0.42s cubic-bezier(0.25, 0.1, 0.25, 1),
       box-shadow 0.42s cubic-bezier(0.25, 0.1, 0.25, 1);
   }
+  /* Card 1 = largura de card 3 + gap + card 4 (alinhado à linha de baixo) */
   .features-row-1 .features-card-1 {
-    flex: 0 1 calc((100% - 16px) * 4 / 6);
+    flex: 0 1 calc((100% - 32px) * 2 / 3 + 16px);
   }
   .features-row-1 .features-card-2 {
-    flex: 0 1 calc((100% - 16px) * 2 / 6);
+    flex: 0 1 calc((100% - 32px) / 3);
   }
   .features-row-1:has(.features-card-1:hover) .features-card-1 {
-    flex: 0 1 calc((100% - 16px) * 4 / 6 + 24px);
+    flex: 0 1 calc((100% - 32px) * 2 / 3 + 40px);
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
   }
   .features-row-1:has(.features-card-1:hover) .features-card-2 {
-    flex: 0 1 calc((100% - 16px) * 2 / 6 - 24px);
+    flex: 0 1 calc((100% - 32px) / 3 - 24px);
   }
   .features-row-1:has(.features-card-2:hover) .features-card-1 {
-    flex: 0 1 calc((100% - 16px) * 4 / 6 - 24px);
+    flex: 0 1 calc((100% - 32px) * 2 / 3 - 8px);
   }
   .features-row-1:has(.features-card-2:hover) .features-card-2 {
-    flex: 0 1 calc((100% - 16px) * 2 / 6 + 24px);
+    flex: 0 1 calc((100% - 32px) / 3 + 24px);
     box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
   }
   .features-row-2 .features-card-3,
