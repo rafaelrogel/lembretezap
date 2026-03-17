@@ -20,16 +20,15 @@ const FEATURES_CARDS: {
     title: "Planejar viagem",
     description: "Organize tudo antes de sair de casa,",
     accessoryLines: [
-      "com",
-      "listas de itens, documentos e lembretes.",
+      "de malas a documentos e voos.",
     ],
+    firstAccessoryLineInline: false,
   },
   {
     title: "Organizar semana",
-    description: "Tenha seus próximos dias sob controle,",
+    description: "Tenha seus próximos dias organizados,",
     accessoryLines: [
-      "com reuniões, tarefas e compromissos",
-      "da semana já organizados.",
+      "com reuniões, tarefas e compromissos.",
     ],
     firstAccessoryLineInline: false,
   },
@@ -38,26 +37,23 @@ const FEATURES_CARDS: {
     description: "Guarde tudo que precisa comprar,",
     accessoryLines: [
       "do",
-      "mercado a itens que faltam em casa.",
+      "mercado a itens do dia a dia.",
     ],
   },
   {
-    title: "Listas de coisas para fazer",
+    title: "Coisas para fazer",
     description: "Salve ideias e planos para depois,",
-    accessoryLines: [
-      "como",
-      "filmes para assistir, restaurantes",
-      "e lugares para visitar.",
-    ],
+    accessoryLines: ["como filmes, livros e séries."],
+    firstAccessoryLineInline: false,
   },
   {
     title: "Datas importantes",
-    description: "Lembre do que importa na hora certa,",
+    description: "Nunca mais esqueça o que importa,",
     accessoryLines: [
-      "como aniversários, contas para pagar",
-      "e datas especiais.",
+      "como",
+      "aniversários, contas e datas especiais.",
     ],
-    firstAccessoryLineInline: false,
+    firstAccessoryLineInline: true,
   },
 ];
 
@@ -176,6 +172,21 @@ function FeatureCard({
   }, [isHovered, showMiniCalendar]);
 
   const isPlaneCard = title === "Planejar viagem";
+  const isTodosCard = title === "Listas de coisas para fazer";
+  const isDatesCard = title === "Datas importantes";
+  const showDatesCalendar = isDatesCard;
+  const datesEmojis: Record<number, string> = {
+    3: "🎂",
+    5: "🎁",
+    8: "💳",
+    14: "💐",
+    15: "🎉",
+    19: "🔔",
+    22: "📌",
+    26: "⭐",
+    28: "🗓️",
+    31: "⏰",
+  };
 
   useEffect(() => {
     return () => {
@@ -185,8 +196,8 @@ function FeatureCard({
 
   useEffect(() => {
     if (title !== "Planejar viagem") return;
-    const flyDurationMs = 4600;
-    const intervalMs = 10000;
+    const flyDurationMs = 10000;
+    const intervalMs = 12000; // um novo voo ~2s depois de terminar o anterior
     const runFly = () => {
       if (planeAutoFlyResetRef.current) clearTimeout(planeAutoFlyResetRef.current);
       setPlaneAutoFly(true);
@@ -203,7 +214,7 @@ function FeatureCard({
   return (
     <div
       className={`features-card ${cardClass} flex min-h-[16rem] min-w-0 flex-col rounded-2xl bg-[#FFFEFC] p-5 shadow-[0_4px_16px_rgba(15,23,42,0.06)] ${
-        isPlaneCard ? "relative overflow-hidden" : ""
+        isPlaneCard || isTodosCard || isDatesCard ? "relative overflow-hidden" : ""
       } ${shouldAnimate ? "animate-features-card-in" : ""}`}
       style={shouldAnimate ? { animationDelay } : undefined}
       onMouseEnter={() => {
@@ -322,43 +333,57 @@ function FeatureCard({
           </motion.div>
           <motion.div
             className="pointer-events-none absolute -top-6 left-0 right-0 z-20 h-28 overflow-visible"
-            style={{ transform: "translateY(40px)" }}
+            style={{
+              transform: "translateY(40px)",
+              opacity: planeAutoFly ? (isHovered ? 0.2 : 1) : 0,
+              transition: "opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+            }}
             initial={false}
-            animate={{
-              opacity: skyVisible || planeAutoFly ? 1 : 0,
-            }}
-            transition={{
-              opacity: { duration: 0.3 },
-            }}
             aria-hidden
           >
             <motion.div
-              key={skyVisible ? "hover" : planeAutoFly ? "auto" : "idle"}
+              key={planeAutoFly ? "auto" : "idle"}
               className="absolute left-0 top-[35%] w-[64px] -translate-y-1/2"
-              initial={{
-                x: skyVisible ? 900 : -120,
-              }}
-              animate={{
-                x: skyVisible ? -120 : planeAutoFly ? 900 : -120,
-              }}
+              initial={{ x: -120 }}
+              animate={{ x: planeAutoFly ? 800 : -120 }}
               transition={{
                 x: {
-                  duration: skyVisible || planeAutoFly ? 4.6 : 0,
-                  delay: skyVisible || planeAutoFly ? 0.6 : 0,
+                  duration: planeAutoFly ? 10 : 0,
+                  delay: planeAutoFly ? 0.6 : 0,
                   ease: "linear",
                 },
               }}
-              style={{
-                scaleX: skyVisible ? -1 : 1,
-              }}
             >
-              <Image
-                src="/goodplane 2.svg"
-                alt=""
-                width={64}
-                height={22}
-                className="block"
-              />
+              <motion.div
+                initial={{ y: 0 }}
+                animate={
+                  planeAutoFly
+                    ? { y: [-4, -10, -4] }
+                    : { y: 0 }
+                }
+                transition={
+                  planeAutoFly
+                    ? {
+                        y: {
+                          duration: 3,
+                          ease: "easeInOut",
+                          repeat: Infinity,
+                          repeatType: "mirror",
+                        },
+                      }
+                    : {
+                        y: { duration: 0.3, ease: "easeOut" },
+                      }
+                }
+              >
+                <Image
+                  src="/balão.svg"
+                  alt=""
+                  width={40}
+                  height={14}
+                  className="block"
+                />
+              </motion.div>
             </motion.div>
           </motion.div>
         </>
@@ -370,27 +395,29 @@ function FeatureCard({
           aria-hidden
         >
           <Image
-            src="/mala1.svg"
+            src="/malaemoji3.svg"
             alt=""
             width={60}
             height={52}
             className="shrink-0 transition-opacity duration-300"
             style={{
-              opacity: isHovered ? 1 : 0.5,
-              filter: "none",
-              transition: "opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+              opacity: isHovered ? 1 : 0.2,
+              filter: isHovered ? "grayscale(0)" : "grayscale(1)",
+              transition:
+                "opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
             }}
           />
           <Image
-            src="/mala2.svg"
+            src="/malaemoji2.svg"
             alt=""
             width={60}
             height={50}
             className="shrink-0 transition-opacity duration-300"
             style={{
-              opacity: isHovered ? 1 : 0.5,
-              filter: "none",
-              transition: "opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+              opacity: isHovered ? 1 : 0.2,
+              filter: isHovered ? "grayscale(0)" : "grayscale(1)",
+              transition:
+                "opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
             }}
           />
           <motion.div
@@ -419,15 +446,16 @@ function FeatureCard({
             }}
           >
             <Image
-              src="/mala3.svg"
+              src="/malaemoji1.svg"
               alt=""
               width={60}
               height={54}
               className="shrink-0"
               style={{
-                opacity: isHovered ? 1 : 0.5,
-                filter: "none",
-                transition: "opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                opacity: isHovered ? 1 : 0.2,
+                filter: isHovered ? "grayscale(0)" : "grayscale(1)",
+                transition:
+                  "opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
               }}
             />
           </motion.div>
@@ -457,18 +485,224 @@ function FeatureCard({
             }}
           >
             <Image
-              src="/mala4.svg"
+              src="/malaemoji4.svg"
               alt=""
               width={60}
               height={50}
               className="shrink-0"
               style={{
-                opacity: isHovered ? 1 : 0.5,
-                filter: "none",
-                transition: "opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                opacity: isHovered ? 1 : 0.2,
+                filter: isHovered ? "grayscale(0)" : "grayscale(1)",
+                transition:
+                  "opacity 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
               }}
             />
           </motion.div>
+        </div>
+      )}
+
+      {isTodosCard && (
+        <div
+          className="pointer-events-none absolute inset-x-4 top-4 z-0 h-28"
+          aria-hidden
+        >
+          {/* Primeira linha: 1 e 3 sempre visíveis; 2 e 4 “colam” no hover (animação um pouco mais lenta que o restante do hover) */}
+          <div className="flex w-full items-start justify-between">
+            {/* 1 – sempre visível */}
+            <Image
+              src="/1.svg"
+              alt=""
+              width={54}
+              height={54}
+              className="shrink-0"
+              style={{
+                opacity: isHovered ? 1 : 0.5,
+                transform: "rotate(-7deg)",
+                transition: "opacity 0.3s ease-out, transform 0.3s ease-out",
+              }}
+            />
+
+            {/* 2 – só aparece quando hover */}
+            <motion.div
+              className="shrink-0"
+              initial={false}
+              animate={{
+                opacity: isHovered ? 1 : 0,
+                y: isHovered ? 0 : -10,
+              }}
+              transition={{
+                opacity: { duration: 0.5, ease: "easeOut", delay: 0.08 },
+                y: { duration: 0.5, ease: "easeOut", delay: 0.08 },
+              }}
+            >
+              <motion.div
+                initial={false}
+                animate={{
+                  scale: isHovered ? 1 : 0.9,
+                  rotate: isHovered ? -3 : 0,
+                }}
+                transition={{
+                  scale: { duration: 0.5, ease: "easeOut" },
+                  rotate: { duration: 0.5, ease: "easeOut" },
+                }}
+              >
+                <Image
+                  src="/2.svg"
+                  alt=""
+                  width={54}
+                  height={54}
+                  className="shrink-0"
+                />
+              </motion.div>
+            </motion.div>
+
+            {/* 3 – sempre visível */}
+            <Image
+              src="/3.svg"
+              alt=""
+              width={54}
+              height={54}
+              className="shrink-0"
+              style={{
+                opacity: isHovered ? 1 : 0.5,
+                transform: "rotate(2deg)",
+                transition: "opacity 0.3s ease-out, transform 0.3s ease-out",
+              }}
+            />
+
+            {/* 4 – só aparece quando hover */}
+            <motion.div
+              className="shrink-0"
+              initial={false}
+              animate={{
+                opacity: isHovered ? 1 : 0,
+                y: isHovered ? 0 : -10,
+              }}
+              transition={{
+                opacity: { duration: 0.5, ease: "easeOut", delay: 0.14 },
+                y: { duration: 0.5, ease: "easeOut", delay: 0.14 },
+              }}
+            >
+              <motion.div
+                initial={false}
+                animate={{
+                  scale: isHovered ? 1 : 0.9,
+                  rotate: isHovered ? 6 : 0,
+                }}
+                transition={{
+                  scale: { duration: 0.5, ease: "easeOut" },
+                  rotate: { duration: 0.5, ease: "easeOut" },
+                }}
+              >
+                <Image
+                  src="/4.svg"
+                  alt=""
+                  width={54}
+                  height={54}
+                  className="shrink-0"
+                />
+              </motion.div>
+            </motion.div>
+          </div>
+
+          {/* Segunda linha: padrão não / sim / não / sim, com ordem de post-its invertida e animação mais lenta */}
+          <div className="mt-4 flex w-full items-start justify-between">
+            {/* Coluna 1: 4 cola no hover (não) */}
+            <motion.div
+              className="shrink-0"
+              initial={false}
+              animate={{
+                opacity: isHovered ? 1 : 0,
+                y: isHovered ? 0 : -10,
+              }}
+              transition={{
+                opacity: { duration: 0.65, ease: "easeOut", delay: 0.2 },
+                y: { duration: 0.65, ease: "easeOut", delay: 0.2 },
+              }}
+            >
+              <motion.div
+                initial={false}
+                animate={{
+                  scale: isHovered ? 1 : 0.9,
+                  rotate: isHovered ? -5 : 0,
+                }}
+                transition={{
+                  scale: { duration: 0.65, ease: "easeOut" },
+                  rotate: { duration: 0.65, ease: "easeOut" },
+                }}
+              >
+                <Image
+                  src="/4.svg"
+                  alt=""
+                  width={54}
+                  height={54}
+                  className="shrink-0"
+                />
+              </motion.div>
+            </motion.div>
+
+            {/* Coluna 2: 3 sempre visível (sim) */}
+            <Image
+              src="/3.svg"
+              alt=""
+              width={54}
+              height={54}
+              className="shrink-0"
+              style={{
+                opacity: isHovered ? 1 : 0.5,
+                transform: "rotate(-3deg)",
+                transition: "opacity 0.3s ease-out, transform 0.3s ease-out",
+              }}
+            />
+
+            {/* Coluna 3: 2 cola no hover (não) */}
+            <motion.div
+              className="shrink-0"
+              initial={false}
+              animate={{
+                opacity: isHovered ? 1 : 0,
+                y: isHovered ? 0 : -10,
+              }}
+              transition={{
+                opacity: { duration: 0.65, ease: "easeOut", delay: 0.26 },
+                y: { duration: 0.65, ease: "easeOut", delay: 0.26 },
+              }}
+            >
+              <motion.div
+                initial={false}
+                animate={{
+                  scale: isHovered ? 1 : 0.9,
+                  rotate: isHovered ? 6 : 0,
+                }}
+                transition={{
+                  scale: { duration: 0.65, ease: "easeOut" },
+                  rotate: { duration: 0.65, ease: "easeOut" },
+                }}
+              >
+                <Image
+                  src="/2.svg"
+                  alt=""
+                  width={54}
+                  height={54}
+                  className="shrink-0"
+                />
+              </motion.div>
+            </motion.div>
+
+            {/* Coluna 4: 1 sempre visível (sim) */}
+            <Image
+              src="/1.svg"
+              alt=""
+              width={54}
+              height={54}
+              className="shrink-0"
+              style={{
+                opacity: isHovered ? 1 : 0.5,
+                transform: "rotate(2deg)",
+                transition: "opacity 0.3s ease-out, transform 0.3s ease-out",
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -517,14 +751,17 @@ function FeatureCard({
                       key={d.toISOString()}
                       className={`flex h-8 w-8 flex-none items-center justify-center rounded-full text-[16px] font-medium ${
                         isActive
-                          ? "bg-[#6DD15C] text-white"
+                          ? isHovered
+                            ? "bg-[#6DD15C] text-white"
+                            : "bg-[#E4E2DF] text-[#7A7A7A]"
                           : isHovered
                           ? "text-[#7A7A7A]"
                           : "text-[#B0B0B0]"
                       }`}
                       style={{
                         transition: `background-color 0.4s ${EASE_SMOOTH}, color 0.4s ${EASE_SMOOTH}, transform 0.4s ${EASE_SMOOTH}`,
-                        transform: isActive ? "scale(1.06)" : "scale(1)",
+                        transform:
+                          isActive && isHovered ? "scale(1.06)" : "scale(1)",
                       }}
                     >
                       {d.getDate()}
@@ -532,6 +769,115 @@ function FeatureCard({
                   );
                 })}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Calendário de 31 dias – card "Datas importantes" (fixo, texto sobe sobre ele) */}
+      {showDatesCalendar && (
+        <div
+          className="pointer-events-none absolute inset-x-4 top-4 z-0"
+          aria-hidden
+        >
+          <div className="w-full">
+            <div
+              className="grid w-full grid-cols-7 gap-x-1.5 gap-y-px"
+              style={{
+                opacity: isHovered ? 1 : 0.7,
+                transition: `opacity 0.4s ${EASE_SMOOTH}`,
+              }}
+            >
+              {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
+                const emoji = datesEmojis[day];
+                const hasEmoji = !!emoji;
+                const isLightDay = day === 29 || day === 30 || day === 31;
+                const dayColor = isLightDay
+                  ? "#E4E2DF"
+                  : isHovered
+                  ? "#7A7A7A"
+                  : "#B0B0B0";
+                const isFadedRow = day >= 22 && day <= 28;
+                const dayOpacity = isHovered && isFadedRow ? 0.2 : 1;
+
+                if (!hasEmoji) {
+                  return (
+                    <span
+                      key={day}
+                      className="flex aspect-square w-full min-w-0 items-center justify-center rounded-full text-[11px] font-medium"
+                      style={{
+                        color: dayColor,
+                        opacity: dayOpacity,
+                        transition: `color 0.3s ${EASE_SMOOTH}, background-color 0.3s ${EASE_SMOOTH}, opacity 0.3s ${EASE_SMOOTH}`,
+                      }}
+                    >
+                      {day}
+                    </span>
+                  );
+                }
+
+                return (
+                  <span
+                    key={day}
+                    className="relative flex aspect-square w-full min-w-0 items-center justify-center rounded-full text-[11px] font-medium"
+                    style={{
+                      color: dayColor,
+                      opacity: dayOpacity,
+                      perspective: 400,
+                    }}
+                  >
+                    <motion.span
+                      initial={false}
+                      animate={
+                        isHovered
+                          ? { opacity: 0, scale: 0.7 }
+                          : { opacity: 1, scale: 1 }
+                      }
+                      transition={{
+                        duration: 0.2,
+                        ease: "easeOut",
+                      }}
+                      style={{
+                        backfaceVisibility: "hidden",
+                      }}
+                    >
+                      {day}
+                    </motion.span>
+                    <motion.span
+                      initial={false}
+                      className="absolute inset-0 flex items-center justify-center"
+                      animate={
+                        isHovered
+                          ? { opacity: 1, scale: 1 }
+                          : { opacity: 0, scale: 0.4 }
+                      }
+                      transition={{
+                        type: "spring",
+                        stiffness: 280,
+                        damping: 18,
+                        mass: 0.7,
+                        delay: isHovered ? 0.12 : 0,
+                      }}
+                      style={{
+                        backfaceVisibility: "hidden",
+                      }}
+                      aria-hidden="true"
+                    >
+                      <span
+                        style={{
+                          fontSize: 16,
+                          lineHeight: 1,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {emoji}
+                      </span>
+                    </motion.span>
+                  </span>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -595,25 +941,49 @@ function FeatureCard({
       <div className="min-h-0 flex-1" aria-hidden />
       {/* Bloco ancorado ao fundo: o texto acessório expande e empurra título e descrição para cima */}
         <div
-          className="mt-auto shrink-0 pt-4"
-          style={{ maxWidth: textBlockMaxWidth }}
+          className="mt-auto shrink-0 pt-4 relative z-10 w-full"
+          style={{
+            ...(isDatesCard
+              ? {
+                  background:
+                    "linear-gradient(180deg, rgba(255, 254, 252, 0.0) 0%, rgba(255, 254, 252, 0.95) 45%)",
+                  opacity: 0.95,
+                  paddingTop: isHovered ? 24 : 0,
+                  marginTop: isHovered ? -24 : 0,
+                }
+              : {}),
+          }}
         >
-        {title === "Planejar viagem" && (
-          <div className="mb-2 flex items-center">
+        <div style={{ maxWidth: textBlockMaxWidth }}>
+        {title === "Lista de compras" && (
+          <motion.div
+            className="mb-2 flex items-center"
+            aria-hidden
+            initial={false}
+            animate={{
+              x: 0,
+              scale: isHovered ? 3 : 1,
+            }}
+            transition={{
+              x: {
+                duration: 0.4,
+                ease: [0.25, 0.46, 0.45, 0.94],
+              },
+              scale: {
+                duration: 0.4,
+                ease: [0.25, 0.46, 0.45, 0.94],
+              },
+            }}
+            style={{ transformOrigin: "left bottom" }}
+          >
             <Image
-              src="/map.svg"
+              src="/kart.svg"
               alt=""
-              width={28}
-              height={28}
-              className="text-[#9E9E9E]"
-              style={{
-                filter: isHovered ? "grayscale(1) brightness(0.7)" : "grayscale(1)",
-                opacity: isHovered ? 1 : 0.85,
-                transition: "filter 0.3s, opacity 0.3s",
-              }}
-              aria-hidden
+              width={24}
+              height={24}
+              className="block"
             />
-          </div>
+          </motion.div>
         )}
         <Typography
           variant="body-lg"
@@ -678,6 +1048,7 @@ function FeatureCard({
               </Typography>
             </div>
           ))}
+        </div>
         </div>
       </div>
     </div>
@@ -771,31 +1142,31 @@ export function FeaturesSection() {
   cardClass="features-card-2"
 />
           </div>
-          {/* Linha 2: três cards iguais */}
+          {/* Linha 2: Datas importantes primeiro, depois Lista de compras, depois Listas de coisas para fazer */}
           <div className="features-row features-row-2 mt-4 flex flex-col gap-4 md:flex-row">
+            <FeatureCard
+              title={FEATURES_CARDS[4].title}
+              description={FEATURES_CARDS[4].description}
+              accessoryLines={FEATURES_CARDS[4].accessoryLines}
+              firstAccessoryLineInline={FEATURES_CARDS[4].firstAccessoryLineInline}
+              shouldAnimate={shouldAnimate}
+              animationDelay="1.6s"
+              cardClass="features-card-3"
+            />
             <FeatureCard
               title={FEATURES_CARDS[2].title}
               description={FEATURES_CARDS[2].description}
               accessoryLines={FEATURES_CARDS[2].accessoryLines}
               firstAccessoryLineInline={FEATURES_CARDS[2].firstAccessoryLineInline}
               shouldAnimate={shouldAnimate}
-              animationDelay="1.6s"
-              cardClass="features-card-3"
+              animationDelay="1.9s"
+              cardClass="features-card-4"
             />
             <FeatureCard
               title={FEATURES_CARDS[3].title}
               description={FEATURES_CARDS[3].description}
               accessoryLines={FEATURES_CARDS[3].accessoryLines}
               firstAccessoryLineInline={FEATURES_CARDS[3].firstAccessoryLineInline}
-              shouldAnimate={shouldAnimate}
-              animationDelay="1.9s"
-              cardClass="features-card-4"
-            />
-            <FeatureCard
-              title={FEATURES_CARDS[4].title}
-              description={FEATURES_CARDS[4].description}
-              accessoryLines={FEATURES_CARDS[4].accessoryLines}
-              firstAccessoryLineInline={FEATURES_CARDS[4].firstAccessoryLineInline}
               shouldAnimate={shouldAnimate}
               animationDelay="2.2s"
               cardClass="features-card-5"
