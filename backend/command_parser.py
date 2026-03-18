@@ -186,14 +186,16 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         return {"type": "list_add", "list_name": list_name, "item": m.group(2).strip()}
     m = RE_LIST_SHOW.match(text)
     if m:
-        return {"type": "list_show", "list_name": m.group(1).strip()}
+        raw_name = m.group(1).strip().lower()
+        return {"type": "list_show", "list_name": _CATEGORY_TO_LIST.get(raw_name, m.group(1).strip())}
     if RE_LIST_ALL.match(text):
         return {"type": "list_show", "list_name": None}
 
     # /feito
     m = RE_FEITO_LIST_ID.match(text)
     if m:
-        return {"type": "feito", "list_name": m.group(1).strip(), "item_id": int(m.group(2))}
+        _fn = m.group(1).strip().lower()
+        return {"type": "feito", "list_name": _CATEGORY_TO_LIST.get(_fn, m.group(1).strip()), "item_id": int(m.group(2))}
     m = RE_FEITO_ID_ONLY.match(text)
     if m:
         return {"type": "feito", "list_name": None, "item_id": int(m.group(1))}
@@ -201,7 +203,8 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     # /remove
     m = RE_REMOVE_LIST_ID.match(text)
     if m:
-        return {"type": "remove", "list_name": m.group(1).strip(), "item_id": int(m.group(2))}
+        _rn = m.group(1).strip().lower()
+        return {"type": "remove", "list_name": _CATEGORY_TO_LIST.get(_rn, m.group(1).strip()), "item_id": int(m.group(2))}
     m = RE_REMOVE_ID_ONLY.match(text)
     if m:
         return {"type": "remove", "list_name": None, "item_id": int(m.group(1))}
@@ -225,19 +228,19 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         _name = m.group(1).strip().lower()
         if _name in _REMINDER_AGENDA_WORDS_SHOW:
             return None  # Deixa o LLM tratar como consulta de agenda/lembretes
-        return {"type": "list_show", "list_name": _name}
+        return {"type": "list_show", "list_name": _CATEGORY_TO_LIST.get(_name, _name)}
     m = RE_NL_LISTA_DE.match(text)
     if m:
         _name = m.group(1).strip().lower()
         if _name in _REMINDER_AGENDA_WORDS_SHOW:
             return None
-        return {"type": "list_show", "list_name": _name}
+        return {"type": "list_show", "list_name": _CATEGORY_TO_LIST.get(_name, _name)}
     m = RE_NL_QUAL_LISTA.match(text)
     if m:
         _name = m.group(1).strip().lower()
         if _name in _REMINDER_AGENDA_WORDS_SHOW:
             return None
-        return {"type": "list_show", "list_name": _name}
+        return {"type": "list_show", "list_name": _CATEGORY_TO_LIST.get(_name, _name)}
     m = RE_NL_LISTA_SOZINHA.match(text)
     if m:
         name = m.group(1).strip()
