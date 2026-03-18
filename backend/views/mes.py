@@ -12,13 +12,15 @@ if TYPE_CHECKING:
 def _visao_mes(ctx: "HandlerContext", year: int, month: int) -> str:
     """Calendário ASCII do mês com marcadores (*) nos dias com eventos/lembretes."""
     from backend.database import SessionLocal
-    from backend.user_store import get_or_create_user, get_user_timezone
+    from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
     from backend.models_db import Event
+    from backend.locale import VIEW_MONTH_NAMES, VIEW_WEEKDAY_HEADER, VIEW_ERROR
 
     try:
         db = SessionLocal()
         try:
             user = get_or_create_user(db, ctx.chat_id)
+            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
             try:
                 tz = ZoneInfo(tz_iana)
@@ -59,8 +61,9 @@ def _visao_mes(ctx: "HandlerContext", year: int, month: int) -> str:
                     days_with_activity.add(ev_local.day)
 
             cal = calendar.Calendar(firstweekday=6)
-            month_name = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"][month - 1]
-            lines = [f"       {month_name} {year}", "  D  S  T  Q  Q  S  S"]
+            _mnames = VIEW_MONTH_NAMES.get(lang, VIEW_MONTH_NAMES["en"])
+            month_name = _mnames[month - 1]
+            lines = [f"       {month_name} {year}", VIEW_WEEKDAY_HEADER.get(lang, VIEW_WEEKDAY_HEADER["en"])]
             for week in cal.monthdayscalendar(year, month):
                 row = []
                 for d in week:
@@ -74,7 +77,7 @@ def _visao_mes(ctx: "HandlerContext", year: int, month: int) -> str:
         finally:
             db.close()
     except Exception as e:
-        return f"Erro ao carregar calendário: {e}"
+        return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
 
 
 async def handle_mes(ctx: "HandlerContext", content: str) -> str | None:

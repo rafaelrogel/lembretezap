@@ -12,14 +12,20 @@ if TYPE_CHECKING:
 def _visao_timeline(ctx: "HandlerContext", dias: int = 7) -> str:
     """Histórico cronológico: lembretes entregues, tarefas feitas, eventos criados."""
     from backend.database import SessionLocal
-    from backend.user_store import get_or_create_user, get_user_timezone
+    from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
     from backend.models_db import Event, ReminderHistory, AuditLog
+    from backend.locale import (
+        VIEW_TIMELINE_HEADER, VIEW_TIMELINE_TZ_INFO, VIEW_TIMELINE_REMINDER,
+        VIEW_TIMELINE_DONE, VIEW_TIMELINE_REMOVED, VIEW_TIMELINE_EVENT,
+        VIEW_TIMELINE_EMPTY, VIEW_ERROR, EVENT_CALENDAR_IMPORTED,
+    )
 
     try:
         db = SessionLocal()
         try:
             user = get_or_create_user(db, ctx.chat_id)
             tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
+            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             try:
                 tz = ZoneInfo(tz_iana)
             except Exception:
@@ -46,7 +52,7 @@ def _visao_timeline(ctx: "HandlerContext", dias: int = 7) -> str:
                     else:
                         ts = ts.replace(tzinfo=timezone.utc).astimezone(tz)
                     msg = (r.message or "")[:45] + ("…" if len(r.message or "") > 45 else "")
-                    items.append((ts, f"Lembrete: {msg} ✓"))
+                    items.append((ts, VIEW_TIMELINE_REMINDER.get(lang, VIEW_TIMELINE_REMINDER["en"]).format(msg=msg)))
 
             for a in (
                 db.query(AuditLog)
@@ -64,11 +70,11 @@ def _visao_timeline(ctx: "HandlerContext", dias: int = 7) -> str:
                     ts = ts.replace(tzinfo=timezone.utc).astimezone(tz)
                 if ts:
                     if a.action == "list_feito":
-                        items.append((ts, f"Feito: {a.resource or '?'}"))
+                        items.append((ts, VIEW_TIMELINE_DONE.get(lang, VIEW_TIMELINE_DONE["en"]).format(resource=a.resource or '?')))
                     elif a.action == "list_add":
                         items.append((ts, f"Add: {a.resource or '?'}"))
                     elif a.action == "list_remove":
-                        items.append((ts, f"Removido: {a.resource or '?'}"))
+                        items.append((ts, VIEW_TIMELINE_REMOVED.get(lang, VIEW_TIMELINE_REMOVED["en"]).format(resource=a.resource or '?')))
 
             for ev in (
                 db.query(Event)
@@ -83,21 +89,21 @@ def _visao_timeline(ctx: "HandlerContext", dias: int = 7) -> str:
                 if ts:
                     pl = ev.payload if isinstance(ev.payload, dict) else {}
                     nome = pl.get("nome", "") or (str(ev.payload)[:40] if ev.payload else ev.tipo)
-                    from_ics = " (importado do calendário)" if pl.get("source") == "ics" else ""
-                    items.append((ts, f"Evento{from_ics}: {nome}"))
+                    from_ics = EVENT_CALENDAR_IMPORTED.get(lang, EVENT_CALENDAR_IMPORTED["en"]) if pl.get("source") == "ics" else ""
+                    items.append((ts, VIEW_TIMELINE_EVENT.get(lang, VIEW_TIMELINE_EVENT["en"]).format(from_ics=from_ics, name=nome)))
 
             items.sort(key=lambda x: x[0], reverse=True)
-            lines = [f"📜 **Timeline** (últimos {dias} dias)"]
-            lines.append(f"Horários no teu fuso: {tz_iana}. 'Ontem'/'hoje' = data no teu fuso.")
+            lines = [VIEW_TIMELINE_HEADER.get(lang, VIEW_TIMELINE_HEADER["en"]).format(days=dias)]
+            lines.append(VIEW_TIMELINE_TZ_INFO.get(lang, VIEW_TIMELINE_TZ_INFO["en"]).format(tz=tz_iana))
             for ts, label in items[:25]:
                 lines.append(f"• {ts.strftime('%d/%m %H:%M')} — {label}")
             if not items:
-                lines.append("• Nada nos últimos dias.")
+                lines.append(VIEW_TIMELINE_EMPTY.get(lang, VIEW_TIMELINE_EMPTY["en"]))
             return "\n".join(lines)
         finally:
             db.close()
     except Exception as e:
-        return f"Erro ao carregar timeline: {e}"
+        return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
 
 
 async def handle_timeline(ctx: "HandlerContext", content: str) -> str | None:

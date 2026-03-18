@@ -32,3 +32,15 @@ next-env.d.ts
 
 # outro repo
 lembretezap
+
+# database files
+*.db
+
+# debug logs
+nanobot/
+*debug.log
+**/debug.log
+
+# audit reports (generated)
+*_AUDIT*.md
+LOCALIZATION_AUDIT.md

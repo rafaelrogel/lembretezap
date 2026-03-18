@@ -106,7 +106,8 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
 
             # Lembretes do dia
             reminders = _reminders_today(ctx, tz, today_start_utc_ms, period_end_utc_ms)
-            lines.append("\n🔔 **Lembretes**")
+            from backend.locale import VIEW_REMINDERS_HEADER
+            lines.append(VIEW_REMINDERS_HEADER.get(lang, VIEW_REMINDERS_HEADER["en"]))
             if reminders:
                 for dt, msg in reminders[:15]:
                     lines.append(f"• {dt.strftime('%H:%M')} — {msg[:50]}{'…' if len(msg) > 50 else ''}")
@@ -117,7 +118,8 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
 
             # Agenda (eventos) do dia
             event_list = _events_in_period(db, user.id, today, today, tz)
-            lines.append("\n📆 **Agenda**")
+            from backend.locale import VIEW_AGENDA_HEADER
+            lines.append(VIEW_AGENDA_HEADER.get(lang, VIEW_AGENDA_HEADER["en"]))
             if event_list:
                 for d, _, nome in event_list[:15]:
                     lines.append(f"• {d.strftime('%d/%m')} — {nome[:50]}")
@@ -147,7 +149,8 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
         finally:
             db.close()
     except Exception as e:
-        return f"Erro ao carregar visão: {e}"
+        from backend.locale import VIEW_ERROR
+        return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
 
 
 def _visao_agenda_dia(ctx: "HandlerContext") -> str:
@@ -175,8 +178,10 @@ def _visao_agenda_dia(ctx: "HandlerContext") -> str:
                 _now_ts = time.time()
             now = datetime.fromtimestamp(_now_ts, tz=tz)
             today = now.date()
+            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
 
-            lines = ["📆 **Agenda — hoje**"]
+            from backend.locale import VIEW_AGENDA_TODAY_HEADER, VIEW_NO_EVENTS_WEEK, VIEW_ERROR
+            lines = [VIEW_AGENDA_TODAY_HEADER.get(lang, VIEW_AGENDA_TODAY_HEADER["en"])]
 
             event_list = _events_in_period(db, user.id, today, today, tz)
             if event_list:
@@ -186,7 +191,8 @@ def _visao_agenda_dia(ctx: "HandlerContext") -> str:
                 lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
                 lines.append(AGENDA_OFFER_REMINDER.get(lang, AGENDA_OFFER_REMINDER["en"]))
             else:
-                lines.append("• Nenhum evento hoje.")
+                from backend.locale import VIEW_NO_EVENTS_TODAY
+                lines.append(VIEW_NO_EVENTS_TODAY.get(lang, VIEW_NO_EVENTS_TODAY["en"]))
 
             count = record_agenda_view(ctx.chat_id, today.isoformat())
             if count >= 2:
@@ -198,18 +204,20 @@ def _visao_agenda_dia(ctx: "HandlerContext") -> str:
         finally:
             db.close()
     except Exception as e:
-        return f"Erro ao carregar visão: {e}"
+        from backend.locale import VIEW_ERROR
+        return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
 
 
 def _visao_semana(ctx: "HandlerContext") -> str:
     """/semana: apenas agenda (eventos) da semana; não mostra lembretes."""
     from backend.database import SessionLocal
-    from backend.user_store import get_or_create_user, get_user_timezone
+    from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
 
     try:
         db = SessionLocal()
         try:
             user = get_or_create_user(db, ctx.chat_id)
+            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
             try:
                 tz = ZoneInfo(tz_iana)
@@ -226,20 +234,22 @@ def _visao_semana(ctx: "HandlerContext") -> str:
             today = now.date()
             end_date = today + timedelta(days=6)  # 7 dias: hoje + 6
 
-            lines = [f"📆 **Agenda — esta semana** (até {end_date.strftime('%d/%m')})"]
+            from backend.locale import VIEW_AGENDA_WEEK_HEADER, VIEW_NO_EVENTS_WEEK
+            lines = [VIEW_AGENDA_WEEK_HEADER.get(lang, VIEW_AGENDA_WEEK_HEADER["en"]).format(end_date=end_date.strftime('%d/%m'))]
 
             event_list = _events_in_period(db, user.id, today, end_date, tz)
             if event_list:
                 for d, _, nome in event_list[:25]:
                     lines.append(f"• {d.strftime('%d/%m')} — {nome[:50]}")
             else:
-                lines.append("• Nenhum evento esta semana.")
+                lines.append(VIEW_NO_EVENTS_WEEK.get(lang, VIEW_NO_EVENTS_WEEK["en"]))
 
             return "\n".join(lines)
         finally:
             db.close()
     except Exception as e:
-        return f"Erro ao carregar visão: {e}"
+        from backend.locale import VIEW_ERROR
+        return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
 
 
 async def handle_hoje(ctx: "HandlerContext", content: str) -> str | None:

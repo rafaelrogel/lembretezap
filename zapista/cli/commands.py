@@ -158,10 +158,11 @@ def _make_provider(config):
     from zapista.providers.litellm_provider import LiteLLMProvider
     model = config.agents.defaults.model
     p = config.get_provider()
-    # DEBUG (set ZAPISTA_DEBUG=1 to see)
+    # DEBUG (set ZAPISTA_DEBUG=1 to see) — never log actual API key values
     if os.environ.get("ZAPISTA_DEBUG"):
-        print(f"DEBUG: p={p}")
-        print(f"DEBUG: p.api_key='{getattr(p, 'api_key', None)}' len={len(p.api_key) if p and getattr(p, 'api_key', None) else 0}")
+        _ak = getattr(p, "api_key", None) or ""
+        print(f"DEBUG: p={type(p).__name__}")
+        print(f"DEBUG: p.api_key='{_ak[:4]}...{_ak[-4:]}' len={len(_ak)}" if len(_ak) > 8 else f"DEBUG: p.api_key=(short/empty) len={len(_ak)}")
         print(f"DEBUG: model='{model}'")
     # Fallback: if matched provider has no (valid) api_key, use first provider that has one
     if not (p and getattr(p, "api_key", None) and (p.api_key or "").strip()):

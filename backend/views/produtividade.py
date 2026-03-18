@@ -11,13 +11,18 @@ if TYPE_CHECKING:
 def _visao_produtividade(ctx: "HandlerContext", mode: str = "semana") -> str:
     """Relatório de produtividade: evolução semanal ou mensal."""
     from backend.database import SessionLocal
-    from backend.user_store import get_or_create_user, get_user_timezone
+    from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
     from backend.models_db import ReminderHistory, AuditLog, Event
+    from backend.locale import (
+        VIEW_PRODUTIVIDADE_HEADER, VIEW_STATS_LAST_4_WEEKS, VIEW_LAST_3_MONTHS,
+        VIEW_MONTH_NAMES, VIEW_ERROR,
+    )
 
     try:
         db = SessionLocal()
         try:
             user = get_or_create_user(db, ctx.chat_id)
+            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
             try:
                 tz = ZoneInfo(tz_iana)
@@ -66,11 +71,11 @@ def _visao_produtividade(ctx: "HandlerContext", mode: str = "semana") -> str:
                 if d:
                     ev_by_day[d.isoformat()] = ev_by_day.get(d.isoformat(), 0) + 1
 
-            month_names = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"]
-            lines = ["📊 **Relatório de produtividade**"]
+            month_names = VIEW_MONTH_NAMES.get(lang, VIEW_MONTH_NAMES["en"])
+            lines = [VIEW_PRODUTIVIDADE_HEADER.get(lang, VIEW_PRODUTIVIDADE_HEADER["en"])]
             import calendar
             if mode == "semana":
-                lines.append("Últimas 4 semanas:")
+                lines.append(VIEW_STATS_LAST_4_WEEKS.get(lang, VIEW_STATS_LAST_4_WEEKS["en"]))
                 for i in range(4):
                     start = today - timedelta(days=6 + i * 7)
                     end = today - timedelta(days=i * 7)
@@ -79,7 +84,7 @@ def _visao_produtividade(ctx: "HandlerContext", mode: str = "semana") -> str:
                     ed = sum(ev_by_day.get((start + timedelta(days=j)).isoformat(), 0) for j in range(7))
                     lines.append(f"• S{i + 1} ({start.strftime('%d/%m')}–{end.strftime('%d/%m')}): {fd} tarefas | {rd} lembretes | {ed} eventos")
             else:
-                lines.append("Últimos 3 meses:")
+                lines.append(VIEW_LAST_3_MONTHS.get(lang, VIEW_LAST_3_MONTHS["en"]))
                 for i in range(3):
                     m = today.month - 1 - i
                     y = today.year
@@ -101,7 +106,7 @@ def _visao_produtividade(ctx: "HandlerContext", mode: str = "semana") -> str:
         finally:
             db.close()
     except Exception as e:
-        return f"Erro ao carregar relatório: {e}"
+        return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
 
 
 async def handle_produtividade(ctx: "HandlerContext", content: str) -> str | None:

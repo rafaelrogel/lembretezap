@@ -158,6 +158,17 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
     if not ctx.session_manager or not ctx.cron_tool or not content or not content.strip():
         return None
 
+    # Resolve user_lang early for cancel check (avoid NameError)
+    _cancel_lang: LangCode = "pt-BR"
+    try:
+        _cdb = SessionLocal()
+        try:
+            _cancel_lang = get_user_language(_cdb, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+        finally:
+            _cdb.close()
+    except Exception:
+        pass
+
     # --- Cancelar fluxo se o usuário pedir (esc, cancel, sair, stop) ---
     t_clean = content.strip().lower()
     if t_clean in ("esc", "cancel", "cancelar", "sair", "stop", "para", "parar", "nvm"):
@@ -166,10 +177,8 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
         if session.metadata.get(FLOW_KEY):
             session.metadata.pop(FLOW_KEY, None)
             ctx.session_manager.save(session)
-            # Retornar uma confirmação discreta ou deixar o Agente lidar?
-            # Se retornarmos None, o Agente assume a mensagem.
-            # Mas aqui queremos confirmar que o fluxo "parou".
-            return "Ok, cancelado. 👍" if user_lang.startswith("pt") else ("Vale, cancelado. 👍" if user_lang == "es" else "Okay, cancelled. 👍")
+            from backend.locale import FLOW_CANCELLED
+            return FLOW_CANCELLED.get(_cancel_lang, FLOW_CANCELLED["en"])
 
     try:
         from backend.guardrails import is_complex_request
@@ -1141,6 +1150,17 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
     if re.match(r"^/(lembrete|reminder|recordatorio)\s+", text, re.I):
         text = re.sub(r"^/(lembrete|reminder|recordatorio)\s+", "", text, flags=re.I).strip()
 
+    # Resolve user_lang early for cancel check (avoid NameError)
+    _cancel_lang: LangCode = "pt-BR"
+    try:
+        _cdb = SessionLocal()
+        try:
+            _cancel_lang = get_user_language(_cdb, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+        finally:
+            _cdb.close()
+    except Exception:
+        pass
+
     # --- Cancelar fluxo se o usuário pedir ---
     t_clean = content.strip().lower()
     if t_clean in ("esc", "cancel", "cancelar", "sair", "stop", "para", "parar", "nvm"):
@@ -1149,7 +1169,8 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
         if session.metadata.get(FLOW_KEY):
             session.metadata.pop(FLOW_KEY, None)
             ctx.session_manager.save(session)
-            return "Ok, cancelado. 👍" if user_lang.startswith("pt") else ("Vale, cancelado. 👍" if user_lang == "es" else "Okay, cancelled. 👍")
+            from backend.locale import FLOW_CANCELLED
+            return FLOW_CANCELLED.get(_cancel_lang, FLOW_CANCELLED["en"])
 
     try:
         from backend.guardrails import is_complex_request

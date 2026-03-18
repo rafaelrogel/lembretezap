@@ -285,7 +285,7 @@ def onboarding_intro_message(lang: LangCode, name: str | None = None) -> str:
 ONBOARDING_INTRO_TZ_FIRST = {
     "pt-PT": "Olá! Sou o teu assistente de organização — listas, lembretes e agenda. 📋",
     "pt-BR": "Oi! Sou seu assistente de organização — listas, lembretes e agenda. 📋",
-    "es": "¡Hola! Soy tu asistente de organização — listas, recordatorios y agenda. 📋",
+    "es": "¡Hola! Soy tu asistente de organización — listas, recordatorios y agenda. 📋",
     "en": "Hi! I'm your organization assistant — lists, reminders and agenda. 📋",
 }
 # Pergunta única: cidade OU que horas são aí (informação mais importante = fuso)
@@ -2264,4 +2264,535 @@ POMODORO_STOPPED: dict[LangCode, str] = {
     "pt-BR": "🍅 Pomodoro parado. {count} timer(s) cancelado(s).",
     "es": "🍅 Pomodoro detenido. {count} temporizador(es) cancelado(s).",
     "en": "🍅 Pomodoro stopped. {count} timer(s) cancelled.",
+}
+
+# ---------------------------------------------------------------------------
+# list_tool.py
+# ---------------------------------------------------------------------------
+
+LIST_ITEM_NOT_FOUND_GLOBAL: dict[LangCode, str] = {
+    "pt-PT": "Item {item_id} não encontrado. Usa /feito nome_da_lista {item_id} se souberes a lista.",
+    "pt-BR": "Item {item_id} não encontrado. Use /feito nome_da_lista {item_id} se souber a lista.",
+    "es": "Elemento {item_id} no encontrado. Usa /hecho nombre_lista {item_id} si sabes la lista.",
+    "en": "Item {item_id} not found. Use /done list_name {item_id} if you know the list.",
+}
+
+LIST_TECH_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Desculpa, houve um erro técnico ao aceder às listas. Tenta de novo daqui a pouco.",
+    "pt-BR": "Desculpa, houve um erro técnico ao acessar as listas. Tente de novo daqui a pouco.",
+    "es": "Lo siento, hubo un error técnico al acceder a las listas. Inténtalo de nuevo en un momento.",
+    "en": "Sorry, there was a technical error accessing the lists. Please try again shortly.",
+}
+
+LIST_NAME_REQUIRED_ADD: dict[LangCode, str] = {
+    "pt-PT": "Indica o nome da lista para adicionar o item.",
+    "pt-BR": "Indique o nome da lista para adicionar o item.",
+    "es": "Indica el nombre de la lista para agregar el elemento.",
+    "en": "Please specify the list name to add the item.",
+}
+
+LIST_PRIVACY_WARNING: dict[LangCode, str] = {
+    "pt-PT": "Por política de privacidade (RGPD/LGPD), não guardamos dados confidenciais em listas (ex.: CPF, números de cartão). Pode guardar receitas, compras e outros textos sem dados pessoais sensíveis.",
+    "pt-BR": "Por política de privacidade (RGPD/LGPD), não guardamos dados confidenciais em listas (ex.: CPF, números de cartão). Pode guardar receitas, compras e outros textos sem dados pessoais sensíveis.",
+    "es": "Por política de privacidad (RGPD/LGPD), no guardamos datos confidenciales en listas (ej.: DNI, números de tarjeta). Puedes guardar recetas, compras y otros textos sin datos personales sensibles.",
+    "en": "For privacy policy (GDPR/LGPD), we don't store confidential data in lists (e.g. ID numbers, credit cards). You can store recipes, shopping and other non-sensitive text.",
+}
+
+LIST_NAME_REQUIRED_HABITUAL: dict[LangCode, str] = {
+    "pt-PT": "Indica o nome da lista. Ex: /list mercado habitual",
+    "pt-BR": "Indique o nome da lista. Ex: /list mercado habitual",
+    "es": "Indica el nombre de la lista. Ej: /list mercado habitual",
+    "en": "Please specify the list name. E.g.: /list market habitual",
+}
+
+LIST_NO_HABITUAL: dict[LangCode, str] = {
+    "pt-PT": "Lista \"{list_name}\": não há itens habituais novos para adicionar (já tens tudo ou sem histórico).",
+    "pt-BR": "Lista \"{list_name}\": não há itens habituais novos para adicionar (já tem tudo ou sem histórico).",
+    "es": "Lista \"{list_name}\": no hay elementos habituales nuevos para agregar (ya tienes todo o sin historial).",
+    "en": "List \"{list_name}\": no new habitual items to add (you already have everything or no history).",
+}
+
+LIST_HABITUAL_ADDED: dict[LangCode, str] = {
+    "pt-PT": "Adicionei o habitual a \"{list_name}\": {items}.",
+    "pt-BR": "Adicionei o habitual a \"{list_name}\": {items}.",
+    "es": "Agregué lo habitual a \"{list_name}\": {items}.",
+    "en": "Added habitual items to \"{list_name}\": {items}.",
+}
+
+LIST_NO_LISTS: dict[LangCode, str] = {
+    "pt-PT": "Nenhuma lista. Usa /list nome add item para criar.",
+    "pt-BR": "Nenhuma lista. Use /list nome add item para criar.",
+    "es": "Ninguna lista. Usa /list nombre add elemento para crear.",
+    "en": "No lists. Use /list name add item to create one.",
+}
+
+LIST_ALL_LISTS: dict[LangCode, str] = {
+    "pt-PT": "Listas: {names}",
+    "pt-BR": "Listas: {names}",
+    "es": "Listas: {names}",
+    "en": "Lists: {names}",
+}
+
+LIST_NOT_FOUND: dict[LangCode, str] = {
+    "pt-PT": "Lista '{list_name}' não existe.",
+    "pt-BR": "Lista '{list_name}' não existe.",
+    "es": "La lista '{list_name}' no existe.",
+    "en": "List '{list_name}' doesn't exist.",
+}
+
+LIST_EMPTY: dict[LangCode, str] = {
+    "pt-PT": "Lista '{list_name}' vazia.",
+    "pt-BR": "Lista '{list_name}' vazia.",
+    "es": "Lista '{list_name}' vacía.",
+    "en": "List '{list_name}' is empty.",
+}
+
+LIST_HEADER: dict[LangCode, str] = {
+    "pt-PT": "Lista **{list_name}**:",
+    "pt-BR": "Lista **{list_name}**:",
+    "es": "Lista **{list_name}**:",
+    "en": "List **{list_name}**:",
+}
+
+LIST_ITEM_REMOVED: dict[LangCode, str] = {
+    "pt-PT": "Removido item {item_id} de '{list_name}'.",
+    "pt-BR": "Removido item {item_id} de '{list_name}'.",
+    "es": "Eliminado elemento {item_id} de '{list_name}'.",
+    "en": "Removed item {item_id} from '{list_name}'.",
+}
+
+LIST_ITEM_NOT_FOUND: dict[LangCode, str] = {
+    "pt-PT": "Item {item_id} não encontrado.",
+    "pt-BR": "Item {item_id} não encontrado.",
+    "es": "Elemento {item_id} no encontrado.",
+    "en": "Item {item_id} not found.",
+}
+
+LIST_NAME_REQUIRED_DELETE: dict[LangCode, str] = {
+    "pt-PT": "Indica o nome da lista para apagar.",
+    "pt-BR": "Indique o nome da lista para apagar.",
+    "es": "Indica el nombre de la lista para borrar.",
+    "en": "Please specify the list name to delete.",
+}
+
+LIST_DELETED: dict[LangCode, str] = {
+    "pt-PT": "Lista '{list_name}' apagada com sucesso (e todos os itens).",
+    "pt-BR": "Lista '{list_name}' apagada com sucesso (e todos os itens).",
+    "es": "Lista '{list_name}' borrada con éxito (y todos los elementos).",
+    "en": "List '{list_name}' deleted successfully (and all items).",
+}
+
+LIST_NAME_REQUIRED_SHUFFLE: dict[LangCode, str] = {
+    "pt-PT": "Indica o nome da lista. Ex: embaralha lista summer_hits",
+    "pt-BR": "Indique o nome da lista. Ex: embaralha lista summer_hits",
+    "es": "Indica el nombre de la lista. Ej: mezclar lista summer_hits",
+    "en": "Please specify the list name. E.g.: shuffle list summer_hits",
+}
+
+LIST_ONLY_ONE_ITEM: dict[LangCode, str] = {
+    "pt-PT": "Lista '{list_name}' tem só 1 item; não há o que embaralhar.",
+    "pt-BR": "Lista '{list_name}' tem só 1 item; não há o que embaralhar.",
+    "es": "La lista '{list_name}' tiene solo 1 elemento; no hay nada que mezclar.",
+    "en": "List '{list_name}' has only 1 item; nothing to shuffle.",
+}
+
+LIST_SHUFFLED: dict[LangCode, str] = {
+    "pt-PT": "Lista '{list_name}' embaralhada ({count} itens).",
+    "pt-BR": "Lista '{list_name}' embaralhada ({count} itens).",
+    "es": "Lista '{list_name}' mezclada ({count} elementos).",
+    "en": "List '{list_name}' shuffled ({count} items).",
+}
+
+LIST_FEITO: dict[LangCode, str] = {
+    "pt-PT": "Feito! Item {item_id} removido de '{list_name}'.",
+    "pt-BR": "Feito! Item {item_id} removido de '{list_name}'.",
+    "es": "¡Hecho! Elemento {item_id} eliminado de '{list_name}'.",
+    "en": "Done! Item {item_id} removed from '{list_name}'.",
+}
+
+# ---------------------------------------------------------------------------
+# event_tool.py
+# ---------------------------------------------------------------------------
+
+EVENT_TOOL_NO_DATE: dict[LangCode, str] = {
+    "pt-PT": "sem data definida",
+    "pt-BR": "sem data definida",
+    "es": "sin fecha definida",
+    "en": "no date set",
+}
+
+EVENT_TOOL_ADDED: dict[LangCode, str] = {
+    "pt-PT": "Evento '{event_text}' adicionado com sucesso à agenda ({dt_str}) [id: E{event_id}].",
+    "pt-BR": "Evento '{event_text}' adicionado com sucesso à agenda ({dt_str}) [id: E{event_id}].",
+    "es": "Evento '{event_text}' agregado con éxito a la agenda ({dt_str}) [id: E{event_id}].",
+    "en": "Event '{event_text}' added to the agenda ({dt_str}) [id: E{event_id}].",
+}
+
+EVENT_TOOL_EMPTY_AGENDA: dict[LangCode, str] = {
+    "pt-PT": "A agenda está vazia.",
+    "pt-BR": "A agenda está vazia.",
+    "es": "La agenda está vacía.",
+    "en": "The agenda is empty.",
+}
+
+EVENT_TOOL_AGENDA_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📅 Eventos na Agenda:",
+    "pt-BR": "📅 Eventos na Agenda:",
+    "es": "📅 Eventos en la Agenda:",
+    "en": "📅 Events in the Agenda:",
+}
+
+EVENT_TOOL_UNKNOWN: dict[LangCode, str] = {
+    "pt-PT": "Evento Desconhecido",
+    "pt-BR": "Evento Desconhecido",
+    "es": "Evento Desconocido",
+    "en": "Unknown Event",
+}
+
+EVENT_TOOL_NO_DATE_SHORT: dict[LangCode, str] = {
+    "pt-PT": "S/ Data",
+    "pt-BR": "S/ Data",
+    "es": "Sin Fecha",
+    "en": "No Date",
+}
+
+EVENT_TOOL_REMOVED: dict[LangCode, str] = {
+    "pt-PT": "Evento [id: {event_id}] removido com sucesso.",
+    "pt-BR": "Evento [id: {event_id}] removido com sucesso.",
+    "es": "Evento [id: {event_id}] eliminado con éxito.",
+    "en": "Event [id: {event_id}] removed successfully.",
+}
+
+EVENT_TOOL_NOT_FOUND: dict[LangCode, str] = {
+    "pt-PT": "Evento [id: {event_id}] não encontrado na agenda.",
+    "pt-BR": "Evento [id: {event_id}] não encontrado na agenda.",
+    "es": "Evento [id: {event_id}] no encontrado en la agenda.",
+    "en": "Event [id: {event_id}] not found in the agenda.",
+}
+
+EVENT_TOOL_DUPLICATE: dict[LangCode, str] = {
+    "pt-PT": "Evento '{event_text}' já existe na agenda ({dt_str}) [id: E{event_id}].",
+    "pt-BR": "Evento '{event_text}' já existe na agenda ({dt_str}) [id: E{event_id}].",
+    "es": "El evento '{event_text}' ya existe en la agenda ({dt_str}) [id: E{event_id}].",
+    "en": "Event '{event_text}' already exists in the agenda ({dt_str}) [id: E{event_id}].",
+}
+
+# ---------------------------------------------------------------------------
+# views (timeline, stats, produtividade, mes, hoje_semana)
+# ---------------------------------------------------------------------------
+
+VIEW_TIMELINE_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📜 **Timeline** (últimos {days} dias)",
+    "pt-BR": "📜 **Timeline** (últimos {days} dias)",
+    "es": "📜 **Línea de tiempo** (últimos {days} días)",
+    "en": "📜 **Timeline** (last {days} days)",
+}
+
+VIEW_TIMELINE_TZ_INFO: dict[LangCode, str] = {
+    "pt-PT": "Horários no teu fuso: {tz}.",
+    "pt-BR": "Horários no seu fuso: {tz}.",
+    "es": "Horarios en tu zona: {tz}.",
+    "en": "Times in your timezone: {tz}.",
+}
+
+VIEW_TIMELINE_REMINDER: dict[LangCode, str] = {
+    "pt-PT": "Lembrete: {msg} ✓",
+    "pt-BR": "Lembrete: {msg} ✓",
+    "es": "Recordatorio: {msg} ✓",
+    "en": "Reminder: {msg} ✓",
+}
+
+VIEW_TIMELINE_DONE: dict[LangCode, str] = {
+    "pt-PT": "Feito: {resource}",
+    "pt-BR": "Feito: {resource}",
+    "es": "Hecho: {resource}",
+    "en": "Done: {resource}",
+}
+
+VIEW_TIMELINE_REMOVED: dict[LangCode, str] = {
+    "pt-PT": "Removido: {resource}",
+    "pt-BR": "Removido: {resource}",
+    "es": "Eliminado: {resource}",
+    "en": "Removed: {resource}",
+}
+
+VIEW_TIMELINE_EVENT: dict[LangCode, str] = {
+    "pt-PT": "Evento{from_ics}: {name}",
+    "pt-BR": "Evento{from_ics}: {name}",
+    "es": "Evento{from_ics}: {name}",
+    "en": "Event{from_ics}: {name}",
+}
+
+VIEW_TIMELINE_EMPTY: dict[LangCode, str] = {
+    "pt-PT": "• Nada nos últimos dias.",
+    "pt-BR": "• Nada nos últimos dias.",
+    "es": "• Nada en los últimos días.",
+    "en": "• Nothing in the last few days.",
+}
+
+VIEW_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Erro ao carregar: {error}",
+    "pt-BR": "Erro ao carregar: {error}",
+    "es": "Error al cargar: {error}",
+    "en": "Error loading: {error}",
+}
+
+VIEW_STATS_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📊 **Estatísticas**",
+    "pt-BR": "📊 **Estatísticas**",
+    "es": "📊 **Estadísticas**",
+    "en": "📊 **Statistics**",
+}
+
+VIEW_STATS_TODAY: dict[LangCode, str] = {
+    "pt-PT": "Hoje: {tasks} tarefas feitas | {reminders} lembretes",
+    "pt-BR": "Hoje: {tasks} tarefas feitas | {reminders} lembretes",
+    "es": "Hoy: {tasks} tareas hechas | {reminders} recordatorios",
+    "en": "Today: {tasks} tasks done | {reminders} reminders",
+}
+
+VIEW_STATS_WEEK: dict[LangCode, str] = {
+    "pt-PT": "Esta semana: {tasks} tarefas | {reminders} lembretes",
+    "pt-BR": "Esta semana: {tasks} tarefas | {reminders} lembretes",
+    "es": "Esta semana: {tasks} tareas | {reminders} recordatorios",
+    "en": "This week: {tasks} tasks | {reminders} reminders",
+}
+
+VIEW_STATS_LAST_7_DAYS: dict[LangCode, str] = {
+    "pt-PT": "Últimos 7 dias:",
+    "pt-BR": "Últimos 7 dias:",
+    "es": "Últimos 7 días:",
+    "en": "Last 7 days:",
+}
+
+VIEW_STATS_LAST_4_WEEKS: dict[LangCode, str] = {
+    "pt-PT": "Últimas 4 semanas:",
+    "pt-BR": "Últimas 4 semanas:",
+    "es": "Últimas 4 semanas:",
+    "en": "Last 4 weeks:",
+}
+
+VIEW_REMINDERS_HEADER: dict[LangCode, str] = {
+    "pt-PT": "\n🔔 **Lembretes**",
+    "pt-BR": "\n🔔 **Lembretes**",
+    "es": "\n🔔 **Recordatorios**",
+    "en": "\n🔔 **Reminders**",
+}
+
+VIEW_AGENDA_HEADER: dict[LangCode, str] = {
+    "pt-PT": "\n📆 **Agenda**",
+    "pt-BR": "\n📆 **Agenda**",
+    "es": "\n📆 **Agenda**",
+    "en": "\n📆 **Agenda**",
+}
+
+VIEW_AGENDA_TODAY_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📆 **Agenda — hoje**",
+    "pt-BR": "📆 **Agenda — hoje**",
+    "es": "📆 **Agenda — hoy**",
+    "en": "📆 **Agenda — today**",
+}
+
+VIEW_AGENDA_WEEK_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📆 **Agenda — esta semana** (até {end_date})",
+    "pt-BR": "📆 **Agenda — esta semana** (até {end_date})",
+    "es": "📆 **Agenda — esta semana** (hasta {end_date})",
+    "en": "📆 **Agenda — this week** (until {end_date})",
+}
+
+VIEW_NO_EVENTS_WEEK: dict[LangCode, str] = {
+    "pt-PT": "• Nenhum evento esta semana.",
+    "pt-BR": "• Nenhum evento esta semana.",
+    "es": "• Ningún evento esta semana.",
+    "en": "• No events this week.",
+}
+
+VIEW_PRODUTIVIDADE_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📊 **Relatório de produtividade**",
+    "pt-BR": "📊 **Relatório de produtividade**",
+    "es": "📊 **Informe de productividad**",
+    "en": "📊 **Productivity report**",
+}
+
+VIEW_LAST_3_MONTHS: dict[LangCode, str] = {
+    "pt-PT": "Últimos 3 meses:",
+    "pt-BR": "Últimos 3 meses:",
+    "es": "Últimos 3 meses:",
+    "en": "Last 3 months:",
+}
+
+VIEW_MONTH_NAMES: dict[LangCode, list[str]] = {
+    "pt-PT": ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
+    "pt-BR": ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
+    "es": ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
+    "en": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+}
+
+VIEW_WEEKDAY_HEADER: dict[LangCode, str] = {
+    "pt-PT": "  D  S  T  Q  Q  S  S",
+    "pt-BR": "  D  S  T  Q  Q  S  S",
+    "es": "  D  L  M  X  J  V  S",
+    "en": "  S  M  T  W  T  F  S",
+}
+
+# ---------------------------------------------------------------------------
+# rever.py / llm_handlers
+# ---------------------------------------------------------------------------
+
+REVER_NO_CONTEXT: dict[LangCode, str] = {
+    "pt-PT": "Histórico da conversa não está disponível neste contexto.",
+    "pt-BR": "Histórico da conversa não está disponível neste contexto.",
+    "es": "El historial de la conversación no está disponible en este contexto.",
+    "en": "Conversation history is not available in this context.",
+}
+
+REVER_NO_MESSAGES: dict[LangCode, str] = {
+    "pt-PT": "Ainda não há mensagens nesta conversa.",
+    "pt-BR": "Ainda não há mensagens nesta conversa.",
+    "es": "Aún no hay mensajes en esta conversación.",
+    "en": "There are no messages in this conversation yet.",
+}
+
+REVER_NO_REMINDERS: dict[LangCode, str] = {
+    "pt-PT": "Ainda não tens lembretes registados (pedidos agendados ou entregues).",
+    "pt-BR": "Ainda não tem lembretes registados (pedidos agendados ou entregues).",
+    "es": "Aún no tienes recordatorios registrados (programados o entregados).",
+    "en": "You don't have any reminders recorded yet (scheduled or delivered).",
+}
+
+REVER_STATUS_SCHEDULED: dict[LangCode, str] = {
+    "pt-PT": "agendado",
+    "pt-BR": "agendado",
+    "es": "programado",
+    "en": "scheduled",
+}
+
+REVER_STATUS_SENT: dict[LangCode, str] = {
+    "pt-PT": "entregue",
+    "pt-BR": "entregue",
+    "es": "entregado",
+    "en": "delivered",
+}
+
+REVER_STATUS_FAILED: dict[LangCode, str] = {
+    "pt-PT": "falhou",
+    "pt-BR": "falhou",
+    "es": "falló",
+    "en": "failed",
+}
+
+REVER_NO_HISTORY: dict[LangCode, str] = {
+    "pt-PT": "Ainda não tens pedidos nem lembranças registados.",
+    "pt-BR": "Ainda não tem pedidos nem lembranças registados.",
+    "es": "Aún no tienes pedidos ni recordatorios registrados.",
+    "en": "You don't have any requests or reminders recorded yet.",
+}
+
+REVER_LAST_REQUEST: dict[LangCode, str] = {
+    "pt-PT": "Foi este o pedido: \"{text}\"",
+    "pt-BR": "Foi este o pedido: \"{text}\"",
+    "es": "Este fue el pedido: \"{text}\"",
+    "en": "This was the request: \"{text}\"",
+}
+
+REVER_NO_REQUEST: dict[LangCode, str] = {
+    "pt-PT": "Ainda não tens nenhum pedido registado.",
+    "pt-BR": "Ainda não tem nenhum pedido registado.",
+    "es": "Aún no tienes ningún pedido registrado.",
+    "en": "You don't have any requests recorded yet.",
+}
+
+REVER_LAST_REMINDER: dict[LangCode, str] = {
+    "pt-PT": "Foi esta a lembrança: \"{text}\"",
+    "pt-BR": "Foi esta a lembrança: \"{text}\"",
+    "es": "Este fue el recordatorio: \"{text}\"",
+    "en": "This was the reminder: \"{text}\"",
+}
+
+REVER_NO_REMINDER: dict[LangCode, str] = {
+    "pt-PT": "Ainda não recebeste nenhuma lembrança.",
+    "pt-BR": "Ainda não recebeu nenhuma lembrança.",
+    "es": "Aún no has recibido ningún recordatorio.",
+    "en": "You haven't received any reminders yet.",
+}
+
+REVER_LABEL_USER: dict[LangCode, str] = {
+    "pt-PT": "Tu",
+    "pt-BR": "Você",
+    "es": "Tú",
+    "en": "You",
+}
+
+REVER_LABEL_ASSISTANT: dict[LangCode, str] = {
+    "pt-PT": "Eu",
+    "pt-BR": "Eu",
+    "es": "Yo",
+    "en": "Me",
+}
+
+# ---------------------------------------------------------------------------
+# settings_handlers.py
+# ---------------------------------------------------------------------------
+
+SETTINGS_TZ_CURRENT: dict[LangCode, str] = {
+    "pt-PT": "📍 Fuso atual: *{tz}*",
+    "pt-BR": "📍 Fuso atual: *{tz}*",
+    "es": "📍 Zona horaria actual: *{tz}*",
+    "en": "📍 Current timezone: *{tz}*",
+}
+
+SETTINGS_TZ_DEFAULT_HINT: dict[LangCode, str] = {
+    "pt-PT": " (padrão do número: {tz})",
+    "pt-BR": " (padrão do número: {tz})",
+    "es": " (por defecto del número: {tz})",
+    "en": " (default from number: {tz})",
+}
+
+SETTINGS_TZ_CHANGE_HINT: dict[LangCode, str] = {
+    "pt-PT": "\n\nPara mudar: `/tz Cidade` ou `/tz Europe/Lisbon`",
+    "pt-BR": "\n\nPara mudar: `/tz Cidade` ou `/tz Europe/Lisbon`",
+    "es": "\n\nPara cambiar: `/tz Ciudad` o `/tz Europe/Madrid`",
+    "en": "\n\nTo change: `/tz City` or `/tz Europe/London`",
+}
+
+QUIET_OFF_SUCCESS: dict[LangCode, str] = {
+    "pt-PT": "🔔 Horário silencioso desativado. Voltaste a receber notificações a qualquer hora.",
+    "pt-BR": "🔔 Horário silencioso desativado. Voltou a receber notificações a qualquer hora.",
+    "es": "🔔 Horario silencioso desactivado. Vuelves a recibir notificaciones a cualquier hora.",
+    "en": "🔔 Quiet mode disabled. You'll receive notifications at any time again.",
+}
+
+QUIET_OFF_ERROR: dict[LangCode, str] = {
+    "pt-PT": "❌ Erro ao desativar.",
+    "pt-BR": "❌ Erro ao desativar.",
+    "es": "❌ Error al desactivar.",
+    "en": "❌ Error disabling.",
+}
+
+QUIET_USAGE: dict[LangCode, str] = {
+    "pt-PT": "🔇 Usa: /quiet 22:00-08:00 (não notificar entre 22h e 8h) ou /quiet off para desativar.",
+    "pt-BR": "🔇 Use: /quiet 22:00-08:00 (não notificar entre 22h e 8h) ou /quiet off para desativar.",
+    "es": "🔇 Usa: /quiet 22:00-08:00 (no notificar entre 22h y 8h) o /quiet off para desactivar.",
+    "en": "🔇 Use: /quiet 22:00-08:00 (mute between 10pm-8am) or /quiet off to disable.",
+}
+
+QUIET_TIME_FORMAT: dict[LangCode, str] = {
+    "pt-PT": "🕐 Horas em HH:MM (ex.: 22:00, 08:00).",
+    "pt-BR": "🕐 Horas em HH:MM (ex.: 22:00, 08:00).",
+    "es": "🕐 Horas en HH:MM (ej.: 22:00, 08:00).",
+    "en": "🕐 Times in HH:MM format (e.g.: 22:00, 08:00).",
+}
+
+QUIET_SAVE_ERROR: dict[LangCode, str] = {
+    "pt-PT": "❌ Erro ao guardar. Usa /quiet 22:00-08:00.",
+    "pt-BR": "❌ Erro ao guardar. Use /quiet 22:00-08:00.",
+    "es": "❌ Error al guardar. Usa /quiet 22:00-08:00.",
+    "en": "❌ Error saving. Use /quiet 22:00-08:00.",
+}
+
+FLOW_CANCELLED: dict[LangCode, str] = {
+    "pt-PT": "Ok, cancelado. 👍",
+    "pt-BR": "Ok, cancelado. 👍",
+    "es": "Vale, cancelado. 👍",
+    "en": "Okay, cancelled. 👍",
 }
