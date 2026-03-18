@@ -289,11 +289,14 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
                 else:
                     parts.append(_NO_EVENTS_PERIOD.get(lang, _NO_EVENTS_PERIOD["en"]))
             else:
-                # Sem período: listar todos os eventos não deletados
+                # Sem período: listar eventos de hoje em diante (excluir passados)
+                from datetime import time as _time_cls
+                today_start_utc = datetime.combine(today, _time_cls.min).replace(tzinfo=tz).astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
                 events = db.query(Event).filter(
                     Event.user_id == user.id,
                     Event.tipo == "evento",
-                    Event.deleted == False
+                    Event.deleted == False,
+                    (Event.data_at >= today_start_utc) | (Event.data_at.is_(None)),
                 ).all()
 
                 parts.append(_LBL_EVENTS.get(lang, _LBL_EVENTS["en"]))
