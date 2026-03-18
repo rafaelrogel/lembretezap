@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const links = [
-  { href: "#funcionalidades", label: "Funcionalidades", sectionId: "funcionalidades" as const },
-  { href: "/about", label: "Sobre nós", sectionId: "sobre" as const },
-  { href: "#", label: "FAQ", sectionId: null },
+  { href: "#funcionalidades", label: "Como funciona", sectionId: "funcionalidades" as const },
+  { href: "/about", label: "Nossa missão", sectionId: "sobre" as const },
+  { href: "#", label: "Entenda mais", sectionId: null },
 ] as const;
 
 const baseClass =
