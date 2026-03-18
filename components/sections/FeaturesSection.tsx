@@ -174,7 +174,11 @@ function FeatureCard({
   const isPlaneCard = title === "Planejar viagem";
   const isTodosCard = title === "Listas de coisas para fazer";
   const isDatesCard = title === "Datas importantes";
+  const isShoppingListCard = title === "Lista de compras";
   const showDatesCalendar = isDatesCard;
+  // Animação do kart no card "Lista de compras"
+  const CART_GROW_DURATION = 0.4; // crescimento inicial do kart
+  const CART_LOOP_DURATION = 8; // duração total de um ciclo em hover
   const datesEmojis: Record<number, string> = {
     3: "🎂",
     5: "🎁",
@@ -187,6 +191,7 @@ function FeatureCard({
     28: "🗓️",
     31: "⏰",
   };
+  const datesEmojiOrder: number[] = [3, 5, 8, 14, 15, 19, 22, 26, 28, 31];
 
   useEffect(() => {
     return () => {
@@ -196,8 +201,8 @@ function FeatureCard({
 
   useEffect(() => {
     if (title !== "Planejar viagem") return;
-    const flyDurationMs = 10000;
-    const intervalMs = 12000; // um novo voo ~2s depois de terminar o anterior
+    const flyDurationMs = 13000;
+    const intervalMs = 15000; // ~2s depois de terminar o voo
     const runFly = () => {
       if (planeAutoFlyResetRef.current) clearTimeout(planeAutoFlyResetRef.current);
       setPlaneAutoFly(true);
@@ -214,7 +219,7 @@ function FeatureCard({
   return (
     <div
       className={`features-card ${cardClass} flex min-h-[16rem] min-w-0 flex-col rounded-2xl bg-[#FFFEFC] p-5 shadow-[0_4px_16px_rgba(15,23,42,0.06)] ${
-        isPlaneCard || isTodosCard || isDatesCard ? "relative overflow-hidden" : ""
+        isPlaneCard || isTodosCard || isDatesCard || isShoppingListCard ? "relative overflow-hidden" : ""
       } ${shouldAnimate ? "animate-features-card-in" : ""}`}
       style={shouldAnimate ? { animationDelay } : undefined}
       onMouseEnter={() => {
@@ -235,6 +240,20 @@ function FeatureCard({
         malas34LeaveTimeoutRef.current = setTimeout(() => setMalas34Offscreen(true), closeDurationMs);
       }}
     >
+      {isShoppingListCard && (
+        <div
+          className="pointer-events-none absolute left-8 right-8 bottom-8 top-4 z-0 rounded-[18px]"
+          aria-hidden
+          style={{
+            backgroundImage: "url('/imagem.png')",
+            backgroundSize: "102% auto",
+            backgroundPosition: "top center",
+            backgroundRepeat: "no-repeat",
+            opacity: isHovered ? 0.4 : 0.2,
+            transition: "opacity 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+          }}
+        />
+      )}
       {isPlaneCard && (
         <>
           <motion.div
@@ -348,7 +367,7 @@ function FeatureCard({
               animate={{ x: planeAutoFly ? 800 : -120 }}
               transition={{
                 x: {
-                  duration: planeAutoFly ? 10 : 0,
+                  duration: planeAutoFly ? 13 : 0,
                   delay: planeAutoFly ? 0.6 : 0,
                   ease: "linear",
                 },
@@ -358,7 +377,7 @@ function FeatureCard({
                 initial={{ y: 0 }}
                 animate={
                   planeAutoFly
-                    ? { y: [-4, -10, -4] }
+                    ? { y: [-6, -16, -6] }
                     : { y: 0 }
                 }
                 transition={
@@ -754,9 +773,7 @@ function FeatureCard({
                           ? isHovered
                             ? "bg-[#6DD15C] text-white"
                             : "bg-[#E4E2DF] text-[#7A7A7A]"
-                          : isHovered
-                          ? "text-[#7A7A7A]"
-                          : "text-[#B0B0B0]"
+                          : "text-[#D0CFCD]"
                       }`}
                       style={{
                         transition: `background-color 0.4s ${EASE_SMOOTH}, color 0.4s ${EASE_SMOOTH}, transform 0.4s ${EASE_SMOOTH}`,
@@ -792,13 +809,36 @@ function FeatureCard({
                 const emoji = datesEmojis[day];
                 const hasEmoji = !!emoji;
                 const isLightDay = day === 29 || day === 30 || day === 31;
+                const isFadedRow = day >= 22 && day <= 28;
+                // Degradê de cinzas em idle por linha:
+                // 1–7   : base       -> #B0B0B0
+                // 8–14  : mais claro -> #C4C3C0
+                // 15–21 : ainda mais -> #D0CFCD
+                // 22–28 : volta ao cinza que já estava (#E4E2DF)
+                let idleColor = "#B0B0B0";
+                if (day >= 8 && day <= 14) {
+                  idleColor = "#C4C3C0";
+                } else if (day >= 15 && day <= 21) {
+                  idleColor = "#D0CFCD";
+                } else if (day >= 22 && day <= 28) {
+                  idleColor = "#E4E2DF";
+                }
                 const dayColor = isLightDay
-                  ? "#E4E2DF"
+                  ? "#F0EFED"
                   : isHovered
                   ? "#7A7A7A"
-                  : "#B0B0B0";
-                const isFadedRow = day >= 22 && day <= 28;
-                const dayOpacity = isHovered && isFadedRow ? 0.2 : 1;
+                  : idleColor;
+                const isMidRow = day >= 15 && day <= 21;
+                const dayOpacity = isHovered
+                  ? isFadedRow
+                    ? 0.2
+                    : isMidRow
+                    ? 0.6
+                    : 1
+                  : 1;
+                const emojiIndex = datesEmojiOrder.indexOf(day);
+                const emojiDelay =
+                  emojiIndex >= 0 ? 0.15 + emojiIndex * 0.08 : 0.15;
 
                 if (!hasEmoji) {
                   return (
@@ -856,7 +896,7 @@ function FeatureCard({
                         stiffness: 280,
                         damping: 18,
                         mass: 0.7,
-                        delay: isHovered ? 0.12 : 0,
+                        delay: isHovered ? emojiDelay : 0,
                       }}
                       style={{
                         backfaceVisibility: "hidden",
@@ -961,28 +1001,125 @@ function FeatureCard({
             aria-hidden
             initial={false}
             animate={{
-              x: 0,
+              x: isHovered ? 100 : 0,
               scale: isHovered ? 3 : 1,
             }}
             transition={{
               x: {
                 duration: 0.4,
                 ease: [0.25, 0.46, 0.45, 0.94],
+                // Mesmo timing tanto na ida (hover) quanto na volta (hover out)
+                delay: 0,
               },
               scale: {
                 duration: 0.4,
                 ease: [0.25, 0.46, 0.45, 0.94],
+                delay: 0,
               },
             }}
             style={{ transformOrigin: "left bottom" }}
           >
-            <Image
-              src="/kart.svg"
-              alt=""
-              width={24}
-              height={24}
-              className="block"
-            />
+            <div className="relative h-6 w-24">
+              {/* Tomate atrás do carrinho */}
+              <motion.div
+                initial={{ y: -32, opacity: 0, rotate: -8 }}
+                animate={
+                  isHovered
+                    ? { y: 0, opacity: 1, rotate: -2 }
+                    : { y: -32, opacity: 0, rotate: -8 }
+                }
+                transition={{
+                  duration: 0.4,
+                  ease: [0.4, 0, 1, 1],
+                  // Entra depois do carrinho chegar; só começa a sair após o carrinho voltar
+                  delay: isHovered ? 0.4 : 0.4,
+                }}
+                style={{
+                  position: "absolute",
+                  left: 8,
+                  bottom: 9,
+                  zIndex: 0,
+                }}
+              >
+                <Image
+                  src="/tomato.svg"
+                  alt=""
+                  width={10}
+                  height={10}
+                  className="block"
+                />
+              </motion.div>
+
+              {/* Carne – cai entre tomate e suco, um pouco mais alta */}
+              <motion.div
+                initial={{ y: -32, opacity: 0, rotate: -5 }}
+                animate={
+                  isHovered
+                    ? { y: 14, opacity: 1, rotate: -2 }
+                    : { y: -32, opacity: 0, rotate: -5 }
+                }
+                transition={{
+                  duration: 0.4,
+                  ease: [0.4, 0, 1, 1],
+                  // Sobe depois do tomate; só some após o carrinho voltar
+                  delay: isHovered ? 0.55 : 0.4,
+                }}
+                style={{
+                  position: "absolute",
+                  left: 9,
+                  bottom: 27,
+                  zIndex: 0,
+                }}
+              >
+                <Image
+                  src="/meat.svg"
+                  alt=""
+                  width={10}
+                  height={10}
+                  className="block"
+                />
+              </motion.div>
+
+              {/* Suco atrás do carrinho, mais à direita que o tomate e carne */}
+              <motion.div
+                initial={{ y: -32, opacity: 0, rotate: -6 }}
+                animate={
+                  isHovered
+                    ? { y: 1, opacity: 1, rotate: -3 }
+                    : { y: -32, opacity: 0, rotate: -6 }
+                }
+                transition={{
+                  duration: 0.4,
+                  ease: [0.4, 0, 1, 1],
+                  // Cai por último; só começa a sair após o carrinho voltar
+                  delay: isHovered ? 0.7 : 0.4,
+                }}
+                style={{
+                  position: "absolute",
+                  left: 14,
+                  bottom: 11,
+                  zIndex: 0,
+                }}
+              >
+                <Image
+                  src="/juice.svg"
+                  alt=""
+                  width={10}
+                  height={10}
+                  className="block"
+                />
+              </motion.div>
+
+              {/* Carrinho na frente */}
+              <Image
+                src="/kart.svg"
+                alt=""
+                width={24}
+                height={24}
+                className="block"
+                style={{ position: "relative", zIndex: 1 }}
+              />
+            </div>
           </motion.div>
         )}
         <Typography
@@ -1099,7 +1236,7 @@ export function FeaturesSection() {
               : { opacity: 0, transform: "translateY(8px)" }),
           }}
         >
-          Tudo o que você resolve em uma mensagem
+          Nunca mais esqueça nada
         </Typography>
         <Typography
           variant="body-lg"
@@ -1114,7 +1251,7 @@ export function FeaturesSection() {
               : { opacity: 0, transform: "translateY(8px)" }),
           }}
         >
-          Transforme suas mensagens em listas, tarefas e compromissos.
+          O Zappelin te ajuda com a organização e você foca no que importa.
         </Typography>
       </Container>
       <Container as="div" size="lg" className="mt-10">
