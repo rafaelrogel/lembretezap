@@ -674,8 +674,6 @@ def gateway(
             remind_max = min(getattr(job.payload, "remind_again_max_count", 3) or 0, 3)
             if remind_sec and remind_max > 0 and ch == "whatsapp":
                 from zapista.cron.types import CronSchedule
-                # Usar last_run_at_ms (ou now) para garantir que múltiplas instâncias agendem para o MESMO ms
-                # (permitindo que a detecção de duplicatas no .add_job funcione corretamente)
                 base_time = job.state.last_run_at_ms or _now_ms()
                 at_ms = base_time + remind_sec * 1000
                 follow_up = cron.add_job(
@@ -693,6 +691,28 @@ def gateway(
                     is_important=getattr(job.payload, "is_important", False),
                 )
                 metadata_job_id = follow_up.id
+            elif remind_sec and remind_max <= 0 and ch == "whatsapp":
+                # Hard cap reached: auto-mark as done and notify user
+                try:
+                    from backend.locale import REMINDER_AUTO_COMPLETED
+                    from backend.database import SessionLocal
+                    from backend.user_store import get_user_language
+                    from backend.reminder_history import update_on_delivery
+                    db = SessionLocal()
+                    try:
+                        phone_loc = getattr(job.payload, "phone_for_locale", None)
+                        lang = get_user_language(db, to, phone_loc) or "pt-BR"
+                        update_on_delivery(db, to, job.id, job.payload.message or "")
+                    finally:
+                        db.close()
+                    msg_text = (job.payload.message or job.name or "").strip()[:80]
+                    auto_msg = REMINDER_AUTO_COMPLETED.get(lang, REMINDER_AUTO_COMPLETED["en"]).format(message=msg_text)
+                    await bus.publish_outbound(OutboundMessage(
+                        channel=ch, chat_id=to, content=auto_msg,
+                        metadata={"priority": "low"},
+                    ))
+                except Exception as e:
+                    logger.debug(f"Auto-complete reminder failed: {e}")
             await bus.publish_outbound(OutboundMessage(
                 channel=ch,
                 chat_id=to,
