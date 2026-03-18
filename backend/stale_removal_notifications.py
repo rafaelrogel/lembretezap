@@ -125,5 +125,13 @@ def _build_apology_message(
     from backend.locale import STALE_REMOVAL_APOLOGY
     template = STALE_REMOVAL_APOLOGY.get(lang, STALE_REMOVAL_APOLOGY["pt-BR"])
     names = [r[1] if len(r) > 1 and r[1] else r[0] for r in removed]
-    list_part = ", ".join(names)
+    # Truncate to max 10 names to avoid overwhelming WhatsApp messages
+    MAX_DISPLAY = 10
+    if len(names) > MAX_DISPLAY:
+        shown = names[:MAX_DISPLAY]
+        extra = len(names) - MAX_DISPLAY
+        extra_label = {"pt-PT": f"… e mais {extra}", "pt-BR": f"… e mais {extra}", "es": f"… y {extra} más", "en": f"… and {extra} more"}
+        list_part = ", ".join(shown) + " " + extra_label.get(lang, extra_label["en"])
+    else:
+        list_part = ", ".join(names)
     return template.format(removed_list=list_part, count=len(removed))

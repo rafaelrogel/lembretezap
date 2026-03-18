@@ -138,7 +138,7 @@ class CronService:
                             to=j["payload"].get("to"),
                             phone_for_locale=j["payload"].get("phoneForLocale"),
                             remind_again_if_unconfirmed_seconds=j["payload"].get("remindAgainIfUnconfirmedSeconds"),
-                            remind_again_max_count=j["payload"].get("remindAgainMaxCount", 10),
+                            remind_again_max_count=j["payload"].get("remindAgainMaxCount", 3),
                             depends_on_job_id=j["payload"].get("dependsOnJobId"),
                             parent_job_id=j["payload"].get("parentJobId"),
                             has_deadline=j["payload"].get("hasDeadline", False),
@@ -467,8 +467,14 @@ class CronService:
 
         store = self._load_store()
 
-        # Log detalhado para debug (ZAPISTA_LOG_LEVEL=DEBUG)
+        # Per-user cap: max 200 active jobs to prevent runaway chains
+        MAX_JOBS_PER_USER = 200
         existing_for_user = [j for j in store.jobs if getattr(j.payload, "to", None) == to]
+        if to and len(existing_for_user) >= MAX_JOBS_PER_USER:
+            logger.warning(f"Cron: user {(to or '')[:20]} has {len(existing_for_user)} jobs, rejecting add_job")
+            raise ValueError("MAX_REMINDERS_EXCEEDED")
+
+        # Log detalhado para debug (ZAPISTA_LOG_LEVEL=DEBUG)
         logger.debug(
             "Cron add_job: user=%s message=%s schedule_kind=%s every_ms=%s expr=%s at_ms=%s existing_jobs_for_user=%d total_jobs=%d",
             (to or "")[:30],

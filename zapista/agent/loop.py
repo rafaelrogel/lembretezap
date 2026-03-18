@@ -617,6 +617,7 @@ class AgentLoop:
 
     async def _reply_calling_organizer_with_mimo(self, user_lang: str) -> str:
         """Resposta curta e proativa ao ser 'chamado' (Mimo, barato). Uma só frase, no idioma do utilizador."""
+        from backend.locale import CALLING_RESPONSE
         lang_instruction = {
             "pt-PT": "in European Portuguese (Portugal). Examples: Estou aqui!, À postos!, Chamou?",
             "pt-BR": "in Brazilian Portuguese. Examples: Estou aqui!, Opa!, Chamou?, À postos!",
@@ -624,13 +625,7 @@ class AgentLoop:
             "en": "in English. Examples: I'm here!, Hey!, What's up?",
         }.get(user_lang, "in English. Examples: I'm here!, What's up?")
         if not self.scope_provider or not self.scope_model:
-            fallbacks = {
-                "pt-PT": "Estou aqui! O que precisa?",
-                "pt-BR": "Estou aqui! O que precisa?",
-                "es": "¡Aquí! ¿Qué necesitas?",
-                "en": "Here! What do you need?",
-            }
-            return fallbacks.get(user_lang, fallbacks["en"])
+            return CALLING_RESPONSE.get(user_lang, CALLING_RESPONSE["en"])
         try:
             prompt = (
                 "The user just called the assistant (short call like 'Organizador?', 'Tá aí?', 'Are you there?', 'Rapaz?'). "
@@ -648,13 +643,7 @@ class AgentLoop:
                 return out
         except Exception as e:
             logger.debug(f"Mimo reply calling organizer failed: {e}")
-        fallbacks = {
-            "pt-PT": "Estou aqui! O que precisa?",
-            "pt-BR": "Estou aqui! O que precisa?",
-            "es": "¡Aquí! ¿Qué necesitas?",
-            "en": "Here! What do you need?",
-        }
-        return fallbacks.get(user_lang, fallbacks["en"])
+        return CALLING_RESPONSE.get(user_lang, CALLING_RESPONSE["en"])
 
     async def _ask_city_question(self, user_lang: str, name: str) -> str:
         """Pergunta natural em que cidade está (para fuso horário). Mimo primeiro; fallback: texto fixo (sem DeepSeek)."""
