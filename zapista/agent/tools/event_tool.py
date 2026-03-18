@@ -61,6 +61,11 @@ class EventTool(Tool):
     async def execute(self, **kwargs) -> str:
         import logging
         logger = logging.getLogger(__name__)
+        from backend.locale import (
+            EVENT_TOOL_NO_DATE, EVENT_TOOL_ADDED, EVENT_TOOL_EMPTY_AGENDA,
+            EVENT_TOOL_AGENDA_HEADER, EVENT_TOOL_UNKNOWN, EVENT_TOOL_NO_DATE_SHORT,
+            EVENT_TOOL_REMOVED, EVENT_TOOL_NOT_FOUND, EVENT_TOOL_DUPLICATE,
+        )
 
         if not self.chat_id:
             logger.error("EventTool failed: Contexto (chat_id) não definido.")
@@ -143,15 +148,10 @@ class EventTool(Tool):
                         if ex.payload.get("nome", "").lower().strip() == event_text.lower().strip():
                             logger.info(f"EventTool: skipping duplicate event '{event_text}' at {data_at}")
                             local_dt = data_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
-                            dt_str = local_dt.strftime("%d/%m/%Y às %H:%M") if self._get_user_lang() != "en" else local_dt.strftime("%Y-%m-%d at %H:%M")
                             lang = self._get_user_lang()
-                            msgs = {
-                                "pt-PT": f"Evento '{event_text}' já existe na agenda ({dt_str}) [id: E{ex.id}].",
-                                "pt-BR": f"Evento '{event_text}' já existe na agenda ({dt_str}) [id: E{ex.id}].",
-                                "es": f"El evento '{event_text}' ya existe en la agenda ({dt_str}) [id: E{ex.id}].",
-                                "en": f"Event '{event_text}' already exists in the agenda ({dt_str}) [id: E{ex.id}].",
-                            }
-                            return msgs.get(lang, msgs["en"])
+                            _fmt = "%Y-%m-%d at %H:%M" if lang == "en" else ("%d/%m/%Y a las %H:%M" if lang == "es" else "%d/%m/%Y às %H:%M")
+                            dt_str = local_dt.strftime(_fmt)
+                            return EVENT_TOOL_DUPLICATE.get(lang, EVENT_TOOL_DUPLICATE["en"]).format(event_text=event_text, dt_str=dt_str, event_id=ex.id)
                 
                 ev = Event(
                     user_id=user.id,
@@ -163,12 +163,14 @@ class EventTool(Tool):
                 db.commit()
                 db.refresh(ev)
                 
-                dt_str = "sem data definida"
+                lang = self._get_user_lang()
+                dt_str = EVENT_TOOL_NO_DATE.get(lang, EVENT_TOOL_NO_DATE["en"])
                 if ev.data_at:
                     local_dt = ev.data_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
-                    dt_str = local_dt.strftime("%d/%m/%Y às %H:%M")
+                    _fmt = "%Y-%m-%d at %H:%M" if lang == "en" else ("%d/%m/%Y a las %H:%M" if lang == "es" else "%d/%m/%Y às %H:%M")
+                    dt_str = local_dt.strftime(_fmt)
                 
-                return f"Evento '{event_text}' adicionado com sucesso à agenda ({dt_str}) [id: E{ev.id}]."
+                return EVENT_TOOL_ADDED.get(lang, EVENT_TOOL_ADDED["en"]).format(event_text=event_text, dt_str=dt_str, event_id=ev.id)
 
             elif action == "list":
                 from backend.models_db import Event
@@ -180,17 +182,18 @@ class EventTool(Tool):
                     Event.deleted == False
                 ).all()
                 
+                lang = self._get_user_lang()
                 if not events:
-                    return "A agenda está vazia."
+                    return EVENT_TOOL_EMPTY_AGENDA.get(lang, EVENT_TOOL_EMPTY_AGENDA["en"])
                     
-                lines = ["📅 Eventos na Agenda:"]
+                lines = [EVENT_TOOL_AGENDA_HEADER.get(lang, EVENT_TOOL_AGENDA_HEADER["en"])]
                 for ev in events:
-                    nome = ev.payload.get("nome", "Evento Desconhecido")
+                    nome = ev.payload.get("nome", EVENT_TOOL_UNKNOWN.get(lang, EVENT_TOOL_UNKNOWN["en"]))
                     if ev.data_at:
                         local_dt = ev.data_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
                         dt_str = local_dt.strftime("%d/%m %H:%M")
                     else:
-                        dt_str = "S/ Data"
+                        dt_str = EVENT_TOOL_NO_DATE_SHORT.get(lang, EVENT_TOOL_NO_DATE_SHORT["en"])
                     lines.append(f"[id: {ev.id}] {nome} ({dt_str})")
                 
                 return "\n".join(lines)
@@ -217,11 +220,12 @@ class EventTool(Tool):
                     Event.deleted == False
                 ).first()
                 
+                lang = self._get_user_lang()
                 if ev:
                     ev.deleted = True
                     db.commit()
-                    return f"Evento [id: {event_id}] removido com sucesso."
-                return f"Erro: Evento [id: {event_id}] não encontrado na agenda."
+                    return EVENT_TOOL_REMOVED.get(lang, EVENT_TOOL_REMOVED["en"]).format(event_id=event_id)
+                return EVENT_TOOL_NOT_FOUND.get(lang, EVENT_TOOL_NOT_FOUND["en"]).format(event_id=event_id)
 
             else:
                 logger.error(f"EventTool failed: unknown action {action}")

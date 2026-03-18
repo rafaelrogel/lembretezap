@@ -11,13 +11,18 @@ if TYPE_CHECKING:
 def _visao_stats(ctx: "HandlerContext", mode: str = "resumo") -> str:
     """Estatísticas: tarefas feitas (list_feito) e lembretes recebidos (ReminderHistory sent)."""
     from backend.database import SessionLocal
-    from backend.user_store import get_or_create_user, get_user_timezone
+    from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
     from backend.models_db import ReminderHistory, AuditLog
+    from backend.locale import (
+        VIEW_STATS_HEADER, VIEW_STATS_TODAY, VIEW_STATS_WEEK,
+        VIEW_STATS_LAST_7_DAYS, VIEW_STATS_LAST_4_WEEKS, VIEW_ERROR,
+    )
 
     try:
         db = SessionLocal()
         try:
             user = get_or_create_user(db, ctx.chat_id)
+            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
             try:
                 tz = ZoneInfo(tz_iana)
@@ -65,19 +70,19 @@ def _visao_stats(ctx: "HandlerContext", mode: str = "resumo") -> str:
                     if (today - d).days < 7:
                         rem_week += 1
 
-            lines = ["📊 **Estatísticas**"]
+            lines = [VIEW_STATS_HEADER.get(lang, VIEW_STATS_HEADER["en"])]
             if mode == "resumo":
-                lines.append(f"Hoje: {feito_today} tarefas feitas | {rem_today} lembretes")
-                lines.append(f"Esta semana: {feito_week} tarefas | {rem_week} lembretes")
+                lines.append(VIEW_STATS_TODAY.get(lang, VIEW_STATS_TODAY["en"]).format(tasks=feito_today, reminders=rem_today))
+                lines.append(VIEW_STATS_WEEK.get(lang, VIEW_STATS_WEEK["en"]).format(tasks=feito_week, reminders=rem_week))
             elif mode == "dia":
-                lines.append("Últimos 7 dias:")
+                lines.append(VIEW_STATS_LAST_7_DAYS.get(lang, VIEW_STATS_LAST_7_DAYS["en"]))
                 for i in range(6, -1, -1):
                     d = today - timedelta(days=i)
                     fd = feito_by_day.get(d.isoformat(), 0)
                     rd = rem_by_day.get(d.isoformat(), 0)
                     lines.append(f"• {d.strftime('%d/%m')} — {fd} tarefas | {rd} lembretes")
             elif mode == "semana":
-                lines.append("Últimas 4 semanas:")
+                lines.append(VIEW_STATS_LAST_4_WEEKS.get(lang, VIEW_STATS_LAST_4_WEEKS["en"]))
                 for i in range(4):
                     start = today - timedelta(days=6 + i * 7)
                     end = today - timedelta(days=i * 7)
@@ -88,7 +93,7 @@ def _visao_stats(ctx: "HandlerContext", mode: str = "resumo") -> str:
         finally:
             db.close()
     except Exception as e:
-        return f"Erro ao carregar estatísticas: {e}"
+        return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
 
 
 async def handle_stats(ctx: "HandlerContext", content: str) -> str | None:

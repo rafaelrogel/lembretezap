@@ -33,10 +33,11 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
                 if tz_current:
                     from backend.timezone import phone_to_default_timezone
                     def_tz = phone_to_default_timezone(ctx.chat_id)
-                    res = f"📍 Fuso atual: *{tz_current}*"
+                    from backend.locale import SETTINGS_TZ_CURRENT, SETTINGS_TZ_DEFAULT_HINT, SETTINGS_TZ_CHANGE_HINT
+                    res = SETTINGS_TZ_CURRENT.get(lg, SETTINGS_TZ_CURRENT["en"]).format(tz=tz_current)
                     if def_tz and def_tz != tz_current:
-                        res += f" (padrão do número: {def_tz})"
-                    return res + "\n\nPara mudar: `/tz Cidade` ou `/tz Europe/Lisbon`"
+                        res += SETTINGS_TZ_DEFAULT_HINT.get(lg, SETTINGS_TZ_DEFAULT_HINT["en"]).format(tz=def_tz)
+                    return res + SETTINGS_TZ_CHANGE_HINT.get(lg, SETTINGS_TZ_CHANGE_HINT["en"])
             finally:
                 db.close()
         except Exception:
@@ -145,6 +146,18 @@ async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
     is_nl_off = _is_nl_quiet_off(t)
     if not re.match(r"^/(quiet|silencio|silent)", t_lower) and not is_nl_off:
         return None
+    from backend.locale import QUIET_OFF_SUCCESS, QUIET_OFF_ERROR, QUIET_USAGE, QUIET_TIME_FORMAT, QUIET_SAVE_ERROR
+    _qlang = "pt-BR"
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import get_user_language
+        _qdb = SessionLocal()
+        try:
+            _qlang = get_user_language(_qdb, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+        finally:
+            _qdb.close()
+    except Exception:
+        pass
     if is_nl_off:
         rest = ""
     else:
@@ -156,31 +169,31 @@ async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
             db = SessionLocal()
             try:
                 if set_user_quiet(db, ctx.chat_id, None, None):
-                    return "🔔 Horário silencioso desativado. Voltaste a receber notificações a qualquer hora."
+                    return QUIET_OFF_SUCCESS.get(_qlang, QUIET_OFF_SUCCESS["en"])
             finally:
                 db.close()
         except Exception:
             pass
-        return "❌ Erro ao desativar."
+        return QUIET_OFF_ERROR.get(_qlang, QUIET_OFF_ERROR["en"])
     parts = re.split(r"[\s\-–—]+", rest, maxsplit=1)
     if len(parts) < 2:
-        return "🔇 Usa: /quiet 22:00-08:00 (não notificar entre 22h e 8h) ou /quiet off para desativar."
+        return QUIET_USAGE.get(_qlang, QUIET_USAGE["en"])
     start_hhmm, end_hhmm = parts[0].strip(), parts[1].strip()
     try:
         from backend.database import SessionLocal
         from backend.user_store import set_user_quiet, _parse_time_hhmm
         if _parse_time_hhmm(start_hhmm) is None or _parse_time_hhmm(end_hhmm) is None:
-            return "🕐 Horas em HH:MM (ex.: 22:00, 08:00)."
+            return QUIET_TIME_FORMAT.get(_qlang, QUIET_TIME_FORMAT["en"])
         db = SessionLocal()
         try:
             if set_user_quiet(db, ctx.chat_id, start_hhmm, end_hhmm):
                 from backend.locale import QUIET_STATUS
-                return QUIET_STATUS.get(user_lang, QUIET_STATUS["en"]).format(start=start_hhmm, end=end_hhmm)
+                return QUIET_STATUS.get(_qlang, QUIET_STATUS["en"]).format(start=start_hhmm, end=end_hhmm)
         finally:
             db.close()
     except Exception:
         pass
-    return "❌ Erro ao guardar. Usa /quiet 22:00-08:00."
+    return QUIET_SAVE_ERROR.get(_qlang, QUIET_SAVE_ERROR["en"])
 
 
 def _format_current_time_for_user(chat_id: str, lang: str) -> str:

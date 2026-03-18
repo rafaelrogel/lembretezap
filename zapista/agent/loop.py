@@ -148,6 +148,13 @@ class AgentLoop:
             ts = time.time()
         return datetime.fromtimestamp(ts, tz=tz)
 
+    def _get_now_iso(self) -> str:
+        """Helper para obter ISO timestamp string (UTC), usando tempo efectivo."""
+        try:
+            from zapista.clock_drift import get_effective_time
+            ts = get_effective_time()
+        except Exception:
+            ts = time.time()
         return datetime.fromtimestamp(ts).isoformat()
 
     def _clean_llm_response(self, text: str) -> str:
