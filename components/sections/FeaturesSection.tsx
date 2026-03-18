@@ -78,6 +78,169 @@ function getCurrentWeekDates(): Date[] {
   });
 }
 
+const IDEAS_RAIN_EMOJIS = [
+  "/emojis/soccer-ball.svg",
+  "/emojis/saxophone.svg",
+  "/emojis/books.svg",
+  "/emojis/heart.svg",
+  "/emojis/popcorn.svg",
+  "/emojis/shopping-bags.svg",
+  "/emojis/spaghetti.svg",
+  "/emojis/hot-beverage.svg",
+  "/emojis/hamburger.svg",
+  "/emojis/dog.svg",
+  "/emojis/beach.svg",
+  "/emojis/paintbrush.svg",
+  "/emojis/tokyo-tower.svg",
+  "/emojis/boxing-glove.svg",
+  "/emojis/wine-glass.svg",
+];
+
+function IdeasRain({ isHovered }: { isHovered: boolean }) {
+  const idleDuration = 11.5;
+  const hoverDuration = 5.5;
+  const staggerIdle = 0.55;
+  const staggerHover = 0.38;
+  const laneDelayOrder = [0, 2.4, 0.7, 1.8, 1.1, 2.1];
+  const laneCount = 6;
+  const leftPercentStart = 6;
+  const leftPercentEnd = 86;
+  const totalItems = 24;
+
+  const isHoveredRef = useRef(isHovered);
+  isHoveredRef.current = isHovered;
+
+  const delays = useMemo(() => {
+    const dur = idleDuration;
+    const pairOffset = dur / 4;
+    return Array.from({ length: totalItems }, (_, i) => {
+      const laneIndex = i % 6;
+      const slotIndex = Math.floor(i / 6);
+      return slotIndex * pairOffset + laneDelayOrder[laneIndex] * staggerIdle;
+    });
+  }, []);
+
+  // Fases já distribuídas no ciclo para a chuva parecer em andamento desde o primeiro frame (mesmo com card fora da tela)
+  const initialPhases = useMemo(
+    () => Array.from({ length: totalItems }, (_, i) => (i / totalItems) % 1),
+    []
+  );
+  const phasesRef = useRef<number[]>([...initialPhases]);
+  const timeUntilStartRef = useRef<number[]>(Array(totalItems).fill(0));
+
+  const itemConfig = useMemo(() => {
+    return Array.from({ length: totalItems }, (_, i) => {
+      const laneIndex = i % 6;
+      const slotIndex = Math.floor(i / 6);
+      const useEmojisSixToEleven = slotIndex % 2 === 1;
+      const emojiIndex = useEmojisSixToEleven ? 6 + laneIndex : laneIndex;
+      const leftPercent =
+        leftPercentStart +
+        (laneIndex * (leftPercentEnd - leftPercentStart)) / Math.max(laneCount - 1, 1);
+      const rotSeed = ((laneIndex * 37 + slotIndex * 11) % 16) - 8;
+      const drift = ((laneIndex * 19 + slotIndex * 7) % 7) - 3;
+      const laneDriftX = ((laneIndex * 19) % 7) - 3;
+      const startY = -240 - ((laneIndex * 41 + slotIndex * 23) % 95);
+      const endY = 200 + ((laneIndex * 31 + slotIndex * 19) % 80);
+      return {
+        src: IDEAS_RAIN_EMOJIS[emojiIndex],
+        leftPercent,
+        laneDriftX,
+        rotSeed,
+        drift,
+        startY,
+        endY,
+      };
+    });
+  }, []);
+
+  const initialPositions = useMemo(
+    () =>
+      itemConfig.map((cfg, i) => {
+        const p = initialPhases[i];
+        const y = cfg.startY + (cfg.endY - cfg.startY) * p;
+        const opacity =
+          p < 0.3 ? p / 0.3 : p < 0.4 ? 1 : p < 1 ? Math.max(0, 1 - (p - 0.4) / 0.6) : 0;
+        const scale =
+          p < 0.3 ? 0.95 + (0.05 * p) / 0.3 : p < 0.4 ? 1 : p < 1 ? 1 - (0.02 * (p - 0.4)) / 0.6 : 0.98;
+        const rotate =
+          p < 0.3
+            ? cfg.rotSeed + cfg.drift * 1.2 * (p / 0.3)
+            : p < 0.4
+              ? cfg.rotSeed + cfg.drift * 1.2
+              : cfg.rotSeed + cfg.drift * 1.2 - cfg.drift * 1.2 * ((p - 0.4) / 0.6);
+        return { y, opacity, scale, rotate };
+      }),
+    [itemConfig, initialPhases]
+  );
+
+  const [positions, setPositions] = useState<
+    Array<{ y: number; opacity: number; scale: number; rotate: number }>
+  >(initialPositions);
+
+  useEffect(() => {
+    let rafId: number;
+    let lastT = 0;
+    const loop = (t: number) => {
+      rafId = requestAnimationFrame(loop);
+      const deltaMs = Math.min(t - lastT, 100);
+      lastT = t;
+      const duration = isHoveredRef.current ? hoverDuration : idleDuration;
+      const deltaSec = deltaMs / 1000;
+      const phases = phasesRef.current;
+      const timeUntilStart = timeUntilStartRef.current;
+      const nextPositions = itemConfig.map((cfg, i) => {
+        if (timeUntilStart[i] > 0) {
+          timeUntilStart[i] -= deltaSec;
+          const y = cfg.startY;
+          const opacity = 0;
+          const scale = 0.95;
+          const rotate = cfg.rotSeed;
+          return { y, opacity, scale, rotate };
+        }
+        phases[i] += deltaSec / duration;
+        if (phases[i] >= 1) phases[i] -= 1;
+        const p = phases[i];
+        const y = cfg.startY + (cfg.endY - cfg.startY) * p;
+        const opacity =
+          p < 0.3 ? p / 0.3 : p < 0.4 ? 1 : p < 1 ? Math.max(0, 1 - (p - 0.4) / 0.6) : 0;
+        const scale = p < 0.3 ? 0.95 + (0.05 * p) / 0.3 : p < 0.4 ? 1 : p < 1 ? 1 - (0.02 * (p - 0.4)) / 0.6 : 0.98;
+        const rotate =
+          p < 0.3
+            ? cfg.rotSeed + cfg.drift * 1.2 * (p / 0.3)
+            : p < 0.4
+              ? cfg.rotSeed + cfg.drift * 1.2
+              : cfg.rotSeed + cfg.drift * 1.2 - cfg.drift * 1.2 * ((p - 0.4) / 0.6);
+        return { y, opacity, scale, rotate };
+      });
+      setPositions(nextPositions);
+    };
+    rafId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(rafId);
+  }, [itemConfig]);
+
+  return (
+    <>
+      {itemConfig.map((cfg, i) => (
+        <div
+          key={`ideas-rain-${i}-${cfg.src}`}
+          className="absolute top-0"
+          style={{
+            left: `${cfg.leftPercent}%`,
+            transform: `translateX(-50%) translateX(${cfg.laneDriftX * 2 + 12}px) translateY(${positions[i].y}px) scale(${positions[i].scale}) rotate(${positions[i].rotate}deg)`,
+            width: 32,
+            height: 32,
+            zIndex: 0,
+            opacity: positions[i].opacity,
+          }}
+        >
+          <Image src={cfg.src} alt="" width={32} height={32} className="block" />
+        </div>
+      ))}
+    </>
+  );
+}
+
 function FeatureCard({
   title,
   description,
@@ -173,6 +336,7 @@ function FeatureCard({
 
   const isPlaneCard = title === "Planejar viagem";
   const isTodosCard = title === "Listas de coisas para fazer";
+  const isIdeasCard = title === "Coisas para fazer";
   const isDatesCard = title === "Datas importantes";
   const isShoppingListCard = title === "Lista de compras";
   const showDatesCalendar = isDatesCard;
@@ -219,7 +383,9 @@ function FeatureCard({
   return (
     <div
       className={`features-card ${cardClass} flex min-h-[16rem] min-w-0 flex-col rounded-2xl bg-[#FFFEFC] p-5 shadow-[0_4px_16px_rgba(15,23,42,0.06)] ${
-        isPlaneCard || isTodosCard || isDatesCard || isShoppingListCard ? "relative overflow-hidden" : ""
+        isPlaneCard || isTodosCard || isIdeasCard || isDatesCard || isShoppingListCard
+          ? "relative overflow-hidden"
+          : ""
       } ${shouldAnimate ? "animate-features-card-in" : ""}`}
       style={shouldAnimate ? { animationDelay } : undefined}
       onMouseEnter={() => {
@@ -245,11 +411,11 @@ function FeatureCard({
           className="pointer-events-none absolute left-8 right-8 bottom-8 top-4 z-0 rounded-[18px]"
           aria-hidden
           style={{
-            backgroundImage: "url('/imagem.png')",
+            backgroundImage: "url('/imagem de background.png')",
             backgroundSize: "102% auto",
-            backgroundPosition: "top center",
+            backgroundPosition: "center 8px",
             backgroundRepeat: "no-repeat",
-            opacity: isHovered ? 0.4 : 0.2,
+            opacity: isHovered ? 0.55 : 0.35,
             transition: "opacity 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94)",
           }}
         />
@@ -407,6 +573,7 @@ function FeatureCard({
           </motion.div>
         </>
       )}
+
       {isPlaneCard && (
         <div
           className="pointer-events-none absolute bottom-[20px] right-[20px] z-0 flex min-w-0 items-end justify-end gap-[16px] overflow-hidden"
@@ -722,6 +889,16 @@ function FeatureCard({
               }}
             />
           </div>
+        </div>
+      )}
+
+      {/* Coisas para fazer: chuva estilo Matrix usando emojis (velocidade muda no hover sem reinício) */}
+      {isIdeasCard && (
+        <div
+          className="pointer-events-none absolute inset-x-4 top-0 bottom-0 z-0 overflow-hidden"
+          aria-hidden
+        >
+          <IdeasRain isHovered={isHovered} />
         </div>
       )}
 
