@@ -74,7 +74,7 @@ def _reminders_today(ctx: "HandlerContext", tz, today_start_utc_ms: int, period_
 def _visao_hoje(ctx: "HandlerContext") -> str:
     """/hoje: agenda + lembretes do dia."""
     from backend.database import SessionLocal
-    from backend.user_store import get_or_create_user, get_user_timezone
+    from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
 
     try:
         db = SessionLocal()
