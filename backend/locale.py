@@ -254,6 +254,14 @@ ONBOARDING_RESET_HINT: dict[LangCode, str] = {
     "en": " /reset to redo registration anytime.",
 }
 
+# Resposta curta quando o utilizador "chama" o bot (ex.: "Organizador?", "Rapaz?", "Tá aí?")
+CALLING_RESPONSE: dict[LangCode, str] = {
+    "pt-PT": "Estou aqui! O que precisas? 😊",
+    "pt-BR": "Estou aqui! O que precisa? 😊",
+    "es": "¡Aquí estoy! ¿Qué necesitas? 😊",
+    "en": "I'm here! What do you need? 😊",
+}
+
 # --- Onboarding simplificado: fuso primeiro (sem bloquear o sistema) ---
 # Intro: o mais importante é onde a pessoa está para lembretes na hora certa
 def onboarding_intro_message(lang: LangCode, name: str | None = None) -> str:

@@ -652,7 +652,7 @@ class CronTool(Tool):
              remind_again_if_unconfirmed_seconds = 3600 # 1h
              remind_again_max_count = 1
         else:
-             remind_again_max_count = 10 # default original para recorrência/deadline se setado
+             remind_again_max_count = 3 # cap follow-ups to avoid runaway chains (was 10)
 
         try:
             job = self._cron.add_job(
