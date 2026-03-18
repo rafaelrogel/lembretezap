@@ -1362,6 +1362,13 @@ CONFIRM_COMPLETION_DONE: dict[LangCode, str] = {
     "en": "✅ Marked as done!",
 }
 
+REMINDER_AUTO_COMPLETED: dict[LangCode, str] = {
+    "pt-PT": "✅ Como não respondeste, marquei automaticamente como feito: *{message}*. Se ainda precisas, cria um novo lembrete.",
+    "pt-BR": "✅ Como você não respondeu, marquei automaticamente como feito: *{message}*. Se ainda precisa, crie um novo lembrete.",
+    "es": "✅ Como no respondiste, lo marqué automáticamente como hecho: *{message}*. Si aún lo necesitas, crea un nuevo recordatorio.",
+    "en": "✅ Since you didn't respond, I auto-marked it as done: *{message}*. If you still need it, create a new reminder.",
+}
+
 CONFIRM_COMPLETION_ERROR: dict[LangCode, str] = {
     "pt-PT": "Ocorreu um erro. Tenta reagir com 👍 novamente ao lembrete.",
     "pt-BR": "Ocorreu um erro. Tente reagir com 👍 novamente ao lembrete.",
