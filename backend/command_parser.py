@@ -14,7 +14,7 @@ RE_LEMBRETE = re.compile(r"^/(?:lembrete|reminder|recordatorio)\s+(.+)$", re.I)
 RE_LIST_ADD = re.compile(r"^/(?:list|lista)\s+(\S+)\s+add\s+(.+)$", re.I)
 # /list filme|livro|musica|receita|notas|nota|sites|site|links|link <item> (categorias; sem "add")
 RE_LIST_CATEGORY_ADD = re.compile(
-    r"^/(?:list|lista)\s+(filme|filmes|livro|livros|musica|musicas|m[uú]sicas?|receita|receitas|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+(.+)$",
+    r"^/(?:list|lista)\s+(filme|filmes|livro|livros|musica|musicas|m[uú]sicas?|receita|receitas|recipe|recipes|receta|recetas|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+(.+)$",
     re.I,
 )
 RE_LIST_SHOW = re.compile(r"^/(?:list|lista)\s+(\S+)\s*$", re.I)

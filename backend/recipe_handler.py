@@ -16,6 +16,7 @@ if TYPE_CHECKING:
 
 # Padrões que indicam pedido de receita/ingredientes
 _RECIPE_PATTERNS = (
+    # PT
     r"me\s+lembre\s+(?:a\s+)?receita",
     r"lembre\s+(?:me\s+)?(?:a\s+)?receita",
     r"fa[cç]a\s+uma\s+lista\s+de\s+ingredientes",
@@ -26,6 +27,17 @@ _RECIPE_PATTERNS = (
     r"receita\s+(?:de|da|para)\s+",
     r"como\s+fazer\s+\w+",
     r"passo\s+a\s+passo\s+para\s+fazer",
+    # EN
+    r"recipe\s+(?:for|of)\s+",
+    r"how\s+to\s+make\s+\w+",
+    r"ingredients\s+(?:for|of|to)\s+",
+    r"ingredient\s+list\s+for",
+    r"step\s+by\s+step\s+(?:for|to)\s+",
+    # ES
+    r"receta\s+(?:de|del|para)\s+",
+    r"ingredientes\s+para\s+hacer",
+    r"c[oó]mo\s+hacer\s+\w+",
+    r"lista\s+de\s+ingredientes\s+para\s+hacer",
 )
 
 # Padrões para salvar receita fornecida pelo usuário
@@ -44,7 +56,9 @@ PERPLEXITY_TIMEOUT = 45
 
 
 _STOP_AT_PATTERNS = re.compile(
-    r"^(modo\s+de\s+preparo|passos?|instru[cç][oõ]es|preparo|como\s+fazer|dire[cç][oõ]es)\s*:?\s*$",
+    r"^(modo\s+de\s+preparo|passos?|instru[cç][oõ]es|preparo|como\s+fazer|dire[cç][oõ]es"
+    r"|instructions?|directions?|preparation|steps|method|how\s+to\s+make"
+    r"|preparaci[oó]n|instrucciones|pasos)\s*:?\s*$",
     re.I,
 )
 
