@@ -21,6 +21,12 @@ def _is_eventos_unificado_intent(content: str) -> bool:
       - "mis recordatorios para marzo"
     """
     t = (content or "").strip().lower()
+    # Exclude requests clearly about lists (compras, mercado, filmes, etc.)
+    if re.search(r"\blista\s+de\s+(?:compras|mercado|filmes?|livros?|m[uú]sicas?|receitas?|notas?|tarefas?|pendentes)", t):
+        return False
+    if re.search(r"\b(?:minha|meu)\s+lista\b", t):
+        return False
+
     patterns = [
         # PT: "meus lembretes", "meus eventos", "meus lembretes para 2027", "mostre meus lembretes para esta semana"
         r"meus?\s+eventos?",
