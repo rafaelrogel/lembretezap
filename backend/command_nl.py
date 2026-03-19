@@ -98,6 +98,10 @@ def normalize_nl_to_command(content: str) -> str:
         return "/semana"
     if lower == "agenda":
         return "/agenda"
+    # "agenda 21 de março", "agenda de amanhã", "agenda desta semana", etc.
+    m = re.match(r"^agenda\s+(.+)$", lower)
+    if m and m.group(1).strip():
+        return f"/agenda {m.group(1).strip()}"
     if re.match(r"^(minha\s+agenda|o\s+que\s+tenho\s+agendado|what\s+is\s+on\s+my\s+agenda|mi\s+agenda|my\s+agenda)\s*(.*)$", lower):
         m = re.match(r"^(minha\s+agenda|o\s+que\s+tenho\s+agendado|what\s+is\s+on\s+my\s+agenda|mi\s+agenda|my\s+agenda)\s*(.*)$", lower)
         suffix = m.group(2).strip()
