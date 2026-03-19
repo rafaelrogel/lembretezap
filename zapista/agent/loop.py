@@ -1843,8 +1843,24 @@ class AgentLoop:
             from backend.context_reasoner import classify_intent_with_full_context
             session = self.sessions.get_or_create(msg.session_key)
             history = session.get_history(max_messages=10)
+            
+            # Obter last_list_name do utilizador para contexto
+            last_list = None
+            try:
+                from backend.database import SessionLocal
+                from backend.user_store import get_or_create_user
+                _db = SessionLocal()
+                try:
+                    _u = get_or_create_user(_db, msg.chat_id)
+                    last_list = _u.last_list_name
+                finally:
+                    _db.close()
+            except Exception:
+                pass
+
             contextual_intent = await classify_intent_with_full_context(
-                history, msg.content, self.scope_provider or self.provider, self.scope_model
+                history, msg.content, self.scope_provider or self.provider, self.scope_model,
+                last_list=last_list
             )
             if contextual_intent and contextual_intent.get("type") == "list_add" and self.tools.get("list"):
                 list_name = contextual_intent["list_name"]

@@ -93,8 +93,19 @@ class ListTool(Tool):
         db = SessionLocal()
         try:
             user = get_or_create_user(db, self._chat_id)
+            # Save last_list_name for context (only if list_name was provided or inferred)
+            if list_name and list_name.strip():
+                ln_norm = self._normalize_list_name(list_name)
+                if ln_norm:
+                    user.last_list_name = ln_norm
+                    db.commit()
+
             if action == "add":
                 list_clean = self._normalize_list_name(sanitize_string(list_name or "", MAX_LIST_NAME_LEN))
+                # Fallback to last_list_name if none provided or it's a connector
+                if not list_clean and user.last_list_name:
+                    list_clean = user.last_list_name
+
                 # Receitas e conteúdo longo: até MAX_LIST_ITEM_TEXT_LEN, com newlines
                 item_clean = sanitize_string(item_text or "", MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
                 corrected = await suggest_correction(
@@ -104,13 +115,32 @@ class ListTool(Tool):
                 )
                 if corrected:
                     item_clean = sanitize_string(corrected, MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
-                return self._add(db, user.id, list_clean, item_clean, no_split=no_split)
+                
+                result = self._add(db, user.id, list_clean, item_clean, no_split=no_split)
+                
+                # Update last_list_name based on resolved list_clean (might have been "ai" -> "filme")
+                if list_clean:
+                    user.last_list_name = list_clean
+                    db.commit()
+                return result
+
             if action == "habitual":
                 return await self._habitual(db, user.id, list_name or "")
             if action == "list":
-                return self._list(db, user.id, list_name)
+                res = self._list(db, user.id, list_name)
+                # If viewing a specific list, update last_list_name
+                ln_norm = self._normalize_list_name(list_name)
+                if ln_norm:
+                    user.last_list_name = ln_norm
+                    db.commit()
+                return res
             if action == "remove":
-                return self._remove(db, user.id, list_name, item_id)
+                res = self._remove(db, user.id, list_name, item_id)
+                ln_norm = self._normalize_list_name(list_name)
+                if ln_norm:
+                    user.last_list_name = ln_norm
+                    db.commit()
+                return res
             if action == "delete_list":
                 return self._delete_list(db, user.id, list_name)
             if action == "feito":
@@ -120,7 +150,12 @@ class ListTool(Tool):
                         from backend.locale import LIST_ITEM_NOT_FOUND_GLOBAL
                         lang = self._get_lang()
                         return LIST_ITEM_NOT_FOUND_GLOBAL.get(lang, LIST_ITEM_NOT_FOUND_GLOBAL["en"]).format(item_id=item_id)
-                return self._feito(db, user.id, list_name, item_id)
+                res = self._feito(db, user.id, list_name, item_id)
+                ln_norm = self._normalize_list_name(list_name)
+                if ln_norm:
+                    user.last_list_name = ln_norm
+                    db.commit()
+                return res
             if action == "shuffle":
                 return self._shuffle(db, user.id, list_name or "")
             return f"Unknown action: {action}"
@@ -183,7 +218,11 @@ class ListTool(Tool):
         'chamada'/'chamado' (PT), 'llamada'/'llamado' (ES), 'called'/'named' (EN)
         mean 'named' -- they are not list names themselves.
         """
-        _CONNECTORS = {"chamada", "chamado", "llamada", "llamado", "called", "named"}
+        _CONNECTORS = {
+            "chamada", "chamado", "llamada", "llamado", "called", "named",
+            "ai", "aí", "ahi", "ahí", "ali", "allí", "here", "there", "aqui", "aquí",
+            "lá", "alla", "allá", "it", "esto", "eso", "isto", "isso"
+        }
         stripped = (name or "").strip().lower()
         if stripped in _CONNECTORS:
             return ""
@@ -191,6 +230,13 @@ class ListTool(Tool):
 
     def _add(self, db, user_id: int, list_name: str, item_text: str, no_split: bool = False) -> str:
         list_name = self._normalize_list_name(sanitize_string(list_name or "", MAX_LIST_NAME_LEN))
+        
+        # Fallback to last used list if name is empty (connector)
+        if not list_name:
+            user = db.query(User).filter(User.id == user_id).first()
+            if user and user.last_list_name:
+                list_name = user.last_list_name
+        
         item_text = sanitize_string(item_text or "", MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
         if not list_name:
             from backend.locale import LIST_NAME_REQUIRED_ADD
