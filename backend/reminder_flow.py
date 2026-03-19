@@ -256,6 +256,77 @@ def _am_pm_to_24(m) -> tuple[int, int]:
     return (h24, mn)
 
 
+# Word-to-number map for written-out hours (PT/ES/EN)
+_WORD_TO_HOUR: dict[str, int] = {
+    # Portuguese
+    "uma": 1, "duas": 2, "três": 3, "tres": 3, "quatro": 4, "cinco": 5,
+    "seis": 6, "sete": 7, "oito": 8, "nove": 9, "dez": 10,
+    "onze": 11, "doze": 12, "treze": 13, "catorze": 14, "quatorze": 14,
+    "quinze": 15, "dezesseis": 16, "dezasseis": 16, "dezessete": 17, "dezassete": 17,
+    "dezoito": 18, "dezenove": 19, "dezanove": 19, "vinte": 20,
+    "vinte e uma": 21, "vinte e duas": 22, "vinte e três": 23, "vinte e tres": 23,
+    # Spanish
+    "uno": 1, "dos": 2, "cuatro": 4, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
+    "once": 11, "doce": 12, "trece": 13, "catorce": 14, "quince": 15,
+    "dieciséis": 16, "dieciseis": 16, "diecisiete": 17, "dieciocho": 18,
+    "diecinueve": 19, "veinte": 20, "veintiuna": 21, "veintidós": 22, "veintidos": 22,
+    "veintitrés": 23, "veintitres": 23,
+    # English
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+    "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+    "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17,
+    "eighteen": 18, "nineteen": 19, "twenty": 20,
+}
+
+def _parse_written_time(text: str) -> tuple[int, int] | None:
+    """Parse written-out time: 'duas da tarde', 'quatorze horas', 'meio-dia', 'three thirty pm', etc."""
+    t = text.strip().lower()
+    # meio-dia / mediodía / noon
+    if re.search(r"\b(meio[\s-]?dia|mediod[ií]a|noon)\b", t):
+        return (12, 0)
+    # meia-noite / medianoche / midnight
+    if re.search(r"\b(meia[\s-]?noite|medianoche|midnight)\b", t):
+        return (0, 0)
+
+    # Extract minute modifiers FIRST (before hour lookup consumes "quinze" etc.)
+    minute = 0
+    t_for_hour = t
+    if re.search(r"\b(e\s+meia|y\s+media|thirty|half)\b", t):
+        minute = 30
+        t_for_hour = re.sub(r"\b(e\s+meia|y\s+media|thirty|half)\b", "", t).strip()
+    elif re.search(r"\b(e\s+quarenta\s+e\s+cinco|forty[\s-]?five)\b", t):
+        minute = 45
+        t_for_hour = re.sub(r"\b(e\s+quarenta\s+e\s+cinco|forty[\s-]?five)\b", "", t).strip()
+    elif re.search(r"\be\s+quinze\b", t):
+        minute = 15
+        t_for_hour = re.sub(r"\be\s+quinze\b", "", t).strip()
+    elif re.search(r"\b(y\s+cuarto|fifteen|quarter)\b", t):
+        minute = 15
+        t_for_hour = re.sub(r"\b(y\s+cuarto|fifteen|quarter)\b", "", t).strip()
+
+    # Try to find a written hour word (sort by length desc so "vinte e três" matches before "três")
+    found_hour = None
+    for word, h in sorted(_WORD_TO_HOUR.items(), key=lambda x: -len(x[0])):
+        if word in t_for_hour:
+            found_hour = h
+            break
+    if found_hour is None:
+        return None
+
+    # AM/PM: "da tarde/noite" → PM, "da manhã/madrugada" → AM
+    if found_hour <= 12:
+        if re.search(r"\b(da\s+tarde|da\s+noite|de\s+la\s+tarde|de\s+la\s+noche|p\.?m\.?)\b", t):
+            if found_hour < 12:
+                found_hour += 12
+        elif re.search(r"\b(da\s+manh[ãa]|da\s+madrugada|de\s+la\s+ma[ñn]ana|a\.?m\.?)\b", t):
+            if found_hour == 12:
+                found_hour = 0
+
+    if 0 <= found_hour <= 23 and 0 <= minute <= 59:
+        return (found_hour, minute)
+    return None
+
+
 # Parsing de hora na resposta do utilizador
 _TIME_RESPONSE_PATTERNS = (
     (r"(\d{1,2}):(\d{2})\s*(am|pm)\b", _am_pm_to_24),  # 3:25 PM, 10:30 AM (antes dos outros)
@@ -275,6 +346,7 @@ def parse_time_from_response(text: str) -> tuple[int, int] | None:
     if not text or not text.strip():
         return None
     t = text.strip()
+    # 1) Numeric patterns first
     for pattern, extractor in _TIME_RESPONSE_PATTERNS:
         m = re.search(pattern, t, re.I)
         if m:
@@ -284,7 +356,8 @@ def parse_time_from_response(text: str) -> tuple[int, int] | None:
                     return h, mn
             except (ValueError, IndexError, AttributeError):
                 pass
-    return None
+    # 2) Written-out time ("duas da tarde", "quatorze horas", "meio-dia")
+    return _parse_written_time(t)
 
 
 # Parsing de antecedência (30 min, 1 hora)
