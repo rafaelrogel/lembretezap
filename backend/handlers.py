@@ -220,15 +220,6 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
     if tz_iana == "UTC" and user_lang in DEFAULT_TZ_BY_LANG:
         tz_iana = DEFAULT_TZ_BY_LANG[user_lang]
 
-    # #region agent log
-    try:
-        import json as _j
-        _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
-        open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "handlers.handle_vague_time_reminder.tz", "message": "tz_iana set", "data": {"tz_iana": tz_iana, "chat_id_prefix": (ctx.chat_id or "")[:24]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n")
-    except Exception:
-        pass
-    # #endregion
-
     def _retry_or_fail(flow: dict, current_question: str) -> str | None:
         """Incrementa retry_count; se >= MAX_RETRIES, desiste e retorna REMINDER_FAILED_NO_INFO."""
         retry = flow.get("retry_count", 0) + 1
@@ -274,14 +265,6 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
             if parsed:
                 hour, minute = parsed
                 in_sec = compute_in_seconds_from_date_hour(date_label, hour, minute, tz_iana)
-                # #region agent log
-                try:
-                    import json as _j
-                    _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
-                    open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "handlers.STAGE_NEED_TIME.after_compute", "message": "computed in_sec", "data": {"tz_iana": tz_iana, "date_label": date_label, "hour": hour, "minute": minute, "in_sec": in_sec, "chat_id_prefix": (ctx.chat_id or "")[:24]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H3"}) + "\n")
-                except Exception:
-                    pass
-                # #endregion
                 if in_sec and in_sec > 0:
                     session.metadata[FLOW_KEY] = {
                         "stage": STAGE_NEED_ADVANCE_PREFERENCE,

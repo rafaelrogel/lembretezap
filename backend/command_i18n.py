@@ -77,26 +77,16 @@ _SORTED_ALIASES: list[tuple[str, str]] = sorted(
 
 def normalize_command(content: str) -> str:
     """Substitui o comando inicial pela forma canónica se for um alias conhecido (suporta multi-word)."""
-    import json as _j, os as _os
-    _log_path = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", "nanobot", ".cursor", "debug.log"))
-    
     if not content or not isinstance(content, str):
         return content
     t = content.strip()
     if not t:
         return content
-    
+
     tl = t.lower()
     for alias, canonical in _SORTED_ALIASES:
-        # Se começa por alias + espaço ou é exatamente o alias
         if tl == alias or tl.startswith(alias + " "):
             rest = t[len(alias):].strip()
-            out = f"{canonical} {rest}" if rest else canonical
-            
-            # #region agent log
-            try: open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "command_i18n.normalize_command", "message": "normalized", "data": {"in": content[:100], "out": out, "alias": alias}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n"); pass
-            except Exception: pass
-            # #endregion
-            return out
-            
+            return f"{canonical} {rest}" if rest else canonical
+
     return content
