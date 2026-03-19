@@ -1,10 +1,4 @@
-"""Handlers de comandos EXATAMENTE como no README: /lembrete, /list nome add item, /feito nome id.
-
-- Sem botões interativos (sem Business API): confirmações com texto "1=sim 2=não".
-- TODO: Após WhatsApp Business API, use buttons: sendButtons(['Confirmar','Cancelar']).
-- Persistência em SQLite (user_phone → listas/lembretes) via backend.models_db e cron.
-- Baileys via gateway: resposta em texto (client.sendMessage(jid, {text: msg})).
-"""
+"""Handlers for reminders: /lembrete, vague-time flow, recurring prompts, recurring events, pending confirmation."""
 
 from __future__ import annotations
 
@@ -16,31 +10,9 @@ if TYPE_CHECKING:
     from zapista.agent.tools.list_tool import ListTool
     from zapista.cron.service import CronService
 
-from backend.handler_context import HandlerContext, _reply_confirm_prompt
+from backend.handler_context import HandlerContext
 from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
-
-
-def _append_tz_hint_if_needed(reply: str, chat_id: str, phone_for_locale: str | None = None) -> str:
-    """Se o timezone não foi informado pelo cliente, acrescenta dica para /tz Cidade."""
-    if not reply or not reply.strip():
-        return reply
-    try:
-        from backend.database import SessionLocal
-        from backend.user_store import get_user_timezone_and_source, get_user_language
-        from backend.locale import TZ_HINT_SET_CITY, resolve_response_language
-        db = SessionLocal()
-        try:
-            _, source = get_user_timezone_and_source(db, chat_id, phone_for_locale)
-            if source == "db":
-                return reply
-            lang = get_user_language(db, chat_id, phone_for_locale) or "en"
-            lang = resolve_response_language(lang, chat_id, phone_for_locale)
-            hint = TZ_HINT_SET_CITY.get(lang, TZ_HINT_SET_CITY["en"])
-            return f"{reply.strip()}\n\n{hint}"
-        finally:
-            db.close()
-    except Exception:
-        return reply
+from backend.handlers.utils import _append_tz_hint_if_needed
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +187,7 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
     except Exception:
         pass
 
-    # Fallback: se timezone ficou UTC, usar fuso padrão do idioma (chat_id pode ser LID sem dígitos)
+    # Fallback: se timezone ficou UTC, usar fuso padrão do idioma
     from backend.timezone import DEFAULT_TZ_BY_LANG
     if tz_iana == "UTC" and user_lang in DEFAULT_TZ_BY_LANG:
         tz_iana = DEFAULT_TZ_BY_LANG[user_lang]
@@ -282,7 +254,6 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
 
         elif stage == STAGE_NEED_ADVANCE_PREFERENCE:
             if looks_like_no_reminder_at_all(text):
-                # Cliente não quer NENHUM lembrete; evento já está na agenda. Nudge proativo 12h antes se evento importante.
                 session.metadata.pop(FLOW_KEY, None)
                 ctx.session_manager.save(session)
                 in_sec = flow.get("in_seconds")
@@ -314,7 +285,6 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                 return EVENT_REGISTERED_NO_REMINDER.get(user_lang, EVENT_REGISTERED_NO_REMINDER["en"])
 
             if looks_like_advance_preference_no(text):
-                # Só na hora → criar 1 lembrete
                 in_sec = flow.get("in_seconds")
                 if in_sec and in_sec > 0:
                     session.metadata.pop(FLOW_KEY, None)
@@ -335,7 +305,6 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                 ctx.session_manager.save(session)
                 return REMINDER_ASK_ADVANCE_AMOUNT.get(user_lang, REMINDER_ASK_ADVANCE_AMOUNT["en"])
 
-            # Tentar parse direto (ex: "30 min" como resposta)
             advance_sec = parse_advance_seconds(text)
             if advance_sec:
                 in_sec = flow.get("in_seconds")
@@ -343,7 +312,6 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                     session.metadata.pop(FLOW_KEY, None)
                     ctx.session_manager.save(session)
                     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
-                    # 2 lembretes: aviso (in_sec - advance_sec) e na hora (in_sec)
                     advance_in_sec = max(60, in_sec - advance_sec)
                     from backend.locale import REMINDER_ADVANCE_NOTICE_PREFIX
                     prefix = REMINDER_ADVANCE_NOTICE_PREFIX.get(user_lang, REMINDER_ADVANCE_NOTICE_PREFIX["en"])
@@ -390,10 +358,9 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
             q = REMINDER_ASK_ADVANCE_AMOUNT.get(user_lang, REMINDER_ASK_ADVANCE_AMOUNT["en"])
             return _retry_or_fail(flow, q)
 
-        # Fallback: resposta inválida em stage desconhecido
         return None
 
-    # --- Novo pedido com evento + data + hora completos (ex.: "preciso ir ao médico amanhã às 17h") → agenda + perguntar lembrete ---
+    # --- Novo pedido com evento + data + hora completos ---
     if flow is None:
         from backend.reminder_flow import (
             parse_full_event_datetime,
@@ -486,11 +453,7 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
 
 
 # ---------------------------------------------------------------------------
-# Confirmações (1=sim 2=não). Sem botões.
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# Handlers por comando (README: /lembrete, /list, /feito)
+# Handlers por comando: /lembrete
 # ---------------------------------------------------------------------------
 
 def _looks_like_reminder_nl(text: str) -> bool:
@@ -500,33 +463,23 @@ def _looks_like_reminder_nl(text: str) -> bool:
     t = text.strip().lower()
     if t.startswith("/"):
         return False
-    
-    # Import tardio para evitar circular dependancy
+
     from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
-    
-    # Se contém keyword de lembrete E algo que pareça tempo
+
     has_kw = any(kw in t for kw in ALL_REMINDER_KEYWORDS)
-    
-    # Padrões de tempo: "hoje", "amanhã", "daqui a", "em 2 min", "as 10h", etc.
+
     time_ref = (
         "hoje" in t or "amanhã" in t or "amanha" in t or "às " in t or "as " in t
-        or "dia " in t or "daqui" in t or " em " in t 
+        or "dia " in t or "daqui" in t or " em " in t
         or re.search(r"\d{1,2}\s*(min|h|seg|dia|mes|ano)", t, re.I) is not None
         or re.search(r"\d{1,2}\s*/\s*\d", t) is not None
         or re.search(r"\d{1,2}[:h]\d{2}", t, re.I) is not None
     )
-    
-    # Se for muito curto (ex: "Lembre-me"), não é suficiente sem tempo
+
     if len(t) < 7:
         return False
-        
+
     return has_kw and time_ref
-
-
-def _normalize_nl_to_command(content: str) -> str:
-    """Reexport para uso neste módulo; lógica em backend.command_nl."""
-    from backend.command_nl import normalize_nl_to_command
-    return normalize_nl_to_command(content)
 
 
 async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
@@ -537,12 +490,11 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     from backend.locale import LangCode, resolve_response_language
     from backend.user_store import get_user_language, get_user_timezone
     from backend.database import SessionLocal
+    from backend.handlers.utils import _normalize_nl_to_command
 
     text = content.strip()
-    # Se parecer pedido de remoção / cancelamento, ignorar e deixar para o Agente ou handler específico
     t_lower = text.lower()
     if any(kw in t_lower for kw in ["remov", "delet", "apag", "cancel", "para", "stop", "tirar"]):
-        # A menos que seja um comando explícito /lembrete (mas mesmo assim o Agent é mais robusto para ID vs Nome)
         if not text.startswith("/"):
             return None
 
@@ -597,8 +549,6 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     every_sec = intent.get("every_seconds")
     cron_expr = intent.get("cron_expr")
 
-    # Verificação rigorosa de tempo passado: se for > 60s no passado, rejeitar imediatamente.
-    # O cron_tool também valida, mas aqui damos resposta directa sem tentar agendar.
     if in_sec is not None and in_sec < -60:
         from backend.locale import REMINDER_TIME_PAST_TODAY
         return REMINDER_TIME_PAST_TODAY.get(user_lang, REMINDER_TIME_PAST_TODAY["pt-BR"])
@@ -620,15 +570,12 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
         )
         return REMINDER_DATE_PAST_ASK_NEXT_YEAR.get(user_lang, REMINDER_DATE_PAST_ASK_NEXT_YEAR["pt-BR"])
     if not (in_sec or every_sec or cron_expr):
-        # Encadeamento ("depois de X", "após Y") é tratado pelo LLM em linguagem natural
         msg_lower = (msg_text or "").lower()
         if "depois de" in msg_lower or " após " in msg_lower or "após " in msg_lower:
             return None
-        # Encadeado sem tempo (legado): dispara quando o anterior estiver feito
         if depends_on:
             in_sec = 1
         else:
-            # Sem tempo: se parecer recorrente, solicitar recorrência
             user_lang: LangCode = "pt-BR"
             try:
                 db = SessionLocal()
@@ -660,276 +607,9 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
     return _append_tz_hint_if_needed(result, ctx.chat_id)
 
 
-async def handle_list_or_events_ambiguous(ctx: HandlerContext, content: str) -> str | None:
-    """Quando o utilizador diz 'tenho de X, Y' (2+ itens) sem 'muita coisa': pergunta se quer lista ou lembretes."""
-    from backend.command_parser import parse
-    from backend.confirmations import set_pending
-    intent = parse(content)
-    if not intent or intent.get("type") != "list_or_events_ambiguous":
-        return None
-
-    try:
-        from backend.guardrails import is_complex_request
-        if is_complex_request(content):
-            return None
-    except Exception:
-        pass
-
-    items = intent.get("items") or []
-    if len(items) < 2:
-        return None
-    set_pending(ctx.channel, ctx.chat_id, "list_or_events_choice", {"items": items})
-    from backend.user_store import get_user_language
-    from backend.database import SessionLocal
-    from backend.locale import AMBIGUOUS_CHOICE_MSG
-    lang = "pt-BR"
-    try:
-        db = SessionLocal()
-        lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
-        db.close()
-    except Exception:
-        pass
-    
-    msg = AMBIGUOUS_CHOICE_MSG.get(lang, AMBIGUOUS_CHOICE_MSG["pt-BR"])
-    return msg
-
-
-async def handle_list(ctx: HandlerContext, content: str) -> str | None:
-    """/list nome add item, /list filme|livro|musica item, ou /list [nome]."""
-    from backend.command_parser import parse
-    from backend.guardrails import is_absurd_request
-    from loguru import logger
-    intent = parse(content)
-    if not intent or intent.get("type") not in ("list_add", "list_show"):
-        return None
-
-    try:
-        from backend.guardrails import is_complex_request
-        if is_complex_request(content):
-            return None
-    except Exception:
-        pass
-
-    if not ctx.list_tool:
-        logger.warning("handle_list: list_tool is None, chat_id=%s", (ctx.chat_id or "")[:24])
-        return None
-    logger.debug("handle_list: type=%s list_name=%s", intent.get("type"), intent.get("list_name"))
-    if intent.get("type") == "list_add":
-        list_name = intent.get("list_name", "")
-        items = intent.get("items")
-        item_text = intent.get("item", "")
-        if items:
-            for it in items:
-                if list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(it):
-                    r = is_absurd_request(it)
-                    if r:
-                        return r
-        elif list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(item_text):
-            return is_absurd_request(item_text)
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
-    if intent.get("type") == "list_add":
-        items_to_add = intent.get("items") or ([intent.get("item")] if intent.get("item") else [])
-        if not items_to_add:
-            return None
-        list_name = intent.get("list_name", "")
-        results = []
-        for it in items_to_add:
-            r = await ctx.list_tool.execute(
-                action="add",
-                list_name=list_name,
-                item_text=it,
-            )
-            results.append(r)
-        return "\n".join(results) if len(results) > 1 else (results[0] if results else None)
-    return await ctx.list_tool.execute(
-        action="list",
-        list_name=intent.get("list_name") or "",
-    )
-
-
-# ---------------------------------------------------------------------------
-# Alias: /add [lista] [item] (default lista=mercado). Feito: por áudio, texto ou emoji.
-# ---------------------------------------------------------------------------
-
-async def handle_add(ctx: HandlerContext, content: str) -> str | None:
-    """/add [lista] [item]. Default lista=mercado. Aceita NL: adicione X, adiciona X."""
-    content = _normalize_nl_to_command(content)
-    
-    try:
-        from backend.guardrails import is_complex_request
-        if is_complex_request(content):
-            return None
-    except Exception:
-        pass
-
-    m = re.match(r"^/(add|añadir)\s+(.+)$", content.strip(), re.I)
-    if not m:
-        return None
-    rest = m.group(2).strip()
-    parts = rest.split(None, 1)
-    
-    # Lista de "stop words" que não devem ser extraídas como nome de lista se estiverem no início.
-    # Ex: "adiciona os mais famosos" -> "os" é artigo, não nome de lista.
-    _GENERIC_BEGINNINGS = {
-        "os", "as", "um", "uns", "uma", "umas", "o", "a", "de", "do", "da", "em", "nas", "nos", # PT
-        "los", "las", "un", "unos", "una", "unas", "el", "la", "de", "del", "en",              # ES
-        "the", "a", "an", "some", "of", "in",                                                 # EN
-    }
-    
-    if len(parts) == 1:
-        list_name, item = "mercado", parts[0]
-    elif parts[0].lower() in _GENERIC_BEGINNINGS:
-        # Se a primeira palavra for um artigo/preposição, assumimos que faz parte do item texto
-        # e a lista padrão é 'mercado' (shopping)
-        list_name, item = "mercado", rest
-    else:
-        list_name, item = parts[0], parts[1]
-    if not ctx.list_tool:
-        return None
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
-    return await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
-
-
-async def handle_feito(ctx: HandlerContext, content: str) -> str | None:
-    """/feito [lista] [id]. Aceita NL: concluído, feito, pronto, ok."""
-    from backend.command_parser import parse
-    intent = parse(content)
-    if not intent or intent.get("type") != "feito":
-        return None
-    if not ctx.list_tool:
-        return None
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
-    return await ctx.list_tool.execute(
-        action="feito",
-        list_name=intent.get("list_name") or "",
-        item_id=intent.get("item_id"),
-    )
-
-
-async def handle_remove(ctx: HandlerContext, content: str) -> str | None:
-    """/remove [lista] [id]. Aceita NL: remover, apagar, deletar, tirar."""
-    from backend.command_parser import parse
-    intent = parse(content)
-    if not intent or intent.get("type") != "remove":
-        return None
-    if not ctx.list_tool:
-        return None
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
-    return await ctx.list_tool.execute(
-        action="remove",
-        list_name=intent.get("list_name") or "",
-        item_id=intent.get("item_id"),
-    )
-
-
-async def handle_hora_data(ctx: HandlerContext, content: str) -> str | None:
-    """/hora ou /data. Mostra data/hora atual no timezone do usuário."""
-    from backend.command_parser import parse
-    from backend.database import SessionLocal
-    from backend.user_store import get_user_timezone, get_user_language
-    from zoneinfo import ZoneInfo
-    from datetime import datetime
-    intent = parse(content)
-    if not intent or intent.get("type") not in ("hora", "data"):
-        return None
-    
-    tz_iana = "UTC"
-    lang = "pt-BR"
-    try:
-        db = SessionLocal()
-        try:
-            tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale) or "UTC"
-            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
-        finally:
-            db.close()
-    except Exception:
-        pass
-    
-    try:
-        tz = ZoneInfo(tz_iana)
-    except Exception:
-        tz = ZoneInfo("UTC")
-        
-    try:
-        from zapista.clock_drift import get_effective_time
-        _now_ts = get_effective_time()
-    except Exception:
-        import time
-        _now_ts = time.time()
-        
-    now = datetime.fromtimestamp(_now_ts, tz=tz)
-    
-    if intent["type"] == "hora":
-        msg = {
-            "pt-PT": f"Agora são {now.strftime('%H:%M')}. 🕒",
-            "pt-BR": f"Agora são {now.strftime('%H:%M')}. 🕒",
-            "es": f"Ahora son las {now.strftime('%H:%M')}. 🕒",
-            "en": f"It is currently {now.strftime('%H:%M')}. 🕒",
-        }
-    else:
-        # data
-        from backend.locale import resolve_response_language
-        lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
-        # Formato d/m/y para todos menos EN
-        if lang == "en":
-            fmt = "%Y-%m-%d"
-        else:
-            fmt = "%d/%m/%Y"
-        msg = {
-            "pt-PT": f"Hoje é dia {now.strftime(fmt)}. 📅",
-            "pt-BR": f"Hoje é dia {now.strftime(fmt)}. 📅",
-            "es": f"Hoy es {now.strftime(fmt)}. 📅",
-            "en": f"Today is {now.strftime(fmt)}. 📅",
-        }
-    return msg.get(lang, msg["en"])
-
-
-# ---------------------------------------------------------------------------
-# /start, /recorrente, /pendente, /stop (tz/lang/quiet/reset em settings_handlers)
-# ---------------------------------------------------------------------------
-
-async def handle_start(ctx: HandlerContext, content: str) -> str | None:
-    """/start: opt-in, setup timezone/idioma. Aceita NL: começar, início, iniciar."""
-    content = _normalize_nl_to_command(content)
-    if not content.strip().lower().startswith("/start"):
-        return None
-    return (
-        "👋 Olá! Sou o Zappelin: lembretes, listas e eventos.\n\n"
-        "📌 Comandos: /lembrete, /list (filme, livro, musica, receita, notas, compras…).\n"
-        "🌍 Timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.\n\n"
-        "Digite /help para ver tudo — ou escreve/envia áudio para conversar. 😊"
-    )
-
-
-async def handle_help(ctx: HandlerContext, content: str) -> str | list[str] | None:
-    """/help, /ajuda: lista completa de comandos. Aceita NL: ajuda, comandos, o que você faz. Devolve [texto principal, comandos slash] para enviar em duas mensagens."""
-    content = _normalize_nl_to_command(content)
-    c = content.strip().lower()
-    if not (c.startswith("/help") or c.startswith("/ajuda") or c.startswith("/ayuda")):
-        return None
-    from backend.locale import build_help, build_help_commands_list, resolve_response_language
-
-    user_lang = "pt-BR"
-    try:
-        from backend.database import SessionLocal
-        from backend.user_store import get_user_language
-        db = SessionLocal()
-        try:
-            user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
-            user_lang = resolve_response_language(user_lang, ctx.chat_id, ctx.phone_for_locale)
-        finally:
-            db.close()
-    except Exception:
-        # Fallback para pt-BR se a base de dados falhar (ex.: stress test sem DB)
-        pass
-
-    main = build_help(user_lang)
-    commands_msg = build_help_commands_list(user_lang)
-    return [main, commands_msg]
-
-
 async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
     """/recorrente [msg] [freq]. Aceita NL: lembrete recorrente X, todo dia X."""
+    from backend.handlers.utils import _normalize_nl_to_command
     content = _normalize_nl_to_command(content)
     from backend.command_parser import parse
     from backend.user_store import get_user_timezone
@@ -971,45 +651,20 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
     return _append_tz_hint_if_needed(result, ctx.chat_id)
 
 
-async def handle_pendente(ctx: HandlerContext, content: str) -> str | None:
-    """/pendente: tudo aberto. Aceita NL: pendente, pendentes, tarefas pendentes."""
-    content = _normalize_nl_to_command(content)
-    if not content.strip().lower().startswith("/pendente"):
-        return None
-    if not ctx.list_tool:
-        return None
-    ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
-    return await ctx.list_tool.execute(action="list", list_name="")
-
-
-async def handle_stop(ctx: HandlerContext, content: str) -> str | None:
-    """/stop: opt-out. Aceita NL: parar, pausar, stop."""
-    content = _normalize_nl_to_command(content)
-    if not content.strip().lower().startswith("/stop"):
-        return None
-    return _reply_confirm_prompt(
-        "🔕 Quer pausar as mensagens? Vais deixar de receber lembretes e notificações."
-    )
-
-
 # ---------------------------------------------------------------------------
-# Pedido de lembrete sem tempo (natural language) → solicitar recorrência se recorrente
+# Pedido de lembrete sem tempo (natural language) → solicitar recorrência
 # ---------------------------------------------------------------------------
 
-# Padrões que NUNCA são pedido de lembrete — reduz falsos positivos em handle_recurring_prompt
 _NOT_REMINDER_PATTERNS = (
-    # Localização / geografia
     r"sabe\s+onde", r"onde\s+fica", r"onde\s+est[aá]", r"where\s+is",
     r"qual\s+(é|e)\s+(a\s+)?capital", r"como\s+chego", r"como\s+chegar",
     r"localiza[cç][aã]o\s+de", r"endere[cç]o", r"coordinates",
-    # Pedidos de MOSTRAR/VER/ADD lista (nunca lembrete)
     r"mostr(e|ar)\s+(a\s+)?lista", r"ver\s+(a\s+)?lista", r"ver\s+minha\s+lista",
     r"qual\s+(é|e)\s+(a\s+)?minha\s+lista", r"qual\s+(é|e)\s+sua\s+lista",
     r"lista\s+de\s+\w+", r"minha\s+lista\s+(de\s+)?\w*", r"listar\s+\w+",
     r"^(lista|mercado|compras|pendentes)\s*$",
     r"add\s+lista\b", r"add\s+list\b", r"adicione?\s+(à|a)\s+lista",
     r"lista\s+(filmes?|livros?|m[uú]sicas?|receitas?)\b",
-    # Add/put/include em lista (PT, EN, ES)
     r"(?:adiciona|adicionar|coloca|coloque|p[oô]e|põe|inclui|incluir|p[oô]r)\s+",
     r"(?:put|add|include|append)\s+.*\s+(?:to|on|in)\s+(?:the\s+)?(?:list|shopping)",
     r"(?:anota|anotar|regista|registar|marca|marcar)\s+",
@@ -1022,40 +677,32 @@ _NOT_REMINDER_PATTERNS = (
     r"ingredientes?\s+para\s+", r"o\s+que\s+preciso\s+para\s+fazer\s+",
     r"vou\s+precisar\s+de\s+.*\s+(?:para\s+a\s+)?receita",
     r"(?:preciso|quero)\s+(?:de\s+)?(?:comprar|anotar|adicionar)\b",
-    # Receita/ingredientes (sempre excluir — handle_recipe ou LLM)
     r"receita\s+(?:de|da)\s+", r"receitas?\s+\w+", r"^receita\s+\w+",
-    # Follow-ups sobre lista/receita (não são pedido de lembrete — vão ao LLM com contexto)
     r"cad[eê]\s+(a\s+)?(lista|receita|ingredientes)",
     r"onde\s+(est[aá]|est[aã]o)\s+(a\s+)?(lista|receita|ingredientes)",
     r"e\s+(a\s+)?(lista|receita|os?\s+ingredientes)",
     r"^(cad[eê]|cad[eê]\s+a)\b", r"fa[cç]a\s+uma\s+lista", r"fazer\s+uma\s+lista",
-    # Compras = lista (não lembrete recorrente)
-    r"preciso\s+comprar", r"quero\s+comprar",    r"comprar\s+(?:[a-zA-ZáéíóúÁÉÍÓÚçÇñÑ\s]+)", r"adicion[eia](?:r)?\s+", r"(?:a|à|nas?)\s+listas?\b",  # "adicione algo a listas"
+    r"preciso\s+comprar", r"quero\s+comprar",
+    r"comprar\s+(?:[a-zA-ZáéíóúÁÉÍÓÚçÇñÑ\s]+)", r"adicion[eia](?:r)?\s+", r"(?:a|à|nas?)\s+listas?\b",
     r"preciso\s+(mercado|compras)\b", r"quero\s+(mercado|compras)\b",
     r"lista\s+(do\s+)?mercado", r"lista\s+mercado", r"itens?\s+(do\s+)?mercado",
-    # Perguntas gerais (não pedido de lembrete)
     r"^(o\s+que\s+é|oq\s+é|o\s+que\s+e)\b", r"qual\s+(é|e)\s+o\s+significado",
     r"como\s+(fazer|usar|funciona)", r"quanto\s+custa", r"quanto\s+(é|e)\s+",
     r"^(quem|como|porque|por\s+que)\b",
-    # Versículo / texto sagrado (já tratado antes)
     r"vers[ií]culo", r"b[ií]blia", r"passagem\s+b[ií]blica",
-    # Saudações / despedidas
     r"^(oi|ol[aá]|ola|hey|hi)\s*$", r"^(tchau|bye|at[eé])\s*$",
     r"^(obrigad[oa]|obg|valeu|thx)\s*$",
-    # Números / links
     r"^\d{1,4}\s*$", r"^https?://", r"^www\.", r"\.com\b", r"\.pt\b",
-    # Pedido de idioma / instrução (não lembrete)
     r"fala[r]?\s+em\s+portugu[eê]s", r"portugu[eê]s\s+(?:do\s+)?(?:brasil|br)",
     r"portugu[eê]s\s+(?:de\s+)?portugal", r"continuar\s+em\s+",
     r"quero\s+fala[r]?\s+em\s+", r"(?:speak|hablar)\s+(?:in\s+)?(?:portuguese|spanish|english)",
-    # Outros
-    r"^(sim|n[aã]o|não|nope)\s*$",  # respostas curtas
+    r"^(sim|n[aã]o|não|nope)\s*$",
     r"^(status|ajuda|help)\s*$", r"^/",
 )
 
 
 async def handle_recurring_prompt(ctx: HandlerContext, content: str) -> str | None:
-    """Quando o usuário pede lembrete em linguagem natural sem data (ex: 'lembrar de tomar remédio'), e parece recorrente, pergunta a frequência."""
+    """Quando o usuário pede lembrete em linguagem natural sem data, e parece recorrente, pergunta a frequência."""
     import re
     from backend.recurring_detector import maybe_ask_recurrence
     from backend.scope_filter import is_in_scope_fast
@@ -1097,8 +744,8 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
     """
     Quando o utilizador indica evento recorrente com horário (academia segunda e quarta 19h):
     1. Detecta, diz de forma simpática que é recorrente, pede confirmação
-    2. Confirma → pergunta até quando (indefinido, fim da semana, fim do mês)
-    3. Registra com cron_expr (e opcional not_after_ms)
+    2. Confirma → pergunta até quando
+    3. Registra com cron_expr
     """
     import re
     from backend.recurring_event_flow import (
@@ -1269,7 +916,4 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
             schedule=schedule_display,
         )
 
-        return None
-
-
-# Route e HANDLERS em backend.router (agent loop importa route de router)
+    return None

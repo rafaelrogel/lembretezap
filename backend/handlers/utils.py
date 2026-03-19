@@ -1,0 +1,87 @@
+"""Shared helpers and general-purpose handlers (/start, /help, /stop)."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from backend.handler_context import HandlerContext
+
+
+def _append_tz_hint_if_needed(reply: str, chat_id: str, phone_for_locale: str | None = None) -> str:
+    """Se o timezone não foi informado pelo cliente, acrescenta dica para /tz Cidade."""
+    if not reply or not reply.strip():
+        return reply
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import get_user_timezone_and_source, get_user_language
+        from backend.locale import TZ_HINT_SET_CITY, resolve_response_language
+        db = SessionLocal()
+        try:
+            _, source = get_user_timezone_and_source(db, chat_id, phone_for_locale)
+            if source == "db":
+                return reply
+            lang = get_user_language(db, chat_id, phone_for_locale) or "en"
+            lang = resolve_response_language(lang, chat_id, phone_for_locale)
+            hint = TZ_HINT_SET_CITY.get(lang, TZ_HINT_SET_CITY["en"])
+            return f"{reply.strip()}\n\n{hint}"
+        finally:
+            db.close()
+    except Exception:
+        return reply
+
+
+def _normalize_nl_to_command(content: str) -> str:
+    """Reexport para uso neste módulo; lógica em backend.command_nl."""
+    from backend.command_nl import normalize_nl_to_command
+    return normalize_nl_to_command(content)
+
+
+async def handle_start(ctx: "HandlerContext", content: str) -> str | None:
+    """/start: opt-in, setup timezone/idioma. Aceita NL: começar, início, iniciar."""
+    content = _normalize_nl_to_command(content)
+    if not content.strip().lower().startswith("/start"):
+        return None
+    return (
+        "👋 Olá! Sou o Zappelin: lembretes, listas e eventos.\n\n"
+        "📌 Comandos: /lembrete, /list (filme, livro, musica, receita, notas, compras…).\n"
+        "🌍 Timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.\n\n"
+        "Digite /help para ver tudo — ou escreve/envia áudio para conversar. 😊"
+    )
+
+
+async def handle_help(ctx: "HandlerContext", content: str) -> str | list[str] | None:
+    """/help, /ajuda: lista completa de comandos."""
+    content = _normalize_nl_to_command(content)
+    c = content.strip().lower()
+    if not (c.startswith("/help") or c.startswith("/ajuda") or c.startswith("/ayuda")):
+        return None
+    from backend.locale import build_help, build_help_commands_list, resolve_response_language
+
+    user_lang = "pt-BR"
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import get_user_language
+        db = SessionLocal()
+        try:
+            user_lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+            user_lang = resolve_response_language(user_lang, ctx.chat_id, ctx.phone_for_locale)
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    main = build_help(user_lang)
+    commands_msg = build_help_commands_list(user_lang)
+    return [main, commands_msg]
+
+
+async def handle_stop(ctx: "HandlerContext", content: str) -> str | None:
+    """/stop: opt-out. Aceita NL: parar, pausar, stop."""
+    from backend.handler_context import _reply_confirm_prompt
+    content = _normalize_nl_to_command(content)
+    if not content.strip().lower().startswith("/stop"):
+        return None
+    return _reply_confirm_prompt(
+        "🔕 Quer pausar as mensagens? Vais deixar de receber lembretes e notificações."
+    )
