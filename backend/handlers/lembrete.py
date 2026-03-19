@@ -253,6 +253,22 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
             return _retry_or_fail(flow, q)
 
         elif stage == STAGE_NEED_ADVANCE_PREFERENCE:
+            # If the user sent a completely new reminder instead of answering,
+            # auto-complete current flow ("na hora") and let the new request
+            # fall through to handle_lembrete.
+            if _looks_like_new_reminder_request(text):
+                in_sec = flow.get("in_seconds")
+                if in_sec and in_sec > 0:
+                    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
+                    await ctx.cron_tool.execute(
+                        action="add",
+                        message=msg_content,
+                        in_seconds=in_sec,
+                    )
+                session.metadata.pop(FLOW_KEY, None)
+                ctx.session_manager.save(session)
+                return None
+
             if looks_like_no_reminder_at_all(text):
                 session.metadata.pop(FLOW_KEY, None)
                 ctx.session_manager.save(session)
@@ -455,6 +471,37 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
 # ---------------------------------------------------------------------------
 # Handlers por comando: /lembrete
 # ---------------------------------------------------------------------------
+
+def _looks_like_new_reminder_request(text: str) -> bool:
+    """True if text is clearly a new reminder request (not just a yes/no/time answer).
+
+    Detects patterns like 'me avisa pra tomar remédio daqui 2 horas' or
+    '/lembrete reunião amanhã' that should NOT be consumed as a flow response.
+    """
+    if not text:
+        return False
+    t = text.strip().lower()
+    if t.startswith("/lembrete") or t.startswith("/reminder") or t.startswith("/recordatorio"):
+        return True
+    # Must have a reminder keyword AND be long enough to contain a real message
+    # (short answers like "sim", "2 horas", "na hora" are flow responses)
+    from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
+    has_kw = any(kw in t for kw in ALL_REMINDER_KEYWORDS)
+    if not has_kw:
+        return False
+    # At least 15 chars suggests a full sentence, not just "me avisa" or "2h"
+    if len(t) < 15:
+        return False
+    # Must contain a subject/object beyond just time words
+    _TIME_ONLY = re.compile(
+        r"^(me\s+)?(avisa|lembra|lembre|remind)\s*(de\s+)?"
+        r"(daqui\s+a?\s*)?\d+\s*(min|h|hora|seg|segundo|dia|mes)s?\s*$",
+        re.I,
+    )
+    if _TIME_ONLY.match(t):
+        return False
+    return True
+
 
 def _looks_like_reminder_nl(text: str) -> bool:
     """True se parece pedido de lembrete em linguagem natural (avisar/lembrar + tempo)."""
