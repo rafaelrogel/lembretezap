@@ -207,6 +207,23 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
 
     # --- Estamos no fluxo: processar resposta ---
     if flow and isinstance(flow, dict):
+        # If the user sent a completely new reminder instead of answering the
+        # current flow question, auto-complete the current flow and let the
+        # new request fall through to handle_lembrete / other handlers.
+        if _looks_like_new_reminder_request(text):
+            _flow_in_sec = flow.get("in_seconds")
+            _flow_msg = (flow.get("content") or "").strip()
+            if _flow_in_sec and _flow_in_sec > 0 and _flow_msg:
+                ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
+                await ctx.cron_tool.execute(
+                    action="add",
+                    message=_flow_msg,
+                    in_seconds=_flow_in_sec,
+                )
+            session.metadata.pop(FLOW_KEY, None)
+            ctx.session_manager.save(session)
+            return None
+
         stage = flow.get("stage")
         msg_content = (flow.get("content") or "").strip()
         date_label = (flow.get("date_label") or "").strip()
@@ -253,22 +270,6 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
             return _retry_or_fail(flow, q)
 
         elif stage == STAGE_NEED_ADVANCE_PREFERENCE:
-            # If the user sent a completely new reminder instead of answering,
-            # auto-complete current flow ("na hora") and let the new request
-            # fall through to handle_lembrete.
-            if _looks_like_new_reminder_request(text):
-                in_sec = flow.get("in_seconds")
-                if in_sec and in_sec > 0:
-                    ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
-                    await ctx.cron_tool.execute(
-                        action="add",
-                        message=msg_content,
-                        in_seconds=in_sec,
-                    )
-                session.metadata.pop(FLOW_KEY, None)
-                ctx.session_manager.save(session)
-                return None
-
             if looks_like_no_reminder_at_all(text):
                 session.metadata.pop(FLOW_KEY, None)
                 ctx.session_manager.save(session)
@@ -473,18 +474,21 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
 # ---------------------------------------------------------------------------
 
 def _looks_like_new_reminder_request(text: str) -> bool:
-    """True if text is clearly a new reminder request (not just a yes/no/time answer).
+    """True if text is clearly a new command/reminder (not a flow response).
 
-    Detects patterns like 'me avisa pra tomar remédio daqui 2 horas' or
-    '/lembrete reunião amanhã' that should NOT be consumed as a flow response.
+    Detects:
+    - Slash commands: /lembrete, /list, /add, /feito, /remove, /help, etc.
+    - NL reminders with subject: 'me avisa pra tomar remédio daqui 2 horas'
+
+    Does NOT match flow responses: 'sim', '2 horas', 'na hora', 'não quero'.
     """
     if not text:
         return False
     t = text.strip().lower()
-    if t.startswith("/lembrete") or t.startswith("/reminder") or t.startswith("/recordatorio"):
+    # Any slash command is always a new request
+    if t.startswith("/"):
         return True
-    # Must have a reminder keyword AND be long enough to contain a real message
-    # (short answers like "sim", "2 horas", "na hora" are flow responses)
+    # NL reminder: must have a reminder keyword AND enough content for a real message
     from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
     has_kw = any(kw in t for kw in ALL_REMINDER_KEYWORDS)
     if not has_kw:
@@ -492,7 +496,7 @@ def _looks_like_new_reminder_request(text: str) -> bool:
     # At least 15 chars suggests a full sentence, not just "me avisa" or "2h"
     if len(t) < 15:
         return False
-    # Must contain a subject/object beyond just time words
+    # Exclude bare time expressions like "me lembra daqui 30 min"
     _TIME_ONLY = re.compile(
         r"^(me\s+)?(avisa|lembra|lembre|remind)\s*(de\s+)?"
         r"(daqui\s+a?\s*)?\d+\s*(min|h|hora|seg|segundo|dia|mes)s?\s*$",
@@ -881,6 +885,13 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
 
     # --- Estamos no fluxo ---
     if flow and isinstance(flow, dict):
+        # If the user sent a new reminder/command instead of answering,
+        # abandon this flow and let the message fall through.
+        if _looks_like_new_reminder_request(text):
+            session.metadata.pop(FLOW_KEY, None)
+            ctx.session_manager.save(session)
+            return None
+
         stage = flow.get("stage")
         event = (flow.get("event") or "").strip()
         cron_expr = (flow.get("cron_expr") or "").strip()
