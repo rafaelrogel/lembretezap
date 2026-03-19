@@ -94,7 +94,7 @@ class ListTool(Tool):
         try:
             user = get_or_create_user(db, self._chat_id)
             if action == "add":
-                list_clean = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
+                list_clean = self._normalize_list_name(sanitize_string(list_name or "", MAX_LIST_NAME_LEN))
                 # Receitas e conteúdo longo: até MAX_LIST_ITEM_TEXT_LEN, com newlines
                 item_clean = sanitize_string(item_text or "", MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
                 corrected = await suggest_correction(
@@ -176,8 +176,21 @@ class ListTool(Tool):
                 return s[:-1]
         return s
 
+    @staticmethod
+    def _normalize_list_name(name: str) -> str:
+        """Strip connector words mistakenly used as list names.
+
+        'chamada'/'chamado' (PT), 'llamada'/'llamado' (ES), 'called'/'named' (EN)
+        mean 'named' -- they are not list names themselves.
+        """
+        _CONNECTORS = {"chamada", "chamado", "llamada", "llamado", "called", "named"}
+        stripped = (name or "").strip().lower()
+        if stripped in _CONNECTORS:
+            return ""
+        return name
+
     def _add(self, db, user_id: int, list_name: str, item_text: str, no_split: bool = False) -> str:
-        list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
+        list_name = self._normalize_list_name(sanitize_string(list_name or "", MAX_LIST_NAME_LEN))
         item_text = sanitize_string(item_text or "", MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
         if not list_name:
             from backend.locale import LIST_NAME_REQUIRED_ADD
