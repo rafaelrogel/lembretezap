@@ -106,3 +106,28 @@ def reset_for_test(key_prefix: str = "test:") -> None:
         to_del = [k for k in _buckets if k.startswith(key_prefix)]
         for k in to_del:
             del _buckets[k]
+
+
+# ---------------------------------------------------------------------------
+# REST API rate limiting (reuses the same token bucket)
+# ---------------------------------------------------------------------------
+
+def _get_rest_rate_limit() -> int:
+    v = os.environ.get("REST_RATE_LIMIT_MINUTE", "").strip()
+    if not v:
+        return 60
+    try:
+        n = int(v)
+        return max(10, min(600, n))
+    except ValueError:
+        return 60
+
+
+def is_rest_rate_limited(api_key: str | None) -> bool:
+    """Token bucket check for REST API endpoints, keyed by API key."""
+    key = f"rest:{(api_key or 'anon')[:16]}"
+    capacity = float(_get_rest_rate_limit())
+    refill_per_second = capacity / 60.0
+    now = time.time()
+    with _lock:
+        return _refill_and_consume(key, capacity, refill_per_second, now)

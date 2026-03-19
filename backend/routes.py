@@ -1,15 +1,26 @@
 """Rotas da API: users, lists, events, audit. Todas exigem API key quando API_SECRET_KEY está definido."""
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, selectinload
 
 from backend.auth import require_api_key
 from backend.database import get_db
 from backend.models_db import User, List, ListItem, Event, AuditLog
+from backend.rate_limit import is_rest_rate_limited
 from backend.sanitize import clamp_limit
 
 router = APIRouter()
+
+
+def _rate_limit_rest(
+    x_api_key: Annotated[str | None, Header(alias="X-API-Key")] = None,
+) -> None:
+    """Dependency: rejects request if REST rate limit exceeded."""
+    if is_rest_rate_limited(x_api_key):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
 
 # --- Schemas ---
@@ -41,6 +52,7 @@ class EventOut(BaseModel):
 def list_users(
     db: Session = Depends(get_db),
     _: None = Depends(require_api_key),
+    __: None = Depends(_rate_limit_rest),
 ) -> list[UserOut]:
     users = db.query(User).all()
     return [UserOut(id=u.id, phone_truncated=u.phone_truncated) for u in users]
@@ -51,6 +63,7 @@ def list_user_lists(
     user_id: int,
     db: Session = Depends(get_db),
     _: None = Depends(require_api_key),
+    __: None = Depends(_rate_limit_rest),
 ) -> list[ListOut]:
     lists = (
         db.query(List)
@@ -74,6 +87,7 @@ def list_user_events(
     tipo: str | None = None,
     db: Session = Depends(get_db),
     _: None = Depends(require_api_key),
+    __: None = Depends(_rate_limit_rest),
 ) -> list[EventOut]:
     q = db.query(Event).filter(Event.user_id == user_id, Event.deleted == False)
     if tipo:
@@ -87,6 +101,7 @@ def audit_log(
     limit: int = 100,
     db: Session = Depends(get_db),
     _: None = Depends(require_api_key),
+    __: None = Depends(_rate_limit_rest),
 ) -> list[dict]:
     limit = clamp_limit(limit, default=100, maximum=500)
     logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit).all()
