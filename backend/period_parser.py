@@ -62,8 +62,9 @@ _RE_THIS_WEEK = re.compile(
 )
 
 # This year: "este ano", "esse ano", "deste ano", "este año", "this year"
+# NOTE: must NOT match "ano de 2028" or "ano 2028" — those go to _RE_YEAR
 _RE_THIS_YEAR = re.compile(
-    r"(?:para\s+)?(?:d?est[ea]\s+ano|this\s+year|este\s+a[nñ]o|\bano\b|\ba[nñ]o\b|\byear\b)",
+    r"(?:para\s+)?(?:d?est[ea]\s+ano|this\s+year|este\s+a[nñ]o)",
     re.I,
 )
 
