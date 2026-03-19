@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.auth import require_api_key
 from backend.database import get_db
@@ -52,21 +52,20 @@ def list_user_lists(
     db: Session = Depends(get_db),
     _: None = Depends(require_api_key),
 ) -> list[ListOut]:
-    lists = db.query(List).filter(List.user_id == user_id).all()
-    result: list[ListOut] = []
-    for lst in lists:
-        items = (
-            db.query(ListItem)
-            .filter(ListItem.list_id == lst.id)
-            .order_by(ListItem.position, ListItem.id)
-            .all()
-        )
-        result.append(ListOut(
+    lists = (
+        db.query(List)
+        .options(selectinload(List.items))
+        .filter(List.user_id == user_id)
+        .all()
+    )
+    return [
+        ListOut(
             id=lst.id,
             name=lst.name,
-            items=[ListItemOut(id=i.id, text=i.text, done=i.done) for i in items],
-        ))
-    return result
+            items=[ListItemOut(id=i.id, text=i.text, done=i.done) for i in lst.items],
+        )
+        for lst in lists
+    ]
 
 
 @router.get("/users/{user_id}/events", response_model=list[EventOut])
