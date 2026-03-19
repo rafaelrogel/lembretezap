@@ -176,6 +176,7 @@ async def handle_pomodoro(ctx: "HandlerContext", content: str) -> str | None:
             suggested_prefix="POM",
             pomodoro_cycle=1,
             pomodoro_phase="focus",
+            deliver=False,
         )
         if "limite" in (result or "").lower() or "limit" in (result or "").lower():
             return result

@@ -323,6 +323,7 @@ class CronTool(Tool):
                 pomodoro_cycle=kwargs.get("pomodoro_cycle"),
                 pomodoro_phase=kwargs.get("pomodoro_phase"),
                 is_important=use_pre_reminders and in_seconds is not None and in_seconds > 0,
+                deliver=kwargs.get("deliver", True),
             )
         elif action == "list":
             return self._list_jobs()
@@ -451,6 +452,7 @@ class CronTool(Tool):
         pomodoro_cycle: int | None = None,
         pomodoro_phase: str | None = None,
         is_important: bool = False,
+        deliver: bool = True,
     ) -> str:
         message = sanitize_string(message or "", MAX_MESSAGE_LEN)
         if not message:
@@ -659,7 +661,7 @@ class CronTool(Tool):
                 name=message[:30],
                 schedule=schedule,
                 message=message,
-                deliver=True,
+                deliver=deliver,
                 channel=self._channel,
                 to=self._chat_id,
                 phone_for_locale=getattr(self, "_phone_for_locale", None),
