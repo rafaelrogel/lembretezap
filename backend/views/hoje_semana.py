@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from backend.handler_context import HandlerContext
 
 
-def _events_in_period(db, user_id: int, today, end_date, tz) -> list:
+def _events_in_period(db, user_id: int, today, end_date, tz, lang: str = "pt-BR") -> list:
     """Eventos (agenda) do user no intervalo [today, end_date]. Lê da tabela 'events'."""
     from backend.models_db import Event
     from datetime import datetime, time
@@ -34,7 +34,8 @@ def _events_in_period(db, user_id: int, today, end_date, tz) -> list:
     out = []
     seen = set()
     for ev in events:
-        nome = ev.payload.get("nome", "Evento Desconhecido").strip()
+        from backend.locale import EVENT_UNKNOWN
+        nome = ev.payload.get("nome", EVENT_UNKNOWN.get(lang, "Evento Desconhecido")).strip()
         if not ev.data_at:
             continue
             
@@ -126,12 +127,13 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
                 lines.append(VIEW_NO_REMINDERS_TODAY.get(_lang, VIEW_NO_REMINDERS_TODAY["en"]))
 
             # Agenda (eventos) do dia
-            event_list = _events_in_period(db, user.id, today, today, tz)
+            event_list = _events_in_period(db, user.id, today, today, tz, lang=lang)
             from backend.locale import VIEW_AGENDA_HEADER
             lines.append(VIEW_AGENDA_HEADER.get(lang, VIEW_AGENDA_HEADER["en"]))
+            date_fmt = "%Y-%m-%d" if lang == "en" else "%d/%m"
             if event_list:
                 for d, _, nome in event_list[:15]:
-                    lines.append(f"• {d.strftime('%d/%m')} — {nome[:50]}")
+                    lines.append(f"• {d.strftime(date_fmt)} — {nome}")
                 # Oferecer criar lembrete antes do evento (ex.: 15 min antes)
                 from backend.user_store import get_user_language
                 from backend.locale import AGENDA_OFFER_REMINDER, resolve_response_language
@@ -192,10 +194,11 @@ def _visao_agenda_dia(ctx: "HandlerContext") -> str:
             from backend.locale import VIEW_AGENDA_TODAY_HEADER, VIEW_NO_EVENTS_WEEK, VIEW_ERROR
             lines = [VIEW_AGENDA_TODAY_HEADER.get(lang, VIEW_AGENDA_TODAY_HEADER["en"])]
 
-            event_list = _events_in_period(db, user.id, today, today, tz)
+            event_list = _events_in_period(db, user.id, today, today, tz, lang=lang)
+            date_fmt = "%Y-%m-%d" if lang == "en" else "%d/%m"
             if event_list:
                 for d, _, nome in event_list[:15]:
-                    lines.append(f"• {d.strftime('%d/%m')} — {nome}")
+                    lines.append(f"• {d.strftime(date_fmt)} — {nome}")
 
                 lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
                 lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
@@ -247,10 +250,11 @@ def _visao_semana(ctx: "HandlerContext") -> str:
             from backend.locale import VIEW_AGENDA_WEEK_HEADER, VIEW_NO_EVENTS_WEEK
             lines = [VIEW_AGENDA_WEEK_HEADER.get(lang, VIEW_AGENDA_WEEK_HEADER["en"]).format(end_date=end_date.strftime('%d/%m'))]
 
-            event_list = _events_in_period(db, user.id, today, end_date, tz)
+            event_list = _events_in_period(db, user.id, today, end_date, tz, lang=lang)
+            date_fmt = "%Y-%m-%d" if lang == "en" else "%d/%m"
             if event_list:
                 for d, _, nome in event_list[:25]:
-                    lines.append(f"• {d.strftime('%d/%m')} — {nome}")
+                    lines.append(f"• {d.strftime(date_fmt)} — {nome}")
             else:
                 lines.append(VIEW_NO_EVENTS_WEEK.get(lang, VIEW_NO_EVENTS_WEEK["en"]))
 
