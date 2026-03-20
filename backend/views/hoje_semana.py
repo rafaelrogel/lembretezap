@@ -195,7 +195,8 @@ def _visao_agenda_dia(ctx: "HandlerContext") -> str:
             event_list = _events_in_period(db, user.id, today, today, tz)
             if event_list:
                 for d, _, nome in event_list[:15]:
-                    lines.append(f"• {d.strftime('%d/%m')} — {nome[:50]}")
+                    lines.append(f"• {d.strftime('%d/%m')} — {nome}")
+
                 lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
                 lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
                 lines.append(AGENDA_OFFER_REMINDER.get(lang, AGENDA_OFFER_REMINDER["en"]))
