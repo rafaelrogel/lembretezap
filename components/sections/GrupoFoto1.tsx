@@ -1,14 +1,20 @@
 "use client";
 
 /**
- * Grupo 1: foto + reação 🎨 (toque para mostrar/ocultar).
+ * 1→🎨→2→❤️→3→🎭→4→✨→1 (ciclo).
  */
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import { useCallback, useState } from "react";
 
 const PHOTO_1 =
   "/foto%20de%20homem%20de%20costas%20fazendo%20colagem%201.png";
+const PHOTO_2 =
+  "/foto%20de%20mulher%20com%20amigos%201.png";
+const PHOTO_3 = "/grupo%20de%20carnaval%201.png";
+const PHOTO_4 = "/calas%201.png";
+
+const FADE_MS = { in: 0.32, out: 0.28 };
 
 function PhotoReactionBubble({
   emoji,
@@ -50,11 +56,50 @@ function PhotoReactionBubble({
 
 export function GrupoFoto1() {
   const reduceMotion = useReducedMotion();
+  const [photo, setPhoto] = useState<1 | 2 | 3 | 4>(1);
   const [showReaction, setShowReaction] = useState(false);
 
   const handleActivate = useCallback(() => {
-    setShowReaction((v) => !v);
-  }, []);
+    if (photo === 1) {
+      if (!showReaction) {
+        setShowReaction(true);
+        return;
+      }
+      setShowReaction(false);
+      setPhoto(2);
+      return;
+    }
+
+    if (photo === 2) {
+      if (!showReaction) {
+        setShowReaction(true);
+        return;
+      }
+      setShowReaction(false);
+      setPhoto(3);
+      return;
+    }
+
+    if (photo === 3) {
+      if (!showReaction) {
+        setShowReaction(true);
+        return;
+      }
+      setShowReaction(false);
+      setPhoto(4);
+      return;
+    }
+
+    if (photo === 4) {
+      if (!showReaction) {
+        setShowReaction(true);
+        return;
+      }
+      setShowReaction(false);
+      setPhoto(1);
+      return;
+    }
+  }, [photo, showReaction]);
 
   const hidden = reduceMotion
     ? { opacity: 0 }
@@ -76,8 +121,16 @@ export function GrupoFoto1() {
   return (
     <motion.div
       role="group"
-      aria-label="Grupo de foto 1 — toque para mostrar ou ocultar reação com paleta"
-      className="relative z-0 mb-10 mt-8 cursor-pointer overflow-visible rounded-[26px] border-[10px] border-solid border-[#FFFEFC] bg-[#FFFEFC] shadow-[0_5px_14px_-6px_rgba(33,33,33,0.1),0_2px_6px_-4px_rgba(33,33,33,0.06)] transition-shadow duration-300 ease-out select-none hover:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] focus-visible:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/45 focus-visible:ring-offset-2"
+      aria-label={
+        photo === 1
+          ? "Grupo de foto — toque para reação; com a reação visível, toque para ver a foto com amigos"
+          : photo === 2
+            ? "Foto com amigos — toque para reação; com o coração visível, toque para ver o grupo de carnaval"
+            : photo === 3
+              ? "Grupo de carnaval — toque para reação; com a máscara visível, toque para ver a foto seguinte"
+              : "Calas — toque para reação; com a reação visível, toque para voltar à primeira foto"
+      }
+      className="relative z-0 mb-10 mt-8 cursor-pointer overflow-visible rounded-[26px] shadow-[0_5px_14px_-6px_rgba(33,33,33,0.1),0_2px_6px_-4px_rgba(33,33,33,0.06)] transition-shadow duration-300 ease-out select-none hover:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] focus-visible:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/45 focus-visible:ring-offset-2"
       tabIndex={0}
       onClick={handleActivate}
       onKeyDown={(e) => {
@@ -119,19 +172,72 @@ export function GrupoFoto1() {
       }
       style={reduceMotion ? undefined : { transformOrigin: "50% 100%" }}
     >
-      <div className="relative aspect-square w-full rounded-[16px] bg-[#FFFEFC]">
-        <div className="relative h-full w-full overflow-hidden rounded-[16px]">
-          <Image
-            src={PHOTO_1}
-            alt="Homem de costas fazendo colagem"
-            fill
-            className="pointer-events-none object-cover object-center"
-            sizes="(min-width: 768px) 480px, 100vw"
-            draggable={false}
-          />
-        </div>
+      <div className="relative w-full">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={photo}
+            className="overflow-visible rounded-[26px] border-[10px] border-solid border-[#FFFEFC] bg-[#FFFEFC]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{
+              opacity: 0,
+              transition: reduceMotion
+                ? { duration: 0.08, ease: "easeOut" }
+                : {
+                    duration: FADE_MS.out,
+                    ease: [0.4, 0, 0.2, 1],
+                  },
+            }}
+            transition={
+              reduceMotion
+                ? { duration: 0.1, ease: "easeOut" }
+                : {
+                    duration: FADE_MS.in,
+                    ease: [0, 0, 0.2, 1],
+                  }
+            }
+          >
+            <div className="relative aspect-square w-full overflow-hidden rounded-[16px]">
+              <Image
+                src={
+                  photo === 1
+                    ? PHOTO_1
+                    : photo === 2
+                      ? PHOTO_2
+                      : photo === 3
+                        ? PHOTO_3
+                        : PHOTO_4
+                }
+                alt={
+                  photo === 1
+                    ? "Homem de costas fazendo colagem"
+                    : photo === 2
+                      ? "Mulher com amigos"
+                      : photo === 3
+                        ? "Grupo em clima de carnaval"
+                        : "Calas"
+                }
+                fill
+                className="pointer-events-none object-cover object-center"
+                sizes="(min-width: 768px) 480px, 100vw"
+                draggable={false}
+              />
+            </div>
+          </motion.div>
+        </AnimatePresence>
         {showReaction && (
-          <PhotoReactionBubble emoji="🎨" reduceMotion={!!reduceMotion} />
+          <PhotoReactionBubble
+            emoji={
+              photo === 1
+                ? "🎨"
+                : photo === 2
+                  ? "❤️"
+                  : photo === 3
+                    ? "🎭"
+                    : "✨"
+            }
+            reduceMotion={!!reduceMotion}
+          />
         )}
       </div>
     </motion.div>
