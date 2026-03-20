@@ -1,8 +1,24 @@
+"use client";
+
 import { Container } from "@/components/layout";
 import { Typography } from "@/components/ui";
+import { motion, useReducedMotion } from "framer-motion";
 import { GrupoFoto1 } from "./GrupoFoto1";
 
 export function AboutSection() {
+  const reduceMotion = useReducedMotion();
+  const ease = [0.22, 1, 0.36, 1] as const;
+  const fadeUp = {
+    hidden: reduceMotion ? { opacity: 0 } : { opacity: 0, y: 18 },
+    show: {
+      opacity: 1,
+      y: 0,
+      transition: reduceMotion
+        ? { duration: 0.2, ease: "easeOut" as const }
+        : { duration: 0.5, ease },
+    },
+  };
+
   return (
     <section
       id="sobre"
@@ -11,7 +27,12 @@ export function AboutSection() {
     >
       <Container as="div" size="lg">
         <div className="mx-auto flex w-full max-w-[990px] flex-col gap-section">
-          <div>
+          <motion.div
+            variants={fadeUp}
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, amount: 0.45 }}
+          >
             <Typography
               id="about-heading"
               variant="display-sm"
@@ -37,13 +58,30 @@ export function AboutSection() {
               O Zappelin cuida do que você precisa lembrar, para você focar em
               viver sua vida.
             </Typography>
-          </div>
+          </motion.div>
           <div className="grid w-full grid-cols-1 gap-section md:grid-cols-2 md:items-start md:gap-x-12 lg:gap-x-16">
             <div className="min-w-0 w-full">
               <GrupoFoto1 className="!-mt-[8px]" />
             </div>
-            <div className="min-w-0 w-full space-y-4">
-              <figure className="rounded-2xl bg-neutral-100 px-5 py-4 text-left">
+            <motion.div
+              className="min-w-0 w-full space-y-4"
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, amount: 0.2 }}
+              variants={{
+                hidden: {},
+                show: {
+                  transition: {
+                    staggerChildren: reduceMotion ? 0 : 0.09,
+                    delayChildren: reduceMotion ? 0 : 0.08,
+                  },
+                },
+              }}
+            >
+              <motion.figure
+                variants={fadeUp}
+                className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
+              >
                 <Typography
                   as="blockquote"
                   variant="body-sm"
@@ -55,8 +93,11 @@ export function AboutSection() {
                 <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
                   Ana, 29 anos
                 </figcaption>
-              </figure>
-              <figure className="rounded-2xl bg-neutral-100 px-5 py-4 text-left">
+              </motion.figure>
+              <motion.figure
+                variants={fadeUp}
+                className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
+              >
                 <Typography
                   as="blockquote"
                   variant="body-sm"
@@ -68,8 +109,11 @@ export function AboutSection() {
                 <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
                   Rodrigo, 34 anos
                 </figcaption>
-              </figure>
-              <figure className="rounded-2xl bg-neutral-100 px-5 py-4 text-left">
+              </motion.figure>
+              <motion.figure
+                variants={fadeUp}
+                className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
+              >
                 <Typography
                   as="blockquote"
                   variant="body-sm"
@@ -81,8 +125,11 @@ export function AboutSection() {
                 <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
                   Júlia, 41 anos
                 </figcaption>
-              </figure>
-              <figure className="rounded-2xl bg-neutral-100 px-5 py-4 text-left">
+              </motion.figure>
+              <motion.figure
+                variants={fadeUp}
+                className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
+              >
                 <Typography
                   as="blockquote"
                   variant="body-sm"
@@ -94,8 +141,8 @@ export function AboutSection() {
                 <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
                   Carla, 52 anos
                 </figcaption>
-              </figure>
-            </div>
+              </motion.figure>
+            </motion.div>
           </div>
         </div>
       </Container>
