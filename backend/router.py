@@ -72,6 +72,7 @@ HANDLERS = [
     handle_quiet,  # /quiet e NL "parar horário silencioso" — antes do fluxo de lembrete
     handle_recipe,  # receita/ingredientes via Perplexity (rápido, fallback agent)
     handle_recurring_prompt,
+    handle_agenda_nl,  # "minha agenda", "o que tenho hoje/amanhã"
     handle_lembrete,
     handle_add,
     handle_start,
@@ -84,7 +85,6 @@ HANDLERS = [
     handle_hoje,
     handle_semana,
     handle_agenda,
-    handle_agenda_nl,  # "minha agenda", "o que tenho hoje" (texto/áudio)
     handle_agenda_remove,  # "remover a consulta", "já fiz a reunião" → remove da agenda
     handle_mes,
     handle_timeline,

@@ -1468,12 +1468,26 @@ VIEW_NO_REMINDERS_TODAY: dict[LangCode, str] = {
     "en": "• No reminders scheduled for today.",
 }
 
+VIEW_NO_REMINDERS_AMANHA: dict[LangCode, str] = {
+    "pt-PT": "• Nenhum lembrete agendado para amanhã.",
+    "pt-BR": "• Nenhum lembrete agendado para amanhã.",
+    "es": "• Ningún recordatorio programado para mañana.",
+    "en": "• No reminders scheduled for tomorrow.",
+}
+
 
 VIEW_NO_EVENTS_TODAY: dict[LangCode, str] = {
     "pt-PT": "• Nenhum evento hoje.",
     "pt-BR": "• Nenhum evento hoje.",
     "es": "• Ningún evento hoy.",
     "en": "• No events today.",
+}
+
+VIEW_NO_EVENTS_AMANHA: dict[LangCode, str] = {
+    "pt-PT": "• Nenhum evento amanhã.",
+    "pt-BR": "• Nenhum evento amanhã.",
+    "es": "• Ningún evento mañana.",
+    "en": "• No events tomorrow.",
 }
 
 UNIFICADO_EMPTY: dict[LangCode, str] = {
@@ -1488,6 +1502,13 @@ VIEW_LABEL_HOJE: dict[LangCode, str] = {
     "pt-BR": "📅 **Hoje**",
     "es": "📅 **Hoy**",
     "en": "📅 **Today**",
+}
+
+VIEW_LABEL_AMANHA: dict[LangCode, str] = {
+    "pt-PT": "📅 **Amanhã**",
+    "pt-BR": "📅 **Amanhã**",
+    "es": "📅 **Mañana**",
+    "en": "📅 **Tomorrow**",
 }
 
 # --- Pomodoro ---
@@ -2647,6 +2668,13 @@ VIEW_AGENDA_TODAY_HEADER: dict[LangCode, str] = {
     "pt-BR": "📆 **Agenda — hoje**",
     "es": "📆 **Agenda — hoy**",
     "en": "📆 **Agenda — today**",
+}
+
+VIEW_AGENDA_TOMORROW_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📅 **Agenda — amanhã**",
+    "pt-BR": "📅 **Agenda — amanhã**",
+    "es": "📅 **Agenda — mañana**",
+    "en": "📅 **Agenda — tomorrow**",
 }
 
 VIEW_AGENDA_WEEK_HEADER: dict[LangCode, str] = {

@@ -11,8 +11,8 @@ if TYPE_CHECKING:
 from backend.views.utils import get_events_in_period, get_reminders_in_period
 
 
-def _visao_hoje(ctx: "HandlerContext") -> str:
-    """/hoje: agenda + lembretes do dia."""
+def _visao_hoje(ctx: "HandlerContext", target_date=None) -> str:
+    """/hoje: agenda + lembretes do dia. target_date opcional para 'amanhã'."""
     from backend.database import SessionLocal
     from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
 
@@ -33,16 +33,21 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
                 import time
                 _now_ts = time.time()
             now = datetime.fromtimestamp(_now_ts, tz=tz)
-            today = now.date()
+            today = target_date or now.date()
+
+            from backend.locale import VIEW_LABEL_HOJE, VIEW_LABEL_AMANHA
+            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+            
+            header_label = VIEW_LABEL_HOJE
+            if target_date and target_date == now.date() + timedelta(days=1):
+                header_label = VIEW_LABEL_AMANHA
+            
+            lines = [header_label.get(lang, header_label["en"])]
 
             today_start = datetime(today.year, today.month, today.day, 0, 0, 0, tzinfo=tz)
             period_end = datetime(today.year, today.month, today.day, 23, 59, 59, tzinfo=tz)
             today_start_utc_ms = int(today_start.timestamp() * 1000)
             period_end_utc_ms = int(period_end.timestamp() * 1000)
-
-            from backend.locale import VIEW_LABEL_HOJE
-            lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
-            lines = [VIEW_LABEL_HOJE.get(lang, VIEW_LABEL_HOJE["en"])]
 
             # Lembretes do dia
             reminders = get_reminders_in_period(ctx, tz, today_start_utc_ms, period_end_utc_ms)
@@ -52,9 +57,10 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
                 for dt, msg in reminders[:15]:
                     lines.append(f"• {dt.strftime('%H:%M')} — {msg}")
             else:
-                from backend.locale import VIEW_NO_REMINDERS_TODAY
-                _lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
-                lines.append(VIEW_NO_REMINDERS_TODAY.get(_lang, VIEW_NO_REMINDERS_TODAY["en"]))
+                from backend.locale import VIEW_NO_REMINDERS_TODAY, VIEW_NO_REMINDERS_AMANHA
+                is_amanha = target_date and target_date == now.date() + timedelta(days=1)
+                label = VIEW_NO_REMINDERS_AMANHA if is_amanha else VIEW_NO_REMINDERS_TODAY
+                lines.append(label.get(lang, label["en"]))
 
             # Agenda (eventos) do dia
             event_list = get_events_in_period(db, user.id, today, today, tz, lang=lang)
@@ -71,9 +77,10 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
                 lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
                 lines.append(AGENDA_OFFER_REMINDER.get(lang, AGENDA_OFFER_REMINDER["en"]))
             else:
-                from backend.locale import VIEW_NO_EVENTS_TODAY
-                _lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
-                lines.append(VIEW_NO_EVENTS_TODAY.get(_lang, VIEW_NO_EVENTS_TODAY["en"]))
+                from backend.locale import VIEW_NO_EVENTS_TODAY, VIEW_NO_EVENTS_AMANHA
+                is_amanha = target_date and target_date == now.date() + timedelta(days=1)
+                label = VIEW_NO_EVENTS_AMANHA if is_amanha else VIEW_NO_EVENTS_TODAY
+                lines.append(label.get(lang, label["en"]))
 
             # Segunda vez que vê a agenda no mesmo dia: perguntar se já realizou e se quer remover
             from backend.agenda_view_tracker import record_agenda_view
@@ -94,8 +101,8 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
         return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
 
 
-def _visao_agenda_dia(ctx: "HandlerContext") -> str:
-    """/agenda: apenas agenda (eventos) do dia corrente."""
+def _visao_agenda_dia(ctx: "HandlerContext", target_date=None) -> str:
+    """/agenda: apenas agenda (eventos) do dia corrente ou target_date."""
     from backend.database import SessionLocal
     from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
     from backend.locale import AGENDA_OFFER_REMINDER, AGENDA_SECOND_VIEW_PROMPT, resolve_response_language
@@ -118,11 +125,15 @@ def _visao_agenda_dia(ctx: "HandlerContext") -> str:
                 import time
                 _now_ts = time.time()
             now = datetime.fromtimestamp(_now_ts, tz=tz)
-            today = now.date()
+            today = target_date or now.date()
             lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
 
-            from backend.locale import VIEW_AGENDA_TODAY_HEADER, VIEW_NO_EVENTS_WEEK, VIEW_ERROR
-            lines = [VIEW_AGENDA_TODAY_HEADER.get(lang, VIEW_AGENDA_TODAY_HEADER["en"])]
+            from backend.locale import VIEW_AGENDA_TODAY_HEADER, VIEW_AGENDA_TOMORROW_HEADER
+            header_label = VIEW_AGENDA_TODAY_HEADER
+            if target_date and target_date == now.date() + timedelta(days=1):
+                header_label = VIEW_AGENDA_TOMORROW_HEADER
+                
+            lines = [header_label.get(lang, header_label["en"])]
 
             event_list = get_events_in_period(db, user.id, today, today, tz, lang=lang)
             date_fmt = "%Y-%m-%d" if lang == "en" else "%d/%m"
@@ -228,8 +239,12 @@ _AGENDA_NL_PHRASES = frozenset([
     "agenda", "minha agenda", "ver agenda", "mostra agenda", "mostrar agenda",
     "mostrar minha agenda", "mostrar a minha agenda", "mostre minha agenda", "mostre a minha agenda", "ver a minha agenda",
     "o que tenho hoje", "que tenho hoje", "o que tenho para hoje", "o que é hoje",
+    "o que tenho amanhã", "que tenho amanhã", "o que tenho para amanhã", "o que é amanhã",
+    "o que tenho amanha", "que tenho amanha", "o que tenho para amanha", "o que é amanha",
     "what do i have today", "my agenda", "show agenda", "today's agenda",
+    "what do i have tomorrow", "tomorrow's agenda",
     "qué tengo hoy", "mi agenda", "agenda del día",
+    "qué tengo mañana", "agenda de mañana",
 ])
 
 
@@ -238,10 +253,42 @@ async def handle_agenda_nl(ctx: "HandlerContext", content: str) -> str | None:
     t = (content or "").strip().lower()
     if not t or len(t) > 80:
         return None
-    if t in _AGENDA_NL_PHRASES:
-        return _visao_agenda_dia(ctx)
-    # Frase curta que é só sobre agenda/hoje (ex.: "e a minha agenda?" após transcrição)
+        
     t_clean = t.rstrip(".?!")
     if t_clean in _AGENDA_NL_PHRASES:
+        offset = 0
+        if any(kw in t_clean for kw in ["amanhã", "amanha", "tomorrow", "mañana"]):
+            offset = 1
+            
+        if offset == 1:
+            from datetime import datetime, timedelta
+            # Precisamos da timezone para calcular "amanhã"
+            from backend.database import SessionLocal
+            from backend.user_store import get_user_timezone
+            db = SessionLocal()
+            try:
+                tz_iana = get_user_timezone(db, ctx.chat_id, ctx.phone_for_locale)
+                try:
+                    from zoneinfo import ZoneInfo
+                    tz = ZoneInfo(tz_iana)
+                except Exception:
+                    tz = ZoneInfo("UTC")
+                try:
+                    from zapista.clock_drift import get_effective_time
+                    _now_ts = get_effective_time()
+                except Exception:
+                    import time
+                    _now_ts = time.time()
+                target_date = datetime.fromtimestamp(_now_ts, tz=tz).date() + timedelta(days=1)
+            finally:
+                db.close()
+                
+            # "o o que tenho amanhã" costuma querer agenda + lembretes (estilo /hoje)
+            # Mas se for "minha agenda", talvez só eventos? 
+            # O usuário Rafael R usou "o que tenho amanhã?", então vamos usar _visao_hoje(target_date).
+            if "agenda" in t_clean and "o que tenho" not in t_clean:
+                 return _visao_agenda_dia(ctx, target_date=target_date)
+            return _visao_hoje(ctx, target_date=target_date)
+            
         return _visao_agenda_dia(ctx)
     return None
