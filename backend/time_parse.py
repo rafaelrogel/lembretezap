@@ -403,14 +403,17 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
 
     for dia_name, cron_dow in DIAS_SEMANA.items():
         if dia_name in text_lower:
-            # Encontrar próxima ocorrência desse dia da semana
-            days_ahead = (cron_dow - now.weekday() + 7) % 7
+            # Python weekday(): 0=Seg, 6=Dom.
+            # Nosso cron_dow: 0=Dom, 1=Seg, ..., 5=Sex, 6=Sáb.
+            # Normalizar agora para 0=Dom:
+            now_dow_normalized = (now.weekday() + 1) % 7
+            days_ahead = (cron_dow - now_dow_normalized + 7) % 7
             if days_ahead == 0 and now.hour >= 9:
                 days_ahead = 7
             target = (now + timedelta(days=days_ahead)).replace(hour=9, minute=0, second=0, microsecond=0)
             delta = (target - now).total_seconds()
             if delta > 0:
-                message = strip_pattern(text, rf"\b{re.escape(dia_name)}\b")
+                message = strip_pattern(text, rf"\b{re.escape(word)}\b")
                 return {"in_seconds": int(delta), "message": clean_message(message)}
 
     return {"message": text}
