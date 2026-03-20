@@ -130,29 +130,47 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         except Exception as e:
             logger.debug(f"Set language from /ayuda: {e}")
 
-    content = normalize_nl_to_command(content)
-    content = normalize_command(content.strip())
-    text = content
+    content_norm = normalize_nl_to_command(content)
+    content_norm = normalize_command(content_norm.strip())
+    text = content_norm
 
     reply = await resolve_confirm(ctx, text)
     if reply is not None:
         return reply
 
     strict = os.environ.get("STRICT_HANDLERS", "").strip().lower() in ("1", "true", "yes")
+    
+    # Tentativa 1: Tratar o bloco inteiro como um só comando (comportamento original)
     for h in HANDLERS:
         try:
-            out = await h(ctx, content)
+            out = await h(ctx, content_norm)
             if out is not None:
                 return out
         except Exception as e:
-            if strict:
-                raise
-            logger.exception(
-                "handler_failed",
-                handler=h.__name__,
-                chat_id=ctx.chat_id[:20] if ctx.chat_id else "",
-                content_preview=(content or "")[:80],
-                error=str(e),
-            )
-            continue
+            if strict: raise
+            logger.debug(f"Handler {h.__name__} failed for full block: {e}")
+
+    # Tentativa 2: Se tem múltiplas linhas, tentar processar cada uma como comando/NL separado (Batch Handling)
+    lines = [ln.strip() for ln in content.split("\n") if ln.strip()]
+    if len(lines) > 1:
+        results = []
+        for line in lines:
+            line_norm = normalize_nl_to_command(line)
+            line_norm = normalize_command(line_norm.strip())
+            for h in HANDLERS:
+                try:
+                    out = await h(ctx, line_norm)
+                    if out is not None:
+                        if isinstance(out, list):
+                            results.extend(out)
+                        else:
+                            results.append(out)
+                        break
+                except Exception:
+                    continue
+        if results:
+            # Se conseguimos processar algum comando do batch, devolvemos a junção
+            # (Se algum falhou, o LLM não será chamado para o resto, mas o utilizador já teve feedback)
+            return results if len(results) > 1 else results[0]
+
     return None

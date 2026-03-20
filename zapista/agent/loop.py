@@ -1020,9 +1020,14 @@ class AgentLoop:
         except Exception:
             pass
         # Rate limit per user (channel:chat_id); enviar a mensagem no máximo 1x por minuto por chat
+        # EXCEPÇÃO: Comandos slash (/) ou intents reconhecidos (NL para command) não são limitados
+        # para garantir que bursts de organização não são perdidos.
         try:
             from backend.rate_limit import is_rate_limited
-            if is_rate_limited(msg.channel, msg.chat_id):
+            from backend.command_nl import normalize_nl_to_command
+            is_cmd = content.strip().startswith("/") or normalize_nl_to_command(content) != content
+            
+            if not is_cmd and is_rate_limited(msg.channel, msg.chat_id):
                 if not _should_send_rate_limit_message(msg.channel, msg.chat_id):
                     return None  # já enviamos "Muitas mensagens" a este chat há pouco
                 return OutboundMessage(
