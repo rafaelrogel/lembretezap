@@ -388,4 +388,29 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             )
             return {"cron_expr": f"0 {hora} {dia_mes} * *", "message": clean_message(message)}
 
+    # Hoje/Amanhã/Days of week WITHOUT time: default to 9:00 AM
+    _vague_days = {
+        "hoje": 0, "hoy": 0, "today": 0,
+        "amanhã": 1, "amanha": 1, "mañana": 1, "mañana": 1, "tomorrow": 1,
+    }
+    for word, days_offset in _vague_days.items():
+        if word in text_lower:
+            target = (now + timedelta(days=days_offset)).replace(hour=9, minute=0, second=0, microsecond=0)
+            delta = (target - now).total_seconds()
+            if delta > 0:
+                message = strip_pattern(text, rf"\b{re.escape(word)}\b")
+                return {"in_seconds": int(delta), "message": clean_message(message)}
+
+    for dia_name, cron_dow in DIAS_SEMANA.items():
+        if dia_name in text_lower:
+            # Encontrar próxima ocorrência desse dia da semana
+            days_ahead = (cron_dow - now.weekday() + 7) % 7
+            if days_ahead == 0 and now.hour >= 9:
+                days_ahead = 7
+            target = (now + timedelta(days=days_ahead)).replace(hour=9, minute=0, second=0, microsecond=0)
+            delta = (target - now).total_seconds()
+            if delta > 0:
+                message = strip_pattern(text, rf"\b{re.escape(dia_name)}\b")
+                return {"in_seconds": int(delta), "message": clean_message(message)}
+
     return {"message": text}

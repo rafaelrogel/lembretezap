@@ -174,7 +174,7 @@ def extract_content_and_hour(text: str) -> tuple[str, int, int]:
         return "", 0, 0
     parsed = _extract_hour_minute(t)
     if not parsed:
-        return t, 0, 0
+        return t, 9, 0
     hour, minute = parsed
     # Remover padrões de hora para obter o conteúdo
     content = re.sub(_HOUR_RE, " ", t).strip()
@@ -232,6 +232,7 @@ def is_vague_date_reminder(text: str) -> tuple[bool, str, int, int]:
     content, hour, minute = extract_content_and_hour(text)
     if not content or len(content.strip()) < 2:
         return False, "", 0, 0
+    # Se não foi encontrada hora, usamos 9h como padrão (extract_content_and_hour já retorna 9 se não houver)
     return True, content.strip(), hour, minute
 
 
