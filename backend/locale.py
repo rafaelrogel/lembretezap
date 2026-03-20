@@ -1085,10 +1085,10 @@ CRON_DEPENDS_ON: dict[LangCode, str] = {
 }
 
 CRON_WILL_BE_SENT: dict[LangCode, str] = {
-    "pt-PT": " Será enviado às {time} ({tz}). Mantém o Zappelin ligado para receberes a notificação. Se não receberes à hora indicada, verifica em /definições o horário silencioso.",
-    "pt-BR": " Será enviado às {time} ({tz}). Mantenha o Zappelin ligado para receber a notificação. Se não receber no horário indicado, verifique em /definições o horário silencioso.",
-    "es": " Se enviará a las {time} ({tz}). Mantén Zappelin abierto para recibir la notificación. Si no la recibes, revisa el horario silencioso en /definições.",
-    "en": " Will be sent at {time} ({tz}). Keep Zappelin running to receive the notification. If you don't get it, check the quiet hours in /settings.",
+    "pt-PT": " Será enviado a {date} às {time} ({tz}). Mantém o Zappelin ligado para receberes a notificação. Se não receberes à hora indicada, verifica em /definições o horário silencioso.",
+    "pt-BR": " Será enviado em {date} às {time} ({tz}). Mantenha o Zappelin ligado para receber a notificação. Se não receber no horário indicado, verifique em /definições o horário silencioso.",
+    "es": " Se enviará el {date} a las {time} ({tz}). Mantén Zappelin abierto para recibir la notificación. Si no la recibes, revisa el horario silencioso en /definições.",
+    "en": " Will be sent on {date} at {time} ({tz}). Keep Zappelin running to receive the notification. If you don't get it, check the quiet hours in /settings.",
 }
 
 CRON_CREATED_BY_CLI: dict[LangCode, str] = {

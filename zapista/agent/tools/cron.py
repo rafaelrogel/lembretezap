@@ -846,18 +846,26 @@ class CronTool(Tool):
                 from backend.database import SessionLocal
                 from backend.user_store import get_user_timezone
                 from backend.timezone import format_utc_timestamp_for_user, phone_to_default_timezone
+                from datetime import datetime, timezone as dt_timezone
+                from zoneinfo import ZoneInfo
                 db = SessionLocal()
                 try:
                     tz = get_user_timezone(db, self._chat_id, self._phone_for_locale) or phone_to_default_timezone(self._phone_for_locale or self._chat_id) or "UTC"
                     hora_str = format_utc_timestamp_for_user(at_sec_display, tz, show_seconds=_show_secs)
                     tz_label = CRON_TZ_LABEL_FROM_PHONE.get(_lang, CRON_TZ_LABEL_FROM_PHONE["en"])
+                    # Calcular a data do lembrete no fuso do utilizador
+                    _dt = datetime.fromtimestamp(at_sec_display, tz=ZoneInfo(tz))
+                    _date_fmt = "%Y-%m-%d" if _lang == "en" else "%d/%m"
+                    date_str = _dt.strftime(_date_fmt)
                 finally:
                     db.close()
             except Exception:
                 from backend.timezone import format_utc_timestamp_for_user
+                from datetime import datetime
                 hora_str = format_utc_timestamp_for_user(at_sec, "UTC")
                 tz_label = CRON_TZ_LABEL_UTC_FALLBACK.get(_lang, CRON_TZ_LABEL_UTC_FALLBACK["en"])
-            msg += CRON_WILL_BE_SENT.get(_lang, CRON_WILL_BE_SENT["en"]).format(time=hora_str, tz=tz_label)
+                date_str = datetime.utcfromtimestamp(at_sec).strftime("%d/%m")
+            msg += CRON_WILL_BE_SENT.get(_lang, CRON_WILL_BE_SENT["en"]).format(date=date_str, time=hora_str, tz=tz_label)
         if self._channel == "cli":
             msg += CRON_CREATED_BY_CLI.get(_lang, CRON_CREATED_BY_CLI["en"])
         return msg
