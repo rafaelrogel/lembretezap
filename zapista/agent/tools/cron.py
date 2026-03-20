@@ -703,73 +703,96 @@ class CronTool(Tool):
         # Avisos antes do evento: só quando o tipo de lembrete exige (reunião, voo, consulta...) ou evento muito longo (24h automático)
         pre_reminder_count = 0
         if in_seconds is not None and in_seconds > 0 and use_pre_reminders:
-            try:
-                from backend.database import SessionLocal
-                from backend.user_store import get_default_reminder_lead_seconds, get_extra_reminder_leads_seconds
-                from backend.reminder_lead_classifier import AUTO_LEAD_LONG_EVENT_SECONDS
-                db = SessionLocal()
+            # Deduplicação: verificar quantos avisos já existem para este job pai
+            _existing_pre = [
+                j for j in self._cron.list_jobs()
+                if getattr(j.payload, "parent_job_id", None) == job.id
+                and not getattr(j.payload, "deadline_check_for_job_id", None)
+                and getattr(j.payload, "to", None) == self._chat_id
+            ]
+            _max_pre = 4  # limite absoluto de avisos por lembrete
+            if len(_existing_pre) >= _max_pre:
+                logger.warning(
+                    f"Dedup: já existem {len(_existing_pre)} avisos para job {job.id[:12]}, não criando mais."
+                )
+            else:
                 try:
-                    if long_event_24h:
-                        # Evento muito longo (ex.: > 5 dias): um único aviso 24h antes, sem perguntar ao cliente
-                        lead_sec = AUTO_LEAD_LONG_EVENT_SECONDS
-                        when_sec = in_seconds - lead_sec
-                        if when_sec > 0:
-                            at_ms = _effective_now_ms() + when_sec * 1000
-                            from backend.locale import REMINDER_ADVANCE_NOTICE_PREFIX
-                            _lang = self._get_user_lang()
-                            self._cron.add_job(
-                                name=f"{message[:26]} {REMINDER_ADVANCE_NOTICE_PREFIX.get(_lang, '(antes)')}",
-                                schedule=CronSchedule(kind="at", at_ms=at_ms),
-                                message=message,
-                                deliver=True,
-                                channel=self._channel,
-                                to=self._chat_id,
-                                phone_for_locale=getattr(self, "_phone_for_locale", None),
-                                delete_after_run=True,
-                                parent_job_id=job.id,
-                                audio_mode=audio_mode,
-                            )
-                            pre_reminder_count = 1
-                    else:
-                        # Preferências do user (quando tinha onboarding de avisos) ou fallback 24h para novos users
-                        default_lead = get_default_reminder_lead_seconds(db, self._chat_id)
-                        extra_leads = get_extra_reminder_leads_seconds(db, self._chat_id)
-                        if default_lead is None:
-                            default_lead = AUTO_LEAD_LONG_EVENT_SECONDS  # 24h para reuniões/compromissos quando user não definiu
-                        seen = set()
-                        leads = []
-                        if default_lead and default_lead not in seen:
-                            seen.add(default_lead)
-                            leads.append(default_lead)
-                        for L in extra_leads:
-                            if L and L not in seen:
-                                seen.add(L)
-                                leads.append(L)
-                        leads.sort(reverse=True)
-                        for lead_sec in leads[:4]:
+                    from backend.database import SessionLocal
+                    from backend.user_store import get_default_reminder_lead_seconds, get_extra_reminder_leads_seconds
+                    from backend.reminder_lead_classifier import AUTO_LEAD_LONG_EVENT_SECONDS
+                    db = SessionLocal()
+                    try:
+                        if long_event_24h:
+                            # Evento muito longo (ex.: > 5 dias): um único aviso 24h antes, sem perguntar ao cliente
+                            lead_sec = AUTO_LEAD_LONG_EVENT_SECONDS
                             when_sec = in_seconds - lead_sec
-                            if when_sec <= 0:
-                                continue
-                            at_ms = _effective_now_ms() + when_sec * 1000
-                            from backend.locale import REMINDER_ADVANCE_NOTICE_PREFIX
-                            _lang = self._get_user_lang()
-                            self._cron.add_job(
-                                name=f"{message[:26]} {REMINDER_ADVANCE_NOTICE_PREFIX.get(_lang, '(antes)')}",
-                                schedule=CronSchedule(kind="at", at_ms=at_ms),
-                                message=message,
-                                deliver=True,
-                                channel=self._channel,
-                                to=self._chat_id,
-                                phone_for_locale=getattr(self, "_phone_for_locale", None),
-                                delete_after_run=True,
-                                parent_job_id=job.id,
-                                audio_mode=audio_mode,
-                            )
-                            pre_reminder_count += 1
-                finally:
-                    db.close()
-            except Exception:
-                pass
+                            if when_sec > 0:
+                                at_ms = _effective_now_ms() + when_sec * 1000
+                                from backend.locale import REMINDER_ADVANCE_NOTICE_PREFIX
+                                _lang = self._get_user_lang()
+                                self._cron.add_job(
+                                    name=f"{message[:26]} {REMINDER_ADVANCE_NOTICE_PREFIX.get(_lang, '(antes)')}",
+                                    schedule=CronSchedule(kind="at", at_ms=at_ms),
+                                    message=message,
+                                    deliver=True,
+                                    channel=self._channel,
+                                    to=self._chat_id,
+                                    phone_for_locale=getattr(self, "_phone_for_locale", None),
+                                    delete_after_run=True,
+                                    parent_job_id=job.id,
+                                    audio_mode=audio_mode,
+                                )
+                                pre_reminder_count = 1
+                        else:
+                            # Preferências do user (quando tinha onboarding de avisos) ou fallback 24h para novos users
+                            default_lead = get_default_reminder_lead_seconds(db, self._chat_id)
+                            extra_leads = get_extra_reminder_leads_seconds(db, self._chat_id)
+                            if default_lead is None:
+                                default_lead = AUTO_LEAD_LONG_EVENT_SECONDS  # 24h para reuniões/compromissos quando user não definiu
+                            seen = set()
+                            leads = []
+                            if default_lead and default_lead not in seen:
+                                seen.add(default_lead)
+                                leads.append(default_lead)
+                            for L in extra_leads:
+                                if L and L not in seen:
+                                    seen.add(L)
+                                    leads.append(L)
+                            leads.sort(reverse=True)
+                            # Dedup por janela de tempo: não criar aviso se já existe um no mesmo lead_sec ±5min
+                            _existing_at_ms = [
+                                getattr(j.state, "next_run_at_ms", None) or 0
+                                for j in _existing_pre
+                            ]
+                            for lead_sec in leads[:4]:
+                                when_sec = in_seconds - lead_sec
+                                if when_sec <= 0:
+                                    continue
+                                at_ms = _effective_now_ms() + when_sec * 1000
+                                # Verificar se já existe aviso dentro de ±5 min desta hora alvo
+                                _window = 5 * 60 * 1000  # 5 minutos em ms
+                                if any(abs(at_ms - ex_ms) <= _window for ex_ms in _existing_at_ms if ex_ms):
+                                    logger.debug(f"Dedup: aviso duplicado para job {job.id[:12]} em at_ms={at_ms}, ignorando.")
+                                    continue
+                                from backend.locale import REMINDER_ADVANCE_NOTICE_PREFIX
+                                _lang = self._get_user_lang()
+                                self._cron.add_job(
+                                    name=f"{message[:26]} {REMINDER_ADVANCE_NOTICE_PREFIX.get(_lang, '(antes)')}",
+                                    schedule=CronSchedule(kind="at", at_ms=at_ms),
+                                    message=message,
+                                    deliver=True,
+                                    channel=self._channel,
+                                    to=self._chat_id,
+                                    phone_for_locale=getattr(self, "_phone_for_locale", None),
+                                    delete_after_run=True,
+                                    parent_job_id=job.id,
+                                    audio_mode=audio_mode,
+                                )
+                                pre_reminder_count += 1
+                    finally:
+                        db.close()
+                except Exception:
+                    pass
         try:
             from datetime import datetime
             from backend.database import SessionLocal
