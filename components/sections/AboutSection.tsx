@@ -81,7 +81,7 @@ export function AboutSection() {
             >
               <motion.figure
                 variants={fadeUp}
-                className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
+                className="group rounded-2xl bg-neutral-100 px-5 py-4 text-left shadow-[0_4px_12px_-6px_rgba(33,33,33,0.08)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-[1px] hover:shadow-[0_10px_24px_-10px_rgba(33,33,33,0.16),0_4px_10px_-6px_rgba(33,33,33,0.1)]"
               >
                 <div className="flex items-start gap-3">
                   <Image
@@ -89,7 +89,7 @@ export function AboutSection() {
                     alt="Foto de perfil de Ana"
                     width={34}
                     height={34}
-                    className="mt-0.5 rounded-full object-cover"
+                    className="mt-0.5 rounded-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
                   />
                   <div className="min-w-0">
                     <Typography
@@ -108,7 +108,7 @@ export function AboutSection() {
               </motion.figure>
               <motion.figure
                 variants={fadeUp}
-                className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
+                className="group rounded-2xl bg-neutral-100 px-5 py-4 text-left shadow-[0_4px_12px_-6px_rgba(33,33,33,0.08)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-[1px] hover:shadow-[0_10px_24px_-10px_rgba(33,33,33,0.16),0_4px_10px_-6px_rgba(33,33,33,0.1)]"
               >
                 <div className="flex items-start gap-3">
                   <Image
@@ -116,7 +116,7 @@ export function AboutSection() {
                     alt="Foto de perfil de Rodrigo"
                     width={34}
                     height={34}
-                    className="mt-0.5 rounded-full object-cover"
+                    className="mt-0.5 rounded-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
                   />
                   <div className="min-w-0">
                     <Typography
@@ -135,7 +135,7 @@ export function AboutSection() {
               </motion.figure>
               <motion.figure
                 variants={fadeUp}
-                className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
+                className="group rounded-2xl bg-neutral-100 px-5 py-4 text-left shadow-[0_4px_12px_-6px_rgba(33,33,33,0.08)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-[1px] hover:shadow-[0_10px_24px_-10px_rgba(33,33,33,0.16),0_4px_10px_-6px_rgba(33,33,33,0.1)]"
               >
                 <div className="flex items-start gap-3">
                   <Image
@@ -143,7 +143,7 @@ export function AboutSection() {
                     alt="Foto de perfil de Julia"
                     width={34}
                     height={34}
-                    className="mt-0.5 rounded-full object-cover"
+                    className="mt-0.5 rounded-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
                   />
                   <div className="min-w-0">
                     <Typography
@@ -162,7 +162,7 @@ export function AboutSection() {
               </motion.figure>
               <motion.figure
                 variants={fadeUp}
-                className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
+                className="group rounded-2xl bg-neutral-100 px-5 py-4 text-left shadow-[0_4px_12px_-6px_rgba(33,33,33,0.08)] transition-[transform,box-shadow] duration-300 ease-out hover:-translate-y-[1px] hover:shadow-[0_10px_24px_-10px_rgba(33,33,33,0.16),0_4px_10px_-6px_rgba(33,33,33,0.1)]"
               >
                 <div className="flex items-start gap-3">
                   <Image
@@ -170,7 +170,7 @@ export function AboutSection() {
                     alt="Foto de perfil de Carla"
                     width={34}
                     height={34}
-                    className="mt-0.5 rounded-full object-cover"
+                    className="mt-0.5 rounded-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
                   />
                   <div className="min-w-0">
                     <Typography
