@@ -3,6 +3,7 @@ import { FeaturesSection } from "@/components/sections/FeaturesSection";
 import { AboutSection } from "@/components/sections/AboutSection";
 import { TaglineSection } from "@/components/sections/TaglineSection";
 import { UnderstandMoreSection } from "@/components/sections/UnderstandMoreSection";
+import { FooterSection } from "@/components/sections/FooterSection";
 
 export default function HomePage() {
   return (
@@ -12,6 +13,7 @@ export default function HomePage() {
       <FeaturesSection />
       <AboutSection />
       <UnderstandMoreSection />
+      <FooterSection />
     </main>
   );
 }

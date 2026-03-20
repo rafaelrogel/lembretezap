@@ -173,7 +173,7 @@ export function UnderstandMoreSection() {
           </motion.div>
 
           <motion.div
-            className="-mt-2"
+            className="mt-4"
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, amount: 0.2 }}
@@ -201,16 +201,43 @@ export function UnderstandMoreSection() {
                   itemRefs.current[index] = el;
                 }}
                 variants={fadeUp}
-                className={`features-card relative flex min-h-[16rem] w-[300px] shrink-0 flex-col justify-end overflow-visible rounded-2xl bg-[#FFFEFC] p-5 text-left shadow-[0_4px_16px_rgba(15,23,42,0.06)] transition-[box-shadow] duration-300 ease-out ${
+                className={`features-card relative flex min-h-[16rem] w-[300px] shrink-0 flex-col justify-end overflow-visible rounded-2xl p-5 text-left shadow-[0_4px_16px_rgba(15,23,42,0.06)] transition-[box-shadow] duration-300 ease-out ${
                   isActive
-                    ? "text-[var(--Text-900,#212121)] shadow-[0_16px_28px_-14px_rgba(15,23,42,0.22)]"
+                    ? "text-white shadow-[0_16px_28px_-14px_rgba(15,23,42,0.22)]"
                     : "text-[var(--Text-900,#212121)]"
                 }`}
+                style={{ backgroundColor: isActive ? "#059669" : "#FFFEFC" }}
               >
+                <div className="relative z-[1] mb-3">
+                  <Image
+                    src="/emojis/heart.svg"
+                    alt=""
+                    width={isActive ? 32 : 24}
+                    height={isActive ? 32 : 24}
+                    className={isActive ? "h-8 w-8" : "h-6 w-6"}
+                    aria-hidden
+                  />
+                </div>
+                {isActive && (
+                  <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+                    <motion.div
+                      className="absolute inset-0"
+                      style={{
+                        background:
+                          "radial-gradient(130% 95% at 18% 20%, rgba(110, 255, 168, 0.5) 0%, rgba(110, 255, 168, 0) 62%), radial-gradient(130% 95% at 82% 78%, rgba(167, 243, 208, 0.42) 0%, rgba(167, 243, 208, 0) 65%), linear-gradient(135deg, rgba(52, 211, 153, 0.34) 0%, rgba(5,150,105,0.02) 100%)",
+                      }}
+                      initial={{ opacity: 0.58, scale: 0.985 }}
+                      animate={{ opacity: [0.56, 0.9, 0.6], scale: [0.99, 1.03, 1] }}
+                      transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                    />
+                  </div>
+                )}
                 <Typography
                   as="h3"
                   variant="body-lg"
-                  className="relative z-[1] min-w-0 whitespace-pre-line font-semibold text-[var(--Text-900,#212121)]"
+                  className={`relative z-[1] min-w-0 whitespace-pre-line font-semibold ${
+                    isActive ? "text-white" : "text-[var(--Text-900,#212121)]"
+                  }`}
                   style={{
                     fontSize: isActive ? "1.26rem" : "1.125rem",
                     transition: `font-size 0.4s ${EASE_SMOOTH}`,
@@ -222,10 +249,10 @@ export function UnderstandMoreSection() {
                 <Typography
                   as="p"
                   variant="body-sm"
-                  className={`relative z-[1] min-w-0 overflow-hidden text-[var(--Text-600,#797781)] transition-[max-height,opacity,transform,margin-top] duration-700 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${
+                  className={`relative z-[1] min-w-0 overflow-hidden transition-[max-height,opacity,transform,margin-top] duration-700 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${
                     isActive
-                      ? "mt-2 max-h-44 translate-y-0 opacity-85"
-                      : "mt-0 max-h-0 translate-y-[2px] opacity-0"
+                      ? "mt-2 max-h-44 translate-y-0 text-white/90 opacity-85"
+                      : "mt-0 max-h-0 translate-y-[2px] text-[var(--Text-600,#797781)] opacity-0"
                   }`}
                   style={{ lineHeight: "140%" }}
                 >

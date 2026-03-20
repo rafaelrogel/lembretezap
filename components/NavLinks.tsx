@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 const links = [
   { href: "#funcionalidades", label: "Como funciona", sectionId: "funcionalidades" as const },
   { href: "/about", label: "Nossa missão", sectionId: "sobre" as const },
-  { href: "#", label: "Entenda mais", sectionId: null },
+  { href: "#entenda-mais", label: "Entenda mais", sectionId: "entenda-mais" as const },
 ] as const;
 
 const baseClass =
@@ -21,6 +21,7 @@ export function NavLinks() {
   const pathname = usePathname();
   const [sobreInView, setSobreInView] = useState(false);
   const [featuresInView, setFeaturesInView] = useState(false);
+  const [entendaMaisInView, setEntendaMaisInView] = useState(false);
 
   useEffect(() => {
     if (pathname !== "/") return;
@@ -46,6 +47,18 @@ export function NavLinks() {
     return () => observer.disconnect();
   }, [pathname]);
 
+  useEffect(() => {
+    if (pathname !== "/") return;
+    const el = document.getElementById("entenda-mais");
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setEntendaMaisInView(entry.isIntersecting),
+      { threshold: 0.2, rootMargin: "-80px 0px -40% 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pathname]);
+
   return (
     <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-10 md:flex">
       {links.map(({ href, label, sectionId }) => {
@@ -56,7 +69,11 @@ export function NavLinks() {
           ((sectionId === "sobre" && sobreInView) ||
             (sectionId === "funcionalidades" &&
               featuresInView &&
-              !sobreInView));
+              !sobreInView) ||
+            (sectionId === "entenda-mais" &&
+              entendaMaisInView &&
+              !sobreInView &&
+              !featuresInView));
         const showActive = isActive || isSectionActive;
         return (
           <Link
