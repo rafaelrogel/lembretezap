@@ -897,6 +897,10 @@ function FeatureCard({
         <div
           className="pointer-events-none absolute inset-x-4 top-0 bottom-0 z-0 overflow-hidden"
           aria-hidden
+          style={{
+            opacity: isHovered ? 1 : 0.5,
+            transition: "opacity 0.5s ease-out",
+          }}
         >
           <IdeasRain isHovered={isHovered} />
         </div>

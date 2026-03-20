@@ -1,80 +1,94 @@
 import { Container } from "@/components/layout";
-import { Button, Typography } from "@/components/ui";
+import { Typography } from "@/components/ui";
+import { GrupoFoto1 } from "./GrupoFoto1";
 
 export function AboutSection() {
   return (
     <section
       id="sobre"
-      className="py-page-y"
+      className="py-page-y mt-20"
       aria-labelledby="about-heading"
     >
-      <Container as="div" size="lg" className="flex flex-col gap-section md:flex-row md:items-center md:justify-between md:gap-12">
-        <div className="max-w-xl">
-          <Typography
-            id="about-heading"
-            variant="display-sm"
-            as="h2"
-            className="font-bold"
-            style={{
-              color: "var(--Text-900, #212121)",
-              fontWeight: 700,
-            }}
-          >
-            Sobre nós
-          </Typography>
-          <Typography
-            variant="body-lg"
-            as="p"
-            className="mt-4 text-[var(--Text-600,#797781)]"
-            style={{
-              fontSize: 16,
-              fontWeight: 400,
-              lineHeight: "140%",
-            }}
-          >
-            O Zappelin transforma a forma como você organiza o dia. Suas
-            mensagens viram lembretes, eventos e tarefas sem esforço — para você
-            escrever como sempre escreveu, sem nada para aprender nem instalar.
-          </Typography>
-          <Button
-            href="/about"
-            variant="outline"
-            size="md"
-            className="mt-6 border-emerald-500/60 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-500"
-          >
-            Saiba mais
-          </Button>
-        </div>
-      </Container>
-      <Container as="div" size="lg" className="mt-10">
-        <div className="rounded-xl bg-neutral-100 p-8 md:p-10">
-          <Typography variant="heading-md" as="h3" className="font-semibold text-[var(--Text-900,#212121)] mb-4">
-            Por que o Zappelin?
-          </Typography>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <Typography variant="body-md" as="p" className="font-medium text-[var(--Text-900,#212121)]">
-                Simples e rápido
-              </Typography>
-              <Typography variant="body-sm" as="p" className="mt-1 text-[var(--Text-600,#797781)]">
-                Conecte o WhatsApp e comece a organizar. Sem apps extras nem configurações complicadas.
-              </Typography>
-            </div>
-            <div>
-              <Typography variant="body-md" as="p" className="font-medium text-[var(--Text-900,#212121)]">
-                Tudo num só lugar
-              </Typography>
-              <Typography variant="body-sm" as="p" className="mt-1 text-[var(--Text-600,#797781)]">
-                Lembretes, eventos e tarefas sincronizados com o seu dia, onde quer que você esteja.
-              </Typography>
-            </div>
-            <div>
-              <Typography variant="body-md" as="p" className="font-medium text-[var(--Text-900,#212121)]">
-                Feito para o seu ritmo
-              </Typography>
-              <Typography variant="body-sm" as="p" className="mt-1 text-[var(--Text-600,#797781)]">
-                Escreva como sempre escreveu. O Zappelin entende e organiza por você.
-              </Typography>
+      <Container as="div" size="lg">
+        <div className="mx-auto flex w-full max-w-[990px] flex-col gap-section md:flex-row md:items-start md:justify-between md:gap-16">
+          {/* Coluna esquerda */}
+          <div className="flex-1">
+            <Typography
+              id="about-heading"
+              variant="display-sm"
+              as="h2"
+              className="font-bold"
+              style={{
+                color: "var(--Text-900, #212121)",
+                fontWeight: 700,
+              }}
+            >
+              Menos pra lembrar, mais pra viver
+            </Typography>
+            <Typography
+              variant="body-lg"
+              as="p"
+              className="mt-4 text-[var(--Text-600,#797781)]"
+              style={{
+                fontSize: 16,
+                fontWeight: 400,
+                lineHeight: "140%",
+              }}
+            >
+              O Zappelin cuida do que você precisa lembrar, para você focar em
+              viver sua vida.
+            </Typography>
+            <GrupoFoto1 />
+          </div>
+          {/* Coluna direita – depoimentos */}
+          <div className="flex-1 md:max-w-md">
+            <Typography
+              variant="heading-md"
+              as="h3"
+              className="mb-4 font-semibold text-[var(--Text-900,#212121)]"
+            >
+              O que as pessoas dizem
+            </Typography>
+            <div className="space-y-4">
+              <figure className="rounded-2xl bg-neutral-100 px-5 py-4 text-left">
+                <Typography
+                  as="blockquote"
+                  variant="body-sm"
+                  className="text-[var(--Text-700,#4B4A47)]"
+                >
+                  “Comecei usando para lista de mercado e hoje organizo
+                  praticamente tudo no Zappelin. É muito natural.”
+                </Typography>
+                <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
+                  Ana, 29 anos
+                </figcaption>
+              </figure>
+              <figure className="rounded-2xl bg-neutral-100 px-5 py-4 text-left">
+                <Typography
+                  as="blockquote"
+                  variant="body-sm"
+                  className="text-[var(--Text-700,#4B4A47)]"
+                >
+                  “Gosto porque não preciso abrir outro app. Mando mensagem e já
+                  sei que aquilo vai virar lembrete.”
+                </Typography>
+                <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
+                  Rodrigo, 34 anos
+                </figcaption>
+              </figure>
+              <figure className="rounded-2xl bg-neutral-100 px-5 py-4 text-left">
+                <Typography
+                  as="blockquote"
+                  variant="body-sm"
+                  className="text-[var(--Text-700,#4B4A47)]"
+                >
+                  “Me ajudou muito a não esquecer pequenos compromissos do dia.
+                  É como ter uma memória extra dentro do WhatsApp.”
+                </Typography>
+                <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
+                  Júlia, 41 anos
+                </figcaption>
+              </figure>
             </div>
           </div>
         </div>
