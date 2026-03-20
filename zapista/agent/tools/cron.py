@@ -653,8 +653,10 @@ class CronTool(Tool):
         if is_important and remind_again_if_unconfirmed_seconds is None and delete_after_run:
              remind_again_if_unconfirmed_seconds = 3600 # 1h
              remind_again_max_count = 1
+        elif remind_again_if_unconfirmed_seconds is not None:
+             remind_again_max_count = 3 # cap follow-ups to avoid runaway chains
         else:
-             remind_again_max_count = 3 # cap follow-ups to avoid runaway chains (was 10)
+             remind_again_max_count = 0 # no follow-ups unless explicitly set
 
         try:
             job = self._cron.add_job(

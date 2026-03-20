@@ -672,7 +672,7 @@ def gateway(
                 pass
             metadata_job_id = job.id
             remind_sec = getattr(job.payload, "remind_again_if_unconfirmed_seconds", None) or 0
-            remind_max = min(getattr(job.payload, "remind_again_max_count", 3) or 0, 3)
+            remind_max = min(getattr(job.payload, "remind_again_max_count", 0) or 0, 3)
             if remind_sec and remind_max > 0 and ch == "whatsapp":
                 from zapista.cron.types import CronSchedule
                 base_time = job.state.last_run_at_ms or _now_ms()
