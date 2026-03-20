@@ -635,8 +635,10 @@ class CronService:
         # Guarda phone_for_locale por chat key (último valor encontrado)
         phone_by_chat: dict[tuple[str | None, str | None], str | None] = {}
         for j in store.jobs:
-            if not j.enabled or j.schedule.kind != "at":
+            if j.schedule.kind != "at":
                 continue
+            # Se for "at" e estiver desativado, é candidato a remoção se já tiver passado (ou se nunca teve next_run)
+            # Se estiver ativo (enabled), só removemos se já passou (stale).
             at_ms = getattr(j.schedule, "at_ms", None)
             next_ms = getattr(j.state, "next_run_at_ms", None)
             if at_ms is None:
