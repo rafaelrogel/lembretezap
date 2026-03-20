@@ -15,6 +15,8 @@ from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
 # Palavras de data SEM hora explícita (quando sozinhas = tempo vago)
 _DATE_WORDS = {
     "amanhã", "amanha", "hoje", "depois", "tomorrow", "today",
+    "mañana", "hoy", "lunes", "martes", "miércoles", "miercoles",
+    "jueves", "viernes", "tomorrow", "today",
     "segunda", "terça", "terca", "quarta", "quinta", "sexta",
     "sábado", "sabado", "domingo", "monday", "tuesday", "wednesday",
     "thursday", "friday", "saturday", "sunday",
@@ -336,7 +338,7 @@ def _parse_written_time(text: str) -> tuple[int, int] | None:
 _TIME_RESPONSE_PATTERNS = (
     (r"(\d{1,2}):(\d{2})\s*(am|pm)\b", _am_pm_to_24),  # 3:25 PM, 10:30 AM (antes dos outros)
     (r"(\d{1,2})\s*(am|pm)\b", lambda m: ((int(m.group(1)) % 12) + (12 if m.group(2).lower() == "pm" else 0), 0)),
-    (r"(?:às?|as)\s*(\d{1,2})(?:[:h])?(\d{2})?\b", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
+    (r"(?:às?|as|at|a\s+las?|a\s+la)\s*(\d{1,2})(?:[:h])?(\d{2})?\b", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
     (r"(\d{1,2})h(\d{2})\b", lambda m: (int(m.group(1)), int(m.group(2)))),  # 10h00
     (r"(\d{1,2})(?::(\d{2}))?\s*h", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
     (r"^(\d{4})$", lambda m: (int(m.group(1)[:2]), int(m.group(1)[2:]))),    # 1200
