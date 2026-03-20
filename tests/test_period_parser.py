@@ -1,6 +1,6 @@
 """Tests for backend.period_parser: parsing temporal qualifiers in 4 languages."""
 
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -11,38 +11,38 @@ from backend.period_parser import parse_period, period_label
 
 class TestYear:
     def test_year_pt_para(self):
-        assert parse_period("mostre meus lembretes para 2027") == (date(2027, 1, 1), date(2027, 12, 31))
+        assert parse_period("mostre meus lembretes para 2027") == (date(2027, 1, 1), date(2027, 12, 31), None)
 
     def test_year_pt_ano_de(self):
-        assert parse_period("ano de 2027") == (date(2027, 1, 1), date(2027, 12, 31))
+        assert parse_period("ano de 2027") == (date(2027, 1, 1), date(2027, 12, 31), None)
 
     def test_year_pt_em(self):
-        assert parse_period("lembretes em 2028") == (date(2028, 1, 1), date(2028, 12, 31))
+        assert parse_period("lembretes em 2028") == (date(2028, 1, 1), date(2028, 12, 31), None)
 
     def test_year_en_for(self):
-        assert parse_period("show my reminders for 2027") == (date(2027, 1, 1), date(2027, 12, 31))
+        assert parse_period("show my reminders for 2027") == (date(2027, 1, 1), date(2027, 12, 31), None)
 
     def test_year_en_in(self):
-        assert parse_period("reminders in 2027") == (date(2027, 1, 1), date(2027, 12, 31))
+        assert parse_period("reminders in 2027") == (date(2027, 1, 1), date(2027, 12, 31), None)
 
     def test_year_en_year(self):
-        assert parse_period("year 2027") == (date(2027, 1, 1), date(2027, 12, 31))
+        assert parse_period("year 2027") == (date(2027, 1, 1), date(2027, 12, 31), None)
 
     def test_year_es_para(self):
-        assert parse_period("mis recordatorios para 2027") == (date(2027, 1, 1), date(2027, 12, 31))
+        assert parse_period("mis recordatorios para 2027") == (date(2027, 1, 1), date(2027, 12, 31), None)
 
     def test_year_es_año(self):
-        assert parse_period("año 2027") == (date(2027, 1, 1), date(2027, 12, 31))
+        assert parse_period("año 2027") == (date(2027, 1, 1), date(2027, 12, 31), None)
 
     def test_year_es_del(self):
-        assert parse_period("eventos del 2027") == (date(2027, 1, 1), date(2027, 12, 31))
+        assert parse_period("eventos del 2027") == (date(2027, 1, 1), date(2027, 12, 31), None)
 
     def test_year_invalid_range(self):
         assert parse_period("para 1899") is None
         assert parse_period("para 2101") is None
 
     def test_year_para_o_ano(self):
-        assert parse_period("para o ano de 2027") == (date(2027, 1, 1), date(2027, 12, 31))
+        assert parse_period("para o ano de 2027") == (date(2027, 1, 1), date(2027, 12, 31), None)
 
 
 # --- Month ---
@@ -50,43 +50,43 @@ class TestYear:
 class TestMonth:
     def test_month_pt_em(self):
         result = parse_period("em março", today=date(2026, 3, 10))
-        assert result == (date(2026, 3, 1), date(2026, 3, 31))
+        assert result == (date(2026, 3, 1), date(2026, 3, 31), None)
 
     def test_month_pt_para(self):
         result = parse_period("para dezembro", today=date(2026, 3, 10))
-        assert result == (date(2026, 12, 1), date(2026, 12, 31))
+        assert result == (date(2026, 12, 1), date(2026, 12, 31), None)
 
     def test_month_pt_past_month_uses_next_year(self):
         result = parse_period("em janeiro", today=date(2026, 3, 10))
-        assert result == (date(2027, 1, 1), date(2027, 1, 31))
+        assert result == (date(2027, 1, 1), date(2027, 1, 31), None)
 
     def test_month_with_year(self):
         result = parse_period("em março de 2028", today=date(2026, 3, 10))
-        assert result == (date(2028, 3, 1), date(2028, 3, 31))
+        assert result == (date(2028, 3, 1), date(2028, 3, 31), None)
 
     def test_month_en_in(self):
         result = parse_period("in march", today=date(2026, 3, 10))
-        assert result == (date(2026, 3, 1), date(2026, 3, 31))
+        assert result == (date(2026, 3, 1), date(2026, 3, 31), None)
 
     def test_month_en_for(self):
         result = parse_period("for december", today=date(2026, 3, 10))
-        assert result == (date(2026, 12, 1), date(2026, 12, 31))
+        assert result == (date(2026, 12, 1), date(2026, 12, 31), None)
 
     def test_month_es_en(self):
         result = parse_period("en marzo", today=date(2026, 3, 10))
-        assert result == (date(2026, 3, 1), date(2026, 3, 31))
+        assert result == (date(2026, 3, 1), date(2026, 3, 31), None)
 
     def test_month_es_para(self):
         result = parse_period("para enero", today=date(2026, 3, 10))
-        assert result == (date(2027, 1, 1), date(2027, 1, 31))
+        assert result == (date(2027, 1, 1), date(2027, 1, 31), None)
 
     def test_february_leap_year(self):
         result = parse_period("em fevereiro", today=date(2028, 1, 1))
-        assert result == (date(2028, 2, 1), date(2028, 2, 29))
+        assert result == (date(2028, 2, 1), date(2028, 2, 29), None)
 
     def test_february_non_leap_year(self):
         result = parse_period("em fevereiro", today=date(2027, 1, 1))
-        assert result == (date(2027, 2, 1), date(2027, 2, 28))
+        assert result == (date(2027, 2, 1), date(2027, 2, 28), None)
 
 
 # --- This week ---
@@ -94,15 +94,15 @@ class TestMonth:
 class TestThisWeek:
     def test_this_week_pt(self):
         result = parse_period("para esta semana", today=date(2026, 3, 10))  # Tuesday
-        assert result == (date(2026, 3, 9), date(2026, 3, 15))
+        assert result == (date(2026, 3, 9), date(2026, 3, 15), None)
 
     def test_this_week_en(self):
         result = parse_period("this week", today=date(2026, 3, 10))
-        assert result == (date(2026, 3, 9), date(2026, 3, 15))
+        assert result == (date(2026, 3, 9), date(2026, 3, 15), None)
 
     def test_this_week_es(self):
         result = parse_period("esta semana", today=date(2026, 3, 10))
-        assert result == (date(2026, 3, 9), date(2026, 3, 15))
+        assert result == (date(2026, 3, 9), date(2026, 3, 15), None)
 
 
 # --- Next week ---
@@ -110,15 +110,15 @@ class TestThisWeek:
 class TestNextWeek:
     def test_next_week_pt_proxima(self):
         result = parse_period("próxima semana", today=date(2026, 3, 10))
-        assert result == (date(2026, 3, 16), date(2026, 3, 22))
+        assert result == (date(2026, 3, 16), date(2026, 3, 22), None)
 
     def test_next_week_pt_semana_que_vem(self):
         result = parse_period("semana que vem", today=date(2026, 3, 10))
-        assert result == (date(2026, 3, 16), date(2026, 3, 22))
+        assert result == (date(2026, 3, 16), date(2026, 3, 22), None)
 
     def test_next_week_en(self):
         result = parse_period("next week", today=date(2026, 3, 10))
-        assert result == (date(2026, 3, 16), date(2026, 3, 22))
+        assert result == (date(2026, 3, 16), date(2026, 3, 22), None)
 
 
 # --- This month ---
@@ -126,15 +126,15 @@ class TestNextWeek:
 class TestThisMonth:
     def test_this_month_pt(self):
         result = parse_period("este mês", today=date(2026, 3, 10))
-        assert result == (date(2026, 3, 1), date(2026, 3, 31))
+        assert result == (date(2026, 3, 1), date(2026, 3, 31), None)
 
     def test_this_month_en(self):
         result = parse_period("this month", today=date(2026, 3, 10))
-        assert result == (date(2026, 3, 1), date(2026, 3, 31))
+        assert result == (date(2026, 3, 1), date(2026, 3, 31), None)
 
     def test_this_month_es(self):
         result = parse_period("este mes", today=date(2026, 3, 10))
-        assert result == (date(2026, 3, 1), date(2026, 3, 31))
+        assert result == (date(2026, 3, 1), date(2026, 3, 31), None)
 
 
 # --- Next month ---
@@ -142,44 +142,60 @@ class TestThisMonth:
 class TestNextMonth:
     def test_next_month_pt(self):
         result = parse_period("próximo mês", today=date(2026, 3, 10))
-        assert result == (date(2026, 4, 1), date(2026, 4, 30))
+        assert result == (date(2026, 4, 1), date(2026, 4, 30), None)
 
     def test_next_month_pt_que_vem(self):
         result = parse_period("mês que vem", today=date(2026, 3, 10))
-        assert result == (date(2026, 4, 1), date(2026, 4, 30))
+        assert result == (date(2026, 4, 1), date(2026, 4, 30), None)
 
     def test_next_month_en(self):
         result = parse_period("next month", today=date(2026, 3, 10))
-        assert result == (date(2026, 4, 1), date(2026, 4, 30))
+        assert result == (date(2026, 4, 1), date(2026, 4, 30), None)
 
     def test_next_month_december(self):
         result = parse_period("próximo mês", today=date(2026, 12, 15))
-        assert result == (date(2027, 1, 1), date(2027, 1, 31))
+        assert result == (date(2027, 1, 1), date(2027, 1, 31), None)
 
 
 # --- Today / Tomorrow ---
 
 class TestTodayTomorrow:
     def test_today_pt(self):
-        assert parse_period("para hoje", today=date(2026, 3, 10)) == (date(2026, 3, 10), date(2026, 3, 10))
+        assert parse_period("para hoje", today=date(2026, 3, 10)) == (date(2026, 3, 10), date(2026, 3, 10), None)
 
     def test_today_en(self):
-        assert parse_period("for today", today=date(2026, 3, 10)) == (date(2026, 3, 10), date(2026, 3, 10))
+        assert parse_period("for today", today=date(2026, 3, 10)) == (date(2026, 3, 10), date(2026, 3, 10), None)
 
     def test_today_es(self):
-        assert parse_period("para hoy", today=date(2026, 3, 10)) == (date(2026, 3, 10), date(2026, 3, 10))
+        assert parse_period("para hoy", today=date(2026, 3, 10)) == (date(2026, 3, 10), date(2026, 3, 10), None)
 
     def test_tomorrow_pt(self):
-        assert parse_period("para amanhã", today=date(2026, 3, 10)) == (date(2026, 3, 11), date(2026, 3, 11))
+        assert parse_period("para amanhã", today=date(2026, 3, 10)) == (date(2026, 3, 11), date(2026, 3, 11), None)
 
     def test_tomorrow_en(self):
-        assert parse_period("for tomorrow", today=date(2026, 3, 10)) == (date(2026, 3, 11), date(2026, 3, 11))
+        assert parse_period("for tomorrow", today=date(2026, 3, 10)) == (date(2026, 3, 11), date(2026, 3, 11), None)
 
     def test_tomorrow_es(self):
-        assert parse_period("para mañana", today=date(2026, 3, 10)) == (date(2026, 3, 11), date(2026, 3, 11))
+        assert parse_period("para mañana", today=date(2026, 3, 10)) == (date(2026, 3, 11), date(2026, 3, 11), None)
 
 
 # --- No match ---
+
+class TestWeekday:
+    def test_next_5_fridays(self):
+        # 2026-03-20 is a Friday
+        res = parse_period("próximas 5 sextas", today=date(2026, 3, 20))
+        assert res[2] == 4 # Friday
+        assert res[1] >= date(2026, 3, 20) + timedelta(days=28)
+
+    def test_next_5_fridays_en(self):
+        res = parse_period("next 5 fridays", today=date(2026, 3, 20))
+        assert res[2] == 4
+        assert res[1] >= date(2026, 3, 20) + timedelta(days=28)
+
+    def test_agenda_de_segunda(self):
+        res = parse_period("agenda de segunda", today=date(2026, 3, 20))
+        assert res[2] == 0 # Monday
 
 class TestNoMatch:
     def test_empty(self):

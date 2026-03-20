@@ -12,9 +12,9 @@ from zoneinfo import ZoneInfo
 
 # Recorrência: dia da semana em cron (0=domingo, 1=segunda, ..., 6=sábado)
 DIAS_SEMANA = {
-    "domingo": 0, "segunda": 1, "terça": 2, "terca": 2, "quarta": 3, "quinta": 4,
-    "sexta": 5, "sábado": 6, "sabado": 6,
-    "segunda-feira": 1, "terça-feira": 2, "quarta-feira": 3, "quinta-feira": 4, "sexta-feira": 5,
+    "segunda-feira": 1, "terça-feira": 2, "terca-feira": 2, "quarta-feira": 3, "quinta-feira": 4, "sexta-feira": 5,
+    "domingo": 0, "segunda": 1, "terça": 2, "terca": 2, "quarta": 3, "quinta": 4, "sexta": 5,
+    "sábado": 6, "sabado": 6,
 }
 
 MESES = {
@@ -252,7 +252,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                 out["start_date"] = sd
             return out
         for dia_name, cron_dow in DIAS_SEMANA.items():
-            pat = rf"toda\s+(?:semana\s+)?{re.escape(dia_name)}\s+(?:às?|as)\s*(\d{{1,2}})\s*h?\b"
+            pat = rf"\btoda\s+(?:semana\s+)?{re.escape(dia_name)}\b\s+(?:às?|as)\s*(\d{{1,2}})\s*h?\b"
             m = re.search(pat, text_lower, re.I)
             if m:
                 hora = min(23, max(0, int(m.group(1))))
@@ -408,7 +408,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         return {"cron_expr": "0 9 * * *", "message": "Lembrete"}
 
     for dia_name, cron_dow in DIAS_SEMANA.items():
-        pat = rf"toda\s+(?:semana\s+)?{re.escape(dia_name)}\s+às?\s*(\d{{1,2}})\s*h?\b"
+        pat = rf"\btoda\s+(?:semana\s+)?{re.escape(dia_name)}\b\s+às?\s*(\d{{1,2}})\s*h?\b"
         m = re.search(pat, text_lower, re.I)
         if m:
             hora = min(23, max(0, int(m.group(1))))
@@ -444,7 +444,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                 return {"in_seconds": int(delta), "message": clean_message(message)}
 
     for dia_name, cron_dow in DIAS_SEMANA.items():
-        if dia_name in text_lower:
+        if re.search(rf"\b{re.escape(dia_name)}\b", text_lower, re.I):
             # Python weekday(): 0=Seg, 6=Dom.
             # Nosso cron_dow: 0=Dom, 1=Seg, ..., 5=Sex, 6=Sáb.
             # Normalizar agora para 0=Dom:

@@ -143,6 +143,26 @@ _RE_DAY_ONLY = re.compile(
     re.I,
 )
 
+_WEEKDAYS = {
+    "segunda-feira": 0, "terça-feira": 1, "terca-feira": 1, "quarta-feira": 2, "quinta-feira": 3, "sexta-feira": 4,
+    "segunda": 0, "terça": 1, "terca": 1, "quarta": 2, "quinta": 3, "sexta": 4, "sábado": 5, "sabado": 5, "domingo": 6,
+    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6,
+    "lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2, "jueves": 3, "viernes": 4, "sábado": 5, "sabado": 5, "domingo": 6,
+}
+
+_RE_NEXT_N_WEEKDAYS = re.compile(
+    r"(?:"
+    r"(?:pr[oó]xim[ao]s?|las?\s+pr[oó]xim[ao]s?)\s+(\d{1,2})\s+(" + "|".join(_WEEKDAYS.keys()) + r")s?"
+    r"|next\s+(\d{1,2})\s+(" + "|".join(_WEEKDAYS.keys()) + r")s?"
+    r")",
+    re.I,
+)
+
+_RE_WEEKDAY_ONLY = re.compile(
+    r"\b(?:de|proxima|pr[oó]xima|next|proximo|pr[oó]ximo|en|on)\s+(" + "|".join(_WEEKDAYS.keys()) + r")\b",
+    re.I,
+)
+
 
 def _last_day_of_month(year: int, month: int) -> date:
     """Último dia do mês."""
@@ -151,15 +171,10 @@ def _last_day_of_month(year: int, month: int) -> date:
     return date(year, month + 1, 1) - timedelta(days=1)
 
 
-def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, date]]:
-    """Parse temporal qualifier from text and return (start_date, end_date) inclusive, or None.
+def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, date, Optional[int]]]:
+    """Parse temporal qualifier from text and return (start_date, end_date, weekday_filter) or None.
 
-    Args:
-        text: User message (full or partial).
-        today: Reference date (default: date.today()).
-
-    Returns:
-        (start, end) inclusive date range, or None if no period detected.
+    weekday_filter: 0-6 (Mon-Sun) if explicit weekday filtering is requested.
     """
     if not text:
         return None
@@ -168,6 +183,30 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
         today = date.today()
 
     # Order: most specific first to avoid partial matches
+
+    # Next N weekdays: "próximas 5 sexta-feiras"
+    m = _RE_NEXT_N_WEEKDAYS.search(t)
+    if m:
+        count_str = m.group(1) or m.group(3)
+        wd_name = m.group(2) or m.group(4)
+        if count_str and wd_name:
+            count = int(count_str)
+            target_wd = _WEEKDAYS.get(wd_name)
+            if target_wd is not None and 1 <= count <= 52:
+                # Range from today until the N-th occurrence of target_wd
+                # For simplicity, returning a range large enough to include all and the filter
+                end = today + timedelta(days=count * 8) 
+                return (today, end, target_wd)
+
+    # Weekday only: "lembretes de sexta"
+    m = _RE_WEEKDAY_ONLY.search(t)
+    if m:
+        wd_name = m.group(1)
+        target_wd = _WEEKDAYS.get(wd_name)
+        if target_wd is not None:
+            # Range: Current week plus next 4 weeks
+            end = today + timedelta(days=30)
+            return (today, end, target_wd)
 
     # Next N weeks: "próximas 2 semanas", "next 2 weeks" (check BEFORE day only)
     m = _RE_NEXT_N_WEEKS.search(t)
@@ -180,7 +219,7 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
                 break
         if weeks and 1 <= weeks <= 52:
             end = today + timedelta(days=weeks * 7)
-            return (today, end)
+            return (today, end, None)
 
     # Next N days: "próximos 7 dias", "next 7 days" (check BEFORE day only)
     m = _RE_NEXT_N_DAYS.search(t)
@@ -216,7 +255,7 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
                 pass
         try:
             target = date(year, month, day)
-            return (target, target)
+            return (target, target, None)
         except ValueError:
             pass  # Data inválida, continua
 
@@ -234,18 +273,18 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
                         target = date(today.year + 1, 1, day)
                     else:
                         target = date(today.year, today.month + 1, day)
-                return (target, target)
+                return (target, target, None)
             except ValueError:
                 pass  # Dia inválido para este mês
 
     # Today
     if _RE_TODAY.search(t):
-        return (today, today)
+        return (today, today, None)
 
     # Tomorrow
     if _RE_TOMORROW.search(t):
         tmrw = today + timedelta(days=1)
-        return (tmrw, tmrw)
+        return (tmrw, tmrw, None)
 
     # Next week (before this week — "next" is more specific)
     if _RE_NEXT_WEEK.search(t):
@@ -253,17 +292,17 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
         days_until_next_monday = (7 - today.weekday()) % 7 or 7
         start = today + timedelta(days=days_until_next_monday)
         end = start + timedelta(days=6)
-        return (start, end)
+        return (start, end, None)
 
     # This week
     if _RE_THIS_WEEK.search(t):
         start = today - timedelta(days=today.weekday())  # Monday
         end = start + timedelta(days=6)  # Sunday
-        return (start, end)
+        return (start, end, None)
 
     # This year
     if _RE_THIS_YEAR.search(t):
-        return (date(today.year, 1, 1), date(today.year, 12, 31))
+        return (date(today.year, 1, 1), date(today.year, 12, 31), None)
 
     # Next month (before this month)
     if _RE_NEXT_MONTH.search(t):
@@ -272,13 +311,13 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
         else:
             start = date(today.year, today.month + 1, 1)
         end = _last_day_of_month(start.year, start.month)
-        return (start, end)
+        return (start, end, None)
 
     # This month
     if _RE_THIS_MONTH.search(t):
         start = date(today.year, today.month, 1)
         end = _last_day_of_month(today.year, today.month)
-        return (start, end)
+        return (start, end, None)
 
     # Named month (optionally with year): "em março", "in march 2027"
     m = _RE_MONTH.search(t)
@@ -293,14 +332,14 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
                 year = today.year + 1
             start = date(year, month_num, 1)
             end = _last_day_of_month(year, month_num)
-            return (start, end)
+            return (start, end, None)
 
     # Year: "para 2027"
     m = _RE_YEAR.search(t)
     if m:
         year = int(m.group(1))
         if 2000 <= year <= 2100:  # Sanity check
-            return (date(year, 1, 1), date(year, 12, 31))
+            return (date(year, 1, 1), date(year, 12, 31), None)
 
     return None
 
