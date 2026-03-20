@@ -151,10 +151,13 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
             logger.debug(f"Handler {h.__name__} failed for full block: {e}")
 
     # Tentativa 2: Se tem múltiplas linhas, tentar processar cada uma como comando/NL separado (Batch Handling)
-    lines = [ln.strip() for ln in content.split("\n") if ln.strip()]
+    lines = content.strip().splitlines()
     if len(lines) > 1:
         results = []
         for line in lines:
+            line = line.strip()
+            if not line:
+                continue
             line_norm = normalize_nl_to_command(line)
             line_norm = normalize_command(line_norm.strip())
             for h in HANDLERS:

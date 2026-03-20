@@ -10,11 +10,11 @@ from typing import Any
 from backend.time_parse import extract_start_date, parse_lembrete_time
 
 # Padrões com aliases internacionais (PT, ES, EN)
-RE_LEMBRETE = re.compile(r"^/(?:lembrete|reminder|recordatorio)\s+(.+)$", re.I)
-RE_LIST_ADD = re.compile(r"^/(?:list|lista)\s+(\S+)\s+add\s+(.+)$", re.I)
+RE_LEMBRETE = re.compile(r"^/(?:lembrete|reminder|recordatorio)\s+([^\r\n]+)$", re.I)
+RE_LIST_ADD = re.compile(r"^/(?:list|lista)\s+(\S+)\s+add\s+([^\r\n]+)$", re.I)
 # /list filme|livro|musica|receita|notas|nota|sites|site|links|link <item> (categorias; sem "add")
 RE_LIST_CATEGORY_ADD = re.compile(
-    r"^/(?:list|lista)\s+(filme|filmes|livro|livros|musica|musicas|m[uú]sicas?|receita|receitas|recipe|recipes|receta|recetas|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+(.+)$",
+    r"^/(?:list|lista)\s+(filme|filmes|livro|livros|musica|musicas|m[uú]sicas?|receita|receitas|recipe|recipes|receta|recetas|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+([^\r\n]+)$",
     re.I,
 )
 RE_LIST_SHOW = re.compile(r"^/(?:list|lista)\s+(\S+)\s*$", re.I)
@@ -37,15 +37,15 @@ RE_NL_QUAL_LISTA = re.compile(
 )
 RE_NL_LISTA_SOZINHA = re.compile(r"^(lista|mercado|compras|pendentes)\s*$", re.I)
 # Atalhos: /filme, /livro, /musica, /receita, /nota, /site → equivalente a /list <categoria> <item>
-RE_FILME = re.compile(r"^/filmes?\s+(.+)$", re.I)
-RE_LIVRO = re.compile(r"^/livros?\s+(.+)$", re.I)
-RE_MUSICA = re.compile(r"^/(?:musica|m[uú]sica)s?\s+(.+)$", re.I)
-RE_RECEITA = re.compile(r"^/receita\s+(.+)$", re.I)
+RE_FILME = re.compile(r"^/filmes?\s+([^\r\n]+)$", re.I)
+RE_LIVRO = re.compile(r"^/livros?\s+([^\r\n]+)$", re.I)
+RE_MUSICA = re.compile(r"^/(?:musica|m[uú]sica)s?\s+([^\r\n]+)$", re.I)
+RE_RECEITA = re.compile(r"^/receita\s+([^\r\n]+)$", re.I)
 # Atalhos ES/EN
-RE_PELICULA = re.compile(r"^/pel[ií]culas?\s+(.+)$", re.I)
-RE_LIBRO = re.compile(r"^/libros?\s+(.+)$", re.I)
-RE_MOVIE = re.compile(r"^/movies?\s+(.+)$", re.I)
-RE_BOOK = re.compile(r"^/books?\s+(.+)$", re.I)
+RE_PELICULA = re.compile(r"^/pel[ií]culas?\s+([^\r\n]+)$", re.I)
+RE_LIBRO = re.compile(r"^/libros?\s+([^\r\n]+)$", re.I)
+RE_MOVIE = re.compile(r"^/movies?\s+([^\r\n]+)$", re.I)
+RE_BOOK = re.compile(r"^/books?\s+([^\r\n]+)$", re.I)
 # NL: "adicione ovos bacon e queijos a listas" → list_add mercado
 RE_NL_ADICIONE_LISTA = re.compile(
     r"^(?:adicione|adiciona|adicionar|coloca|coloque|colocar)\s+(.+?)\s+(?:a|à|nas?)\s+listas?\s*$",
@@ -53,7 +53,7 @@ RE_NL_ADICIONE_LISTA = re.compile(
 )
 # NL: "add lista filmes X", "add list filmes X" → list_add filme
 RE_NL_ADD_LISTA_CATEGORIA = re.compile(
-    r"^(?:add|adicione|adiciona|a[ñn]adir)\s+(?:listas?\s+)?(filmes?|livros?|m[uú]sicas?|receitas?|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+(.+)$",
+    r"^(?:add|adicione|adiciona|a[ñn]adir)\s+(?:listas?\s+)?(filmes?|livros?|m[uú]sicas?|receitas?|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+([^\r\n]+)$",
     re.I,
 )
 # PT: cria, crie, faça, faz, me dê, me de, de-me, dê-me
@@ -94,7 +94,7 @@ RE_NL_LISTA_DOIS_PONTOS = re.compile(
     re.I,
 )
 # NL: "anota X" / "anotar X" (sem "na lista") → list_add notas
-RE_NL_ANOTA = re.compile(r"^(?:anota|anotar)\s+(.+)$", re.I)
+RE_NL_ANOTA = re.compile(r"^(?:anota|anotar)\s+([^\r\n]+)$", re.I)
 # NL: "hoje tenho muita coisa para fazer, X, Y e Z" → sempre list_add hoje (to-do)
 RE_NL_MUITA_COISA = re.compile(
     r"^(?:hoje\s+)?tenho\s+(muita\s+coisa|v[aá]rias\s+coisas|v[aá]rias\s+tarefas)(\s+para\s+fazer)?\s*[,:]\s*(.+)$",
@@ -107,12 +107,12 @@ RE_NL_HOJE_TENHO_DE = re.compile(
 )
 # NL: "lembra de comprar X", "não esqueças de comprar X" → list_add mercado
 RE_NL_LEMBRA_COMPRAR = re.compile(
-    r"^(?:lembra[- ]?me\s+de\s+comprar|n[aã]o\s+esque[cç]as?\s+de\s+comprar|lembra\s+de\s+comprar)\s+(.+)$",
+    r"^(?:lembra[- ]?me\s+de\s+comprar|n[aã]o\s+esque[cç]as?\s+de\s+comprar|lembra\s+de\s+comprar)\s+([^\r\n]+)$",
     re.I,
 )
 # NL: "filme/livro para ver: X" ou "quero ver filme X"
 RE_NL_FILME_LIVRO_VER = re.compile(
-    r"^(?:(?:filme|livro)\s+para\s+(?:ver|ler)\s*:\s*|quero\s+(?:ver|ler)\s+(?:o\s+)?(?:filme|livro)\s+)(.+)$",
+    r"^(?:(?:filme|livro)\s+para\s+(?:ver|ler)\s*:\s*|quero\s+(?:ver|ler)\s+(?:o\s+)?(?:filme|livro)\s+)([^\r\n]+)$",
     re.I,
 )
 

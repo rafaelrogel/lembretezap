@@ -928,36 +928,36 @@ REMINDER_MIN_INTERVAL_2H: dict[LangCode, str] = {
     "es": "El intervalo mínimo para recordatorios recurrentes es 2 horas. Ej.: cada 2 horas o cada 3 horas.",
     "en": "The minimum interval for recurring reminders is 2 hours. E.g. every 2 hours or every 3 hours.",
 }
-# Limites por dia: 40 agenda, 40 lembretes, 80 total (aviso aos 70%)
+# Limites por dia: 80 agenda, 80 lembretes, 160 total (aviso aos 70%)
 LIMIT_AGENDA_PER_DAY_REACHED: dict[LangCode, str] = {
-    "pt-PT": "Atingiste o limite de 40 eventos de agenda para este dia. Remove alguns da agenda antes de adicionar mais.",
-    "pt-BR": "Você atingiu o limite de 40 eventos de agenda para este dia. Remova alguns da agenda antes de adicionar mais.",
-    "es": "Has alcanzado el límite de 40 eventos de agenda para este día. Elimina algunos antes de añadir más.",
-    "en": "You've reached the limit of 40 agenda events for this day. Remove some from your agenda before adding more.",
+    "pt-PT": "Atingiste o limite de 80 eventos de agenda para este dia. Remove alguns da agenda antes de adicionar mais.",
+    "pt-BR": "Você atingiu o limite de 80 eventos de agenda para este dia. Remova alguns da agenda antes de adicionar mais.",
+    "es": "Has alcanzado el límite de 80 eventos de agenda para este día. Elimina algunos antes de añadir más.",
+    "en": "You've reached the limit of 80 agenda events for this day. Remove some from your agenda before adding more.",
 }
 LIMIT_REMINDERS_PER_DAY_REACHED: dict[LangCode, str] = {
-    "pt-PT": "Atingiste o limite de 40 lembretes para este dia. Remove alguns com 👎 ou /lembrete antes de adicionar mais.",
-    "pt-BR": "Você atingiu o limite de 40 lembretes para este dia. Remova alguns com 👎 ou /lembrete antes de adicionar mais.",
-    "es": "Has alcanzado el límite de 40 recordatorios para este día. Elimina algunos con 👎 o /lembrete antes de añadir más.",
-    "en": "You've reached the limit of 40 reminders for this day. Remove some with 👎 or /lembrete before adding more.",
+    "pt-PT": "Atingiste o limite de 80 lembretes para este dia. Remove alguns com 👎 ou /lembrete antes de adicionar mais.",
+    "pt-BR": "Você atingiu o limite de 80 lembretes para este dia. Remova alguns com 👎 ou /lembrete antes de adicionar mais.",
+    "es": "Has alcanzado el límite de 80 recordatorios para este día. Elimina algunos con 👎 o /lembrete antes de añadir más.",
+    "en": "You've reached the limit of 80 reminders for this day. Remove some with 👎 or /lembrete before adding more.",
 }
 LIMIT_TOTAL_PER_DAY_REACHED: dict[LangCode, str] = {
-    "pt-PT": "Atingiste o limite de 80 itens (agenda + lembretes) para este dia. Remove alguns antes de adicionar mais.",
-    "pt-BR": "Você atingiu o limite de 80 itens (agenda + lembretes) para este dia. Remova alguns antes de adicionar mais.",
-    "es": "Has alcanzado el límite de 80 ítems (agenda + recordatorios) para este día. Elimina algunos antes de añadir más.",
-    "en": "You've reached the limit of 80 items (agenda + reminders) for this day. Remove some before adding more.",
+    "pt-PT": "Atingiste o limite de 160 itens (agenda + lembretes) para este dia. Remove alguns antes de adicionar mais.",
+    "pt-BR": "Você atingiu o limite de 160 itens (agenda + lembretes) para este dia. Remova alguns antes de adicionar mais.",
+    "es": "Has alcanzado el límite de 160 ítems (agenda + recordatorios) para este día. Elimina algunos antes de añadir más.",
+    "en": "You've reached the limit of 160 items (agenda + reminders) for this day. Remove some before adding more.",
 }
 LIMIT_WARNING_70: dict[LangCode, str] = {
-    "pt-PT": "Estás a 70% do limite diário (40 eventos de agenda, 40 lembretes, 80 no total). Convém não ultrapassar.",
-    "pt-BR": "Você está em 70% do limite diário (40 eventos de agenda, 40 lembretes, 80 no total). Convém não ultrapassar.",
-    "es": "Estás al 70% del límite diario (40 eventos de agenda, 40 recordatorios, 80 en total). Conviene no superar.",
-    "en": "You're at 70% of the daily limit (40 agenda events, 40 reminders, 80 total). Best not to exceed it.",
+    "pt-PT": "Estás a 70% do limite diário (80 eventos de agenda, 80 lembretes, 160 no total). Convém não ultrapassar.",
+    "pt-BR": "Você está em 70% do limite diário (80 eventos de agenda, 80 lembretes, 160 no total). Convém não ultrapassar.",
+    "es": "Estás al 70% del límite diario (80 eventos de agenda, 80 recordatorios, 160 en total). Conviene no superar.",
+    "en": "You're at 70% of the daily limit (80 agenda events, 80 reminders, 160 total). Best not to exceed it.",
 }
 REMINDER_LIMIT_EXCEEDED: dict[LangCode, str] = {
-    "pt-PT": "Tens o limite máximo de 40 lembretes para este dia. Remove alguns com 👎 ou /lembrete antes de adicionar mais.",
-    "pt-BR": "Você atingiu o limite de 40 lembretes para este dia. Remova alguns com 👎 ou /lembrete antes de adicionar mais.",
-    "es": "Has alcanzado el límite de 40 recordatorios para este día. Elimina algunos con 👎 o /lembrete antes de añadir más.",
-    "en": "You've reached the limit of 40 reminders for this day. Remove some with 👎 or /lembrete before adding more.",
+    "pt-PT": "Tens o limite máximo de 80 lembretes para este dia. Remove alguns com 👎 ou /lembrete antes de adicionar mais.",
+    "pt-BR": "Você atingiu o limite de 80 lembretes para este dia. Remova alguns com 👎 ou /lembrete antes de adicionar mais.",
+    "es": "Has alcanzado el límite de 80 recordatorios para este día. Elimina algunos con 👎 o /lembrete antes de añadir más.",
+    "en": "You've reached the limit of 80 reminders for this day. Remove some with 👎 or /lembrete before adding more.",
 }
 
 # Mensagens de áudio (voice messages)
