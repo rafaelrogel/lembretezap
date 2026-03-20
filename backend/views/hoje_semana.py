@@ -50,7 +50,7 @@ def _events_in_period(db, user_id: int, today, end_date, tz) -> list:
             continue
         seen.add(key)
         
-        out.append((ev_local, ev.data_at, nome[:40]))
+        out.append((ev_local, ev.data_at, nome))
         
     out.sort(key=lambda x: (x[0], x[1] or datetime.min))
     return out
@@ -62,6 +62,15 @@ def _reminders_today(ctx: "HandlerContext", tz, today_start_utc_ms: int, period_
     if ctx.cron_service:
         for job in ctx.cron_service.list_jobs():
             if getattr(job.payload, "to", None) != ctx.chat_id:
+                continue
+            # Filtrar: avisos pré-evento (parent_job_id), nudges proativos e deadline checkers
+            if getattr(job.payload, "parent_job_id", None):
+                continue
+            if getattr(job.payload, "is_proactive_nudge", False):
+                continue
+            if getattr(job.payload, "deadline_check_for_job_id", None):
+                continue
+            if getattr(job.payload, "deadline_main_job_id", None):
                 continue
             nr = getattr(job.state, "next_run_at_ms", None)
             if nr and today_start_utc_ms <= nr <= period_end_utc_ms:
@@ -110,7 +119,7 @@ def _visao_hoje(ctx: "HandlerContext") -> str:
             lines.append(VIEW_REMINDERS_HEADER.get(lang, VIEW_REMINDERS_HEADER["en"]))
             if reminders:
                 for dt, msg in reminders[:15]:
-                    lines.append(f"• {dt.strftime('%H:%M')} — {msg[:50]}{'…' if len(msg) > 50 else ''}")
+                    lines.append(f"• {dt.strftime('%H:%M')} — {msg}")
             else:
                 from backend.locale import VIEW_NO_REMINDERS_TODAY
                 _lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
@@ -240,7 +249,7 @@ def _visao_semana(ctx: "HandlerContext") -> str:
             event_list = _events_in_period(db, user.id, today, end_date, tz)
             if event_list:
                 for d, _, nome in event_list[:25]:
-                    lines.append(f"• {d.strftime('%d/%m')} — {nome[:50]}")
+                    lines.append(f"• {d.strftime('%d/%m')} — {nome}")
             else:
                 lines.append(VIEW_NO_EVENTS_WEEK.get(lang, VIEW_NO_EVENTS_WEEK["en"]))
 
