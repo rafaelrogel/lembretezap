@@ -413,7 +413,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             target = (now + timedelta(days=days_ahead)).replace(hour=9, minute=0, second=0, microsecond=0)
             delta = (target - now).total_seconds()
             if delta > 0:
-                message = strip_pattern(text, rf"\b{re.escape(word)}\b")
+                message = strip_pattern(text, rf"\b{re.escape(dia_name)}\b")
                 return {"in_seconds": int(delta), "message": clean_message(message)}
 
     return {"message": text}
