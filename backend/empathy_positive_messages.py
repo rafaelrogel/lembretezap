@@ -19,23 +19,29 @@ def get_extra_message_for_reminder(content: str, user_lang: str) -> str:
     """
     if not content or not content.strip():
         return ""
+    import re
     lang = user_lang if user_lang in _SUPPORTED else "en"
     text = content.strip().lower()
 
     for cat in EMPATHY_CATEGORIES:
         kws = cat["keywords"].get(lang, cat["keywords"].get("en", []))
         for kw in kws:
-            if kw and kw.lower() in text:
-                msg = cat["messages"].get(lang) or cat["messages"].get("en", "")
-                if msg:
-                    return msg
+            if kw:
+                # Usa regex com \b (word boundary) para evitar match parcial (ex: "teste1" match "teste")
+                pattern = rf"\b{re.escape(kw.lower())}\b"
+                if re.search(pattern, text, re.UNICODE):
+                    msg = cat["messages"].get(lang) or cat["messages"].get("en", "")
+                    if msg:
+                        return msg
 
     for cat in POSITIVE_CATEGORIES:
         kws = cat["keywords"].get(lang, cat["keywords"].get("en", []))
         for kw in kws:
-            if kw and kw.lower() in text:
-                msg = cat["messages"].get(lang) or cat["messages"].get("en", "")
-                if msg:
-                    return msg
+            if kw:
+                pattern = rf"\b{re.escape(kw.lower())}\b"
+                if re.search(pattern, text, re.UNICODE):
+                    msg = cat["messages"].get(lang) or cat["messages"].get("en", "")
+                    if msg:
+                        return msg
 
     return ""
