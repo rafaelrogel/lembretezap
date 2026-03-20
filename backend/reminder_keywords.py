@@ -22,7 +22,9 @@ PT_KEYWORDS = [
     "lembrar de", "lembra de", "lembre de", "avisa de", "avise de",
     "lembre-me disso", "lembra-me disso", "me lembre disso",
     "preciso de um lembrete", "tenho que lembrar", "tenho de lembrar",
-    "lembrador", "me avisa quando", "me avise quando", "avisa-me quando"
+    "lembrador", "me avisa quando", "me avise quando", "avisa-me quando",
+    "preciso de", "tenho de", "tenho que", "ir ao", "ir à", "ir a",
+    "pagar", "comprar", "ligar", "telefonar", "enviar"
 ]
 
 # Español
@@ -41,7 +43,8 @@ ES_KEYWORDS = [
     "no olvides avisarme", "no olvide avisarme",
     "podrías recordarme", "puede recordarme", "puedes recordarme",
     "marcar", "marca", "registro", "registrar", "regístrame",
-    "señalizar", "dame una señal", "avísame a las"
+    "señalizar", "dame una señal", "avísame a las",
+    "necesito", "tengo que", "ir a", "pagar", "comprar", "llamar", "telefonear", "enviar"
 ]
 
 # English
@@ -61,7 +64,8 @@ EN_KEYWORDS = [
     "wake me up", "alarm", "set an alarm", "alarm me",
     "put a reminder", "place a reminder", "add a reminder",
     "inform me", "keep me informed", "signal me",
-    "remind me about", "remind me later"
+    "remind me about", "remind me later",
+    "need to", "have to", "go to", "pay", "buy", "call", "send", "submit"
 ]
 
 # Lista unificada para deteção simples

@@ -797,6 +797,27 @@ REMINDER_RETRY_SUFFIX: dict[LangCode, str] = {
     "en": " ({n} of 3 attempts)",
 }
 
+REMINDER_ASK_TIME_HINT: dict[LangCode, str] = {
+    "pt-PT": "Por favor, indica a hora (ex: 18h, 10:30, amanhã às 14h).",
+    "pt-BR": "Por favor, indique a hora (ex: 18h, 10:30, amanhã às 14h).",
+    "es": "Por favor, indica la hora (ej: 18h, 10:30, mañana a las 14h).",
+    "en": "Please provide the time (e.g., 6pm, 10:30, tomorrow at 2pm).",
+}
+
+REMINDER_ASK_DATE_HINT: dict[LangCode, str] = {
+    "pt-PT": "Indica o dia (ex: amanhã, hoje, sexta, dia 25/03).",
+    "pt-BR": "Indique o dia (ex: amanhã, hoje, sexta, dia 25/03).",
+    "es": "Indica el día (ej: mañana, hoy, viernes, día 25/03).",
+    "en": "Provide the date (e.g., tomorrow, today, Friday, March 25th).",
+}
+
+REMINDER_ASK_ADVANCE_HINT: dict[LangCode, str] = {
+    "pt-PT": "Responde com 'sim', 'só na hora' ou 'não quero'.",
+    "pt-BR": "Responda com 'sim', 'na hora' ou 'não quero'.",
+    "es": "Responde con 'sí', 'sólo a la hora' o 'no quiero'.",
+    "en": "Reply with 'yes', 'on time only', or 'not interested'.",
+}
+
 # Dica quando o timezone não foi informado pelo cliente (para acertar sempre o horário)
 TZ_HINT_SET_CITY: dict[LangCode, str] = {
     "pt-PT": "💡 Para garantir que os lembretes são à tua hora: /tz Cidade (ex.: /tz Lisboa).",

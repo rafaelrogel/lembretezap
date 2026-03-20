@@ -50,9 +50,14 @@ _EXPLICIT_DATE_RE = re.compile("|".join(_EXPLICIT_DATE_PATTERNS), re.I)
 
 # Indicadores de pedido de lembrete/evento (conteúdo concreto) vindo de reminder_keywords.py
 _REMINDER_HINTS = (
-    "ir ", "tenho ", "preciso ", "consulta", "reunião", "reuniao",
+    # PT
+    "ir ", "tenho ", "preciso ", "pagar ", "comprar ", "ligar ", "telefonar ", "enviar ",
+    # ES
+    "voy ", "tengo ", "necesito ", "pagar ", "comprar ", "llamar ", "enviar ",
+    # EN
+    "going ", "need ", "have ", "pay ", "buy ", "call ", "send ", "submit ",
+    "appointment", "meeting", "consulta", "reunião", "reuniao",
     "médico", "medico", "dentista", "farmacia", "farmácia",
-    "appointment", "meeting",
 ) + tuple(ALL_REMINDER_KEYWORDS)
 
 FLOW_KEY = "pending_reminder_flow"
