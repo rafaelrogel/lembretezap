@@ -685,8 +685,10 @@ class CronTool(Tool):
             raise
         if use_deadline and job.schedule.kind == "at" and job.schedule.at_ms:
             at_ms = job.schedule.at_ms + (5 * 60 * 1000)
+            from backend.locale import REMINDER_DEADLINE_PREFIX
+            _lang = self._get_user_lang()
             self._cron.add_job(
-                name=f"{message[:22]} (prazo)",
+                name=f"{message[:22]} {REMINDER_DEADLINE_PREFIX.get(_lang, '(prazo)')}",
                 schedule=CronSchedule(kind="at", at_ms=at_ms),
                 message=message,
                 deliver=False,
@@ -713,8 +715,10 @@ class CronTool(Tool):
                         when_sec = in_seconds - lead_sec
                         if when_sec > 0:
                             at_ms = _effective_now_ms() + when_sec * 1000
+                            from backend.locale import REMINDER_ADVANCE_NOTICE_PREFIX
+                            _lang = self._get_user_lang()
                             self._cron.add_job(
-                                name=(message[:26] + " (antes)"),
+                                name=f"{message[:26]} {REMINDER_ADVANCE_NOTICE_PREFIX.get(_lang, '(antes)')}",
                                 schedule=CronSchedule(kind="at", at_ms=at_ms),
                                 message=message,
                                 deliver=True,
@@ -747,8 +751,10 @@ class CronTool(Tool):
                             if when_sec <= 0:
                                 continue
                             at_ms = _effective_now_ms() + when_sec * 1000
+                            from backend.locale import REMINDER_ADVANCE_NOTICE_PREFIX
+                            _lang = self._get_user_lang()
                             self._cron.add_job(
-                                name=(message[:26] + " (antes)"),
+                                name=f"{message[:26]} {REMINDER_ADVANCE_NOTICE_PREFIX.get(_lang, '(antes)')}",
                                 schedule=CronSchedule(kind="at", at_ms=at_ms),
                                 message=message,
                                 deliver=True,
@@ -880,12 +886,13 @@ class CronTool(Tool):
         if not jobs:
             return CRON_NO_REMINDERS.get(_lang, CRON_NO_REMINDERS["en"])
         def _sched_label(j):
+            from backend.locale import REMINDER_TYPE_ONCE, REMINDER_TYPE_RECURRING, REMINDER_TYPE_SCHEDULED
             if j.schedule.kind == "at":
-                return "pontual"
+                return REMINDER_TYPE_ONCE.get(_lang, "pontual")
             if j.schedule.kind == "every":
-                return "recorrente"
+                return REMINDER_TYPE_RECURRING.get(_lang, "recorrente")
             if j.schedule.kind == "cron":
-                return "agendado"
+                return REMINDER_TYPE_SCHEDULED.get(_lang, "agendado")
             return j.schedule.kind
         lines = [
             f"\u2022 {(j.payload.message or j.name)} ({_sched_label(j)}) [id: {j.id}]"

@@ -2259,6 +2259,34 @@ REMINDER_ADVANCE_NOTICE_PREFIX: dict[LangCode, str] = {
     "en": "(Advance Notice)",
 }
 
+REMINDER_DEADLINE_PREFIX: dict[LangCode, str] = {
+    "pt-PT": "(Prazo)",
+    "pt-BR": "(Prazo)",
+    "es": "(Plazo)",
+    "en": "(Deadline)",
+}
+
+REMINDER_TYPE_ONCE: dict[LangCode, str] = {
+    "pt-PT": "pontual",
+    "pt-BR": "pontual",
+    "es": "único",
+    "en": "one-time",
+}
+
+REMINDER_TYPE_RECURRING: dict[LangCode, str] = {
+    "pt-PT": "recorrente",
+    "pt-BR": "recorrente",
+    "es": "recurrente",
+    "en": "recurring",
+}
+
+REMINDER_TYPE_SCHEDULED: dict[LangCode, str] = {
+    "pt-PT": "agendado",
+    "pt-BR": "agendado",
+    "es": "programado",
+    "en": "scheduled",
+}
+
 POMODORO_TIME_REMAINING: dict[LangCode, str] = {
     "pt-PT": "{min} min restantes",
     "pt-BR": "{min} min restantes",
@@ -2296,6 +2324,13 @@ LIST_ITEM_NOT_FOUND_GLOBAL: dict[LangCode, str] = {
     "pt-BR": "Item {item_id} não encontrado. Use /feito nome_da_lista {item_id} se souber a lista.",
     "es": "Elemento {item_id} no encontrado. Usa /hecho nombre_lista {item_id} si sabes la lista.",
     "en": "Item {item_id} not found. Use /done list_name {item_id} if you know the list.",
+}
+
+EVENT_UNKNOWN: dict[LangCode, str] = {
+    "pt-PT": "Evento desconhecido",
+    "pt-BR": "Evento desconhecido",
+    "es": "Evento desconocido",
+    "en": "Unknown event",
 }
 
 LIST_TECH_ERROR: dict[LangCode, str] = {
