@@ -1,6 +1,8 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { AnimatedBlobs } from "./AnimatedBlobs";
 // import { BackgroundShapes } from "./BackgroundShapes"; // kept if we need to revert
 import { HeroChatMockup } from "./HeroChatMockup";
@@ -82,6 +84,14 @@ export function HeroSection() {
   const mock5WrapperRef = useRef<HTMLDivElement>(null);
   const mock5MotionRef = useRef({ x: 0, y: 0, rotateX: 0, rotateY: 0 });
   const lastLogRef = useRef(0);
+  const [discoverHover, setDiscoverHover] = useState(false);
+  const [isHeroInView, setIsHeroInView] = useState(true);
+  const [discoverBreathe, setDiscoverBreathe] = useState(false);
+  /** Clique em Descubra mais dispara leave antes / durante o scroll */
+  const [discoverDismissed, setDiscoverDismissed] = useState(false);
+  /** Primeira entrada mantém delay 1.4s; após já ter fechado por clique, voltar à hero sem esse delay */
+  const [discoverWasEverDismissed, setDiscoverWasEverDismissed] = useState(false);
+  const prevHeroInViewRef = useRef(true);
 
   useEffect(() => {
     let rafId: number;
@@ -107,6 +117,42 @@ export function HeroSection() {
     rafId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafId);
   }, []);
+
+  // "Respiro" único após a entrance do CTA Descubra mais.
+  useEffect(() => {
+    const start = setTimeout(() => setDiscoverBreathe(true), 2100);
+    const end = setTimeout(() => setDiscoverBreathe(false), 2750);
+    return () => {
+      clearTimeout(start);
+      clearTimeout(end);
+    };
+  }, []);
+
+  // Controla visibilidade do "Descubra mais" – só aparece enquanto a hero está visível
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const el = heroRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        const inView = entry?.isIntersecting ?? false;
+        if (inView && !prevHeroInViewRef.current) {
+          setDiscoverDismissed(false);
+        }
+        prevHeroInViewRef.current = inView;
+        setIsHeroInView(inView);
+      },
+      {
+        threshold: 0.2,
+      }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = heroRef.current;
     if (!el) return;
@@ -142,9 +188,11 @@ export function HeroSection() {
     if (DEBUG) console.log("[HeroSection] onMouseLeave");
   };
 
+  const ctaVisible = isHeroInView && !discoverDismissed;
+
   return (
     <section
-      className="relative overflow-hidden mx-auto w-full max-w-container-lg px-[40px] pt-12 pb-page-y"
+      className="relative overflow-hidden mx-auto w-full max-w-[1280px] px-[40px] pt-12 pb-page-y"
       aria-labelledby="hero-heading"
     >
       <div
@@ -241,6 +289,83 @@ export function HeroSection() {
           </div>
         </div>
       </div>
+
+      {/* Call-to-scroll: Descubra mais */}
+      <motion.div
+        className="mt-8 flex justify-center text-[13px] text-[var(--Text-500,#9CA3AF)]"
+        initial={{ opacity: 0, y: 8 }}
+        animate={ctaVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
+        transition={
+          ctaVisible
+            ? {
+                duration: 0.5,
+                delay: discoverWasEverDismissed ? 0 : 1.4,
+                ease: "easeOut",
+              }
+            : { duration: 0.45, ease: "easeInOut" }
+        }
+        style={{ pointerEvents: ctaVisible ? "auto" : "none" }}
+      >
+        <motion.button
+          type="button"
+          className="inline-flex items-center gap-1.5 cursor-pointer"
+          onClick={() => {
+            if (typeof document === "undefined") return;
+            setDiscoverDismissed(true);
+            setDiscoverWasEverDismissed(true);
+            window.setTimeout(() => {
+              document.getElementById("tagline-heading")?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+                inline: "nearest",
+              });
+            }, 450);
+          }}
+          onHoverStart={() => setDiscoverHover(true)}
+          onHoverEnd={() => setDiscoverHover(false)}
+          animate={
+            discoverHover
+              ? { color: "#4B5563", opacity: 1 }
+              : discoverBreathe
+                ? { color: "#4B5563", opacity: 1 }
+                : { color: "#4B5563", opacity: 0.6 }
+          }
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          >
+          <motion.span
+            className="inline-flex items-center"
+            style={{ gap: 8 }}
+            animate={
+              discoverHover
+                ? { scale: 1.08 }
+                : discoverBreathe
+                  ? { scale: [1, 1.06, 1] }
+                  : { scale: 1 }
+            }
+            transition={
+              discoverHover
+                ? { duration: 0.22, ease: "easeOut" }
+                : discoverBreathe
+                  ? { duration: 0.55, ease: "easeInOut", times: [0, 0.5, 1] }
+                  : { duration: 0.22, ease: "easeInOut" }
+            }
+          >
+            <span>Descubra mais</span>
+            <span
+              className="inline-flex h-4 w-4 items-center justify-center"
+              aria-hidden
+            >
+              <Image
+                src="/pointing down.svg"
+                alt=""
+                width={16}
+                height={16}
+                className="h-4 w-4"
+              />
+            </span>
+          </motion.span>
+          </motion.button>
+      </motion.div>
     </section>
   );
 }

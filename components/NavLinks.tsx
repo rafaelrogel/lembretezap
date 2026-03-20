@@ -54,7 +54,9 @@ export function NavLinks() {
         const isSectionActive =
           pathname === "/" &&
           ((sectionId === "sobre" && sobreInView) ||
-            (sectionId === "funcionalidades" && featuresInView));
+            (sectionId === "funcionalidades" &&
+              featuresInView &&
+              !sobreInView));
         const showActive = isActive || isSectionActive;
         return (
           <Link

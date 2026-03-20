@@ -102,7 +102,11 @@ export function TaglineSection() {
   });
 
   return (
-    <section ref={sectionRef} className="py-page-y" aria-labelledby="tagline-heading">
+    <section
+      ref={sectionRef}
+      className="py-page-y"
+      aria-labelledby="tagline-heading"
+    >
       <Container as="div" size="lg" className="text-center">
         <div className="mx-auto max-w-4xl">
           {/* Linha 1: acima da mensagem – esquerda mock 1, direita mock 3 */}
