@@ -1,11 +1,11 @@
 [project]
-name = "zapista"
+name = "zappelin"
 version = "0.1.0"
-description = "Zapista — WhatsApp AI organizer (lembretes, listas, eventos)"
+description = "Zappelin — WhatsApp AI organizer (lembretes, listas, eventos)"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "Zapista contributors"}
+    {name = "Zappelin contributors"}
 ]
 keywords = ["whatsapp", "ai", "organizer", "reminders", "lists"]
 classifiers = [
