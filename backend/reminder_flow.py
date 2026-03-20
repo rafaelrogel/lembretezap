@@ -47,6 +47,7 @@ _EXPLICIT_DATE_PATTERNS = (
     r"\d{1,2}\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)",
     r"\d{1,2}\s+de\s+(?:enero|febrero|marzo|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)",
     r"\d{1,2}\s+(?:enero|febrero|marzo|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)",
+    r"(?:dia\s+)?\d{1,2}\b",                      # dia 22, 22
 )
 _EXPLICIT_DATE_RE = re.compile("|".join(_EXPLICIT_DATE_PATTERNS), re.I)
 
@@ -252,6 +253,12 @@ def parse_date_from_response(text: str) -> str | None:
     for dw in ("amanhã", "amanha", "hoje", "segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo"):
         if dw in t or f"na {dw}" in t or f"no {dw}" in t:
             return dw
+    # Numeric dates: 22/03, dia 22, 22
+    m = re.search(r"(?:dia\s+)?(\d{1,2})(?:[/-](\d{1,2}))?", t)
+    if m:
+        if m.group(2):
+            return f"{m.group(1)}/{m.group(2)}"
+        return f"dia {m.group(1)}"
     return None
 
 
@@ -583,6 +590,36 @@ def compute_in_seconds_from_date_hour(
                 if diff == 0 and (now.hour > hour or (now.hour == hour and now.minute >= minute)):
                     diff = 7
                 target_date = today + timedelta(days=diff)
+        elif dl.startswith("dia ") or dl.isdigit() or "/" in dl:
+            # Numeric date parsing
+            from backend.time_parse import MESES
+            m = re.search(r"(?:dia\s+)?(\d{1,2})(?:[/-](\d{1,2}))?", dl)
+            if m:
+                dia = int(m.group(1))
+                mes = int(m.group(2)) if m.group(2) else now.month
+                ano = now.year
+                try:
+                    target_date = datetime(ano, mes, min(dia, 28)).date()
+                    # Tenta restaurar o dia exato
+                    try:
+                        from calendar import monthrange
+                        _, last_day = monthrange(ano, mes)
+                        target_date = target_date.replace(day=min(dia, last_day))
+                    except Exception: pass
+
+                    if target_date < today:
+                        # Se já passou este mês e não especificou mês, tenta próximo mês
+                        if not m.group(2):
+                            if now.month == 12:
+                                target_date = target_date.replace(year=ano + 1, month=1)
+                            else:
+                                target_date = target_date.replace(month=now.month + 1)
+                                try:
+                                    _, last_day = monthrange(target_date.year, target_date.month)
+                                    target_date = target_date.replace(day=min(dia, last_day))
+                                except Exception: pass
+                except ValueError:
+                    return None
         else:
             return None
 

@@ -1,11 +1,11 @@
-"""Limites por dia: 40 eventos de agenda, 40 lembretes, 80 no total. Aviso aos 70%."""
+"""Limites por dia: 80 eventos de agenda, 80 lembretes, 160 no total. Aviso aos 70%."""
 
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-LIMIT_EVENTS_PER_DAY = 40
-LIMIT_REMINDERS_PER_DAY = 40
-LIMIT_TOTAL_PER_DAY = 80
+LIMIT_EVENTS_PER_DAY = 80
+LIMIT_REMINDERS_PER_DAY = 80
+LIMIT_TOTAL_PER_DAY = 160
 WARN_THRESHOLD = 0.7  # 70%
 
 WARN_EVENTS = int(LIMIT_EVENTS_PER_DAY * WARN_THRESHOLD)      # 28

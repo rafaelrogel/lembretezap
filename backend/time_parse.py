@@ -305,6 +305,48 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             except (ValueError, TypeError):
                 pass
 
+    # Novo: "dia 22 às 9h" (sem mês)
+    _pat_dia_sozinho_hora = r"(?:dia\s+)(\d{1,2})(?!\s*(?:de|/|-))\s*(?:às?|as|at|a\s+las?)\s*(\d{1,2})\s*(?:h|:)?\s*(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*"
+    m = re.search(_pat_dia_sozinho_hora, text_lower, re.I)
+    if m:
+        dia_target = int(m.group(1))
+        hora = int(m.group(2))
+        minute = int(m.group(3) or 0)
+        period = m.group(4)
+        hora = adjust_am_pm_hour(hora, period)
+        if 1 <= dia_target <= 31:
+            try:
+                tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
+                # Tenta este mês
+                try:
+                    target = now.replace(day=dia_target, hour=hora, minute=minute, second=0, microsecond=0)
+                except ValueError:
+                    # Se o dia não existe este mês (ex: dia 31 em Abril), pula para o próximo mês
+                    target = now.replace(day=1) + timedelta(days=32)
+                    target = target.replace(day=dia_target, hour=hora, minute=minute)
+                
+                if target < now:
+                    # Se já passou, tenta o próximo mês
+                    # Mover para o dia 1 do próximo mês e então definir o dia
+                    if now.month == 12:
+                        target = now.replace(year=now.year + 1, month=1, day=dia_target, hour=hora, minute=minute)
+                    else:
+                        target = now.replace(month=now.month + 1, day=min(dia_target, 28), hour=hora, minute=minute)
+                        # Tenta restaurar o dia exato se possível (evita dia 31 -> 28 se o dia existe no próximo mês)
+                        try:
+                            # Próximo mês real
+                            from calendar import monthrange
+                            _, last_day = monthrange(target.year, target.month)
+                            target = target.replace(day=min(dia_target, last_day))
+                        except Exception: pass
+
+                delta = (target - now).total_seconds()
+                if delta > 0:
+                    message = strip_pattern(text, _pat_dia_sozinho_hora)
+                    return {"in_seconds": int(delta), "message": clean_message(message)}
+            except Exception:
+                pass
+
     _pat_data = (
         r"(?:dia\s+)?(\d{1,2})[ºª]?" + _SEP +
         r"(\d{1,2}|" + _MONTH_NAMES + r")"
