@@ -2663,6 +2663,34 @@ VIEW_NO_EVENTS_WEEK: dict[LangCode, str] = {
     "en": "• No events this week.",
 }
 
+VIEW_AGENDA_MONTH_HEADER: dict[LangCode, str] = {
+    "pt-PT": "\n📆 **Agenda — {month} {year}**",
+    "pt-BR": "\n📆 **Agenda — {month} {year}**",
+    "es": "\n📆 **Agenda — {month} {year}**",
+    "en": "\n📆 **Agenda — {month} {year}**",
+}
+
+VIEW_NO_EVENTS_MONTH: dict[LangCode, str] = {
+    "pt-PT": "• Nenhum evento este mês.",
+    "pt-BR": "• Nenhum evento este mês.",
+    "es": "• Ningún evento este mes.",
+    "en": "• No events this month.",
+}
+
+VIEW_REMINDERS_MONTH_HEADER: dict[LangCode, str] = {
+    "pt-PT": "\n🔔 **Lembretes — {month} {year}**",
+    "pt-BR": "\n🔔 **Lembretes — {month} {year}**",
+    "es": "\n🔔 **Recordatorios — {month} {year}**",
+    "en": "\n🔔 **Reminders — {month} {year}**",
+}
+
+VIEW_NO_REMINDERS_MONTH: dict[LangCode, str] = {
+    "pt-PT": "• Nenhum lembrete para este mês.",
+    "pt-BR": "• Nenhum lembrete para este mês.",
+    "es": "• Ningún recordatorio para este mes.",
+    "en": "• No reminders for this month.",
+}
+
 VIEW_PRODUTIVIDADE_HEADER: dict[LangCode, str] = {
     "pt-PT": "📊 **Relatório de produtividade**",
     "pt-BR": "📊 **Relatório de produtividade**",

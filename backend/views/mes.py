@@ -10,11 +10,14 @@ if TYPE_CHECKING:
 
 
 def _visao_mes(ctx: "HandlerContext", year: int, month: int) -> str:
-    """Calendário ASCII do mês com marcadores (*) nos dias com eventos/lembretes."""
+    """Visão de lista filtrada pelo mês (agenda e lembretes)."""
     from backend.database import SessionLocal
     from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
-    from backend.models_db import Event
-    from backend.locale import VIEW_MONTH_NAMES, VIEW_WEEKDAY_HEADER, VIEW_ERROR
+    from backend.locale import (
+        VIEW_MONTH_NAMES, VIEW_ERROR, VIEW_AGENDA_MONTH_HEADER,
+        VIEW_NO_EVENTS_MONTH, VIEW_REMINDERS_MONTH_HEADER, VIEW_NO_REMINDERS_MONTH
+    )
+    from backend.views.utils import get_events_in_period, get_reminders_in_period
 
     try:
         db = SessionLocal()
@@ -26,56 +29,47 @@ def _visao_mes(ctx: "HandlerContext", year: int, month: int) -> str:
                 tz = ZoneInfo(tz_iana)
             except Exception:
                 tz = ZoneInfo("UTC")
-            now = datetime.now(tz)
 
-            first_day = datetime(year, month, 1, tzinfo=tz)
+            first_day = datetime(year, month, 1).date()
             _, last_dom = calendar.monthrange(year, month)
-            last_day = datetime(year, month, last_dom, 23, 59, 59, tzinfo=tz)
-            start_ms = int(first_day.timestamp() * 1000)
-            end_ms = int(last_day.timestamp() * 1000)
+            last_day = datetime(year, month, last_dom).date()
 
-            days_with_activity: set[int] = set()
-            if ctx.cron_service:
-                for job in ctx.cron_service.list_jobs():
-                    if getattr(job.payload, "to", None) != ctx.chat_id:
-                        continue
-                    nr = getattr(job.state, "next_run_at_ms", None)
-                    if nr and start_ms <= nr <= end_ms:
-                        dt = datetime.fromtimestamp(nr / 1000, tz=ZoneInfo("UTC")).astimezone(tz)
-                        days_with_activity.add(dt.day)
+            start_utc_ms = int(datetime(year, month, 1, 0, 0, 0, tzinfo=tz).timestamp() * 1000)
+            end_utc_ms = int(datetime(year, month, last_dom, 23, 59, 59, tzinfo=tz).timestamp() * 1000)
 
-            events = db.query(Event).filter(
-                Event.user_id == user.id,
-                Event.deleted == False,
-                Event.data_at.isnot(None),
-            ).all()
-            for ev in events:
-                if not ev.data_at:
-                    continue
-                ev_date = ev.data_at if ev.data_at.tzinfo else ev.data_at.replace(tzinfo=ZoneInfo("UTC"))
-                try:
-                    ev_local = ev_date.astimezone(tz)
-                except Exception:
-                    ev_local = ev_date
-                if ev_local.year == year and ev_local.month == month:
-                    days_with_activity.add(ev_local.day)
-
-            cal = calendar.Calendar(firstweekday=6)
             _mnames = VIEW_MONTH_NAMES.get(lang, VIEW_MONTH_NAMES["en"])
             month_name = _mnames[month - 1]
-            lines = [f"       {month_name} {year}", VIEW_WEEKDAY_HEADER.get(lang, VIEW_WEEKDAY_HEADER["en"])]
-            for week in cal.monthdayscalendar(year, month):
-                row = []
-                for d in week:
-                    if d == 0:
-                        row.append("  ")
-                    else:
-                        mark = "*" if d in days_with_activity else " "
-                        row.append(f"{d:2}{mark}")
-                lines.append(" ".join(row))
+
+            lines = []
+            
+            # Agenda
+            event_list = get_events_in_period(db, user.id, first_day, last_day, tz, lang=lang)
+            header_agenda = VIEW_AGENDA_MONTH_HEADER.get(lang, VIEW_AGENDA_MONTH_HEADER["en"]).format(month=month_name, year=year)
+            lines.append(header_agenda)
+            
+            date_fmt = "%Y-%m-%d" if lang == "en" else "%d/%m"
+            if event_list:
+                for d, _, nome in event_list:
+                    lines.append(f"• {d.strftime(date_fmt)} — {nome}")
+            else:
+                lines.append(VIEW_NO_EVENTS_MONTH.get(lang, VIEW_NO_EVENTS_MONTH["en"]))
+
+            # Lembretes
+            reminders = get_reminders_in_period(ctx, tz, start_utc_ms, end_utc_ms)
+            header_reminders = VIEW_REMINDERS_MONTH_HEADER.get(lang, VIEW_REMINDERS_MONTH_HEADER["en"]).format(month=month_name, year=year)
+            lines.append(header_reminders)
+
+            if reminders:
+                for dt, msg in reminders:
+                    lines.append(f"• {dt.strftime(date_fmt + ' %H:%M')} — {msg}")
+            else:
+                lines.append(VIEW_NO_REMINDERS_MONTH.get(lang, VIEW_NO_REMINDERS_MONTH["en"]))
+
             return "\n".join(lines)
         finally:
             db.close()
+    except Exception as e:
+        return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
     except Exception as e:
         return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
 
@@ -85,9 +79,11 @@ async def handle_mes(ctx: "HandlerContext", content: str) -> str | None:
     from backend.command_nl import normalize_nl_to_command
     content = normalize_nl_to_command(content)
     t = content.strip().lower()
-    if not t.startswith("/mes"):
+    # Aceitar /mes ou /mês (com ou sem acento)
+    if not (t.startswith("/mes") or t.startswith("/mês")):
         return None
-    rest = t[4:].strip()
+        
+    rest = t.split(maxsplit=1)[1] if " " in t else ""
     now = datetime.now()
     year, month = now.year, now.month
     if rest:
