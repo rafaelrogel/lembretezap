@@ -14,8 +14,8 @@ export function AboutSection() {
       opacity: 1,
       y: 0,
       transition: reduceMotion
-        ? { duration: 0.2, ease: "easeOut" as const }
-        : { duration: 0.5, ease },
+        ? { duration: 0.26, ease: "easeOut" as const }
+        : { duration: 0.68, ease },
     },
   };
 
@@ -72,8 +72,8 @@ export function AboutSection() {
                 hidden: {},
                 show: {
                   transition: {
-                    staggerChildren: reduceMotion ? 0 : 0.09,
-                    delayChildren: reduceMotion ? 0 : 0.08,
+                    staggerChildren: reduceMotion ? 0 : 0.12,
+                    delayChildren: reduceMotion ? 0 : 0.12,
                   },
                 },
               }}

@@ -3,7 +3,7 @@
 /**
  * 1→🎨→2→❤️→3→🎭→4→✨→1 (ciclo).
  */
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import { useCallback, useState } from "react";
 import clsx from "clsx";
@@ -106,9 +106,9 @@ export function GrupoFoto1({ className }: { className?: string }) {
     ? { opacity: 0 }
     : {
         opacity: 0,
-        scale: 0.82,
-        rotate: -11,
-        y: 36,
+        scale: 0.9,
+        rotate: -8,
+        y: 30,
       };
   const visible = reduceMotion
     ? { opacity: 1 }
@@ -146,86 +146,42 @@ export function GrupoFoto1({ className }: { className?: string }) {
         reduceMotion
           ? { duration: 0.35, ease: "easeOut" }
           : {
-              delay: 0.32,
-              opacity: {
-                duration: 1.05,
-                ease: [0.16, 1, 0.3, 1],
-              },
-              y: {
-                type: "spring",
-                stiffness: 118,
-                damping: 38,
-                mass: 1.4,
-              },
-              scale: {
-                type: "spring",
-                stiffness: 118,
-                damping: 38,
-                mass: 1.4,
-              },
-              rotate: {
-                type: "spring",
-                stiffness: 118,
-                damping: 38,
-                mass: 1.4,
-              },
+              delay: 0.14,
+              duration: 0.72,
+              ease: [0.22, 1, 0.36, 1],
             }
       }
       style={reduceMotion ? undefined : { transformOrigin: "50% 100%" }}
     >
       <div className="relative z-0 w-full origin-left scale-[0.96] cursor-pointer overflow-visible rounded-[26px] shadow-[0_5px_14px_-6px_rgba(33,33,33,0.1),0_2px_6px_-4px_rgba(33,33,33,0.06)] transition-[transform,box-shadow] duration-300 ease-out select-none hover:scale-100 hover:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] focus-visible:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/45 focus-visible:ring-offset-2 focus-visible:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] motion-reduce:scale-100">
-        <AnimatePresence initial={false} mode="wait">
-          <motion.div
-            key={photo}
-            className="overflow-visible rounded-[26px] border-[10px] border-solid border-[#FFFEFC] bg-[#FFFEFC]"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{
-              opacity: 0,
-              transition: reduceMotion
-                ? { duration: 0.08, ease: "easeOut" }
-                : {
-                    duration: 0.26,
-                    ease: [0.4, 0, 0.2, 1],
-                  },
-            }}
-            transition={
-              reduceMotion
-                ? { duration: 0.08, ease: "easeOut" }
-                : {
-                    duration: 0.3,
-                    ease: [0, 0, 0.2, 1],
-                  }
-            }
-          >
-            <div className="relative aspect-square w-full overflow-hidden rounded-[16px]">
-              <Image
-                src={
-                  photo === 1
-                    ? PHOTO_1
-                    : photo === 2
-                      ? PHOTO_2
-                      : photo === 3
-                        ? PHOTO_3
-                        : PHOTO_4
-                }
-                alt={
-                  photo === 1
-                    ? "Homem de costas fazendo colagem"
-                    : photo === 2
-                      ? "Mulher com amigos"
-                      : photo === 3
-                        ? "Grupo em clima de carnaval"
-                        : "Calas"
-                }
-                fill
-                className="pointer-events-none object-cover object-center"
-                sizes="(min-width: 768px) 480px, 100vw"
-                draggable={false}
-              />
-            </div>
-          </motion.div>
-        </AnimatePresence>
+        <div className="overflow-visible rounded-[26px] border-[10px] border-solid border-[#FFFEFC] bg-[#FFFEFC]">
+          <div className="relative aspect-square w-full overflow-hidden rounded-[16px]">
+            <Image
+              src={
+                photo === 1
+                  ? PHOTO_1
+                  : photo === 2
+                    ? PHOTO_2
+                    : photo === 3
+                      ? PHOTO_3
+                      : PHOTO_4
+              }
+              alt={
+                photo === 1
+                  ? "Homem de costas fazendo colagem"
+                  : photo === 2
+                    ? "Mulher com amigos"
+                    : photo === 3
+                      ? "Grupo em clima de carnaval"
+                      : "Calas"
+              }
+              fill
+              className="pointer-events-none object-cover object-center"
+              sizes="(min-width: 768px) 480px, 100vw"
+              draggable={false}
+            />
+          </div>
+        </div>
         {showReaction && (
           <PhotoReactionBubble
             emoji={
