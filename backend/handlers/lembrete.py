@@ -202,15 +202,36 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
         flow["retry_count"] = retry
         session.metadata[FLOW_KEY] = flow
         ctx.session_manager.save(session)
+        
+        # Better hint based on stage
+        stage = flow.get("stage")
+        from backend.locale import (
+            REMINDER_ASK_TIME_HINT, REMINDER_ASK_DATE_HINT, REMINDER_ASK_ADVANCE_HINT
+        )
+        hint = ""
+        if stage == STAGE_NEED_TIME:
+            hint = REMINDER_ASK_TIME_HINT.get(user_lang, "Por favor, indique a hora (ex: 18h, 10:30).")
+        elif stage == STAGE_NEED_DATE:
+            hint = REMINDER_ASK_DATE_HINT.get(user_lang, "Indique o dia (ex: amanhã, hoje, sexta).")
+        elif stage == STAGE_NEED_ADVANCE_PREFERENCE:
+            hint = REMINDER_ASK_ADVANCE_HINT.get(user_lang, "Responda com 'sim', 'na hora' ou 'não quero'.")
+
         suffix = REMINDER_RETRY_SUFFIX.get(user_lang, REMINDER_RETRY_SUFFIX["en"]).format(n=retry)
-        return f"{current_question}\n\n{REMINDER_ASK_AGAIN.get(user_lang, REMINDER_ASK_AGAIN['en'])}{suffix}"
+        return f"{current_question}\n\n{hint}\n{REMINDER_ASK_AGAIN.get(user_lang, REMINDER_ASK_AGAIN['en'])}{suffix}"
 
     # --- Estamos no fluxo: processar resposta ---
     if flow and isinstance(flow, dict):
-        # If the user sent a completely new reminder instead of answering the
-        # current flow question, auto-complete the current flow and let the
-        # new request fall through to handle_lembrete / other handlers.
         if _looks_like_new_reminder_request(text):
+            # Se for um pedido completo de evento + data + hora, assumimos que é uma refinação
+            # ou um novo pedido. Cancelamos o fluxo anterior SEM agendar o incompleto
+            # para evitar o bug de duplicação (BAN01 + BAN02).
+            from backend.reminder_flow import has_full_event_datetime
+            if has_full_event_datetime(text):
+                session.metadata.pop(FLOW_KEY, None)
+                ctx.session_manager.save(session)
+                return None  # Cai para handle_lembrete que fará o agendamento correto e único
+
+            # Se for um pedido novo mas ainda não completo, tentamos salvar o anterior se possível
             _flow_in_sec = flow.get("in_seconds")
             _flow_msg = (flow.get("content") or "").strip()
             if _flow_in_sec and _flow_in_sec > 0 and _flow_msg:
@@ -488,10 +509,8 @@ def _looks_like_new_reminder_request(text: str) -> bool:
     # Any slash command is always a new request
     if t.startswith("/"):
         return True
-    # NL reminder: must have a reminder keyword AND enough content for a real message
-    from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
-    has_kw = any(kw in t for kw in ALL_REMINDER_KEYWORDS)
-    if not has_kw:
+    from backend.reminder_flow import has_reminder_intent
+    if not has_reminder_intent(t):
         return False
     # At least 15 chars suggests a full sentence, not just "me avisa" or "2h"
     if len(t) < 15:
