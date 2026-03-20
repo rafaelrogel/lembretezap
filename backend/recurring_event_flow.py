@@ -53,12 +53,31 @@ _RE_TODA_MULTI = re.compile(
     rf"toda?\s+((?:{_DAY_NAMES})(?:\s*(?:e|,)\s*(?:{_DAY_NAMES}))*)\s+(?:às?\s*)?(\d{{1,2}})(?::(\d{{2}}))?\s*h?\b",
     re.I,
 )
-_RE_TODO_DIA = re.compile(
-    r"todo\s+dia\s+(?:às?\s*)?(\d{1,2})(?::(\d{2}))?\s*h?\b",
+# Language-specific fragments
+_PAT_EVERY_DAY = r"(?:todo\s+dia|todos\s+los\s+d[íi]as|cada\s+d[íi]a|every\s+day)"
+_PAT_AT = r"(?:às?|as?|at|@|a\s+las?|a\s+los?)"
+_PAT_DAILY = r"(?:diariamente|daily)"
+
+# Daily patterns (Specific hours)
+_RE_TODO_DIA_SPECIFIC = re.compile(
+    rf"{_PAT_EVERY_DAY}\s+(?:{_PAT_AT}\s+(\d{{1,2}})(?::(\d{{2}}))?\s*h?|(\d{{1,2}}):(\d{{2}})|(\d{{1,2}})\s*h)\b",
     re.I,
 )
-_RE_DIARIAMENTE = re.compile(
-    r"diariamente\s+(?:às?\s*)?(\d{1,2})(?::(\d{2}))?\s*h?\b",
+
+# Monthly patterns
+# "todo dia 21 às 10h", "every day 21 at 10am"
+_RE_TODO_DIA_N_AT = re.compile(
+    rf"{_PAT_EVERY_DAY}\s+(\d{{1,2}})(?:\s+{_PAT_AT}\s*|\s+)(\d{{1,2}})(?::(\d{{2}}))?\s*h?\b",
+    re.I,
+)
+# "todo dia 21", "every day 21" (Bare number)
+_RE_TODO_DIA_N = re.compile(
+    rf"{_PAT_EVERY_DAY}\s+(\d{{1,2}})\b",
+    re.I,
+)
+
+_RE_DIARIAMENTE_SPECIFIC = re.compile(
+    rf"{_PAT_DAILY}\s+(?:{_PAT_AT}\s+(\d{{1,2}})(?::(\d{{2}}))?\s*h?|(\d{{1,2}}):(\d{{2}})|(\d{{1,2}})\s*h)\b",
     re.I,
 )
 
@@ -85,6 +104,14 @@ def is_scheduled_recurring_event(text: str) -> bool:
     # Qualquer mensagem que consigamos parsear como recorrência + hora conta
     if parse_recurring_schedule(text) is not None:
         return True
+    
+    # Se tem indicador de recorrência (a cada, cada dia, etc), 
+    # e parece um pedido de lembrete (mesmo que sem hora explícita no parse_recurring)...
+    if has_recurrence_indicator(text):
+        from backend.reminder_flow import has_reminder_intent
+        if has_reminder_intent(text):
+            return True
+
     t = _normalize(text)
     return any(h in t for h in {_normalize(x) for x in SCHEDULED_RECURRING_HINTS})
 
@@ -99,27 +126,63 @@ def parse_recurring_schedule(text: str) -> tuple[str, str, int, int] | None:
     t = text.strip()
     tl = t.lower()
 
-    # "todo dia às 8h" → cron 0 8 * * * (todos os dias)
-    m = _RE_TODO_DIA.search(tl)
+    # 1. "todo dia às 8h" or "todo dia 8h" or "todo dia 8:30" (Specific Daily Hour)
+    m = _RE_TODO_DIA_SPECIFIC.search(tl)
     if m:
-        hora = min(23, max(0, int(m.group(1))))
-        minuto = int(m.group(2) or 0) if len(m.groups()) >= 2 and m.group(2) else 0
-        content = _RE_TODO_DIA.sub("", t).strip()
-        content = re.sub(r"\s+", " ", content).strip()
+        g1, g2, g3, g4, g5 = m.groups()
+        if g1:
+            hora, minuto = min(23, int(g1)), int(g2 or 0)
+        elif g3:
+            hora, minuto = min(23, int(g3)), int(g4 or 0)
+        else:
+            hora, minuto = min(23, int(g5)), 0
+        
+        content = _RE_TODO_DIA_SPECIFIC.sub("", t).strip()
+        content = re.sub(r"^[:\-–—\s]+", "", content).strip()
         if content and len(content) >= 2:
-            cron = f"0 {hora} * * *"
-            return content, cron, hora, minuto
+            return content, f"0 {hora} * * *", hora, minuto
 
-    # "diariamente às 8h"
-    m = _RE_DIARIAMENTE.search(tl)
+    # 2. "todo dia 21 às 10h" (Monthly Day + Hour)
+    m = _RE_TODO_DIA_N_AT.search(tl)
     if m:
-        hora = min(23, max(0, int(m.group(1))))
-        minuto = int(m.group(2) or 0) if len(m.groups()) >= 2 and m.group(2) else 0
-        content = _RE_DIARIAMENTE.sub("", t).strip()
-        content = re.sub(r"\s+", " ", content).strip()
+        dia = int(m.group(1))
+        if 1 <= dia <= 31:
+            hora = min(23, int(m.group(2)))
+            minuto = int(m.group(3) or 0) if m.lastindex >= 3 and m.group(3) else 0
+            content = _RE_TODO_DIA_N_AT.sub("", t).strip()
+            content = re.sub(r"^[:\-–—\s]+", "", content).strip()
+            if content and len(content) >= 2:
+                return content, f"0 {hora} {dia} * *", hora, minuto
+
+    # 3. "todo dia 21" (Monthly Day, defaults to 9 AM)
+    # Heuristic: if it's just 'todo dia N', we assume it's a day if N > 0 and 
+    # it doesn't look like an hour request handled above.
+    m = _RE_TODO_DIA_N.search(tl)
+    if m:
+        dia = int(m.group(1))
+        if 1 <= dia <= 31:
+            # If dia is <= 12, it COULD be an hour, but if it didn't match _RE_TODO_DIA_SPECIFIC
+            # (which requires 'h' or 'às' or ':MM'), then 'todo dia 9' is ambiguous.
+            # We'll treat it as a day for now to satisfy the user's specific request for days.
+            content = _RE_TODO_DIA_N.sub("", t).strip()
+            content = re.sub(r"^[:\-–—\s]+", "", content).strip()
+            if content and len(content) >= 2:
+                return content, f"0 9 {dia} * *", 9, 0
+
+    # 4. "diariamente às 8h"
+    m = _RE_DIARIAMENTE_SPECIFIC.search(tl)
+    if m:
+        g1, g2, g3, g4, g5 = m.groups()
+        if g1:
+            hora, minuto = min(23, int(g1)), int(g2 or 0)
+        elif g3:
+            hora, minuto = min(23, int(g3)), int(g4 or 0)
+        else:
+            hora, minuto = min(23, int(g5)), 0
+        content = _RE_DIARIAMENTE_SPECIFIC.sub("", t).strip()
+        content = re.sub(r"^[:\-–—\s]+", "", content).strip()
         if content and len(content) >= 2:
-            cron = f"0 {hora} * * *"
-            return content, cron, hora, minuto
+            return content, f"0 {hora} * * *", hora, minuto
 
     # "toda segunda às 17h", "preciso ir ao médico toda segunda 17h"
     m = _RE_TODA_SINGLE.search(tl)
@@ -213,20 +276,59 @@ def format_schedule_for_display(cron_expr: str, lang: str = "pt-BR") -> str:
         return cron_expr
     try:
         hora = int(parts[1])
+        day_of_month = parts[2]
         dow_str = parts[4]
+        
+        # Monthly: 0 9 21 * *
+        if dow_str == "*" and day_of_month != "*":
+            if lang == "es":
+                return f"todos los días {day_of_month} a las {hora}h"
+            if lang == "en":
+                return f"every day {day_of_month} at {hora}h"
+            return f"todo dia {day_of_month} às {hora}h"
+
         if dow_str == "*":
+            if lang == "es":
+                return f"todos los días a las {hora}h"
+            if lang == "en":
+                return f"every day at {hora}h"
             return f"todo dia às {hora}h"
+        
         if "-" in dow_str:
             # 1-5 = segunda a sexta
+            if lang == "es":
+                return f"de lunes a viernes a las {hora}h"
+            if lang == "en":
+                return f"monday to friday at {hora}h"
             return f"segunda a sexta às {hora}h"
+        
         dows = [int(x) for x in dow_str.split(",")]
-        names = {1: "segunda", 2: "terça", 3: "quarta", 4: "quinta", 5: "sexta", 6: "sábado", 0: "domingo"}
+        names_pt = {1: "segunda", 2: "terça", 3: "quarta", 4: "quinta", 5: "sexta", 6: "sábado", 0: "domingo"}
+        names_es = {1: "lunes", 2: "martes", 3: "miércoles", 4: "jueves", 5: "viernes", 6: "sábado", 0: "domingo"}
+        names_en = {1: "monday", 2: "tuesday", 3: "wednesday", 4: "thursday", 5: "friday", 6: "saturday", 0: "sunday"}
+        
+        names = names_pt
+        if lang == "es": names = names_es
+        elif lang == "en": names = names_en
+        
         labels = [names.get(d, "") for d in dows if d in names]
+        if not labels:
+            return cron_expr
+
+        at_str = "às"
+        and_str = "e"
+        if lang == "es":
+            at_str = "a las"
+            and_str = "y"
+        elif lang == "en":
+            at_str = "at"
+            and_str = "and"
+
         if len(labels) == 1:
-            return f"{labels[0]} às {hora}h"
+            return f"{labels[0]} {at_str} {hora}h"
         if len(labels) == 2:
-            return f"{labels[0]} e {labels[1]} às {hora}h"
-        return ", ".join(labels[:-1]) + f" e {labels[-1]} às {hora}h"
+            return f"{labels[0]} {and_str} {labels[1]} {at_str} {hora}h"
+        return ", ".join(labels[:-1]) + f" {and_str} {labels[-1]} {at_str} {hora}h"
     except (ValueError, IndexError):
         return cron_expr
 
@@ -248,8 +350,21 @@ def parse_end_date_response(text: str) -> str | None:
         return "fim_semana"
     if any(p in t for p in ("fim do mês", "fim mes", "fim do mes", "final do mês")):
         return "fim_mes"
-    if any(p in t for p in ("fim do ano", "fim ano", "final do ano")):
+    if any(p in t for p in ("fim do ano", "fim ano", "final do ano", "end of the year", "end of year", "fin de año", "fin de ano")):
         return "fim_ano"
+
+    # Suporte a datas específicas: "até 31/12", "until 12/31/2026"
+    from backend.time_parse import extract_start_date
+    parsed_date = extract_start_date(t.replace("até", "").replace("until", "").replace("hasta", "").strip())
+    if parsed_date:
+        return f"date:{parsed_date}"
+
+    # Suporte a anos específicos: "até o fim de 2028", "until end of 2030"
+    m_year = re.search(r"(?:ano|year|año)\s*(?:de\s+)?(20\d{2})\b", t)
+    if not m_year:
+        m_year = re.search(r"\b(20\d{2})\b", t)
+    if m_year:
+        return f"year:{m_year.group(1)}"
     return None
 
 
@@ -303,6 +418,18 @@ def compute_end_date_ms(end_type: str, tz_iana: str = "UTC") -> int | None:
             return int(end.timestamp() * 1000)
         if end_type == "fim_ano":
             end = now.replace(month=12, day=31, hour=23, minute=59, second=59, microsecond=0)
+            return int(end.timestamp() * 1000)
+        
+        if end_type.startswith("year:"):
+            target_year = int(end_type.split(":")[1])
+            end = now.replace(year=target_year, month=12, day=31, hour=23, minute=59, second=59, microsecond=0)
+            return int(end.timestamp() * 1000)
+
+        if end_type.startswith("date:"):
+            date_str = end_type.split(":")[1] # YYYY-MM-DD
+            from datetime import date
+            dt = date.fromisoformat(date_str)
+            end = datetime(dt.year, dt.month, dt.day, 23, 59, 59, tzinfo=z)
             return int(end.timestamp() * 1000)
     except Exception:
         pass

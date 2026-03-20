@@ -105,7 +105,7 @@ def extract_start_date(text: str, tz_iana: str = "UTC") -> str | None:
     except Exception:
         current_year = datetime.fromtimestamp(_now_ts).year
     m = re.search(
-        r"a\s+partir\s+de\s+(\d{1,2})[ºª]?" + _SEP +
+        r"(?:a\s+partir\s+de\s+)?(\d{1,2})[ºª]?" + _SEP +
         r"(\d{1,2}|" + _MONTH_NAMES + r")"
         r"(?:" + _SEP + r"(\d{4}))?\b",
         text_lower,
@@ -118,7 +118,7 @@ def extract_start_date(text: str, tz_iana: str = "UTC") -> str | None:
         ano = int(m.group(3)) if m.group(3) else current_year
         if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
             try:
-                dt = datetime(ano, mes, min(dia, 28))
+                dt = datetime(ano, mes, dia)
                 return dt.strftime("%Y-%m-%d")
             except (ValueError, TypeError):
                 pass

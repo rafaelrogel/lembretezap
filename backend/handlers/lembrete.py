@@ -509,6 +509,11 @@ def _looks_like_new_reminder_request(text: str) -> bool:
     # Any slash command is always a new request
     if t.startswith("/"):
         return True
+    
+    from backend.recurring_event_flow import is_scheduled_recurring_event
+    if is_scheduled_recurring_event(text):
+        return True
+
     from backend.reminder_flow import has_reminder_intent
     if not has_reminder_intent(t):
         return False
@@ -517,7 +522,7 @@ def _looks_like_new_reminder_request(text: str) -> bool:
         return False
     # Exclude bare time expressions like "me lembra daqui 30 min"
     _TIME_ONLY = re.compile(
-        r"^(me\s+)?(avisa|lembra|lembre|remind)\s*(de\s+)?"
+        r"^(me\s+)?(avisa|lembra|lembre|remind|avisame|recuerdame)\s*(de\s+)?"
         r"(daqui\s+a?\s*)?\d+\s*(min|h|hora|seg|segundo|dia|mes)s?\s*$",
         re.I,
     )
@@ -905,92 +910,93 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
     # --- Estamos no fluxo ---
     if flow and isinstance(flow, dict):
         # If the user sent a new reminder/command instead of answering,
-        # abandon this flow and let the message fall through.
+        # abandon this flow and process it as a new request.
         if _looks_like_new_reminder_request(text):
             session.metadata.pop(FLOW_KEY, None)
             ctx.session_manager.save(session)
-            return None
+            flow = None 
+        else:
+            stage = flow.get("stage")
+            event = (flow.get("event") or "").strip()
+            cron_expr = (flow.get("cron_expr") or "").strip()
+            schedule_display = format_schedule_for_display(cron_expr, user_lang)
 
-        stage = flow.get("stage")
-        event = (flow.get("event") or "").strip()
-        cron_expr = (flow.get("cron_expr") or "").strip()
-        schedule_display = format_schedule_for_display(cron_expr, user_lang)
-
-        if stage == STAGE_NEED_CONFIRM:
-            if looks_like_confirm_no(text):
-                session.metadata.pop(FLOW_KEY, None)
-                ctx.session_manager.save(session)
-                return None
-            if looks_like_confirm_yes(text):
-                session.metadata[FLOW_KEY] = {
-                    **flow,
-                    "stage": STAGE_NEED_END_DATE,
-                }
-                ctx.session_manager.save(session)
-                return RECURRING_ASK_END_DATE.get(user_lang, RECURRING_ASK_END_DATE["en"])
-            return None
-
-        if stage == STAGE_NEED_END_DATE:
-            end_type = parse_end_date_response(text)
-            if not end_type:
-                retry = flow.get("retry_count", 0) + 1
-                if retry >= MAX_RETRIES_END_DATE:
+            if stage == STAGE_NEED_CONFIRM:
+                if looks_like_confirm_no(text):
                     session.metadata.pop(FLOW_KEY, None)
                     ctx.session_manager.save(session)
                     return None
-                flow["retry_count"] = retry
-                session.metadata[FLOW_KEY] = flow
+                if looks_like_confirm_yes(text):
+                    session.metadata[FLOW_KEY] = {
+                        **flow,
+                        "stage": STAGE_NEED_END_DATE,
+                    }
+                    ctx.session_manager.save(session)
+                    return RECURRING_ASK_END_DATE.get(user_lang, RECURRING_ASK_END_DATE["en"])
+                return None
+
+            if stage == STAGE_NEED_END_DATE:
+                end_type = parse_end_date_response(text)
+                if not end_type:
+                    retry = flow.get("retry_count", 0) + 1
+                    if retry >= MAX_RETRIES_END_DATE:
+                        session.metadata.pop(FLOW_KEY, None)
+                        ctx.session_manager.save(session)
+                        return None
+                    flow["retry_count"] = retry
+                    session.metadata[FLOW_KEY] = flow
+                    ctx.session_manager.save(session)
+                    return RECURRING_ASK_END_DATE_AGAIN.get(user_lang, RECURRING_ASK_END_DATE_AGAIN["en"])
+
+                session.metadata.pop(FLOW_KEY, None)
                 ctx.session_manager.save(session)
-                return RECURRING_ASK_END_DATE_AGAIN.get(user_lang, RECURRING_ASK_END_DATE_AGAIN["en"])
 
-            session.metadata.pop(FLOW_KEY, None)
-            ctx.session_manager.save(session)
+                not_after_ms = None
+                end_display = ""
+                if end_type != "indefinido":
+                    not_after_ms = compute_end_date_ms(end_type, tz_iana)
+                    from datetime import datetime
+                    from zoneinfo import ZoneInfo
+                    if not_after_ms:
+                        end_display = datetime.fromtimestamp(not_after_ms / 1000, tz=ZoneInfo(tz_iana)).strftime("%d/%m/%Y")
 
-            not_after_ms = None
-            end_display = ""
-            if end_type != "indefinido":
-                not_after_ms = compute_end_date_ms(end_type, tz_iana)
-                from datetime import datetime
-                from zoneinfo import ZoneInfo
-                if not_after_ms:
-                    end_display = datetime.fromtimestamp(not_after_ms / 1000, tz=ZoneInfo(tz_iana)).strftime("%d/%m/%Y")
-
-            ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
-            end_param = not_after_ms if not_after_ms else None
-            result = await ctx.cron_tool.execute(
-                action="add",
-                message=event,
-                cron_expr=cron_expr,
-                end_date=end_param,
-            )
-            if result and "Error" not in result:
-                if end_display:
-                    out = RECURRING_REGISTERED_UNTIL.get(user_lang, RECURRING_REGISTERED_UNTIL["en"]).format(
-                        event=event, schedule=schedule_display, end=end_display
-                    )
-                else:
-                    out = RECURRING_REGISTERED.get(user_lang, RECURRING_REGISTERED["en"]).format(
-                        event=event, schedule=schedule_display
-                    )
-                return _append_tz_hint_if_needed(out, ctx.chat_id, ctx.phone_for_locale)
-            return result
+                ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
+                end_param = not_after_ms if not_after_ms else None
+                result = await ctx.cron_tool.execute(
+                    action="add",
+                    message=event,
+                    cron_expr=cron_expr,
+                    end_date=end_param,
+                )
+                if result and "Error" not in result:
+                    if end_display:
+                        out = RECURRING_REGISTERED_UNTIL.get(user_lang, RECURRING_REGISTERED_UNTIL["en"]).format(
+                            event=event, schedule=schedule_display, end=end_display
+                        )
+                    else:
+                        out = RECURRING_REGISTERED.get(user_lang, RECURRING_REGISTERED["en"]).format(
+                            event=event, schedule=schedule_display
+                        )
+                    return _append_tz_hint_if_needed(out, ctx.chat_id, ctx.phone_for_locale)
+                return result
 
     # --- Novo pedido: detectar evento recorrente com horário ---
-    parsed = parse_recurring_schedule(text)
-    if parsed and is_scheduled_recurring_event(text):
-        event_content, cron_expr, hour, minute = parsed
-        schedule_display = format_schedule_for_display(cron_expr, user_lang)
+    if not flow:
+        parsed = parse_recurring_schedule(text)
+        if parsed and is_scheduled_recurring_event(text):
+            event_content, cron_expr, hour, minute = parsed
+            schedule_display = format_schedule_for_display(cron_expr, user_lang)
 
-        session.metadata[FLOW_KEY] = {
-            "stage": STAGE_NEED_CONFIRM,
-            "event": event_content,
-            "cron_expr": cron_expr,
-        }
-        ctx.session_manager.save(session)
+            session.metadata[FLOW_KEY] = {
+                "stage": STAGE_NEED_CONFIRM,
+                "event": event_content,
+                "cron_expr": cron_expr,
+            }
+            ctx.session_manager.save(session)
 
-        return RECURRING_EVENT_CONFIRM.get(user_lang, RECURRING_EVENT_CONFIRM["en"]).format(
-            event=event_content,
-            schedule=schedule_display,
-        )
+            return RECURRING_EVENT_CONFIRM.get(user_lang, RECURRING_EVENT_CONFIRM["en"]).format(
+                event=event_content,
+                schedule=schedule_display,
+            )
 
     return None

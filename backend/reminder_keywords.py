@@ -24,7 +24,7 @@ PT_KEYWORDS = [
     "preciso de um lembrete", "tenho que lembrar", "tenho de lembrar",
     "lembrador", "me avisa quando", "me avise quando", "avisa-me quando",
     "preciso de", "tenho de", "tenho que", "ir ao", "ir à", "ir a",
-    "pagar", "comprar", "ligar", "telefonar", "enviar"
+    "pagar", "comprar", "ligar", "telefonar", "enviar", "pausa", "fazer uma pausa", "descanso"
 ]
 
 # Español
@@ -44,7 +44,7 @@ ES_KEYWORDS = [
     "podrías recordarme", "puede recordarme", "puedes recordarme",
     "marcar", "marca", "registro", "registrar", "regístrame",
     "señalizar", "dame una señal", "avísame a las",
-    "necesito", "tengo que", "ir a", "pagar", "comprar", "llamar", "telefonear", "enviar"
+    "necesito", "tengo que", "ir a", "pagar", "comprar", "llamar", "telefonear", "enviar", "pausa", "hacer una pausa", "descanso", "recreo"
 ]
 
 # English
@@ -65,7 +65,7 @@ EN_KEYWORDS = [
     "put a reminder", "place a reminder", "add a reminder",
     "inform me", "keep me informed", "signal me",
     "remind me about", "remind me later",
-    "need to", "have to", "go to", "pay", "buy", "call", "send", "submit"
+    "need to", "have to", "go to", "pay", "buy", "call", "send", "submit", "pause", "take a break", "breaktime"
 ]
 
 # Lista unificada para deteção simples
