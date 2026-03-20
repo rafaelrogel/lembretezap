@@ -658,7 +658,7 @@ class CronTool(Tool):
 
         try:
             job = self._cron.add_job(
-                name=message[:30],
+                name=message,
                 schedule=schedule,
                 message=message,
                 deliver=deliver,
@@ -879,7 +879,18 @@ class CronTool(Tool):
         _lang = self._get_user_lang()
         if not jobs:
             return CRON_NO_REMINDERS.get(_lang, CRON_NO_REMINDERS["en"])
-        lines = [f"• {j.name} ({j.schedule.kind}) [id: {j.id}]" for j in jobs]
+        def _sched_label(j):
+            if j.schedule.kind == "at":
+                return "pontual"
+            if j.schedule.kind == "every":
+                return "recorrente"
+            if j.schedule.kind == "cron":
+                return "agendado"
+            return j.schedule.kind
+        lines = [
+            f"\u2022 {(j.payload.message or j.name)} ({_sched_label(j)}) [id: {j.id}]"
+            for j in jobs
+        ]
         return CRON_REMINDERS_HEADER.get(_lang, CRON_REMINDERS_HEADER["en"]) + "\n" + "\n".join(lines)
     
     def _remove_job(self, job_id: str | None) -> str:
