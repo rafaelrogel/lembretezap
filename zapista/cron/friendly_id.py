@@ -30,13 +30,15 @@ def _normalize(text: str) -> str:
 def get_prefix_from_list(message: str) -> str | None:
     """
     Retorna a abreviatura (2–3 letras) se alguma palavra da lista ~400 (PT-PT, PT-BR, ES, EN) fizer match.
-    Retorna None se não houver match (nesse caso o caller pode usar Xiaomi MIMO para sugerir).
+    Usa limites de palavra (\b) para evitar matches parciais como 'al' em 'alongamento'.
     """
     norm = _normalize(message or "")
     if not norm:
         return None
     for keyword, abbr in _KEYWORD_ABBR:
-        if _normalize(keyword) in norm:
+        k_norm = _normalize(keyword)
+        # Match apenas palavra inteira
+        if re.search(rf"\b{re.escape(k_norm)}\b", norm, re.I):
             return (abbr[:3].upper()).strip()
     return None
 

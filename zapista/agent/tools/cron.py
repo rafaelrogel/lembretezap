@@ -40,12 +40,16 @@ class CronTool(Tool):
         self._scope_model = (scope_model or "").strip()
         self._session_manager = session_manager
         self._audio_mode: bool = False
+        self._allow_relaxed_interval: bool = False
     
     def set_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
         """Set the current session context for delivery. phone_for_locale: número para inferir idioma na entrega (quando chat_id é LID)."""
         self._channel = channel
         self._chat_id = chat_id
         self._phone_for_locale = phone_for_locale
+        # Reset per-message state
+        self._allow_relaxed_interval = False
+        self._audio_mode = False
 
     def set_allow_relaxed_interval(self, allow: bool) -> None:
         """Para este turno: cliente insistiu, permitir intervalo até 30 min."""
