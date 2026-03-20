@@ -3,6 +3,7 @@
 import { Container } from "@/components/layout";
 import { Typography } from "@/components/ui";
 import { motion, useReducedMotion } from "framer-motion";
+import Image from "next/image";
 import { GrupoFoto1 } from "./GrupoFoto1";
 
 export function AboutSection() {
@@ -14,8 +15,8 @@ export function AboutSection() {
       opacity: 1,
       y: 0,
       transition: reduceMotion
-        ? { duration: 0.26, ease: "easeOut" as const }
-        : { duration: 0.68, ease },
+        ? { duration: 0.34, ease: "easeOut" as const }
+        : { duration: 0.9, ease },
     },
   };
 
@@ -72,8 +73,8 @@ export function AboutSection() {
                 hidden: {},
                 show: {
                   transition: {
-                    staggerChildren: reduceMotion ? 0 : 0.12,
-                    delayChildren: reduceMotion ? 0 : 0.12,
+                    staggerChildren: reduceMotion ? 0 : 0.16,
+                    delayChildren: reduceMotion ? 0 : 0.18,
                   },
                 },
               }}
@@ -82,65 +83,109 @@ export function AboutSection() {
                 variants={fadeUp}
                 className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
               >
-                <Typography
-                  as="blockquote"
-                  variant="body-sm"
-                  className="text-[var(--Text-700,#4B4A47)]"
-                >
-                  Comecei usando para lista de mercado e hoje organizo
-                  praticamente tudo no Zappelin. E muito natural.
-                </Typography>
-                <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
-                  Ana, 29 anos
-                </figcaption>
+                <div className="flex items-start gap-3">
+                  <Image
+                    src="/y02.png"
+                    alt="Foto de perfil de Ana"
+                    width={34}
+                    height={34}
+                    className="mt-0.5 rounded-full object-cover"
+                  />
+                  <div className="min-w-0">
+                    <Typography
+                      as="blockquote"
+                      variant="body-sm"
+                      className="text-[var(--Text-700,#4B4A47)]"
+                    >
+                      Comecei usando para lista de mercado e hoje organizo
+                      praticamente tudo no Zappelin. Bom demais!
+                    </Typography>
+                    <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
+                      Ana, 29 anos
+                    </figcaption>
+                  </div>
+                </div>
               </motion.figure>
               <motion.figure
                 variants={fadeUp}
                 className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
               >
-                <Typography
-                  as="blockquote"
-                  variant="body-sm"
-                  className="text-[var(--Text-700,#4B4A47)]"
-                >
-                  Gosto porque nao preciso abrir outro app. Mando mensagem e ja
-                  sei que aquilo vai virar lembrete.
-                </Typography>
-                <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
-                  Rodrigo, 34 anos
-                </figcaption>
+                <div className="flex items-start gap-3">
+                  <Image
+                    src="/yo3.png"
+                    alt="Foto de perfil de Rodrigo"
+                    width={34}
+                    height={34}
+                    className="mt-0.5 rounded-full object-cover"
+                  />
+                  <div className="min-w-0">
+                    <Typography
+                      as="blockquote"
+                      variant="body-sm"
+                      className="text-[var(--Text-700,#4B4A47)]"
+                    >
+                      Gosto porque não preciso abrir outro app. Mando mensagem e
+                      já sei que aquilo vai virar lembrete.
+                    </Typography>
+                    <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
+                      Rodrigo, 34 anos
+                    </figcaption>
+                  </div>
+                </div>
               </motion.figure>
               <motion.figure
                 variants={fadeUp}
                 className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
               >
-                <Typography
-                  as="blockquote"
-                  variant="body-sm"
-                  className="text-[var(--Text-700,#4B4A47)]"
-                >
-                  Me ajudou muito a nao esquecer pequenos compromissos do dia.
-                  E como ter uma memoria extra no celular.
-                </Typography>
-                <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
-                  Júlia, 41 anos
-                </figcaption>
+                <div className="flex items-start gap-3">
+                  <Image
+                    src="/yo1.png"
+                    alt="Foto de perfil de Julia"
+                    width={34}
+                    height={34}
+                    className="mt-0.5 rounded-full object-cover"
+                  />
+                  <div className="min-w-0">
+                    <Typography
+                      as="blockquote"
+                      variant="body-sm"
+                      className="text-[var(--Text-700,#4B4A47)]"
+                    >
+                      Me ajudou muito a não esquecer pequenos tarefas do dia. É
+                      como ter uma memória extra no celular.
+                    </Typography>
+                    <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
+                      Júlia, 41 anos
+                    </figcaption>
+                  </div>
+                </div>
               </motion.figure>
               <motion.figure
                 variants={fadeUp}
                 className="rounded-2xl bg-neutral-100 px-5 py-4 text-left"
               >
-                <Typography
-                  as="blockquote"
-                  variant="body-sm"
-                  className="text-[var(--Text-700,#4B4A47)]"
-                >
-                  Uso para lembretes de remedio e consultas. E rapido e nao fica
-                  perdido no meio de outras notificacoes.
-                </Typography>
-                <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
-                  Carla, 52 anos
-                </figcaption>
+                <div className="flex items-start gap-3">
+                  <Image
+                    src="/yo4.png"
+                    alt="Foto de perfil de Carla"
+                    width={34}
+                    height={34}
+                    className="mt-0.5 rounded-full object-cover"
+                  />
+                  <div className="min-w-0">
+                    <Typography
+                      as="blockquote"
+                      variant="body-sm"
+                      className="text-[var(--Text-700,#4B4A47)]"
+                    >
+                      Mando áudios e organizo minhas coisas pra fazer. Nunca
+                      mais esqueci nada!
+                    </Typography>
+                    <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
+                      Carla, 52 anos
+                    </figcaption>
+                  </div>
+                </div>
               </motion.figure>
             </motion.div>
           </div>
