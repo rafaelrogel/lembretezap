@@ -10,9 +10,8 @@ export function AboutSection() {
       aria-labelledby="about-heading"
     >
       <Container as="div" size="lg">
-        <div className="mx-auto flex w-full max-w-[990px] flex-col gap-section md:flex-row md:items-start md:justify-between md:gap-16">
-          {/* Coluna esquerda */}
-          <div className="flex-1">
+        <div className="mx-auto flex w-full max-w-[990px] flex-col gap-section">
+          <div>
             <Typography
               id="about-heading"
               variant="display-sm"
@@ -38,26 +37,20 @@ export function AboutSection() {
               O Zappelin cuida do que você precisa lembrar, para você focar em
               viver sua vida.
             </Typography>
-            <GrupoFoto1 />
           </div>
-          {/* Coluna direita – depoimentos */}
-          <div className="flex-1 md:max-w-md">
-            <Typography
-              variant="heading-md"
-              as="h3"
-              className="mb-4 font-semibold text-[var(--Text-900,#212121)]"
-            >
-              O que as pessoas dizem
-            </Typography>
-            <div className="space-y-4">
+          <div className="grid w-full grid-cols-1 gap-section md:grid-cols-2 md:items-start md:gap-x-12 lg:gap-x-16">
+            <div className="min-w-0 w-full">
+              <GrupoFoto1 className="!-mt-[8px]" />
+            </div>
+            <div className="min-w-0 w-full space-y-4">
               <figure className="rounded-2xl bg-neutral-100 px-5 py-4 text-left">
                 <Typography
                   as="blockquote"
                   variant="body-sm"
                   className="text-[var(--Text-700,#4B4A47)]"
                 >
-                  “Comecei usando para lista de mercado e hoje organizo
-                  praticamente tudo no Zappelin. É muito natural.”
+                  Comecei usando para lista de mercado e hoje organizo
+                  praticamente tudo no Zappelin. E muito natural.
                 </Typography>
                 <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
                   Ana, 29 anos
@@ -69,8 +62,8 @@ export function AboutSection() {
                   variant="body-sm"
                   className="text-[var(--Text-700,#4B4A47)]"
                 >
-                  “Gosto porque não preciso abrir outro app. Mando mensagem e já
-                  sei que aquilo vai virar lembrete.”
+                  Gosto porque nao preciso abrir outro app. Mando mensagem e ja
+                  sei que aquilo vai virar lembrete.
                 </Typography>
                 <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
                   Rodrigo, 34 anos
@@ -82,11 +75,24 @@ export function AboutSection() {
                   variant="body-sm"
                   className="text-[var(--Text-700,#4B4A47)]"
                 >
-                  “Me ajudou muito a não esquecer pequenos compromissos do dia.
-                  É como ter uma memória extra dentro do WhatsApp.”
+                  Me ajudou muito a nao esquecer pequenos compromissos do dia.
+                  E como ter uma memoria extra no celular.
                 </Typography>
                 <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
                   Júlia, 41 anos
+                </figcaption>
+              </figure>
+              <figure className="rounded-2xl bg-neutral-100 px-5 py-4 text-left">
+                <Typography
+                  as="blockquote"
+                  variant="body-sm"
+                  className="text-[var(--Text-700,#4B4A47)]"
+                >
+                  Uso para lembretes de remedio e consultas. E rapido e nao fica
+                  perdido no meio de outras notificacoes.
+                </Typography>
+                <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
+                  Carla, 52 anos
                 </figcaption>
               </figure>
             </div>
