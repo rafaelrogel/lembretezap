@@ -6,6 +6,7 @@
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import { useCallback, useState } from "react";
+import clsx from "clsx";
 
 const PHOTO_1 =
   "/foto%20de%20homem%20de%20costas%20fazendo%20colagem%201.png";
@@ -25,7 +26,7 @@ function PhotoReactionBubble({
 }) {
   return (
     <motion.div
-      className="pointer-events-none absolute bottom-[calc(0.75rem-40px)] right-3 z-20 flex h-11 w-11 transform-gpu items-center justify-center rounded-full bg-white shadow-[0_4px_14px_rgba(0,0,0,0.14),0_1px_3px_rgba(0,0,0,0.08)] ring-1 ring-[rgba(0,0,0,0.06)] will-change-transform [backface-visibility:hidden]"
+      className="pointer-events-none absolute bottom-[calc(0.75rem-28px)] right-4 z-20 flex h-11 w-11 transform-gpu items-center justify-center rounded-full bg-white shadow-[0_4px_14px_rgba(0,0,0,0.14),0_1px_3px_rgba(0,0,0,0.08)] ring-1 ring-[rgba(0,0,0,0.06)] will-change-transform [backface-visibility:hidden]"
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       transition={
@@ -54,7 +55,7 @@ function PhotoReactionBubble({
   );
 }
 
-export function GrupoFoto1() {
+export function GrupoFoto1({ className }: { className?: string }) {
   const reduceMotion = useReducedMotion();
   const [photo, setPhoto] = useState<1 | 2 | 3 | 4>(1);
   const [showReaction, setShowReaction] = useState(false);
@@ -130,7 +131,7 @@ export function GrupoFoto1() {
               ? "Grupo de carnaval — toque para reação; com a máscara visível, toque para ver a foto seguinte"
               : "Calas — toque para reação; com a reação visível, toque para voltar à primeira foto"
       }
-      className="relative z-0 mb-10 mt-8 cursor-pointer overflow-visible rounded-[26px] shadow-[0_5px_14px_-6px_rgba(33,33,33,0.1),0_2px_6px_-4px_rgba(33,33,33,0.06)] transition-shadow duration-300 ease-out select-none hover:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] focus-visible:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/45 focus-visible:ring-offset-2"
+      className={clsx("mb-10 mt-8 w-full overflow-visible", className)}
       tabIndex={0}
       onClick={handleActivate}
       onKeyDown={(e) => {
@@ -172,8 +173,8 @@ export function GrupoFoto1() {
       }
       style={reduceMotion ? undefined : { transformOrigin: "50% 100%" }}
     >
-      <div className="relative w-full">
-        <AnimatePresence mode="wait">
+      <div className="relative z-0 w-full origin-left scale-[0.96] cursor-pointer overflow-visible rounded-[26px] shadow-[0_5px_14px_-6px_rgba(33,33,33,0.1),0_2px_6px_-4px_rgba(33,33,33,0.06)] transition-[transform,box-shadow] duration-300 ease-out select-none hover:scale-100 hover:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] focus-visible:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/45 focus-visible:ring-offset-2 focus-visible:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] motion-reduce:scale-100">
+        <AnimatePresence initial={false} mode="wait">
           <motion.div
             key={photo}
             className="overflow-visible rounded-[26px] border-[10px] border-solid border-[#FFFEFC] bg-[#FFFEFC]"
@@ -184,15 +185,15 @@ export function GrupoFoto1() {
               transition: reduceMotion
                 ? { duration: 0.08, ease: "easeOut" }
                 : {
-                    duration: FADE_MS.out,
+                    duration: 0.26,
                     ease: [0.4, 0, 0.2, 1],
                   },
             }}
             transition={
               reduceMotion
-                ? { duration: 0.1, ease: "easeOut" }
+                ? { duration: 0.08, ease: "easeOut" }
                 : {
-                    duration: FADE_MS.in,
+                    duration: 0.3,
                     ease: [0, 0, 0.2, 1],
                   }
             }
