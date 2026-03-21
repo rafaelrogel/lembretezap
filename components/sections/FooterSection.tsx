@@ -35,11 +35,11 @@ function FooterContent({ linkTone = "green" }: { linkTone?: "green" | "gray" }) 
       <div className="grid gap-y-[40px] md:grid-cols-[1fr_auto] md:items-center md:gap-x-8">
         <div className="flex min-w-0 items-center">
           <Image
-            src={`/icons/${encodeURIComponent("logo 6.svg")}`}
+            src={`/icons/${encodeURIComponent("logo 7.svg")}`}
             alt="Zappelin"
             width={128}
             height={28}
-            className="h-auto w-[124px]"
+            className="h-auto w-[108px]"
           />
         </div>
 
