@@ -266,6 +266,23 @@ def parse_recurring_schedule(text: str) -> tuple[str, str, int, int] | None:
             content = re.sub(r"\s+", " ", content).strip()
             return content, cron, hora, minuto
 
+    # 5. "a cada 2 horas", "cada 30 min", "every 2 hours", "cada dia"
+    cadence_pat = r"(?:a\s+)?(?:cada|every|cada\s+vez\s+que)\s*(?:(\d+)\s*)?(hor[as]*|min[uto]*s?|seg[undo]*s?|hour?s?|min?s?|day?s?|dia?s?|semana?s?|week?s?)\b"
+    m_cadence = re.search(cadence_pat, tl, re.I)
+    if m_cadence:
+        num = int(m_cadence.group(1)) if m_cadence.group(1) else 1
+        unit = m_cadence.group(2).lower()
+        if any(x in unit for x in ("min", "m")): mul = 60
+        elif any(x in unit for x in ("hor", "hour", "h")): mul = 3600
+        elif any(x in unit for x in ("dia", "day", "d")): mul = 86400
+        elif any(x in unit for x in ("seman", "week", "w")): mul = 86400 * 7
+        else: mul = 1
+        
+        every_seconds = num * mul
+        content = re.sub(cadence_pat, "", t, flags=re.I).strip()
+        content = re.sub(r"^[:\-–—\s]+|[:\-–—\s]+$", "", content).strip()
+        return content, f"every:{every_seconds}", 0, 0
+
     return None
 
 
@@ -372,8 +389,8 @@ def parse_end_date_response(text: str) -> str | None:
     if parsed_date:
         return f"date:{parsed_date}"
 
-    # Suporte a anos específicos: "até o fim de 2028", "until end of 2030"
-    m_year = re.search(r"(?:ano|year|año)\s*(?:de\s+)?(20\d{2})\b", t)
+    # Suporte a anos específicos: "até o fim de 2028", "until end of 2030", "fim de 2028"
+    m_year = re.search(r"(?:fim\s+de|end\s+of|fin\s+de|final\s+de)\s*(?:ano\s+)?(20\d{2})\b", t)
     if not m_year:
         m_year = re.search(r"\b(20\d{2})\b", t)
     if m_year:

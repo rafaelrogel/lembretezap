@@ -580,7 +580,8 @@ def _looks_like_new_reminder_request(text: str) -> bool:
         return False
     t = text.strip().lower()
     # Any slash command is always a new request
-    if t.startswith("/"):
+    from backend.recurring_event_flow import has_recurrence_indicator
+    if t.startswith("/") or has_recurrence_indicator(text):
         return True
     
     from backend.pending_confirmation import looks_like_time_response
@@ -1021,13 +1022,17 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
         # If the user sent a new reminder/command instead of answering,
         # abandon this flow and process it as a new request.
         if _looks_like_new_reminder_request(text):
+            # Clear ALL pending flows to prevent context leak
+            from backend.reminder_flow import FLOW_KEY as VAGUE_FLOW_KEY
             session.metadata.pop(FLOW_KEY, None)
+            session.metadata.pop(VAGUE_FLOW_KEY, None)
             ctx.session_manager.save(session)
-            flow = None 
+            flow = None
         else:
             stage = flow.get("stage")
             event = (flow.get("event") or "").strip()
             cron_expr = (flow.get("cron_expr") or "").strip()
+            every_seconds = flow.get("every_seconds")
             schedule_display = format_schedule_for_display(cron_expr, user_lang)
 
             if stage == STAGE_NEED_CONFIRM:
@@ -1071,10 +1076,12 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
 
                 ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
                 end_param = not_after_ms if not_after_ms else None
+                every_seconds = flow.get("every_seconds")
                 result = await ctx.cron_tool.execute(
                     action="add",
                     message=event,
-                    cron_expr=cron_expr,
+                    every_seconds=every_seconds,
+                    cron_expr=cron_expr if not every_seconds else None,
                     end_date=end_param,
                 )
                 if result and "Error" not in result:
@@ -1094,12 +1101,28 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
         parsed = parse_recurring_schedule(text)
         if parsed and is_scheduled_recurring_event(text):
             event_content, cron_expr, hour, minute = parsed
+            
+            # Extract every_seconds if the special format is used
+            every_seconds = None
+            if isinstance(cron_expr, str) and cron_expr.startswith("every:"):
+                try:
+                    every_seconds = int(cron_expr.split(":")[1])
+                    cron_expr = None
+                except (ValueError, IndexError):
+                    pass
+
             schedule_display = format_schedule_for_display(cron_expr, user_lang)
+            if every_seconds:
+                from backend.time_parse import format_seconds_to_relative
+                schedule_display = format_seconds_to_relative(every_seconds, user_lang)
 
             session.metadata[FLOW_KEY] = {
                 "stage": STAGE_NEED_CONFIRM,
                 "event": event_content,
                 "cron_expr": cron_expr,
+                "every_seconds": every_seconds,
+                "hour": hour,
+                "minute": minute,
             }
             ctx.session_manager.save(session)
 
