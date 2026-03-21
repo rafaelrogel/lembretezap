@@ -47,7 +47,7 @@ _EXPLICIT_DATE_PATTERNS = (
     r"\d{1,2}\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)",
     r"\d{1,2}\s+de\s+(?:enero|febrero|marzo|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)",
     r"\d{1,2}\s+(?:enero|febrero|marzo|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)",
-    r"(?:dia\s+)?\d{1,2}\b",                      # dia 22, 22
+    r"\b(?:dia\s+|day\s+|el\s+d[íi]a\s+)\d{1,2}\b",                      # dia 22, day 22
 )
 _EXPLICIT_DATE_RE = re.compile("|".join(_EXPLICIT_DATE_PATTERNS), re.I)
 
@@ -609,8 +609,8 @@ def compute_in_seconds_from_date_hour(
                     except Exception: pass
 
                     if target_date < today:
-                        # Se já passou este mês e não especificou mês, tenta próximo mês
                         if not m.group(2):
+                            # Se já passou este mês e não especificou mês, tenta próximo mês
                             if now.month == 12:
                                 target_date = target_date.replace(year=ano + 1, month=1)
                             else:
@@ -619,6 +619,9 @@ def compute_in_seconds_from_date_hour(
                                     _, last_day = monthrange(target_date.year, target_date.month)
                                     target_date = target_date.replace(day=min(dia, last_day))
                                 except Exception: pass
+                        else:
+                            # Mês especificado mas no passado: assume ano seguinte (fix loop)
+                            target_date = target_date.replace(year=ano + 1)
                 except ValueError:
                     return None
         else:

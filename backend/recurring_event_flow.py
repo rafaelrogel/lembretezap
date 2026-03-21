@@ -33,24 +33,24 @@ MAX_RETRIES_END_DATE = 3
 _DAY_NAMES = "|".join(sorted(DIAS_SEMANA.keys(), key=len, reverse=True))
 _RE_MULTI_DAY = re.compile(
     rf"((?:{_DAY_NAMES})(?:\s*(?:e|y|and|,)\s*(?:{_DAY_NAMES}))*)\s+"
-    r"(?:às?|at|a\s+las?|as?)\s*(\d{1,2})(?::(\d{2}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
+    r"(?:às?|at|a\s+las?|as?|(?=\d))\s*(\d{1,2})(?::(\d{2}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
     re.I,
 )
 _RE_SINGLE_DAY = re.compile(
-    rf"({_DAY_NAMES})\s+(?:às?|at|a\s+las?|as?)\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
+    rf"({_DAY_NAMES})\s+(?:às?|at|a\s+las?|as?|(?=\d))\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
     re.I,
 )
 _RE_WEEKDAYS = re.compile(
-    r"(?:segunda\s+a\s+sexta|lunes\s+a\s+viernes|monday\s+to\s+friday)\s+(?:às?|at|a\s+las?|as?)\s*(\d{1,2})(?::(\d{2}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
+    r"(?:segunda\s+a\s+sexta|lunes\s+a\s+viernes|monday\s+to\s+friday)\s+(?:às?|at|a\s+las?|as?|(?=\d))\s*(\d{1,2})(?::(\d{2}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
     re.I,
 )
 # Recorrência explícita: "toda segunda às 17h", "every day at 8h", "cada lunes a las 8h"
 _RE_TODA_SINGLE = re.compile(
-    rf"(?:toda?|every|cada)\s+({_DAY_NAMES})\s+(?:às?|at|a\s+las?|as?)\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
+    rf"(?:toda?|every|cada)\s+({_DAY_NAMES})\s+(?:às?|at|a\s+las?|as?|(?=\d))\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
     re.I,
 )
 _RE_TODA_MULTI = re.compile(
-    rf"(?:toda?|every|cada)\s+((?:{_DAY_NAMES})(?:\s*(?:e|y|and|,)\s*(?:{_DAY_NAMES}))*)\s+(?:às?|at|a\s+las?|as?)\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
+    rf"(?:toda?|every|cada)\s+((?:{_DAY_NAMES})(?:\s*(?:e|y|and|,)\s*(?:{_DAY_NAMES}))*)\s+(?:às?|at|a\s+las?|as?|(?=\d))\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
     re.I,
 )
 # Language-specific fragments

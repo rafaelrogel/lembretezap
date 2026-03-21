@@ -213,7 +213,7 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
     if tz_iana == "UTC" and user_lang in DEFAULT_TZ_BY_LANG:
         tz_iana = DEFAULT_TZ_BY_LANG[user_lang]
 
-    def _retry_or_fail(flow: dict, current_question: str) -> str | None:
+    def _retry_or_fail(flow: dict, current_question: str, invalid_hint: str | None = None) -> str | None:
         """Incrementa retry_count; se >= MAX_RETRIES, desiste e retorna REMINDER_FAILED_NO_INFO."""
         retry = flow.get("retry_count", 0) + 1
         if retry >= MAX_RETRIES:
@@ -233,14 +233,15 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
         if stage == STAGE_NEED_TIME:
             hint = REMINDER_ASK_TIME_HINT.get(user_lang, "Por favor, indique a hora (ex: 18h, 10:30).")
         elif stage == STAGE_NEED_DATE:
-            hint = REMINDER_ASK_DATE_HINT.get(user_lang, "Indique o dia (ex: amanhã, hoje, sexta).")
+            hint = REMINDER_ASK_DATE_HINT.get(user_lang, "Indique o dia (ex: amanhã, hoje, sexta, dia 25/03).")
         elif stage == STAGE_NEED_WHEN:
             hint = REMINDER_ASK_WHEN_HINT.get(user_lang, "Ex: em 10 min, amanhã 8h, todo dia ou a cada 2h.")
         elif stage == STAGE_NEED_ADVANCE_PREFERENCE:
             hint = REMINDER_ASK_ADVANCE_HINT.get(user_lang, "Responda com 'sim', 'na hora' ou 'não quero'.")
 
+        prefix = (invalid_hint + "\n") if invalid_hint else ""
         suffix = REMINDER_RETRY_SUFFIX.get(user_lang, REMINDER_RETRY_SUFFIX["en"]).format(n=retry)
-        return f"{current_question}\n\n{hint}\n{REMINDER_ASK_AGAIN.get(user_lang, REMINDER_ASK_AGAIN['en'])}{suffix}"
+        return f"{prefix}{current_question}\n\n{hint}\n{REMINDER_ASK_AGAIN.get(user_lang, REMINDER_ASK_AGAIN['en'])}{suffix}"
 
     # --- Estamos no fluxo: processar resposta ---
     if flow and isinstance(flow, dict):
@@ -291,8 +292,10 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                     }
                     ctx.session_manager.save(session)
                     return REMINDER_ASK_ADVANCE_PREFERENCE.get(user_lang, REMINDER_ASK_ADVANCE_PREFERENCE["en"])
+            from backend.locale import REMINDER_INVALID_DATE
+            inv_hint = REMINDER_INVALID_DATE.get(user_lang, "Não entendi a data.")
             q = REMINDER_ASK_DATE_CONSULTA.get(user_lang) if is_consulta_context(msg_content) else REMINDER_ASK_DATE_GENERIC.get(user_lang)
-            return _retry_or_fail(flow, q)
+            return _retry_or_fail(flow, q, invalid_hint=inv_hint)
 
         if stage == STAGE_NEED_TIME:
             parsed = parse_time_from_response(text)
@@ -311,8 +314,10 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
                     }
                     ctx.session_manager.save(session)
                     return REMINDER_ASK_ADVANCE_PREFERENCE.get(user_lang, REMINDER_ASK_ADVANCE_PREFERENCE["en"])
+            from backend.locale import REMINDER_INVALID_TIME
+            inv_hint = REMINDER_INVALID_TIME.get(user_lang, "Não entendi o horário.")
             q = REMINDER_ASK_TIME_CONSULTA.get(user_lang) if is_consulta_context(msg_content) else REMINDER_ASK_TIME_GENERIC.get(user_lang)
-            return _retry_or_fail(flow, q)
+            return _retry_or_fail(flow, q, invalid_hint=inv_hint)
 
         if stage == STAGE_NEED_WHEN:
             # Tentar parse_recurring_schedule primeiro
@@ -956,8 +961,8 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
         return None
 
     text = content.strip()
-    if re.match(r"^/(lembrete|reminder|recordatorio)\s+", text, re.I):
-        text = re.sub(r"^/(lembrete|reminder|recordatorio)\s+", "", text, flags=re.I).strip()
+    if re.match(r"^/(lembrete|reminder|recordatorio|recorrente|recurrente|recurring)\s+", text, re.I):
+        text = re.sub(r"^/(lembrete|reminder|recordatorio|recorrente|recurrente|recurring)\s+", "", text, flags=re.I).strip()
 
     # Resolve user_lang early for cancel check (avoid NameError)
     _cancel_lang: LangCode = "pt-BR"

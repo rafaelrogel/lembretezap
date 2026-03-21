@@ -36,6 +36,8 @@ _TIME_RESPONSE_PATTERNS = (
     r"\d{1,2}:\d{2}",
     r"(?:segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|domingo)\s+\d{1,2}\s*h",
     r"at\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?",
+    r"(?:dia\s+)?\d{1,2}[/-]\d{1,2}", # 22/03, 15-10
+    r"dia\s+\d{1,2}\b", # dia 22
 )
 
 
