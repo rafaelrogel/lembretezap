@@ -228,42 +228,34 @@ class ListTool(Tool):
         
         # 2. Se não existe, tentar aliases comuns
         _ALIASES = {
-            "compras": "mercado",
-            "mercado": "compras",
-            "comprar": "mercado",
-            "shopping": "mercado",
-            "grocery": "mercado",
-            "groceries": "mercado",
-            "filme": "filmes",
-            "filmes": "filmes",
-            "película": "filmes",
-            "películas": "filmes",
-            "pelicula": "filmes",
-            "peliculas": "filmes",
-            "livro": "livros",
-            "livros": "livros",
-            "musica": "músicas",
-            "música": "músicas",
-            "musicas": "músicas",
-            "músicas": "músicas",
-            "canción": "músicas",
-            "canciones": "músicas",
-            "série": "séries",
-            "séries": "séries",
-            "serie": "séries",
-            "series": "séries",
-            "jogo": "jogos",
-            "jogos": "jogos",
-            "juego": "jogos",
-            "juegos": "jogos",
-            "game": "jogos",
-            "games": "jogos",
-            "receita": "receitas",
-            "receitas": "receitas",
-            "recipe": "receitas",
-            "recipes": "receitas",
-            "receta": "receitas",
-            "recetas": "receitas",
+            # Shopping / Mercado
+            "compras": "mercado", "comprar": "mercado", "mercado": "compras",
+            "shopping": "mercado", "grocery": "mercado", "groceries": "mercado", "market": "mercado",
+            # Filmes / Movies
+            "filme": "filmes", "filmes": "filmes",
+            "movie": "filmes", "movies": "filmes", "film": "filmes", "films": "filmes",
+            "película": "filmes", "películas": "filmes", "pelicula": "filmes", "peliculas": "filmes",
+            # Livros / Books
+            "livro": "livros", "livros": "livros",
+            "book": "livros", "books": "livros",
+            "libro": "livros", "libros": "livros",
+            # Músicas / Songs
+            "musica": "músicas", "música": "músicas", "musicas": "músicas", "músicas": "músicas",
+            "song": "músicas", "songs": "músicas", "music": "músicas",
+            "canción": "músicas", "canciones": "músicas",
+            # Séries
+            "série": "séries", "séries": "séries", "serie": "séries", "series": "séries",
+            # Jogos / Games
+            "jogo": "jogos", "jogos": "jogos",
+            "game": "jogos", "games": "jogos",
+            "juego": "jogos", "juegos": "jogos",
+            # Receitas
+            "receita": "receitas", "receitas": "receitas",
+            "recipe": "receitas", "recipes": "receitas",
+            "receta": "receitas", "recetas": "receitas",
+            # Notas / Notes
+            "nota": "notas", "notas": "notas",
+            "note": "notas", "notes": "notas",
         }
         alias = _ALIASES.get(name.lower())
         if alias:

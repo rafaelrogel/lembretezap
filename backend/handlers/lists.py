@@ -71,11 +71,11 @@ async def handle_list(ctx: "HandlerContext", content: str) -> str | None:
         item_text = intent.get("item", "")
         if items:
             for it in items:
-                if list_name in ("filmes", "filme", "livros", "livro", "músicas", "musica", "música", "séries", "série", "serie", "receitas", "receita") and is_absurd_request(it):
+                if list_name in ("filmes", "filme", "livros", "livro", "músicas", "musica", "música", "séries", "série", "serie", "receitas", "receita", "jogos", "jogo", "juegos") and is_absurd_request(it):
                     r = is_absurd_request(it)
                     if r:
                         return r
-        elif list_name in ("filmes", "filme", "livros", "livro", "músicas", "musica", "música", "séries", "série", "serie", "receitas", "receita") and is_absurd_request(item_text):
+        elif list_name in ("filmes", "filme", "livros", "livro", "músicas", "musica", "música", "séries", "série", "serie", "receitas", "receita", "jogos", "jogo", "juegos") and is_absurd_request(item_text):
             return is_absurd_request(item_text)
     ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
     if intent.get("type") == "list_add":

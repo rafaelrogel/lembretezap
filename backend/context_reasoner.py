@@ -22,18 +22,18 @@ REGRAS IMPORTANTES:
 1. Se a mensagem diz apenas "adicione [item]", use a "Última lista ativa" se esta fizer sentido.
 2. Ignore palavras de preenchimento/conectores como "aí", "ai", "ali", "aqui" (Portuguese fillers) - NUNCA as use como nome de lista.
 3. Se a mensagem for "Adicione aí X", o item é "X" e o nome da lista deve ser inferido do histórico ou da "Última lista ativa".
-4. Normalize os nomes das listas para o singular (ex: filmes -> filme).
+4. Normalize os nomes das listas para o plural (ex: filme -> filmes, livro -> livros).
+5. O sistema suporta 4 línguas (Português PT e BR, Inglês e Espanhol). Mapeie termos equivalentes para os nomes de lista em Português plural (filmes, livros, músicas, séries, jogos, receitas, notas, mercado).
 
 Responda APENAS com um objeto JSON válido (sem markdown), com este formato:
 {{
   "is_list_item": true/false,
-  "list_name": "nome_da_lista_em_singular" (ex: filme, mercado, livro, tarefa, notas),
+  "list_name": "nome_da_lista_em_plural" (ex: filmes, mercado, livros, tarefas, notas),
   "item": "o item limpo"
 }}
 
 Se não for um pedido de adição à lista, "is_list_item" deve ser false.
-Se for uma lista de "compras", normalize para "mercado".
-Se for uma lista de "afazeres" ou "pendentes", normalize para "tarefa".
+Se for uma lista de "afazeres" ou "pendentes", normalize para "tarefas".
 """
 
 async def classify_intent_with_full_context(

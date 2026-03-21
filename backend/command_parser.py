@@ -123,7 +123,7 @@ _CATEGORY_TO_LIST = {
     "série": "séries", "séries": "séries", "serie": "séries", "series": "séries",
     "receita": "receitas", "receitas": "receitas",
     "jogo": "jogos", "jogos": "jogos",
-    "mercado": "mercado", "supermercado": "mercado",
+    "mercado": "mercado", "supermercado": "mercado", "compras": "mercado",
     "nota": "notas", "notas": "notas",
     "site": "sites", "sites": "sites",
     "link": "sites", "links": "sites",
@@ -134,14 +134,14 @@ _CATEGORY_TO_LIST = {
     "recipe": "receitas", "recipes": "receitas",
     "game": "jogos", "games": "jogos",
     "note": "notas", "notes": "notas",
-    "shopping": "mercado", "grocery": "mercado", "groceries": "mercado",
+    "shopping": "mercado", "grocery": "mercado", "groceries": "mercado", "market": "mercado",
     # ES
     "película": "filmes", "películas": "filmes", "pelicula": "filmes", "peliculas": "filmes",
     "libro": "livros", "libros": "livros",
     "juego": "jogos", "juegos": "jogos",
     "canción": "músicas", "canciones": "músicas",
     "receta": "receitas", "recetas": "receitas",
-    "notas": "notas",
+    "notas": "notas", "compras": "mercado",
 }
 
 def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:

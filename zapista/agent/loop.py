@@ -1729,7 +1729,25 @@ class AgentLoop:
                 if m:
                     list_name = m.group(1).strip().lower()
                     item = (m.group(2) or "").strip() or "—"
-                    _norm = {"livros": "livro", "filmes": "filme", "receitas": "receita", "musicas": "musica", "compras": "mercado", "books": "livro", "movies": "filme", "recipes": "receita"}
+                    # Normalize to the new plural canonical forms
+                    _norm = {
+                        "livro": "livros", "livros": "livros",
+                        "filme": "filmes", "filmes": "filmes",
+                        "receita": "receitas", "receitas": "receitas",
+                        "musica": "músicas", "musicas": "músicas",
+                        "música": "músicas", "músicas": "músicas",
+                        "série": "séries", "séries": "séries", "serie": "séries", "series": "séries",
+                        "jogo": "jogos", "jogos": "jogos",
+                        "book": "livros", "books": "livros",
+                        "movie": "filmes", "movies": "filmes",
+                        "recipe": "receitas", "recipes": "receitas",
+                        "song": "músicas", "songs": "músicas",
+                        "game": "jogos", "games": "jogos",
+                        "libro": "livros", "libros": "livros",
+                        "pelicula": "filmes", "películas": "filmes",
+                        "receta": "receitas", "recetas": "receitas", 
+                        "juego": "jogos", "juegos": "jogos"
+                    }
                     list_name = _norm.get(list_name, list_name)
                     try:
                         _p_for_l = msg.metadata.get("phone_for_locale") if msg.metadata else None
