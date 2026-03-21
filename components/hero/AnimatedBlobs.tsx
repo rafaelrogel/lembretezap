@@ -4,8 +4,7 @@ import { useEffect, useRef } from "react";
 
 const TAU = Math.PI * 2;
 
-/** Set false later to reduce motion intensity. Keep true until motion is confirmed visible. */
-const DEBUG = true;
+const DEBUG = false;
 
 const BLUR_PX = DEBUG ? 100 : 100;
 const ORBIT_RADIUS_MIN = 80;

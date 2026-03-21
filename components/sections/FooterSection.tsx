@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { AnimatedBlobs } from "@/components/hero/AnimatedBlobs";
@@ -64,7 +66,7 @@ function FooterContent({ linkTone = "green" }: { linkTone?: "green" | "gray" }) 
           </a>
         </div>
 
-        <p className="text-[13px] leading-[1.25] text-[var(--Text-700,#4B4A47)] md:justify-self-end">
+        <p className="text-[13px] leading-[1.25] text-[var(--Text-600,#797781)] md:justify-self-end">
           © Zappelin 2026. Todos os direitos reservados
         </p>
       </div>

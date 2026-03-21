@@ -44,7 +44,7 @@ const EASE_SMOOTH = "cubic-bezier(0.25, 0.46, 0.45, 0.94)";
 export function UnderstandMoreSection() {
   const [activeIndex, setActiveIndex] = useState(0);
   const trackRef = useRef<HTMLDivElement | null>(null);
-  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const itemRefs = useRef<Array<HTMLElement | null>>([]);
   const canGoPrev = activeIndex > 0;
   const canGoNext = activeIndex < FAQ_ITEMS.length - 1;
   const leftHandControls = useAnimation();
