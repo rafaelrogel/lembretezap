@@ -102,14 +102,6 @@ def _get_user_timezone_impl(db: Session, chat_id: str, phone_for_locale: str | N
         try:
             from backend.timezone import is_valid_iana
             if is_valid_iana(user.timezone):
-                # #region agent log
-                try:
-                    import json as _j
-                    _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
-                    open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "user_store.get_user_timezone", "message": "tz from DB", "data": {"tz_iana": user.timezone, "chat_id_prefix": (chat_id or "")[:24]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H4"}) + "\n")
-                except Exception:
-                    pass
-                # #endregion
                 return (user.timezone, "db")
         except Exception:
             pass
@@ -118,23 +110,7 @@ def _get_user_timezone_impl(db: Session, chat_id: str, phone_for_locale: str | N
     # 3) Se ficou UTC, usar fuso padrão do idioma (chat_id pode ser LID sem dígitos)
     if fallback == "UTC" and getattr(user, "language", None) in DEFAULT_TZ_BY_LANG:
         fallback = DEFAULT_TZ_BY_LANG[user.language]
-        # #region agent log
-        try:
-            import json as _j
-            _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
-            open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "user_store.get_user_timezone", "message": "tz fallback (no DB or invalid)", "data": {"tz_iana": fallback, "chat_id_prefix": (chat_id or "")[:24], "user_tz_was": getattr(user, "timezone", None)}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n")
-        except Exception:
-            pass
-        # #endregion
         return (fallback, "language")
-    # #region agent log
-    try:
-        import json as _j
-        _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
-        open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "user_store.get_user_timezone", "message": "tz fallback (phone)", "data": {"tz_iana": fallback, "chat_id_prefix": (chat_id or "")[:24]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H1"}) + "\n")
-    except Exception:
-        pass
-    # #endregion
     return (fallback, "phone")
 
 

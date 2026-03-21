@@ -8,13 +8,18 @@ def _get_lang(ctx: HandlerContext) -> str:
     try:
         from backend.database import SessionLocal
         from backend.user_store import get_user_language
+        from backend.locale import phone_to_default_language
         db = SessionLocal()
         try:
             return get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
         finally:
             db.close()
     except Exception:
-        return "pt-BR"
+        try:
+            from backend.locale import phone_to_default_language
+            return phone_to_default_language(ctx.phone_for_locale or ctx.chat_id) or "pt-BR"
+        except Exception:
+            return "pt-BR"
 
 
 async def handle_exportar(ctx: HandlerContext, content: str) -> str | None:
@@ -146,6 +151,27 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
         if _is_recipe_list_cancel(content) or is_confirm_no(content):
             clear_pending(ctx.channel, ctx.chat_id)
             return CONFIRM_RECIPE_CANCEL.get(_get_lang(ctx), CONFIRM_RECIPE_CANCEL["en"])
+
+    if pending and pending.get("action") == "add_items_from_search":
+        if _is_recipe_list_confirm(content) or is_confirm_yes(content):
+            clear_pending(ctx.channel, ctx.chat_id)
+            payload = pending.get("payload") or {}
+            items = payload.get("items") or []
+            list_name = payload.get("list_name") or "filme"
+            if items and ctx.list_tool:
+                ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
+                for item in items:
+                    await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
+                from backend.locale import CONFIRM_SEARCH_LIST_CREATED
+                _lang = _get_lang(ctx)
+                lines = [CONFIRM_SEARCH_LIST_CREATED.get(_lang, CONFIRM_SEARCH_LIST_CREATED["en"]).format(list_name=list_name, count=len(items))]
+                for i, it in enumerate(items[:15], 1):
+                    lines.append(f"{i}. {it}")
+                return "\n".join(lines)
+        if _is_recipe_list_cancel(content) or is_confirm_no(content):
+            clear_pending(ctx.channel, ctx.chat_id)
+            from backend.locale import CONFIRM_SEARCH_CANCEL
+            return CONFIRM_SEARCH_CANCEL.get(_get_lang(ctx), CONFIRM_SEARCH_CANCEL["en"])
     # Data no passado: agendar para o ano que vem se confirmar
     if pending and pending.get("action") == "date_past_next_year":
         from backend.locale import CONFIRM_DATE_PAST_CANCEL, CONFIRM_DATE_PAST_SCHEDULE_ERROR
@@ -252,6 +278,27 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
             return CONFIRM_COMPLETION_ERROR.get(_lang, CONFIRM_COMPLETION_ERROR["en"])
         return None
 
+    if action == "confirm_stop":
+        from backend.locale import STOP_SUCCESS_MSG, STOP_CANCELLED_MSG
+        _lang = _get_lang(ctx)
+        if is_confirm_no(content):
+            return STOP_CANCELLED_MSG.get(_lang, STOP_CANCELLED_MSG["en"])
+        if is_confirm_yes(content):
+            try:
+                from backend.database import SessionLocal
+                from backend.user_store import get_or_create_user
+                db = SessionLocal()
+                try:
+                    user = get_or_create_user(db, ctx.chat_id)
+                    user.is_paused = True
+                    db.commit()
+                finally:
+                    db.close()
+                return STOP_SUCCESS_MSG.get(_lang, STOP_SUCCESS_MSG["en"])
+            except Exception as e:
+                return f"Erro ao pausar: {e}"
+        return None
+
     if action == "nuke_all":
         lang = (pending.get("payload") or {}).get("lang", "pt-BR")
         from backend.settings_handlers import _NUKE_CANCELLED_MSGS, _NUKE_DONE_MSGS
@@ -261,42 +308,63 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
         try:
             from backend.database import SessionLocal
             from backend.user_store import get_or_create_user, clear_onboarding_data
-            from backend.models_db import List, ListItem, Event
+            from backend.models_db import List, ListItem, Event, Bookmark, Note, Habit, HabitCheck, Goal, Project, ListTemplate, ReminderHistory, AuditLog
 
             db = SessionLocal()
             try:
                 user = get_or_create_user(db, ctx.chat_id)
+                uid = user.id
                 # 1. Apagar itens e listas
-                for lst in db.query(List).filter(List.user_id == user.id).all():
+                for lst in db.query(List).filter(List.user_id == uid).all():
                     db.query(ListItem).filter(ListItem.list_id == lst.id).delete()
                     db.delete(lst)
-                # 2. Apagar eventos
-                db.query(Event).filter(Event.user_id == user.id).delete()
+                # 2. Apagar eventos e outros dados
+                db.query(Event).filter(Event.user_id == uid).delete()
+                db.query(Bookmark).filter(Bookmark.user_id == uid).delete()
+                db.query(Note).filter(Note.user_id == uid).delete()
+                
+                # Apagar HabitCheck antes de Habit
+                db.query(HabitCheck).filter(HabitCheck.habit_id.in_(
+                    db.query(Habit.id).filter(Habit.user_id == uid)
+                )).delete(synchronize_session=False)
+                db.query(Habit).filter(Habit.user_id == uid).delete()
+                
+                db.query(Goal).filter(Goal.user_id == uid).delete()
+                db.query(Project).filter(Project.user_id == uid).delete()
+                db.query(ListTemplate).filter(ListTemplate.user_id == uid).delete()
+                db.query(ReminderHistory).filter(ReminderHistory.user_id == uid).delete()
+                db.query(AuditLog).filter(AuditLog.user_id == uid).delete()
+                
                 # 3. Limpar dados de onboarding (nome, cidade, tz voltará ao padrão)
                 clear_onboarding_data(db, ctx.chat_id)
                 db.commit()
             finally:
                 db.close()
         except Exception as exc:
-            return f"Erro ao apagar dados: {exc}"
+            return f"Erro ao apagar dados da BD: {exc}"
 
         # 4. Apagar cron jobs do utilizador
         if ctx.cron_service:
             try:
+                user_id_base = ctx.chat_id.split("@")[0] if ctx.chat_id else ""
                 jobs = ctx.cron_service.list_jobs(include_disabled=True)
                 for job in jobs:
-                    if getattr(job, "to", None) == ctx.chat_id or getattr(job, "channel", None) and getattr(job, "to", None) == ctx.chat_id:
-                        ctx.cron_service.remove_job(job.id)
+                    p = getattr(job, "payload", None)
+                    if p:
+                        to_val = getattr(p, "to", "") or ""
+                        if to_val == ctx.chat_id or (user_id_base and to_val.split("@")[0] == user_id_base):
+                            ctx.cron_service.remove_job_and_deadline_followups(job.id)
             except Exception:
                 pass
 
-        # 5. Limpar sessão/memória da conversa
+        # 5. Limpar sessão/memória da conversa (INCLUINDO HISTÓRICO)
         if ctx.session_manager:
             try:
                 key = f"{ctx.channel}:{ctx.chat_id}"
                 session = ctx.session_manager.get_or_create(key)
-                # Limpar metadata de onboarding e fluxos
+                # Limpar metadata e mensagens
                 session.metadata.clear()
+                session.messages = []
                 ctx.session_manager.save(session)
             except Exception:
                 pass

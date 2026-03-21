@@ -15,6 +15,7 @@ from sqlalchemy import func
 
 from backend.models_db import ReminderHistory, List, ListItem
 from backend.user_store import get_or_create_user, get_user_language, get_user_preferred_name
+import backend.locale as locale
 
 
 def get_user_year_stats(db: Session, chat_id: str, year: int) -> dict[str, Any]:
@@ -126,13 +127,8 @@ async def build_recap_message(
     """
     Constrói a mensagem de recap: parte emocional (DeepSeek) + análise do ano (Mimo).
     """
-    name = (preferred_name or "").strip() or "utilizador"
-    lang_instruction = {
-        "pt-PT": "em português de Portugal",
-        "pt-BR": "em português do Brasil",
-        "es": "en español",
-        "en": "in English",
-    }.get(user_lang, "in the user's language")
+    name = (preferred_name or "").strip() or locale.USER_DEFAULT_NAME.get(user_lang, locale.USER_DEFAULT_NAME["en"])
+    lang_instruction = locale.RECAP_LANG_INSTRUCTION.get(user_lang, locale.RECAP_LANG_INSTRUCTION["en"])
 
     # Parte 1: DeepSeek — mensagem variada, tocante e criativa (não usar texto genérico)
     deepseek_prompt = (
@@ -154,17 +150,19 @@ async def build_recap_message(
         )
         part1 = (r.content or "").strip()
     except Exception:
-        part1 = f"Feliz Ano Novo, {name}! 💙 Estamos muito contentes por teres estado connosco. Que a nossa parceria dure muitos anos! ✨"
+        part1 = locale.YEARLY_RECAP_FALLBACK_PART1.get(user_lang, locale.YEARLY_RECAP_FALLBACK_PART1["en"]).format(name=name)
 
     # Parte 2: Mimo — recap analítico
     time_saved = estimate_time_saved_minutes(stats)
-    stats_text = (
-        f"Ano: {year}. Lembretes criados (agendados): {stats.get('reminders_created', 0)}. "
-        f"Lembretes recebidos (entregues): {stats.get('reminders_received', 0)}. "
-        f"Mensagens enviadas pelo utilizador: {stats.get('messages_sent_by_user', 0)}. "
-        f"Mensagens enviadas por nós (respostas): {stats.get('messages_from_us', 0)}. "
-        f"Itens adicionados às listas: {stats.get('list_items_added', 0)}. "
-        f"Tempo estimado de organização poupado (minutos): {time_saved}."
+    stats_tpl = locale.YEARLY_RECAP_STATS_TEXT.get(user_lang, locale.YEARLY_RECAP_STATS_TEXT["en"])
+    stats_text = stats_tpl.format(
+        year=year,
+        created=stats.get("reminders_created", 0),
+        received=stats.get("reminders_received", 0),
+        user_msgs=stats.get("messages_sent_by_user", 0),
+        our_msgs=stats.get("messages_from_us", 0),
+        items=stats.get("list_items_added", 0),
+        time_saved=time_saved,
     )
     mimo_prompt = (
         "You are writing a private yearly ANALYTICAL recap for the user. Based ONLY on the data below, "
@@ -192,10 +190,12 @@ async def build_recap_message(
         except Exception:
             pass
     if not part2:
-        part2 = (
-            f"📊 No {year}: {stats.get('reminders_created', 0)} lembretes criados ⏰ e {stats.get('reminders_received', 0)} recebidos. "
-            f"📋 {stats.get('list_items_added', 0)} itens nas listas. "
-            f"⏱️ Tempo de organização poupado: ~{time_saved} min. ✨"
+        part2 = locale.YEARLY_RECAP_FALLBACK_PART2.get(user_lang, locale.YEARLY_RECAP_FALLBACK_PART2["en"]).format(
+            year=year,
+            created=stats.get("reminders_created", 0),
+            received=stats.get("reminders_received", 0),
+            items=stats.get("list_items_added", 0),
+            time_saved=time_saved,
         )
 
     return (part1 + "\n\n" + part2).strip()

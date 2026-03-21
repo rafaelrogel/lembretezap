@@ -193,7 +193,7 @@ def test_command_parser():
     i = parse("/feito mercado 2")
     assert i == {"type": "feito", "list_name": "mercado", "item_id": 2}
 
-    # /filme, /livro, /musica, /receita → list_add (tudo dentro de /list)
+    # /filme, /livro, /musica, /receita -> list_add (tudo dentro de /list)
     i = parse("/filme Matrix")
     assert i == {"type": "list_add", "list_name": "filme", "item": "Matrix"}
     i = parse("/filme O Senhor dos Anéis")

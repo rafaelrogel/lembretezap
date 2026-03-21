@@ -144,6 +144,41 @@ FUN_RESPONSES_ABSURD = [
 ]
 
 
+def is_complex_request(text: str) -> bool:
+    """
+    True se a mensagem parece ser um "wall of text" ou conter múltiplos pedidos distintos
+    (ex.: "marca agenda, adiciona pão à lista e cria lembrete").
+    Neste caso, os handlers regex (NLU local) devem ignorar e deixar a mensagem
+    fluir para o LLM agent, que consegue decompor as múltiplas intenções.
+    """
+    if not text or len(text.strip()) < 20:
+        return False
+    
+    # Se tem múltiplas linhas, tratar como complexo para forçar Batch Handling no Router
+    if "\n" in text.strip():
+        return True
+        
+    t = text.strip().lower()
+    
+    # Indicadores gramaticais de múltiplos pedidos
+    has_multiple_actions = sum(1 for kw in [" e ", " também ", " além disso ", " ah ", " já agora ", " adicione ", " adiciona ", " cria ", " crie ", " lembra ", " lembre "] if kw in t)
+    
+    # Se tiver texto razoavelmente longo (> 80 chars) E múltiplas conjunções/verbos de acção
+    if len(t) > 80 and has_multiple_actions >= 2:
+        return True
+        
+    # Combinações de palavras-chave de diferentes domínios (agenda + lista + lembrete)
+    has_list_intent = any(kw in t for kw in [" lista ", " compras ", " mercado "])
+    has_event_intent = any(kw in t for kw in [" agenda ", " churrasco ", " consulta ", " reunião "])
+    has_reminder_intent = any(kw in t for kw in [" lembrete ", " lembra ", " avisar ", " avisa "])
+    has_pomodoro_intent = any(kw in t for kw in [" pomodoro ", " foco "])
+    
+    intents_count = sum([has_list_intent, has_event_intent, has_reminder_intent, has_pomodoro_intent])
+    
+    return intents_count >= 2
+
+
+
 def is_absurd_request(text: str, allow_relaxed: bool = False) -> str | None:
     """
     Detecta pedidos absurdos: viagem no tempo, intervalos curtos em recorrentes.

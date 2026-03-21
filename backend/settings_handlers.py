@@ -6,7 +6,7 @@ from backend.handler_context import HandlerContext
 
 
 async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
-    """/tz Cidade ou /tz IANA (ex: /tz Lisboa, /tz Europe/Lisbon)."""
+    """/tz Cidade, /fuso ou /timezone IANA."""
     from backend.database import SessionLocal
     from backend.user_store import get_user_language, get_user_timezone
     from backend.locale import (
@@ -23,8 +23,8 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
         except Exception:
             return "pt-BR"
     
-    # Se for apenas /tz ou /fuso, mostrar o atual
-    if re.match(r"^/(tz|fuso)\s*$", content.strip(), re.I):
+    # Se for apenas /tz ou /fuso ou /timezone, mostrar o atual
+    if re.match(r"^/(tz|fuso|timezone)\s*$", content.strip(), re.I):
         try:
             db = SessionLocal()
             try:
@@ -33,17 +33,18 @@ async def handle_tz(ctx: HandlerContext, content: str) -> str | None:
                 if tz_current:
                     from backend.timezone import phone_to_default_timezone
                     def_tz = phone_to_default_timezone(ctx.chat_id)
-                    res = f"📍 Fuso atual: *{tz_current}*"
+                    from backend.locale import SETTINGS_TZ_CURRENT, SETTINGS_TZ_DEFAULT_HINT, SETTINGS_TZ_CHANGE_HINT
+                    res = SETTINGS_TZ_CURRENT.get(lg, SETTINGS_TZ_CURRENT["en"]).format(tz=tz_current)
                     if def_tz and def_tz != tz_current:
-                        res += f" (padrão do número: {def_tz})"
-                    return res + "\n\nPara mudar: `/tz Cidade` ou `/tz Europe/Lisbon`"
+                        res += SETTINGS_TZ_DEFAULT_HINT.get(lg, SETTINGS_TZ_DEFAULT_HINT["en"]).format(tz=def_tz)
+                    return res + SETTINGS_TZ_CHANGE_HINT.get(lg, SETTINGS_TZ_CHANGE_HINT["en"])
             finally:
                 db.close()
         except Exception:
             pass
         return None
 
-    m = re.match(r"^/(tz|fuso)\s+(.+)$", content.strip(), re.I)
+    m = re.match(r"^/(tz|fuso|timezone)\s+(.+)$", content.strip(), re.I)
     if not m:
         return None
     raw = m.group(1).strip()
@@ -137,14 +138,26 @@ def _is_nl_quiet_off(content: str) -> bool:
 
 
 async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
-    """/quiet 22:00-08:00 ou /quiet off. Aceita NL: silêncio, quiet, parar horário silencioso."""
+    """/quiet 22:00-08:00, /silencio ou /silent off. Aceita NL: silêncio, quiet, parar horário silencioso."""
     from backend.command_nl import normalize_nl_to_command
     content = normalize_nl_to_command(content)
     t = content.strip()
     t_lower = t.lower()
     is_nl_off = _is_nl_quiet_off(t)
-    if not t_lower.startswith("/quiet") and not is_nl_off:
+    if not re.match(r"^/(quiet|silencio|silent)", t_lower) and not is_nl_off:
         return None
+    from backend.locale import QUIET_OFF_SUCCESS, QUIET_OFF_ERROR, QUIET_USAGE, QUIET_TIME_FORMAT, QUIET_SAVE_ERROR
+    _qlang = "pt-BR"
+    try:
+        from backend.database import SessionLocal
+        from backend.user_store import get_user_language
+        _qdb = SessionLocal()
+        try:
+            _qlang = get_user_language(_qdb, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+        finally:
+            _qdb.close()
+    except Exception:
+        pass
     if is_nl_off:
         rest = ""
     else:
@@ -156,30 +169,31 @@ async def handle_quiet(ctx: HandlerContext, content: str) -> str | None:
             db = SessionLocal()
             try:
                 if set_user_quiet(db, ctx.chat_id, None, None):
-                    return "🔔 Horário silencioso desativado. Voltaste a receber notificações a qualquer hora."
+                    return QUIET_OFF_SUCCESS.get(_qlang, QUIET_OFF_SUCCESS["en"])
             finally:
                 db.close()
         except Exception:
             pass
-        return "❌ Erro ao desativar."
+        return QUIET_OFF_ERROR.get(_qlang, QUIET_OFF_ERROR["en"])
     parts = re.split(r"[\s\-–—]+", rest, maxsplit=1)
     if len(parts) < 2:
-        return "🔇 Usa: /quiet 22:00-08:00 (não notificar entre 22h e 8h) ou /quiet off para desativar."
+        return QUIET_USAGE.get(_qlang, QUIET_USAGE["en"])
     start_hhmm, end_hhmm = parts[0].strip(), parts[1].strip()
     try:
         from backend.database import SessionLocal
         from backend.user_store import set_user_quiet, _parse_time_hhmm
         if _parse_time_hhmm(start_hhmm) is None or _parse_time_hhmm(end_hhmm) is None:
-            return "🕐 Horas em HH:MM (ex.: 22:00, 08:00)."
+            return QUIET_TIME_FORMAT.get(_qlang, QUIET_TIME_FORMAT["en"])
         db = SessionLocal()
         try:
             if set_user_quiet(db, ctx.chat_id, start_hhmm, end_hhmm):
-                return f"🔇 Horário silencioso ativo: {start_hhmm}–{end_hhmm}. Não receberás lembretes nessa janela."
+                from backend.locale import QUIET_STATUS
+                return QUIET_STATUS.get(_qlang, QUIET_STATUS["en"]).format(start=start_hhmm, end=end_hhmm)
         finally:
             db.close()
     except Exception:
         pass
-    return "❌ Erro ao guardar. Usa /quiet 22:00-08:00."
+    return QUIET_SAVE_ERROR.get(_qlang, QUIET_SAVE_ERROR["en"])
 
 
 def _format_current_time_for_user(chat_id: str, lang: str) -> str:
@@ -203,11 +217,11 @@ def _format_current_time_for_user(chat_id: str, lang: str) -> str:
 
 
 async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
-    """/reset: limpa dados do onboarding. Aceita NL: reiniciar, reset."""
+    """/reset, /reiniciar ou /reboot: limpa dados do onboarding. Aceita NL: reiniciar, reset."""
     from backend.command_nl import normalize_nl_to_command
     content = normalize_nl_to_command(content)
     c = content.strip().lower()
-    if not (c.startswith("/reset") or c.startswith("/reboot")):
+    if not (c.startswith("/reset") or c.startswith("/reboot") or c.startswith("/reiniciar")):
         return None
     try:
         from backend.database import SessionLocal
@@ -230,13 +244,7 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
     out = msgs.get(lang, msgs["pt-BR"])
     time_str = _format_current_time_for_user(ctx.chat_id, lang)
     if time_str:
-        hint_clock = {
-            "pt-PT": "Se a hora estiver errada, no servidor define a variável CLOCK_OFFSET_SECONDS (segundos a somar ao relógio do servidor).",
-            "pt-BR": "Se a hora estiver errada, no servidor defina a variável CLOCK_OFFSET_SECONDS (segundos a somar ao relógio do servidor).",
-            "es": "Si la hora es incorrecta, en el servidor define la variable CLOCK_OFFSET_SECONDS (segundos a sumar al reloj del servidor).",
-            "en": "If the time is wrong, on the server set CLOCK_OFFSET_SECONDS (seconds to add to server clock).",
-        }
-        out = out + "\n\n*Hora atual (no teu fuso):* " + time_str + "\n\n" + hint_clock.get(lang, hint_clock["en"])
+        out = out + "\n\n*Hora atual (no seu fuso):* " + time_str
     if ctx.session_manager:
         try:
             key = f"{ctx.channel}:{ctx.chat_id}"
@@ -255,7 +263,8 @@ async def handle_reset(ctx: HandlerContext, content: str) -> str | None:
     return out
 
     if abs(offset) > 60:
-        res.append("\n⚠️ *Aviso:* Relógio do servidor está muito desalinhado. O bot está a compensar automaticamente, mas recomenda-se acertar o NTP do VPS.")
+        from backend.locale import SERVER_CLOCK_SKEW_WARNING
+        res.append("\n" + SERVER_CLOCK_SKEW_WARNING.get(user_lang, SERVER_CLOCK_SKEW_WARNING["en"]))
     
     return "\n".join(res)
 

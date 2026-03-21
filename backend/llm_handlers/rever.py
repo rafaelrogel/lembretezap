@@ -46,15 +46,22 @@ async def handle_rever(ctx: "HandlerContext", content: str) -> str | None:
 
     user_lang = get_user_lang(ctx.chat_id)
 
+    from backend.locale import (
+        REVER_NO_CONTEXT, REVER_NO_MESSAGES, REVER_NO_REMINDERS,
+        REVER_STATUS_SCHEDULED, REVER_STATUS_SENT, REVER_STATUS_FAILED,
+        REVER_NO_HISTORY, REVER_LAST_REQUEST, REVER_NO_REQUEST,
+        REVER_LAST_REMINDER, REVER_NO_REMINDER, REVER_LABEL_USER, REVER_LABEL_ASSISTANT,
+    )
+
     if intent == "conversa":
         if not ctx.session_manager:
-            return "Histórico da conversa não está disponível neste contexto."
+            return REVER_NO_CONTEXT.get(user_lang, REVER_NO_CONTEXT["en"])
         try:
             key = f"{ctx.channel}:{ctx.chat_id}"
             session = ctx.session_manager.get_or_create(key)
             total = len(session.messages) if hasattr(session, "messages") else 0
             if total == 0:
-                return "Ainda não há mensagens nesta conversa."
+                return REVER_NO_MESSAGES.get(user_lang, REVER_NO_MESSAGES["en"])
             if N is None:
                 recent = session.messages[-500:] if len(session.messages) > 500 else list(session.messages)
             else:
@@ -81,7 +88,9 @@ async def handle_rever(ctx: "HandlerContext", content: str) -> str | None:
                 header = f"Últimas {len(recent)} de {total} mensagens:\n"
             else:
                 header = "Mensagens:\n"
-            return header + "\n".join(f"{'Tu' if m.get('role')=='user' else 'Eu'}: {(m.get('content') or '')[:150]}" for m in recent[:30])
+            _u = REVER_LABEL_USER.get(user_lang, REVER_LABEL_USER["en"])
+            _a = REVER_LABEL_ASSISTANT.get(user_lang, REVER_LABEL_ASSISTANT["en"])
+            return header + "\n".join(f"{_u if m.get('role')=='user' else _a}: {(m.get('content') or '')[:150]}" for m in recent[:30])
         except Exception as e:
             return f"Erro ao buscar conversa: {e}"
 
@@ -93,7 +102,7 @@ async def handle_rever(ctx: "HandlerContext", content: str) -> str | None:
             try:
                 entries = get_reminder_history(db, ctx.chat_id, kind=None, limit=50)
                 if not entries:
-                    return "Ainda não tens lembretes registados (pedidos agendados ou entregues)."
+                    return REVER_NO_REMINDERS.get(user_lang, REVER_NO_REMINDERS["en"])
                 data_lines = []
                 for e in entries:
                     pedido = (e.get("message") or "").strip() or "(sem texto)"
@@ -102,15 +111,15 @@ async def handle_rever(ctx: "HandlerContext", content: str) -> str | None:
                         agendado = e["schedule_at"].strftime("%d/%m/%Y %H:%M")
                     elif e.get("created_at"):
                         agendado = e["created_at"].strftime("%d/%m/%Y %H:%M") + " (pedido)"
-                    status = e.get("status") or ("agendado" if e["kind"] == "scheduled" else "entregue")
+                    status = e.get("status") or (REVER_STATUS_SCHEDULED.get(user_lang, "scheduled") if e["kind"] == "scheduled" else REVER_STATUS_SENT.get(user_lang, "delivered"))
                     if status == "sent":
-                        status = "entregue"
+                        status = REVER_STATUS_SENT.get(user_lang, "delivered")
                         if e.get("delivered_at"):
                             agendado = agendado or e["delivered_at"].strftime("%d/%m/%Y %H:%M") + " (disparou)"
                     elif status == "failed":
-                        status = "falhou"
+                        status = REVER_STATUS_FAILED.get(user_lang, "failed")
                     elif status == "scheduled":
-                        status = "agendado"
+                        status = REVER_STATUS_SCHEDULED.get(user_lang, "scheduled")
                     data_lines.append(f"Pedido: {pedido} | Agendado para: {agendado} | Status: {status}")
                 data_text = "\n".join(data_lines)
                 instruction = "Lista de lembretes: Pedido | Agendado | Status. Apresenta de forma concisa, por data."
@@ -136,7 +145,7 @@ async def handle_rever(ctx: "HandlerContext", content: str) -> str | None:
             if last_lembrete:
                 data_parts.append(f"Última lembrança entregue: {last_lembrete}")
             if not data_parts:
-                return "Ainda não tens pedidos nem lembranças registados."
+                return REVER_NO_HISTORY.get(user_lang, REVER_NO_HISTORY["en"])
             data_text = "\n".join(data_parts)
             if intent == "pedido":
                 instruction = "Indica o último pedido de lembrete. Uma frase."
@@ -148,9 +157,9 @@ async def handle_rever(ctx: "HandlerContext", content: str) -> str | None:
             if out:
                 return out
             if intent == "pedido":
-                return f"Foi este o pedido: \"{last_pedido}\"" if last_pedido else "Ainda não tens nenhum pedido registado."
+                return REVER_LAST_REQUEST.get(user_lang, REVER_LAST_REQUEST["en"]).format(text=last_pedido) if last_pedido else REVER_NO_REQUEST.get(user_lang, REVER_NO_REQUEST["en"])
             if intent == "lembrete":
-                return f"Foi esta a lembrança: \"{last_lembrete}\"" if last_lembrete else "Ainda não recebeste nenhuma lembrança."
+                return REVER_LAST_REMINDER.get(user_lang, REVER_LAST_REMINDER["en"]).format(text=last_lembrete) if last_lembrete else REVER_NO_REMINDER.get(user_lang, REVER_NO_REMINDER["en"])
             return "\n".join(data_parts)
         finally:
             db.close()

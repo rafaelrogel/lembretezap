@@ -6,4 +6,4 @@
 - City is important for reminder times; if they don't want to provide it, we use the timezone inferred from the phone number.
 - /reset allowed to redo registration at any time.
 - We respect LGPD/GDPR: we only store the essential.
-- **WhatsApp Reminder Reactions:** 👍 = done (confirms with yes); ⏰ = snooze (delay 5 min, max 3x); 👎 = remove (we ask if they want to change the time or cancel). They can also write/send audio (e.g., "done", "remove").
+- **WhatsApp Reminder Reactions:** 👍 = done (confirms with yes); 👎 = remove (we ask if they want to change the time or cancel). They can also write/send audio (e.g., "done", "remove").

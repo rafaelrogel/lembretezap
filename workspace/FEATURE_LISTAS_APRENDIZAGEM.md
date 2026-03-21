@@ -26,14 +26,14 @@ O sistema lembrar-se da lista da semana passada e aprender com padrões, usando 
 - Em `smart_reminder` e noutros fluxos, incluir no contexto:
   - **Lista da semana passada**: itens que estavam em cada lista há 7 dias
   - **Padrões**: "na lista mercado, costumas adicionar X, Y, Z" (frequência)
-  - **Sugestões**: "Na última semana tinhas leite e pão na lista mercado; queres que eu sugira?"
+  - **Sugestões**: "Na última semana tinhas [item A] e [item B] na lista mercado; queres que eu sugira?"
 
 ### 3. Classificação e sugestões
 
 - **Mimo** analisa:
   - Histórico de itens por lista
   - Estação, dia da semana, contexto (ex.: "depois do filme" → lista filmes)
-  - Sugere itens com base em padrões: "Costumas comprar leite às segundas"
+  - Sugere itens com base em padrões: "Costumas adicionar [item habituial] em [dia da semana]"
 - **Integração** com o fluxo de `/list mercado add`:
   - Se o utilizador disser "adiciona o habitual" ou "lista de compras da semana", o Mimo sugere com base no histórico
 

@@ -15,6 +15,8 @@ from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
 # Palavras de data SEM hora explícita (quando sozinhas = tempo vago)
 _DATE_WORDS = {
     "amanhã", "amanha", "hoje", "depois", "tomorrow", "today",
+    "mañana", "hoy", "lunes", "martes", "miércoles", "miercoles",
+    "jueves", "viernes", "tomorrow", "today",
     "segunda", "terça", "terca", "quarta", "quinta", "sexta",
     "sábado", "sabado", "domingo", "monday", "tuesday", "wednesday",
     "thursday", "friday", "saturday", "sunday",
@@ -28,23 +30,43 @@ _HOUR_PATTERNS = (
     r"as\s*\d{1,2}(?:[:h]\d{2})?",
     r"(?:às?|as)\s*\d{4}\b",
     r"\b\d{2}h\d{2}?\b", # 12h, 12h00
-    r"\b\d{4}\b",        # 1200
+    r"\b(?![2][0][2-9][0-9])\d{4}\b", # 1200 (evita anos 2020-2099)
     r"\d{1,2}\s*(?:am|pm)\b",
     r"\d{1,2}:\d{2}\s*(?:am|pm)\b",  # 3:25 PM, 10:30 AM
 )
 
 _HOUR_RE = re.compile("|".join(_HOUR_PATTERNS), re.I)
 
+# Padrões que indicam data explícita (dd/mm, dd-mm, dd de mês, dd mês)
+_EXPLICIT_DATE_PATTERNS = (
+    r"\d{1,2}\s*/\s*\d{1,2}",                   # 10/03, 10/03/2026
+    r"\d{1,2}\s*-\s*\d{1,2}",                   # 10-03, 10-03-2026
+    r"\d{1,2}\s+de\s+(?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)",  # 10 de março
+    r"\d{1,2}\s+(?:janeiro|fevereiro|mar[cç]o|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)",  # 10 março
+    r"\d{1,2}\s+de\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)",
+    r"\d{1,2}\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)",
+    r"\d{1,2}\s+de\s+(?:enero|febrero|marzo|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)",
+    r"\d{1,2}\s+(?:enero|febrero|marzo|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)",
+    r"\b(?:dia\s+|day\s+|el\s+d[íi]a\s+)\d{1,2}\b",                      # dia 22, day 22
+)
+_EXPLICIT_DATE_RE = re.compile("|".join(_EXPLICIT_DATE_PATTERNS), re.I)
+
 # Indicadores de pedido de lembrete/evento (conteúdo concreto) vindo de reminder_keywords.py
 _REMINDER_HINTS = (
-    "ir ", "tenho ", "preciso ", "consulta", "reunião", "reuniao",
+    # PT
+    "ir ", "tenho ", "preciso ", "pagar ", "comprar ", "ligar ", "telefonar ", "enviar ",
+    # ES
+    "voy ", "tengo ", "necesito ", "pagar ", "comprar ", "llamar ", "enviar ",
+    # EN
+    "going ", "need ", "have ", "pay ", "buy ", "call ", "send ", "submit ",
+    "appointment", "meeting", "consulta", "reunião", "reuniao",
     "médico", "medico", "dentista", "farmacia", "farmácia",
-    "appointment", "meeting",
 ) + tuple(ALL_REMINDER_KEYWORDS)
 
 FLOW_KEY = "pending_reminder_flow"
 STAGE_NEED_TIME = "need_time"
 STAGE_NEED_DATE = "need_date"
+STAGE_NEED_WHEN = "need_when"
 STAGE_NEED_ADVANCE_PREFERENCE = "need_advance_preference"
 STAGE_NEED_ADVANCE_AMOUNT = "need_advance_amount"
 
@@ -70,12 +92,16 @@ def has_vague_time(text: str) -> bool:
 
 def has_vague_date(text: str) -> bool:
     """
-    True se o texto tem hora explícita (10h, às 14h) mas NÃO palavra de data.
+    True se o texto tem hora explícita (10h, às 14h) mas NÃO palavra de data
+    NEM data explícita (dd/mm, dd-mm, dd de mês).
     """
     if not text or len(text.strip()) < 5:
         return False
     t = text.strip().lower()
     if not _HOUR_RE.search(t):
+        return False
+    # Explicit date format (10/03/2026, 10-03, 10 de março) → not vague
+    if _EXPLICIT_DATE_RE.search(t):
         return False
     words = set(re.findall(r"\b\w+\b", t))
     return not bool(words & _DATE_WORDS)
@@ -86,6 +112,26 @@ def has_reminder_intent(text: str) -> bool:
     if not text or len(text.strip()) < 3:
         return False
     tl = text.strip().lower()
+    
+    # Se o utilizador está apenas a pedir para ver/listar lembretes ou agenda,
+    # NÃO é um intent de criação com tempo vago. Devemos ignorar para deixar o router ou o agente processar.
+    # Comandos com / (slash) devem ser ignorados por este fluxo NL de criação.
+    if tl.startswith("/"):
+        return False
+
+    query_verbs = (
+        # PT
+        "liste", "listar", "mostre", "mostrar", "mostra", "quais", "ver", "cancelar", "apagar", "remover", "como", "esta", "está", "agenda", "agendas",
+        "calendário", "calendario",
+        # EN
+        "list", "show", "what", "which", "view", "cancel", "delete", "remove", "how", "is", "are", "agenda", "calendar",
+        # ES
+        "listar", "muestra", "mostrar", "cuales", "cuáles", "ver", "cancelar", "borrar", "eliminar", "como", "esta", "está", "agenda", "calendario"
+    )
+    words = tl.replace("/", " ").split()
+    if any(q in words for q in query_verbs):
+        return False
+
     return any(h in tl for h in _REMINDER_HINTS)
 
 
@@ -135,7 +181,7 @@ def extract_content_and_hour(text: str) -> tuple[str, int, int]:
         return "", 0, 0
     parsed = _extract_hour_minute(t)
     if not parsed:
-        return t, 0, 0
+        return t, 9, 0
     hour, minute = parsed
     # Remover padrões de hora para obter o conteúdo
     content = re.sub(_HOUR_RE, " ", t).strip()
@@ -193,6 +239,7 @@ def is_vague_date_reminder(text: str) -> tuple[bool, str, int, int]:
     content, hour, minute = extract_content_and_hour(text)
     if not content or len(content.strip()) < 2:
         return False, "", 0, 0
+    # Se não foi encontrada hora, usamos 9h como padrão (extract_content_and_hour já retorna 9 se não houver)
     return True, content.strip(), hour, minute
 
 
@@ -212,6 +259,12 @@ def parse_date_from_response(text: str) -> str | None:
     for dw in ("amanhã", "amanha", "hoje", "segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo"):
         if dw in t or f"na {dw}" in t or f"no {dw}" in t:
             return dw
+    # Numeric dates: 22/03, dia 22, 22
+    m = re.search(r"(?:dia\s+)?(\d{1,2})(?:[/-](\d{1,2}))?", t)
+    if m:
+        if m.group(2):
+            return f"{m.group(1)}/{m.group(2)}"
+        return f"dia {m.group(1)}"
     return None
 
 
@@ -224,11 +277,82 @@ def _am_pm_to_24(m) -> tuple[int, int]:
     return (h24, mn)
 
 
+# Word-to-number map for written-out hours (PT/ES/EN)
+_WORD_TO_HOUR: dict[str, int] = {
+    # Portuguese
+    "uma": 1, "duas": 2, "três": 3, "tres": 3, "quatro": 4, "cinco": 5,
+    "seis": 6, "sete": 7, "oito": 8, "nove": 9, "dez": 10,
+    "onze": 11, "doze": 12, "treze": 13, "catorze": 14, "quatorze": 14,
+    "quinze": 15, "dezesseis": 16, "dezasseis": 16, "dezessete": 17, "dezassete": 17,
+    "dezoito": 18, "dezenove": 19, "dezanove": 19, "vinte": 20,
+    "vinte e uma": 21, "vinte e duas": 22, "vinte e três": 23, "vinte e tres": 23,
+    # Spanish
+    "uno": 1, "dos": 2, "cuatro": 4, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
+    "once": 11, "doce": 12, "trece": 13, "catorce": 14, "quince": 15,
+    "dieciséis": 16, "dieciseis": 16, "diecisiete": 17, "dieciocho": 18,
+    "diecinueve": 19, "veinte": 20, "veintiuna": 21, "veintidós": 22, "veintidos": 22,
+    "veintitrés": 23, "veintitres": 23,
+    # English
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7,
+    "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+    "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17,
+    "eighteen": 18, "nineteen": 19, "twenty": 20,
+}
+
+def _parse_written_time(text: str) -> tuple[int, int] | None:
+    """Parse written-out time: 'duas da tarde', 'quatorze horas', 'meio-dia', 'three thirty pm', etc."""
+    t = text.strip().lower()
+    # meio-dia / mediodía / noon
+    if re.search(r"\b(meio[\s-]?dia|mediod[ií]a|noon)\b", t):
+        return (12, 0)
+    # meia-noite / medianoche / midnight
+    if re.search(r"\b(meia[\s-]?noite|medianoche|midnight)\b", t):
+        return (0, 0)
+
+    # Extract minute modifiers FIRST (before hour lookup consumes "quinze" etc.)
+    minute = 0
+    t_for_hour = t
+    if re.search(r"\b(e\s+meia|y\s+media|thirty|half)\b", t):
+        minute = 30
+        t_for_hour = re.sub(r"\b(e\s+meia|y\s+media|thirty|half)\b", "", t).strip()
+    elif re.search(r"\b(e\s+quarenta\s+e\s+cinco|forty[\s-]?five)\b", t):
+        minute = 45
+        t_for_hour = re.sub(r"\b(e\s+quarenta\s+e\s+cinco|forty[\s-]?five)\b", "", t).strip()
+    elif re.search(r"\be\s+quinze\b", t):
+        minute = 15
+        t_for_hour = re.sub(r"\be\s+quinze\b", "", t).strip()
+    elif re.search(r"\b(y\s+cuarto|fifteen|quarter)\b", t):
+        minute = 15
+        t_for_hour = re.sub(r"\b(y\s+cuarto|fifteen|quarter)\b", "", t).strip()
+
+    # Try to find a written hour word (sort by length desc so "vinte e três" matches before "três")
+    found_hour = None
+    for word, h in sorted(_WORD_TO_HOUR.items(), key=lambda x: -len(x[0])):
+        if word in t_for_hour:
+            found_hour = h
+            break
+    if found_hour is None:
+        return None
+
+    # AM/PM: "da tarde/noite" → PM, "da manhã/madrugada" → AM
+    if found_hour <= 12:
+        if re.search(r"\b(da\s+tarde|da\s+noite|de\s+la\s+tarde|de\s+la\s+noche|p\.?m\.?)\b", t):
+            if found_hour < 12:
+                found_hour += 12
+        elif re.search(r"\b(da\s+manh[ãa]|da\s+madrugada|de\s+la\s+ma[ñn]ana|a\.?m\.?)\b", t):
+            if found_hour == 12:
+                found_hour = 0
+
+    if 0 <= found_hour <= 23 and 0 <= minute <= 59:
+        return (found_hour, minute)
+    return None
+
+
 # Parsing de hora na resposta do utilizador
 _TIME_RESPONSE_PATTERNS = (
     (r"(\d{1,2}):(\d{2})\s*(am|pm)\b", _am_pm_to_24),  # 3:25 PM, 10:30 AM (antes dos outros)
     (r"(\d{1,2})\s*(am|pm)\b", lambda m: ((int(m.group(1)) % 12) + (12 if m.group(2).lower() == "pm" else 0), 0)),
-    (r"(?:às?|as)\s*(\d{1,2})(?:[:h])?(\d{2})?\b", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
+    (r"(?:às?|as|at|a\s+las?|a\s+la)\s*(\d{1,2})(?:[:h])?(\d{2})?\b", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
     (r"(\d{1,2})h(\d{2})\b", lambda m: (int(m.group(1)), int(m.group(2)))),  # 10h00
     (r"(\d{1,2})(?::(\d{2}))?\s*h", lambda m: (int(m.group(1)), int(m.group(2) or 0))),
     (r"^(\d{4})$", lambda m: (int(m.group(1)[:2]), int(m.group(1)[2:]))),    # 1200
@@ -243,6 +367,7 @@ def parse_time_from_response(text: str) -> tuple[int, int] | None:
     if not text or not text.strip():
         return None
     t = text.strip()
+    # 1) Numeric patterns first
     for pattern, extractor in _TIME_RESPONSE_PATTERNS:
         m = re.search(pattern, t, re.I)
         if m:
@@ -252,7 +377,8 @@ def parse_time_from_response(text: str) -> tuple[int, int] | None:
                     return h, mn
             except (ValueError, IndexError, AttributeError):
                 pass
-    return None
+    # 2) Written-out time ("duas da tarde", "quatorze horas", "meio-dia")
+    return _parse_written_time(t)
 
 
 # Parsing de antecedência (30 min, 1 hora)
@@ -262,6 +388,7 @@ _ADVANCE_PATTERNS = (
     (r"meia\s*hora", lambda m: 1800),
     (r"30\s*min", lambda m: 1800),
     (r"1\s*hora", lambda m: 3600),
+    (r"1\s*hr", lambda m: 3600),
 )
 
 
@@ -270,6 +397,8 @@ def parse_advance_seconds(text: str) -> int | None:
     if not text or not text.strip():
         return None
     t = text.strip().lower()
+    # Remover "antes" ou "before" ou "atrás" para simplificar o match
+    t = re.sub(r"\b(antes|before|atrás|atras)\b", "", t).strip()
     for pattern, extractor in _ADVANCE_PATTERNS:
         m = re.search(pattern, t, re.I)
         if m:
@@ -348,7 +477,9 @@ def has_full_event_datetime(text: str) -> bool:
     if not _HOUR_RE.search(text.strip()):
         return False
     words = set(re.findall(r"\b\w+\b", text.strip().lower()))
-    return bool(words & _DATE_WORDS)
+    has_date_word = bool(words & _DATE_WORDS)
+    has_explicit_date = bool(_EXPLICIT_DATE_RE.search(text.strip()))
+    return has_date_word or has_explicit_date
 
 
 def parse_full_event_datetime(
@@ -449,15 +580,6 @@ def compute_in_seconds_from_date_hour(
         now = datetime.fromtimestamp(_now_ts, tz=timezone.utc).astimezone(z)
         today = now.date()
 
-        # #region agent log
-        try:
-            import json as _j
-            _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
-            open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "reminder_flow.compute_in_seconds.entry", "message": "compute_in_seconds", "data": {"tz_iana": tz_iana, "date_label": date_label, "hour": hour, "minute": minute, "now_str": now.isoformat()[:25]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H3"}) + "\n")
-        except Exception:
-            pass
-        # #endregion
-
         target_date = today
         dl = date_label.lower().strip()
 
@@ -474,6 +596,34 @@ def compute_in_seconds_from_date_hour(
                 if diff == 0 and (now.hour > hour or (now.hour == hour and now.minute >= minute)):
                     diff = 7
                 target_date = today + timedelta(days=diff)
+        elif dl.startswith("dia ") or dl.isdigit() or "/" in dl:
+            # Numeric date parsing
+            from backend.time_parse import MESES
+            m = re.search(r"(?:dia\s+)?(\d{1,2})(?:[/-](\d{1,2}))?", dl)
+            if m:
+                dia = int(m.group(1))
+                mes = int(m.group(2)) if m.group(2) else now.month
+                ano = now.year
+                try:
+                    from calendar import monthrange
+                    _, last_day = monthrange(ano, mes)
+                    target_date = datetime(ano, mes, min(dia, last_day)).date()
+                    if target_date < today:
+                        if not m.group(2):
+                            # Se já passou este mês e não especificou mês, tenta próximo mês
+                            if now.month == 12:
+                                target_date = target_date.replace(year=ano + 1, month=1)
+                            else:
+                                target_date = target_date.replace(month=now.month + 1)
+                                try:
+                                    _, last_day = monthrange(target_date.year, target_date.month)
+                                    target_date = target_date.replace(day=min(dia, last_day))
+                                except Exception: pass
+                        else:
+                            # Mês especificado mas no passado: assume ano seguinte (fix loop)
+                            target_date = target_date.replace(year=ano + 1)
+                except ValueError:
+                    return None
         else:
             return None
 
@@ -482,15 +632,13 @@ def compute_in_seconds_from_date_hour(
             hour, minute, 0, 0, tzinfo=z
         )
         delta = (target - now).total_seconds()
-        if delta > 0 and delta <= 86400 * 365:
-            # #region agent log
-            try:
-                import json as _j
-                _log_path = r"C:\Users\rafae\.nanobot\.cursor\debug.log"
-                open(_log_path, "a", encoding="utf-8").write(_j.dumps({"location": "reminder_flow.compute_in_seconds.exit", "message": "computed delta", "data": {"target_str": target.isoformat()[:25], "delta_sec": int(delta), "tz_iana": tz_iana}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H3"}) + "\n")
-            except Exception:
-                pass
-            # #endregion
+        if delta <= 0:
+            # If it's a numeric date like "22/03" and it's already past for THIS year, assume next year
+            if dl.startswith("dia ") or dl.isdigit() or "/" in dl:
+                target = target.replace(year=target.year + 1)
+                delta = (target - now).total_seconds()
+
+        if delta > 0 and delta <= 86400 * 365 * 2: # up to 2 years
             return int(delta)
     except Exception:
         pass

@@ -138,7 +138,7 @@ class CronService:
                             to=j["payload"].get("to"),
                             phone_for_locale=j["payload"].get("phoneForLocale"),
                             remind_again_if_unconfirmed_seconds=j["payload"].get("remindAgainIfUnconfirmedSeconds"),
-                            remind_again_max_count=j["payload"].get("remindAgainMaxCount", 10),
+                            remind_again_max_count=j["payload"].get("remindAgainMaxCount", 3),
                             depends_on_job_id=j["payload"].get("dependsOnJobId"),
                             parent_job_id=j["payload"].get("parentJobId"),
                             has_deadline=j["payload"].get("hasDeadline", False),
@@ -147,6 +147,10 @@ class CronService:
                             deadline_main_job_id=j["payload"].get("deadlineMainJobId"),
                             deadline_post_index=j["payload"].get("deadlinePostIndex"),
                             is_proactive_nudge=j["payload"].get("isProactiveNudge", False),
+                            pomodoro_cycle=j["payload"].get("pomodoroCycle"),
+                            pomodoro_phase=j["payload"].get("pomodoroPhase"),
+                            suggested_draft=j["payload"].get("suggestedDraft"),
+                            is_important=j["payload"].get("isImportant", False),
                         ),
                         state=CronJobState(
                             next_run_at_ms=j.get("state", {}).get("nextRunAtMs"),
@@ -208,6 +212,10 @@ class CronService:
                         "deadlineMainJobId": getattr(j.payload, "deadline_main_job_id", None),
                         "deadlinePostIndex": getattr(j.payload, "deadline_post_index", None),
                         "isProactiveNudge": getattr(j.payload, "is_proactive_nudge", False),
+                        "pomodoroCycle": getattr(j.payload, "pomodoro_cycle", None),
+                        "pomodoroPhase": getattr(j.payload, "pomodoro_phase", None),
+                        "suggestedDraft": getattr(j.payload, "suggested_draft", None),
+                        "isImportant": getattr(j.payload, "is_important", False),
                     },
                     "state": {
                         "nextRunAtMs": j.state.next_run_at_ms,
@@ -438,6 +446,10 @@ class CronService:
         phone_for_locale: str | None = None,
         audio_mode: bool = False,
         is_proactive_nudge: bool = False,
+        pomodoro_cycle: int | None = None,
+        pomodoro_phase: str | None = None,
+        suggested_draft: str | None = None,
+        is_important: bool = False,
     ) -> CronJob:
         """Add a new job. suggested_prefix: quando dado (ex. pelo MIMO), usa para o ID em vez de derivar da mensagem."""
         logger.debug(
@@ -455,8 +467,14 @@ class CronService:
 
         store = self._load_store()
 
-        # Log detalhado para debug (ZAPISTA_LOG_LEVEL=DEBUG)
+        # Per-user cap: max 200 active jobs to prevent runaway chains
+        MAX_JOBS_PER_USER = 200
         existing_for_user = [j for j in store.jobs if getattr(j.payload, "to", None) == to]
+        if to and len(existing_for_user) >= MAX_JOBS_PER_USER:
+            logger.warning(f"Cron: user {(to or '')[:20]} has {len(existing_for_user)} jobs, rejecting add_job")
+            raise ValueError("MAX_REMINDERS_EXCEEDED")
+
+        # Log detalhado para debug (ZAPISTA_LOG_LEVEL=DEBUG)
         logger.debug(
             "Cron add_job: user=%s message=%s schedule_kind=%s every_ms=%s expr=%s at_ms=%s existing_jobs_for_user=%d total_jobs=%d",
             (to or "")[:30],
@@ -542,6 +560,10 @@ class CronService:
                 deadline_post_index=deadline_post_index,
                 audio_mode=audio_mode,
                 is_proactive_nudge=is_proactive_nudge,
+                pomodoro_cycle=pomodoro_cycle,
+                pomodoro_phase=pomodoro_phase,
+                suggested_draft=suggested_draft,
+                is_important=is_important,
             ),
             created_at_ms=now,
             updated_at_ms=now,
@@ -599,19 +621,24 @@ class CronService:
             self._arm_timer()
         return count
 
-    def remove_stale_at_jobs(self) -> list[tuple[str, str, list[tuple[str, str]]]]:
+    def remove_stale_at_jobs(self) -> list[tuple[str, str, list[tuple[str, str]], str | None]]:
         """
         Remove jobs com kind=\"at\" cujo at_ms já passou (ou next_run_at_ms é None).
-        Retorna lista de (channel, to, [(job_id, job_name), ...]) para notificar o utilizador.
+        Retorna lista de (channel, to, [(job_id, job_name), ...], phone_for_locale)
+        para notificar o utilizador no idioma correto (inclui phone_for_locale para resolver @lid).
         Deve ser chamado 1x por dia; a notificação é enviada só após 2 msgs do user (anti-spam).
         """
         store = self._load_store()
         now = _now_ms()
         to_remove: list[CronJob] = []
         notif_by_chat: dict[tuple[str | None, str | None], list[tuple[str, str]]] = {}
+        # Guarda phone_for_locale por chat key (último valor encontrado)
+        phone_by_chat: dict[tuple[str | None, str | None], str | None] = {}
         for j in store.jobs:
-            if not j.enabled or j.schedule.kind != "at":
+            if j.schedule.kind != "at":
                 continue
+            # Se for "at" e estiver desativado, é candidato a remoção se já tiver passado (ou se nunca teve next_run)
+            # Se estiver ativo (enabled), só removemos se já passou (stale).
             at_ms = getattr(j.schedule, "at_ms", None)
             next_ms = getattr(j.state, "next_run_at_ms", None)
             if at_ms is None:
@@ -627,6 +654,10 @@ class CronService:
                 if ch and to:
                     key = (ch, to)
                     notif_by_chat.setdefault(key, []).append((j.id, (j.name or j.id)[:80]))
+                    # Preserva phone_for_locale para resolver o idioma mesmo em @lid
+                    pfl = getattr(j.payload, "phone_for_locale", None)
+                    if pfl and not phone_by_chat.get(key):
+                        phone_by_chat[key] = pfl
         for j in to_remove:
             store.jobs = [x for x in store.jobs if x.id != j.id]
         if to_remove:
@@ -634,7 +665,7 @@ class CronService:
             self._arm_timer()
             logger.info(f"Cron: removed {len(to_remove)} stale at jobs")
         return [
-            (ch, to, jobs)
+            (ch, to, jobs, phone_by_chat.get((ch, to)))
             for (ch, to), jobs in notif_by_chat.items()
             if ch and to
         ]

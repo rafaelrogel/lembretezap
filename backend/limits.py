@@ -1,11 +1,11 @@
-"""Limites por dia: 40 eventos de agenda, 40 lembretes, 80 no total. Aviso aos 70%."""
+"""Limites por dia: 80 eventos de agenda, 80 lembretes, 160 no total. Aviso aos 70%."""
 
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-LIMIT_EVENTS_PER_DAY = 40
-LIMIT_REMINDERS_PER_DAY = 40
-LIMIT_TOTAL_PER_DAY = 80
+LIMIT_EVENTS_PER_DAY = 80
+LIMIT_REMINDERS_PER_DAY = 80
+LIMIT_TOTAL_PER_DAY = 160
 WARN_THRESHOLD = 0.7  # 70%
 
 WARN_EVENTS = int(LIMIT_EVENTS_PER_DAY * WARN_THRESHOLD)      # 28
@@ -56,8 +56,10 @@ def count_reminders_on_date(cron_service, chat_id: str, target_date: date, tz_ia
     jobs = cron_service.list_jobs(include_disabled=True) if hasattr(cron_service, "list_jobs") else []
     count = 0
     for j in jobs:
-        # Pular se não for deste utilizador
+        # Pular se não for deste utilizador ou estiver desativado
         if getattr(j.payload, "to", None) != chat_id:
+            continue
+        if not getattr(j, "enabled", True):
             continue
         
         # Pular sub-jobs e automatismos (não contam para o limite de 40 lembretes do user)
@@ -68,6 +70,10 @@ def count_reminders_on_date(cron_service, chat_id: str, target_date: date, tz_ia
         if getattr(j.payload, "deadline_main_job_id", None):
             continue
         if getattr(j.payload, "is_proactive_nudge", False):
+            continue
+        if getattr(j.payload, "pomodoro_cycle", None) is not None:
+            continue
+        if getattr(j.payload, "pomodoro_phase", None) is not None:
             continue
 
         nr = getattr(j.state, "next_run_at_ms", None)

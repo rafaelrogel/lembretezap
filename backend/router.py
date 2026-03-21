@@ -21,6 +21,7 @@ from backend.handlers import (
     handle_recorrente,
     handle_pendente,
     handle_stop,
+    handle_resume,
 )
 from backend.integrations import handle_atendimento_request, handle_crypto, handle_sacred_text
 from backend.confirm_actions import handle_exportar, handle_deletar_tudo, resolve_confirm
@@ -38,6 +39,7 @@ from backend.handlers_limpeza import handle_limpeza
 from backend.handlers_agenda_remove import handle_agenda_remove
 from backend.handlers_pomodoro import handle_pomodoro
 from backend.recipe_handler import handle_recipe
+from backend.search_handler import handle_curated_search
 from backend.command_i18n import normalize_command
 from backend.views import (
     handle_eventos_unificado,
@@ -59,8 +61,12 @@ from backend.views import (
 HANDLERS = [
     handle_atendimento_request,
     handle_pending_confirmation,
+    handle_feito,
+    handle_remove,
+    handle_curated_search,  # Busca filmes/livros/música — antes de list
     handle_list,  # primeiro: "cria lista de X", "mostre lista" → evita cair no LLM com histórico de erro
     handle_list_or_events_ambiguous,  # "tenho de X, Y" → pergunta lista ou lembretes
+    handle_agenda_nl,  # "minha agenda", "o que tenho hoje/amanhã"
     handle_vague_time_reminder,
     handle_recurring_event,
     handle_eventos_unificado,
@@ -82,7 +88,6 @@ HANDLERS = [
     handle_hoje,
     handle_semana,
     handle_agenda,
-    handle_agenda_nl,  # "minha agenda", "o que tenho hoje" (texto/áudio)
     handle_agenda_remove,  # "remover a consulta", "já fiz a reunião" → remove da agenda
     handle_mes,
     handle_timeline,
@@ -101,23 +106,17 @@ HANDLERS = [
     handle_resumo_conversa,
     handle_analytics,
     handle_rever,
+    handle_resume,
     handle_stop,
     handle_reset,
     handle_exportar,
     handle_deletar_tudo,
-    handle_nuke,
     handle_nuke,
 ]
 
 
 async def route(ctx: HandlerContext, content: str) -> str | None:
     """Despacha mensagem para o handler adequado. Retorna texto ou None (fallback LLM)."""
-    # #region agent log
-    import json as _json, os as _os
-    _log_path = _os.path.normpath(_os.path.join(_os.path.dirname(__file__), "..", "nanobot", ".cursor", "debug.log"))
-    try: open(_log_path, "a", encoding="utf-8").write(_json.dumps({"location": "router.route.entry", "message": "route", "data": {"content_preview": (content or "")[:120]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H2"}) + "\n"); pass
-    except Exception: pass
-    # #endregion
     from backend.command_nl import normalize_nl_to_command
     if not content or not content.strip():
         return None
@@ -135,37 +134,50 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         except Exception as e:
             logger.debug(f"Set language from /ayuda: {e}")
 
-    content = normalize_nl_to_command(content)
-    content = normalize_command(content.strip())
-    text = content
-    # #region agent log
-    try: open(_log_path, "a", encoding="utf-8").write(_json.dumps({"location": "router.route.after_normalize", "message": "route", "data": {"content_normalized": content[:120]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H2"}) + "\n"); pass
-    except Exception: pass
-    # #endregion
+    content_norm = normalize_nl_to_command(content)
+    content_norm = normalize_command(content_norm.strip())
+    text = content_norm
 
     reply = await resolve_confirm(ctx, text)
     if reply is not None:
         return reply
 
     strict = os.environ.get("STRICT_HANDLERS", "").strip().lower() in ("1", "true", "yes")
+    
+    # Tentativa 1: Tratar o bloco inteiro como um só comando (comportamento original)
     for h in HANDLERS:
         try:
-            out = await h(ctx, content)
+            out = await h(ctx, content_norm)
             if out is not None:
-                # #region agent log
-                try: open(_log_path, "a", encoding="utf-8").write(_json.dumps({"location": "router.route.handler_return", "message": "route", "data": {"handler": h.__name__, "out_preview": (out or "")[:80]}, "timestamp": __import__("time").time() * 1000, "hypothesisId": "H3"}) + "\n"); pass
-                except Exception: pass
-                # #endregion
                 return out
         except Exception as e:
-            if strict:
-                raise
-            logger.exception(
-                "handler_failed",
-                handler=h.__name__,
-                chat_id=ctx.chat_id[:20] if ctx.chat_id else "",
-                content_preview=(content or "")[:80],
-                error=str(e),
-            )
-            continue
+            if strict: raise
+            logger.debug(f"Handler {h.__name__} failed for full block: {e}")
+
+    # Tentativa 2: Se tem múltiplas linhas, tentar processar cada uma como comando/NL separado (Batch Handling)
+    lines = content.strip().splitlines()
+    if len(lines) > 1:
+        results = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            line_norm = normalize_nl_to_command(line)
+            line_norm = normalize_command(line_norm.strip())
+            for h in HANDLERS:
+                try:
+                    out = await h(ctx, line_norm)
+                    if out is not None:
+                        if isinstance(out, list):
+                            results.extend(out)
+                        else:
+                            results.append(out)
+                        break
+                except Exception:
+                    continue
+        if results:
+            # Se conseguimos processar algum comando do batch, devolvemos a junção
+            # (Se algum falhou, o LLM não será chamado para o resto, mas o utilizador já teve feedback)
+            return results if len(results) > 1 else results[0]
+
     return None

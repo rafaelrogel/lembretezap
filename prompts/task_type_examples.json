@@ -1,6 +1,6 @@
 {
   "reminder": [
-    "me lembra de comprar pão amanhã",
+    "me lembra de [tarefa] amanhã",
     "avisa quando der 18h",
     "coloca um alarme pra daqui 30 minutos",
     "não deixa eu esquecer da reunião",
@@ -22,14 +22,14 @@
     "a cada 2 dias regar plantas"
   ],
   "list": [
-    "adiciona leite na lista de compras",
+    "adiciona [item] na lista de compras",
     "coloca Inception na lista de filmes",
     "anota fazer backup dos arquivos",
     "bota na lista: comprar presente mãe",
-    "adiciona estudar Python na lista de metas"
+    "adiciona [tarefa] na lista de metas"
   ],
   "query": [
-    "que horas é a reunião de amanhã?",
+    "que horas é o [evento] de amanhã?",
     "quando é o aniversário do Pedro?",
     "onde é o evento de sexta?",
     "qual o próximo compromisso?",

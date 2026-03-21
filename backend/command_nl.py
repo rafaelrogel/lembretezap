@@ -73,32 +73,53 @@ def normalize_nl_to_command(content: str) -> str:
         return "/stop"
 
     # Add: "adicione X", "adiciona X" (sem "lista"/"listas") → /add mercado X
-    m = re.match(r"^(adicione|adiciona|adicionar)\s+(.+)$", lower)
+    m = re.match(r"^(adicione|adiciona|adicionar|add|anyadir|anadir)\s+(.+)$", lower_ascii)
     if m:
         rest = m.group(2).strip()
-        if rest and "lista" not in lower and "listas" not in lower:
-            return f"/add mercado {rest}"
+        if rest and "lista" not in lower_ascii and "listas" not in lower_ascii:
+            return f"/add {rest}"
 
     # Recorrente: "lembrete recorrente X" ou "todo dia X" / "toda semana X"
     m = re.match(r"^lembrete\s+recorrente\s+(.+)$", lower)
     if m and m.group(1).strip():
         return f"/recorrente {m.group(1).strip()}"
-    m = re.match(r"^(todo\s+dia|toda\s+semana|todos\s+os\s+dias)\s+(.+)$", lower)
+    m = re.match(r"^(todo\s+dia|toda\s+semana|todos\s+os\s+dias|toda\s+(?:segunda|terça|quarta|quinta|sexta|sábado|domingo)|cada\s+\d+\s+(?:dias|horas|minutos|semanas))\s+(.+)$", lower)
     if m and m.group(2).strip():
-        return f"/recorrente {m.group(2).strip()}"
+        return f"/recorrente {lower}"
 
     # Hoje / Semana / Agenda (views)
     if lower in ("hoje", "today", "hoy"):
         return "/hoje"
-    if re.match(r"^(o\s+que\s+tenho\s+hoje|tarefas?\s+de\s+hoje)\s*$", lower):
+    if re.match(r"^(o\s+que\s+tenho\s+hoje|tarefas?\s+de\s+hoje|what\s+is\s+on\s+my\s+agenda\s+today|what\s+do\s+i\s+have\s+today|qu[eé]\s+tengo\s+hoy)\s*$", lower):
         return "/hoje"
     if lower in ("semana", "week"):
         return "/semana"
-    if re.match(r"^esta\s+semana\s*$", lower):
+    if re.match(r"^(esta\s+semana|this\s+week|esta\s+semana)\s*$", lower):
         return "/semana"
     if lower == "agenda":
         return "/agenda"
-    if re.match(r"^(minha\s+agenda|o\s+que\s+tenho\s+agendado)\s*$", lower):
+    # "agenda 21 de março", "agenda de amanhã", "agenda desta semana", etc.
+    m = re.match(r"^agenda\s+(.+)$", lower)
+    if m and m.group(1).strip():
+        return f"/agenda {m.group(1).strip()}"
+    if re.match(r"^(minha\s+agenda|o\s+que\s+tenho\s+agendado|what\s+is\s+on\s+my\s+agenda|mi\s+agenda|my\s+agenda)\s*(.*)$", lower):
+        m = re.match(r"^(minha\s+agenda|o\s+que\s+tenho\s+agendado|what\s+is\s+on\s+my\s+agenda|mi\s+agenda|my\s+agenda)\s*(.*)$", lower)
+        suffix = m.group(2).strip()
+        if suffix:
+            return f"/agenda {suffix}"
+        return "/agenda"
+    # Agenda commands in PT, ES, EN
+    # covers: mostre minha agenda, show my calendar, ver el calendario, etc.
+    m = re.match(
+        r"^(liste|listar|mostre|mostrar|mostra|exiba|exibir|ver|show|display|view|muestra|mostrarme|muestrame)\s+"
+        r"(?:(?:minha?|meu|my|mi|meus|mis|the|a|as|os|el|la|las|los|an?)\s+)?"
+        r"(agendas?|calend[aá]rios?|calendars?|schedules?|eventos?|events?|plan(?:ning|er)?)\s*(.*)$",
+        lower
+    )
+    if m:
+        suffix = m.group(3).strip()
+        if suffix:
+            return f"/agenda {suffix}"
         return "/agenda"
 
     # Timeline
@@ -127,6 +148,30 @@ def normalize_nl_to_command(content: str) -> str:
     # Mês
     if lower in ("mês", "mes", "month"):
         return "/mes"
+
+    # List shortcuts (NL)
+    _LIST_NL_CAT = (
+        "pelicula", "peliculas", "movie", "movies", "film", "films",
+        "libro", "libros", "book", "books", "note", "notes", "notas", "nota",
+        "shopping", "market", "mercado", "compras", "ingredients", "ingredientes",
+        "recipe", "recipes", "receita", "receitas"
+    )
+    if lower_ascii in _LIST_NL_CAT:
+        return f"/list {lower_ascii}"
+    # "movie Matrix" -> /list movie Matrix
+    for cat in _LIST_NL_CAT:
+        if lower_ascii.startswith(cat + " "):
+            return f"/list {lower_ascii}"
+
+    # Common list items (fallback to /add if it looks like an item)
+    _COMMON_ITEMS = {
+        "arroz", "feijao", "massa", "azeite", "sal", "acucar", "leite", "ovos", "queijo", "manteiga",
+        "tomate", "cebola", "alho", "batata", "frango", "carne", "peixe", "pao", "cafe", "agua",
+        "cerveja", "vinho", "fruta", "maca", "banana", "laranja", "peru", "presunto", "iogurte",
+        "detergente", "papel", "sabonete", "shampoo", "creme", "pasta", "escova"
+    }
+    if lower_ascii in _COMMON_ITEMS:
+        return f"/add {lower_ascii}"
 
     # Produtividade
     if lower in ("produtividade", "productividad", "productivity"):
@@ -169,5 +214,32 @@ def normalize_nl_to_command(content: str) -> str:
         return "/templates"
     if lower in ("template", "modelo", "plantilla"):
         return "/template"
+
+    # Pomodoro / Foco
+    if lower in ("pomodoro", "foco", "focus", "timer"):
+        return "/pomodoro"
+    m = re.match(r"^(?:foco|focus|timer)\s+(\d+)$", lower)
+    if m:
+        return f"/pomodoro {m.group(1)}"
+
+    # Hora e Data
+    if lower in ("hora", "horas", "time", "qué hora", "que hora", "qual a hora", "me diga a hora"):
+        return "/hora"
+    if lower in ("data", "date", "fecha", "que dia", "qué día", "que dia é hoje"):
+        return "/data"
+
+    # Remove / Delete
+    m = re.match(r"^(remover|apagar|deletar|tirar|quitar|borrar|apaga|borra|quita|delete|remove|suprimir)\s+(.+)$", lower_ascii)
+    if m:
+        rest = m.group(2).strip()
+        if rest:
+            return f"/remove {rest}"
+
+    # Feito / Done / Hecho
+    m = re.match(r"^(feito|concluido|pronto|ok|done|hecho|check|concluir)\s+(.+)$", lower_ascii)
+    if m:
+        rest = m.group(2).strip()
+        if rest:
+            return f"/feito {rest}"
 
     return content

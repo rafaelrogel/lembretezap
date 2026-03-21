@@ -147,11 +147,27 @@ class BaseChannel(ABC):
                 f"Access denied for sender {sender_id} on channel {self.name}. "
                 f"Add them to allowFrom list in config to grant access."
             )
+            
+            # Resolve user language
+            user_lang = "pt-BR"
+            try:
+                from backend.database import SessionLocal
+                from backend.user_store import get_user_language
+                from backend.locale import phone_to_default_language, UNAUTHORIZED_USER
+                db = SessionLocal()
+                try:
+                    user_lang = get_user_language(db, str(chat_id), str(chat_id)) or phone_to_default_language(str(chat_id))
+                finally:
+                    db.close()
+            except Exception:
+                from backend.locale import UNAUTHORIZED_USER
+                pass
+
             # Enviar resposta para o utilizador em vez de silêncio (assim sabe que está bloqueado)
             await self.bus.publish_outbound(OutboundMessage(
                 channel=self.name,
                 chat_id=str(chat_id),
-                content="Não estás autorizado a usar este bot. O teu número tem de estar na lista do administrador. Se és o dono, adiciona este número em allow_from no config e reinicia o gateway.",
+                content=UNAUTHORIZED_USER.get(user_lang, UNAUTHORIZED_USER["en"]),
             ))
             return
 

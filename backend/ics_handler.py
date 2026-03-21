@@ -25,9 +25,10 @@ def _normalize_ics_content(raw: str) -> str:
         raw = raw[1:]
     # Fins de linha: CRLF e CR -> LF
     raw = raw.replace("\r\n", "\n").replace("\r", "\n")
-    # Desdobrar linhas continuadas (ex.: "DTSTART;TZID=...\n :20260217T120000" -> uma só linha)
-    while "\n " in raw:
-        raw = raw.replace("\n ", " ")
+    # Desdobrar linhas continuadas (RFC 5545: linha continua com \n + espaço/tab)
+    # O espaço/tab é removido ao juntar as linhas
+    while "\n " in raw or "\n\t" in raw:
+        raw = raw.replace("\n ", "").replace("\n\t", "")
     # Bytes nulos (podem vir de ficheiros mal formados)
     raw = raw.replace("\x00", "")
     return raw.strip()
@@ -43,6 +44,49 @@ def _try_decode_utf8_from_latin1(s: str) -> str | None:
         return s.encode("latin-1").decode("utf-8", errors="strict")
     except (UnicodeDecodeError, UnicodeEncodeError):
         return None
+
+
+def _try_fix_encoding(raw: str) -> list[str]:
+    """
+    Tenta múltiplos encodings para ficheiros .ics problemáticos.
+    Gmail, Outlook e outros clientes podem usar encodings diferentes.
+    Retorna lista de tentativas (strings) para tentar parse.
+    """
+    attempts = [raw]  # Original primeiro
+    
+    # Tentativa 1: Latin-1 → UTF-8 (comum em exports do Outlook)
+    try:
+        decoded = raw.encode("latin-1").decode("utf-8", errors="strict")
+        if decoded != raw:
+            attempts.append(decoded)
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        pass
+    
+    # Tentativa 2: Windows-1252 → UTF-8 (comum em Windows/Gmail)
+    try:
+        decoded = raw.encode("cp1252").decode("utf-8", errors="strict")
+        if decoded != raw and decoded not in attempts:
+            attempts.append(decoded)
+    except (UnicodeDecodeError, UnicodeEncodeError):
+        pass
+    
+    # Tentativa 3: Forçar UTF-8 com replace (último recurso)
+    try:
+        decoded = raw.encode("utf-8", errors="replace").decode("utf-8", errors="replace")
+        if decoded not in attempts:
+            attempts.append(decoded)
+    except Exception:
+        pass
+    
+    # Tentativa 4: Remover caracteres não-ASCII problemáticos
+    try:
+        cleaned = "".join(c if ord(c) < 128 or c in "áàâãéèêíìîóòôõúùûçÁÀÂÃÉÈÊÍÌÎÓÒÔÕÚÙÛÇñÑ" else "?" for c in raw)
+        if cleaned not in attempts:
+            attempts.append(cleaned)
+    except Exception:
+        pass
+    
+    return attempts
 
 
 def _to_datetime(dt: date | datetime) -> datetime:
@@ -150,25 +194,45 @@ async def handle_ics_payload(
 
     cal = None
     parse_error: Exception | None = None
-    try:
-        cal = icalendar.Calendar.from_ical(raw)
-    except Exception as e:
-        parse_error = e
-        logger.warning(f"ics parse failed: {e}. Preview: {raw[:300]!r}")
-        # Fallback: ficheiro pode ter sido interpretado como Latin-1 mas ser UTF-8 (ex.: export do Outlook)
-        decoded = _try_decode_utf8_from_latin1(raw)
-        if decoded is not None:
-            try:
-                cal = icalendar.Calendar.from_ical(decoded)
-            except Exception as e2:
-                parse_error = e2
-                logger.debug(f"ics parse (latin1 fallback) failed: {e2}")
+    parse_error_detail: str = ""
+    
+    # Tentar múltiplos encodings (Gmail, Outlook, etc. usam encodings diferentes)
+    encoding_attempts = _try_fix_encoding(raw)
+    
+    for i, attempt in enumerate(encoding_attempts):
+        try:
+            cal = icalendar.Calendar.from_ical(attempt)
+            if cal is not None:
+                if i > 0:
+                    logger.info(f"ics parse succeeded on encoding attempt {i+1}")
+                break
+        except Exception as e:
+            parse_error = e
+            if i == 0:
+                parse_error_detail = str(e)[:100]
+                logger.warning(f"ics parse failed (attempt {i+1}): {e}. Preview: {attempt[:200]!r}")
+            else:
+                logger.debug(f"ics parse failed (attempt {i+1}): {e}")
 
     if cal is None:
-        err_msg = (
-            "Calendário inválido ou encoding incorreto. "
-            "Tenta exportar o .ics de novo (UTF-8) ou usar outro ficheiro."
-        )
+        # Tentar identificar o problema específico
+        if "VCALENDAR" not in raw.upper():
+            err_msg = "Ficheiro não parece ser um calendário .ics válido (falta VCALENDAR)."
+        elif "VEVENT" not in raw.upper():
+            err_msg = "Calendário não contém eventos (falta VEVENT)."
+        elif "encoding" in parse_error_detail.lower() or "decode" in parse_error_detail.lower() or "codec" in parse_error_detail.lower():
+            err_msg = (
+                "Erro de encoding no ficheiro. O Gmail às vezes exporta com encoding incorreto. "
+                "Tenta: 1) Abrir no Google Calendar e exportar de lá, ou "
+                "2) Abrir o .ics num editor de texto e salvar como UTF-8."
+            )
+        elif "parse" in parse_error_detail.lower() or "invalid" in parse_error_detail.lower():
+            err_msg = f"Calendário mal formado: {parse_error_detail}"
+        else:
+            err_msg = (
+                f"Erro ao processar calendário: {parse_error_detail or 'formato desconhecido'}. "
+                "Tenta exportar o .ics de outra forma."
+            )
         return _summary_message(0, [], lang, error=err_msg)
 
     events_created: list[dict[str, Any]] = []
@@ -192,11 +256,16 @@ async def handle_ics_payload(
             if count >= MAX_EVENTS_PER_ICS:
                 break
             try:
-                summary_val = component.get("SUMMARY") or ""
-                if isinstance(summary_val, bytes):
+                summary_val = component.get("SUMMARY")
+                if not summary_val:
+                    summary = "Evento"
+                elif isinstance(summary_val, str):
+                    summary = summary_val.strip() or "Evento"
+                elif isinstance(summary_val, bytes):
                     summary = summary_val.decode("utf-8", errors="replace").strip() or "Evento"
                 else:
-                    summary = (summary_val if isinstance(summary_val, str) else str(summary_val)).strip() or "Evento"
+                    # vText ou outro tipo do icalendar
+                    summary = str(summary_val).strip() or "Evento"
                 if is_absurd_request(summary):
                     continue
                 summary = sanitize_string(summary, 256)[:256]
@@ -206,17 +275,33 @@ async def handle_ics_payload(
                 dtend = _get_dt_from_vevent(component, "DTEND")
                 description = component.get("DESCRIPTION")
                 if description:
-                    description = (description if isinstance(description, str) else description.decode("utf-8", errors="replace")).strip()[:1024]
+                    if isinstance(description, str):
+                        description = description.strip()[:1024]
+                    elif isinstance(description, bytes):
+                        description = description.decode("utf-8", errors="replace").strip()[:1024]
+                    else:
+                        # vText ou outro tipo do icalendar
+                        description = str(description).strip()[:1024]
                 else:
                     description = ""
                 location = component.get("LOCATION")
                 if location:
-                    location = (location if isinstance(location, str) else location.decode("utf-8", errors="replace")).strip()[:256]
+                    if isinstance(location, str):
+                        location = location.strip()[:256]
+                    elif isinstance(location, bytes):
+                        location = location.decode("utf-8", errors="replace").strip()[:256]
+                    else:
+                        location = str(location).strip()[:256]
                 else:
                     location = ""
                 url = component.get("URL")
                 if url:
-                    url = (url if isinstance(url, str) else url.decode("utf-8", errors="replace")).strip()[:512]
+                    if isinstance(url, str):
+                        url = url.strip()[:512]
+                    elif isinstance(url, bytes):
+                        url = url.decode("utf-8", errors="replace").strip()[:512]
+                    else:
+                        url = str(url).strip()[:512]
                 else:
                     url = ""
 
@@ -239,20 +324,46 @@ async def handle_ics_payload(
                 # Para o item da lista, incluímos data/hora no texto para não perder a informação
                 # já que ListItem não tem data_at.
                 item_text = f"{summary} ({dtstart.strftime('%d/%m %H:%M')})"
+                
+                # Converter data_at para UTC naive (a DB espera UTC sem timezone)
+                from zoneinfo import ZoneInfo
+                if dtstart.tzinfo:
+                    data_at_utc = dtstart.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+                else:
+                    data_at_utc = dtstart
+                
+                # GUARDRAIL: Verificar se já existe evento duplicado (mesmo nome + data_at)
+                existing = db.query(Event).filter(
+                    Event.user_id == user_id,
+                    Event.tipo == "evento",
+                    Event.deleted == False,
+                    Event.data_at == data_at_utc,
+                ).first()
+                
+                if existing and existing.payload.get("nome", "").lower() == summary.lower():
+                    logger.info(f"ics_handler: skipping duplicate event '{summary}' at {data_at_utc}")
+                    events_created.append({"nome": summary, "data_at": dtstart, "duplicate": True})
+                    continue  # Pular evento duplicado
+                
                 # Criar Event para auditoria e lógica de agenda estruturada
                 ev = Event(
                     user_id=user_id,
                     tipo="evento",
                     payload=payload,
-                    data_at=dtstart,
+                    data_at=data_at_utc,
                 )
                 db.add(ev)
                 db.add(AuditLog(user_id=user_id, action="event_add", resource="agenda"))
-                db.flush()
+                
+                # Commit IMEDIATAMENTE para garantir que o evento é salvo antes do cron
+                db.commit()
+                logger.info(f"ics_handler: saved event '{summary}' to database (id={ev.id})")
+                
                 events_created.append({"nome": summary, "data_at": dtstart})
                 count += 1
 
                 # Lembrete opcional: 15 min antes (se cron_tool disponível e evento no futuro)
+                # Só cria se o evento NÃO é duplicado
                 if cron_tool and dtstart and count <= 10:
                     try:
                         from datetime import timezone
@@ -265,13 +376,16 @@ async def handle_ics_payload(
                         if 60 < delta < 86400 * 30:  # entre 1 min e 30 dias
                             cron_tool.set_context(cron_channel, chat_id)
                             msg_reminder = f"Lembrete: {summary}"
-                            await cron_tool.execute(action="add", message=msg_reminder, in_seconds=int(delta))
+                            # skip_pre_reminders=True: ICS só cria 1 lembrete (15 min antes), sem "antes" extra
+                            await cron_tool.execute(action="add", message=msg_reminder, in_seconds=int(delta), skip_pre_reminders=True)
                     except Exception as e:
                         logger.debug(f"ics cron reminder failed: {e}")
             except Exception as e:
                 logger.debug(f"ics single event failed: {e}")
                 continue
-        db.commit()
+        
+        # Commit final já não é necessário pois cada evento é commitado individualmente
+        logger.info(f"ics_handler: processed {len(events_created)} event(s) total")
     except Exception as e:
         logger.exception(f"ics_handler failed: {e}")
         if db:
@@ -286,7 +400,17 @@ async def handle_ics_payload(
         except Exception:
             pass
 
-    return _summary_message(len(events_created), events_created[:5], lang, with_reminder=bool(cron_tool))
+    # Contar novos vs duplicados
+    new_events = [e for e in events_created if not e.get("duplicate")]
+    duplicates = [e for e in events_created if e.get("duplicate")]
+    
+    return _summary_message(
+        len(new_events), 
+        new_events[:5], 
+        lang, 
+        with_reminder=bool(cron_tool) and len(new_events) > 0,
+        duplicates_skipped=len(duplicates)
+    )
 
 
 def _summary_message(
@@ -295,6 +419,7 @@ def _summary_message(
     user_lang: str,
     error: str | None = None,
     with_reminder: bool = False,
+    duplicates_skipped: int = 0,
 ) -> str:
     """Mensagem de resumo no idioma do utilizador."""
     if error:
@@ -306,12 +431,21 @@ def _summary_message(
         }
         return msgs.get(user_lang, error)
 
-    if total == 0:
+    if total == 0 and duplicates_skipped == 0:
         msgs = {
             "pt-PT": "Nenhum evento encontrado neste calendário.",
             "pt-BR": "Nenhum evento encontrado neste calendário.",
             "es": "No se encontró ningún evento en este calendario.",
             "en": "No events found in this calendar.",
+        }
+        return msgs.get(user_lang, msgs["en"])
+    
+    if total == 0 and duplicates_skipped > 0:
+        msgs = {
+            "pt-PT": f"Evento(s) já registado(s) anteriormente ({duplicates_skipped} duplicado(s) ignorado(s)).",
+            "pt-BR": f"Evento(s) já registado(s) anteriormente ({duplicates_skipped} duplicado(s) ignorado(s)).",
+            "es": f"Evento(s) ya registrado(s) anteriormente ({duplicates_skipped} duplicado(s) ignorado(s)).",
+            "en": f"Event(s) already registered ({duplicates_skipped} duplicate(s) skipped).",
         }
         return msgs.get(user_lang, msgs["en"])
 
@@ -336,11 +470,12 @@ def _summary_message(
             data_str = "—"
         lines.append(f"• \"{nome}\" {data_str}")
     if with_reminder:
-        suffix = {
+        suffix_map = {
             "pt-PT": " Vou lembrar-te 15 min antes de cada um.",
             "pt-BR": " Vou te lembrar 15 min antes de cada um.",
             "es": " Te recordaré 15 min antes de cada uno.",
             "en": " I'll remind you 15 min before each.",
-        }.get(user_lang, suffix["en"])
+        }
+        suffix = suffix_map.get(user_lang, suffix_map["en"])
         lines[0] = lines[0].rstrip(".") + "." + suffix
     return "\n".join(lines)

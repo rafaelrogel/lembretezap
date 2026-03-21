@@ -7,9 +7,9 @@ from zapista.stt.local import transcribe_local
 from zapista.stt.openai_fallback import transcribe_openai
 
 
-async def transcribe(audio_base64: str) -> str:
+async def transcribe(audio_base64: str, mimetype: str | None = None) -> str:
     """
-    Transcreve áudio base64 (OGG/Opus PTT WhatsApp) em texto.
+    Transcreve áudio base64 (OGG/Opus PTT WhatsApp ou outro formato) em texto.
     Ordem: whisper.cpp local → OpenAI (OPENAI_API_KEY do install_vps.sh).
     """
     if not stt_enabled():
@@ -18,11 +18,11 @@ async def transcribe(audio_base64: str) -> str:
         return ""
     local_url = stt_local_url()
     if local_url:
-        text = await transcribe_local(audio_base64, local_url)
+        text = await transcribe_local(audio_base64, local_url, mimetype=mimetype)
         if text:
             return text
     if openai_api_key():
-        text = await transcribe_openai(audio_base64)
+        text = await transcribe_openai(audio_base64, mimetype=mimetype)
         if text:
             return text
     logger.warning("No STT provider succeeded")

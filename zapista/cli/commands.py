@@ -14,7 +14,7 @@ from zapista import __version__, __logo__, __title__
 logger = logging.getLogger(__name__)
 
 app = typer.Typer(
-    name="Zapista",
+    name="Zappelin",
     help=f"{__logo__} {__title__} - WhatsApp AI Organizer",
     no_args_is_help=True,
 )
@@ -34,7 +34,7 @@ def main(
         None, "--version", "-v", callback=version_callback, is_eager=True
     ),
 ):
-    """Zapista - WhatsApp AI Organizer."""
+    """Zappelin - WhatsApp AI Organizer."""
     pass
 
 
@@ -45,7 +45,7 @@ def main(
 
 @app.command()
 def onboard():
-    """Initialize zapista configuration and workspace."""
+    """Initialize Zappelin configuration and workspace."""
     from zapista.config.loader import get_config_path, save_config
     from zapista.config.schema import Config
     from zapista.utils.helpers import get_workspace_path
@@ -96,7 +96,7 @@ We only operate in private chats; we never respond in groups.
 """,
         "SOUL.md": """# Soul
 
-I am Zapista, your WhatsApp AI organizer.
+I am Zappelin, your WhatsApp AI organizer.
 
 ## Personality
 
@@ -158,10 +158,11 @@ def _make_provider(config):
     from zapista.providers.litellm_provider import LiteLLMProvider
     model = config.agents.defaults.model
     p = config.get_provider()
-    # DEBUG (set ZAPISTA_DEBUG=1 to see)
+    # DEBUG (set ZAPISTA_DEBUG=1 to see) — never log actual API key values
     if os.environ.get("ZAPISTA_DEBUG"):
-        print(f"DEBUG: p={p}")
-        print(f"DEBUG: p.api_key='{getattr(p, 'api_key', None)}' len={len(p.api_key) if p and getattr(p, 'api_key', None) else 0}")
+        _ak = getattr(p, "api_key", None) or ""
+        print(f"DEBUG: p={type(p).__name__}")
+        print(f"DEBUG: p.api_key='{_ak[:4]}...{_ak[-4:]}' len={len(_ak)}" if len(_ak) > 8 else f"DEBUG: p.api_key=(short/empty) len={len(_ak)}")
         print(f"DEBUG: model='{model}'")
     # Fallback: if matched provider has no (valid) api_key, use first provider that has one
     if not (p and getattr(p, "api_key", None) and (p.api_key or "").strip()):
@@ -242,6 +243,14 @@ def gateway(
     provider = _make_provider(config)
     scope_model = (config.agents.defaults.scope_model or "").strip() or None
     scope_provider = _make_provider_for_model(config, scope_model) if scope_model else None
+
+    def _now_ms() -> int:
+        """Hora UTC efectiva em ms (com drift correction)."""
+        try:
+            from zapista.clock_drift import get_effective_time_ms
+            return get_effective_time_ms()
+        except Exception:
+            return int(time.time() * 1000)
     
     # Create cron service: limpeza diária de jobs "at" no passado → notificação após 2 msgs (anti-spam)
     cron_store_path = get_data_dir() / "cron" / "jobs.json"
@@ -249,9 +258,12 @@ def gateway(
     def on_stale_removed(removals: list) -> None:
         try:
             from backend.stale_removal_notifications import add_removals
-            for ch, to, jobs in removals:
+            for entry in removals:
+                # Tuple: (channel, to, jobs) ou (channel, to, jobs, phone_for_locale)
+                ch, to, jobs = entry[0], entry[1], entry[2]
+                pfl = entry[3] if len(entry) > 3 else None
                 if ch and to and jobs:
-                    add_removals(ch, to, jobs)
+                    add_removals(ch, to, jobs, phone_for_locale=pfl)
         except Exception as e:
             logger.warning(f"stale_removal_notifications add_removals failed: {e}")
 
@@ -353,23 +365,35 @@ def gateway(
                 logger.exception(f"Smart reminder failed: {e}")
                 return f"Lembrete inteligente falhou: {e}"
 
-        # Lembrete com prazo: deadline_check verifica se main existe; se sim, alerta + 3 post-deadline
         if getattr(job.payload, "kind", None) == "deadline_check":
             main_id = getattr(job.payload, "deadline_check_for_job_id", None)
             main_job = cron.get_job(main_id) if main_id else None
             if main_job and bus:
                 from zapista.bus.events import OutboundMessage
                 from zapista.cron.types import CronSchedule
-                msg = main_job.payload.message or "Lembrete"
-                ch = main_job.payload.channel or "whatsapp"
+                from backend.database import SessionLocal
+                from backend.locale import phone_to_default_language, DEFAULT_REMINDER_MSG, format_deadline_alert
+                from backend.user_store import get_user_language
+                
                 to = main_job.payload.to or ""
+                user_lang = "pt-BR"
                 if to:
-                    alert = f"⚠️ Ainda não concluíste: {msg}"
+                    try:
+                        db = SessionLocal()
+                        user_lang = get_user_language(db, to, to) or phone_to_default_language(to)
+                        db.close()
+                    except Exception:
+                        pass
+                        
+                msg = main_job.payload.message or DEFAULT_REMINDER_MSG.get(user_lang, DEFAULT_REMINDER_MSG["en"])
+                ch = main_job.payload.channel or "whatsapp"
+                if to:
+                    alert = format_deadline_alert(user_lang, msg)
                     await bus.publish_outbound(OutboundMessage(
                         channel=ch, chat_id=to, content=alert,
                         metadata={"priority": "high"},
                     ))
-                    now_ms = int(time.time() * 1000)
+                    now_ms = _now_ms()
                     for i in range(1, 4):
                         at_ms = now_ms + (i * 30 * 60 * 1000)  # +30min, +1h, +1h30
                         cron.add_job(
@@ -391,9 +415,24 @@ def gateway(
         main_id = getattr(job.payload, "deadline_main_job_id", None)
         if post_idx is not None and main_id and job.payload.deliver and job.payload.to and bus:
             from zapista.bus.events import OutboundMessage
-            msg = job.payload.message or "Lembrete"
+            from backend.database import SessionLocal
+            from backend.locale import phone_to_default_language, DEFAULT_REMINDER_MSG, format_deadline_alert_suffix
+            from backend.user_store import get_user_language
+
+            to = job.payload.to or ""
+            user_lang = "pt-BR"
+            if to:
+                try:
+                    db = SessionLocal()
+                    user_lang = get_user_language(db, to, to) or phone_to_default_language(to)
+                    db.close()
+                except Exception:
+                    pass
+
+            msg = job.payload.message or DEFAULT_REMINDER_MSG.get(user_lang, DEFAULT_REMINDER_MSG["en"])
             suffix = f" ({post_idx}/3)"
-            content = f"⚠️ Ainda não concluíste{suffix}: {msg}"
+            content = format_deadline_alert_suffix(user_lang, msg, suffix)
+            
             await bus.publish_outbound(OutboundMessage(
                 channel=job.payload.channel or "whatsapp",
                 chat_id=job.payload.to,
@@ -404,7 +443,127 @@ def gateway(
                 cron.remove_job_and_deadline_followups(main_id)
             return f"deadline_post_{post_idx}"
 
+        # Pomodoro Cycles: Transição automática entre foco e pausa (até 4 ciclos)
+        p_cycle = getattr(job.payload, "pomodoro_cycle", None)
+        p_phase = getattr(job.payload, "pomodoro_phase", None)
+        if p_cycle is not None and p_phase and job.payload.to and bus:
+            try:
+                from zapista.bus.events import OutboundMessage
+                from zapista.cron.types import CronSchedule
+                from backend.database import SessionLocal
+                from backend.user_store import get_user_language
+                from backend.locale import (
+                    POMODORO_FOCUS_END_BREAK_START,
+                    POMODORO_BREAK_END_FOCUS_START,
+                    POMODORO_FINAL_END
+                )
+                
+                p_to = job.payload.to
+                p_ch = job.payload.channel or "whatsapp"
+                logger.debug(f"Cron [Pomodoro] Debug: Cycle={p_cycle} ({type(p_cycle)}), Phase={p_phase}, To={p_to}, Channel={p_ch}, Bus={bus is not None}")
+
+                if not p_to or not bus:
+                    logger.warning(f"Cron [Pomodoro]: missing to={p_to} or bus={bus is not None}")
+                    return "pomodoro_missing_context"
+
+                try:
+                    p_cycle = int(p_cycle)
+                except (TypeError, ValueError):
+                    logger.error(f"Cron [Pomodoro]: invalid p_cycle type/value: {p_cycle}")
+                    return "pomodoro_invalid_cycle"
+
+                logger.info(f"Cron [Pomodoro]: Cycle {p_cycle}, Phase {p_phase}, To {p_to}")
+
+                user_lang = "pt-BR"
+                try:
+                    db = SessionLocal()
+                    user_lang = get_user_language(db, p_to, getattr(job.payload, "phone_for_locale", None)) or "pt-BR"
+                    db.close()
+                except Exception as e:
+                    logger.warning(f"Cron [Pomodoro] DB error: {e}")
+
+                if p_phase == "focus":
+                    # Fim do foco -> Início da pausa
+                    if p_cycle < 4:
+                        template = POMODORO_FOCUS_END_BREAK_START.get(user_lang, POMODORO_FOCUS_END_BREAK_START["pt-BR"])
+                        content = template.format(cycle=p_cycle)
+                        logger.info(f"Cron [Pomodoro]: sending focus end notification for cycle {p_cycle}")
+                        await bus.publish_outbound(OutboundMessage(
+                            channel=p_ch, chat_id=p_to, content=content,
+                            metadata={"priority": "high"} # Added priority
+                        ))
+                        
+                        # Agendar fim da pausa (5 min)
+                        cron.add_job(
+                            name=f"POM Pausa {p_cycle}",
+                            schedule=CronSchedule(kind="at", at_ms=_now_ms() + 5 * 60 * 1000),
+                            message="Pausa",
+                            deliver=False,
+                            channel=p_ch,
+                            to=p_to,
+                            delete_after_run=True,
+                            pomodoro_cycle=p_cycle,
+                            pomodoro_phase="break",
+                            phone_for_locale=getattr(job.payload, "phone_for_locale", None),
+                        )
+                        logger.info(f"Cron [Pomodoro]: scheduled break job for cycle {p_cycle}")
+                    else:
+                        # Fim do Ciclo 4
+                        content = POMODORO_FINAL_END.get(user_lang, POMODORO_FINAL_END["pt-BR"])
+                        await bus.publish_outbound(OutboundMessage(
+                            channel=p_ch, chat_id=p_to, content=content,
+                            metadata={"priority": "high"}
+                        ))
+                    return f"pomodoro_focus_end_cycle_{p_cycle}"
+                
+                elif p_phase == "break":
+                    # Fim da pausa -> Início do próximo bloco de foco
+                    next_cycle = p_cycle + 1
+                    template = POMODORO_BREAK_END_FOCUS_START.get(user_lang, POMODORO_BREAK_END_FOCUS_START["pt-BR"])
+                    content = template.format(cycle=next_cycle)
+                    logger.info(f"Cron [Pomodoro]: sending break end notification, entering cycle {next_cycle}")
+                    await bus.publish_outbound(OutboundMessage(
+                        channel=p_ch, chat_id=p_to, content=content,
+                        metadata={"priority": "high"}
+                    ))
+                    
+                    # Agendar fim do foco (25 min)
+                    cron.add_job(
+                        name=f"POM Foco {next_cycle}",
+                        schedule=CronSchedule(kind="at", at_ms=_now_ms() + 25 * 60 * 1000),
+                        message="Foco",
+                        deliver=False,
+                        channel=p_ch,
+                        to=p_to,
+                        delete_after_run=True,
+                        pomodoro_cycle=next_cycle,
+                        pomodoro_phase="focus",
+                        phone_for_locale=getattr(job.payload, "phone_for_locale", None),
+                    )
+                    logger.info(f"Cron [Pomodoro]: scheduled focus job for cycle {next_cycle}")
+                    return f"pomodoro_break_end_cycle_{p_cycle}"
+            except Exception as e:
+                logger.exception(f"Cron [Pomodoro] fatal error: {e}")
+                return f"pomodoro_error: {e}"
+
         if job.payload.deliver and job.payload.to and provider and (config.agents.defaults.model or "").strip():
+            try:
+                from backend.database import SessionLocal
+                from backend.user_store import get_or_create_user
+                db = SessionLocal()
+                try:
+                    user = get_or_create_user(db, job.payload.to)
+                    if getattr(user, "is_paused", False):
+                        # Se pausado, adiar por 4 horas (evita loop infinito mas não "perde" o lembrete se despausar)
+                        cron.snooze_job(job.id, delay_seconds=4 * 3600)
+                        logger.info("Cron snooze (user paused): to=%s job=%s", (job.payload.to or "")[:24], job.name)
+                        return "snoozed (user paused)"
+                finally:
+                    db.close()
+            except Exception as e:
+                logger.warning(f"Pause check failed: {e}")
+                pass
+
             try:
                 from backend.user_store import get_seconds_until_quiet_end
                 seconds_left = get_seconds_until_quiet_end(job.payload.to)
@@ -474,6 +633,16 @@ def gateway(
                         response = None
                 except Exception:
                     response = None
+
+                # Follow-up de lembrete importante: usar mensagem especializada
+                is_imp = getattr(job.payload, "is_important", False)
+                is_followup = getattr(job.payload, "parent_job_id", None) is not None
+                if is_imp and is_followup and response is None:
+                    from backend.locale import IMPORTANT_FOLLOWUP_MSG
+                    response = IMPORTANT_FOLLOWUP_MSG.get(user_lang, IMPORTANT_FOLLOWUP_MSG["en"]).format(
+                        message=job.payload.message or ""
+                    )
+
                 if response is None:
                     # DeepSeek: mensagem criativa e variada a partir do contexto do lembrete (sem frases fixas)
                     prompt = (
@@ -520,10 +689,18 @@ def gateway(
                 pass
             metadata_job_id = job.id
             remind_sec = getattr(job.payload, "remind_again_if_unconfirmed_seconds", None) or 0
-            remind_max = getattr(job.payload, "remind_again_max_count", 10) or 0
+            remind_max = min(getattr(job.payload, "remind_again_max_count", 0) or 0, 3)
             if remind_sec and remind_max > 0 and ch == "whatsapp":
+                # Disable automatic rescheduling of the original job in service.py
+                # because we are manually adding a NEW follow-up job here.
+                try:
+                    job.payload.has_deadline = False
+                except Exception:
+                    pass
+
                 from zapista.cron.types import CronSchedule
-                at_ms = int(time.time() * 1000) + remind_sec * 1000
+                base_time = job.state.last_run_at_ms or _now_ms()
+                at_ms = base_time + remind_sec * 1000
                 follow_up = cron.add_job(
                     name=(job.name[:26] + " (de novo)"),
                     schedule=CronSchedule(kind="at", at_ms=at_ms),
@@ -536,14 +713,54 @@ def gateway(
                     remind_again_if_unconfirmed_seconds=remind_sec,
                     remind_again_max_count=remind_max - 1,
                     parent_job_id=job.id,
+                    is_important=getattr(job.payload, "is_important", False),
                 )
                 metadata_job_id = follow_up.id
-            await bus.publish_outbound(OutboundMessage(
-                channel=ch,
-                chat_id=to,
-                content=response or "",
-                metadata={"job_id": metadata_job_id, "priority": "high"},
-            ))
+            elif remind_sec and remind_max <= 0 and ch == "whatsapp":
+                # Hard cap reached: auto-mark as done and notify user
+                # Disable automatic rescheduling of the original job in service.py
+                try:
+                    job.payload.has_deadline = False
+                except Exception:
+                    pass
+
+                try:
+                    from backend.locale import REMINDER_AUTO_COMPLETED
+                    from backend.database import SessionLocal
+                    from backend.user_store import get_user_language
+                    from backend.reminder_history import update_on_delivery
+                    db = SessionLocal()
+                    try:
+                        phone_loc = getattr(job.payload, "phone_for_locale", None)
+                        lang = get_user_language(db, to, phone_loc) or "pt-BR"
+                        update_on_delivery(db, to, job.id, job.payload.message or "")
+                    finally:
+                        db.close()
+                    msg_text = (job.payload.message or job.name or "").strip()[:80]
+                    auto_msg = REMINDER_AUTO_COMPLETED.get(lang, REMINDER_AUTO_COMPLETED["en"]).format(message=msg_text)
+                    # Set response to the auto-completion message to avoid duplicate delivery
+                    response = auto_msg
+                except Exception as e:
+                    logger.debug(f"Auto-complete reminder failed: {e}")
+            if response:
+                await bus.publish_outbound(OutboundMessage(
+                    channel=ch,
+                    chat_id=to,
+                    content=response,
+                    metadata={"job_id": metadata_job_id, "priority": "high"},
+                ))
+
+            # Se houver um draft sugerido (aniversário, felicitações, etc), enviar como mensagem SEPARADA
+            # para o cliente poder encaminhar com 1 clique sem ter de editar o texto.
+            suggested = getattr(job.payload, "suggested_draft", None)
+            if suggested and job.payload.to:
+                await bus.publish_outbound(OutboundMessage(
+                    channel=ch,
+                    chat_id=to,
+                    content=suggested.strip(),
+                    metadata={"priority": "high", "is_draft": True},
+                ))
+
             return response
         # Sem scope_provider ou job sem deliver: usa o agente completo (fallback)
         response = await agent.process_direct(

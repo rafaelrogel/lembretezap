@@ -104,6 +104,7 @@ def init_db() -> None:
         "ALTER TABLE users ADD COLUMN language VARCHAR(8)",
         "ALTER TABLE users ADD COLUMN timezone VARCHAR(64)",
         "ALTER TABLE users ADD COLUMN context_notes TEXT",
+        "ALTER TABLE users ADD COLUMN last_list_name VARCHAR(128)",
         "ALTER TABLE users ADD COLUMN quiet_start VARCHAR(5)",
         "ALTER TABLE users ADD COLUMN quiet_end VARCHAR(5)",
         "ALTER TABLE reminder_history ADD COLUMN job_id VARCHAR(64)",
@@ -116,6 +117,7 @@ def init_db() -> None:
         "ALTER TABLE lists ADD COLUMN project_id INTEGER",
         "ALTER TABLE audit_log ADD COLUMN payload_json TEXT",
         "ALTER TABLE list_items ADD COLUMN position INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN is_paused BOOLEAN DEFAULT 0",
     ):
         try:
             from sqlalchemy import text

@@ -40,8 +40,10 @@ class User(Base):
     language = Column(String(8), nullable=True)  # pt-BR, pt-PT, es, en (None = infer from phone)
     timezone = Column(String(64), nullable=True)  # IANA e.g. Europe/Lisbon, America/Sao_Paulo (None = infer from phone)
     context_notes = Column(Text, nullable=True)  # Memória do cliente: informações que o assistente deve ter sempre em conta (ver MEMORIA_CLIENTE.md)
+    last_list_name = Column(String(128), nullable=True)  # Nome da última lista com a qual o utilizador interagiu
     quiet_start = Column(String(5), nullable=True)  # HH:MM início do horário silencioso (ex.: 22:00)
     quiet_end = Column(String(5), nullable=True)    # HH:MM fim (ex.: 08:00); janela pode ser overnight
+    is_paused = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utc_now)
     updated_at = Column(DateTime, default=_utc_now, onupdate=_utc_now)
 

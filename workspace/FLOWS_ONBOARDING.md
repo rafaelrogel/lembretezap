@@ -79,7 +79,7 @@ B: Fuso definido. Podes mudar quando quiseres com /tz ou /fuso.
 [session: pending_time_confirm=True, proposed_tz_iana=Etc/GMT-2]
 
 U: (ignora ou manda outra coisa)
-U: lembrete comprar leite
+U: lembrete [tarefa]
 
 B: Fuso definido. Podes mudar quando quiseres com /tz ou /fuso.
 
@@ -137,7 +137,7 @@ B: (resposta normal do /help — lista de comandos)
 ```
 [session: intro_sent, pending_timezone=True]
 
-U: Lembrete amanhã às 10h comprar pão
+U: Lembrete amanhã às 10h [tarefa]
 
 B: (handler processa: cria lembrete)
     Lembrete agendado (id: XY). ...
@@ -164,7 +164,7 @@ B: (resposta de /hoje, sem nudge pois nudge_append_done já True)
 
 [session: onboarding_nudge_count=1 — ainda não 2]
 
-U: lista compras add leite
+U: lista compras add [item]
 
 B: (handler: adiciona à lista, responde)
 

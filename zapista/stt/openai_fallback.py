@@ -13,13 +13,13 @@ from zapista.stt.config import openai_api_key
 MAX_DURATION_SEC = 60
 
 
-async def transcribe_openai(audio_base64: str) -> str:
+async def transcribe_openai(audio_base64: str, mimetype: str | None = None) -> str:
     """Transcreve áudio usando OpenAI Whisper API."""
     key = openai_api_key()
     if not key:
         logger.debug("OpenAI API key not set, skipping Whisper fallback")
         return ""
-    inp = decode_base64_to_temp(audio_base64)
+    inp = decode_base64_to_temp(audio_base64, mimetype=mimetype)
     if not inp:
         return ""
     try:
@@ -32,7 +32,7 @@ async def transcribe_openai(audio_base64: str) -> str:
                 r = await client.post(
                     "https://api.openai.com/v1/audio/transcriptions",
                     headers={"Authorization": f"Bearer {key}"},
-                    files={"file": (inp.name, f, "audio/ogg")},
+                    files={"file": (inp.name, f, mimetype or "audio/ogg")},
                     data={"model": "whisper-1"},
                 )
         if r.status_code != 200:

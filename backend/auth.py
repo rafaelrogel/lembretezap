@@ -5,6 +5,7 @@ Em produção definir API_SECRET_KEY e enviar header X-API-Key em todas as requi
 """
 
 import os
+import secrets
 from typing import Annotated
 
 from fastapi import Header, HTTPException
@@ -20,5 +21,5 @@ def require_api_key(
         return
     if not x_api_key or not x_api_key.strip():
         raise HTTPException(status_code=401, detail="Missing X-API-Key header")
-    if x_api_key.strip() != API_SECRET_KEY:
+    if not secrets.compare_digest(x_api_key.strip(), API_SECRET_KEY):
         raise HTTPException(status_code=403, detail="Invalid API key")

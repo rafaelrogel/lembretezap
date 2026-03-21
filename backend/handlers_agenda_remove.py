@@ -123,6 +123,13 @@ async def handle_agenda_remove(ctx: HandlerContext, content: str) -> str | None:
     if ref is None:
         return None
 
+    # Se a referência mencionar "lembrete" ou "recorrente", e não for um evento na agenda de hoje,
+    # deixar para o Agent gerir via CronTool (que é onde lembretes recorrentes moram).
+    t_lower = content.lower()
+    if any(kw in t_lower for kw in ["lembrete", "recorrente", "every", "cron"]):
+        # Só procedemos se a busca por evento for bem sucedida (fazemos a busca abaixo)
+        pass
+
     db = SessionLocal()
     try:
         user = get_or_create_user(db, ctx.chat_id)
@@ -142,6 +149,10 @@ async def handle_agenda_remove(ctx: HandlerContext, content: str) -> str | None:
             lang = "en"
 
         if not matched:
+            # Se mencionou lembrete/recorrente e não achamos evento de agenda, 
+            # devolver None para que o Agente/CronTool trate.
+            if any(kw in t_lower for kw in ["lembrete", "recorrente", "every", "cron"]):
+                return None
             return _MSG_NOT_FOUND.get(lang, _MSG_NOT_FOUND["en"])
 
         if len(matched) == 1:

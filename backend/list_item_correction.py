@@ -1,41 +1,53 @@
-"""Sugere correção de itens (músicas, filmes, livros) com typos via Mimo."""
+"""Sugere correção de itens (músicas, filmes, livros, compras) com typos via Mimo."""
 
-# Listas onde faz sentido corrigir títulos (artista - música, filme, livro)
+import unicodedata
+
+# Listas curadas para títulos (artista - música, filme, livro)
 _CURATED_LIST_NAMES = frozenset({
     "musica", "musicas", "music", "filme", "filmes", "movie", "movies",
     "livro", "livros", "book", "books", "receita", "receitas", "recipe", "recipes",
+    "serie", "series", "série", "séries",
     "musicas_dance", "musicas dance", "filmes para ver", "livros para ler",
+})
+
+# Listas de compras/mercado
+_GROCERY_LIST_NAMES = frozenset({
+    "mercado", "compras", "shopping", "grocery", "groceries", "supermercado", "supermarket", "viveres", "comestibles"
 })
 
 
 def _normalize_list_name(name: str) -> str:
-    """Lowercase, sem acentos para match."""
+    """Lowercase, sem acentos e substitui espaços por underscores."""
     if not name:
         return ""
-    import unicodedata
     s = (name or "").lower().strip()
     s = "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
     return s.replace(" ", "_")
 
 
 def is_curated_list(list_name: str) -> bool:
-    """True se a lista é de músicas, filmes, livros ou receitas."""
+    """True se a lista é de músicas, filmes, livros, receitas ou compras/mercado."""
     norm = _normalize_list_name(list_name or "")
-    if norm in _CURATED_LIST_NAMES:
+    if norm in _CURATED_LIST_NAMES or norm in _GROCERY_LIST_NAMES:
         return True
-    # Match prefixos: musica_, filme_, livro_
-    for prefix in ("musica", "filme", "livro", "receita"):
+    # Match prefixos: musicas_, filmes_, livros_, series_, receitas_, mercado_, compra_
+    for prefix in ("musica", "filme", "livro", "serie", "receita", "mercado", "compra"):
         if norm.startswith(prefix + "_") or norm.startswith(prefix):
             return True
     return False
 
 
-def _looks_like_title(item_text: str) -> bool:
-    """Heurística: parece um título (2+ palavras, não só 'leite')."""
-    if not item_text or len(item_text.strip()) < 5:
+def _looks_like_title(item_text: str, list_name: str) -> bool:
+    """Heurística: parece algo que precisa de correção (2+ palavras ou typo provável)."""
+    if not item_text:
         return False
-    words = (item_text or "").strip().split()
-    return len(words) >= 2
+    # Para listas curadas (filmes/musicas), quase sempre vale tentar corrigir se > 1 palavra
+    norm_ln = _normalize_list_name(list_name)
+    if any(p in norm_ln for p in ("musica", "filme", "livro", "serie", "receita")):
+        return len(item_text.strip().split()) >= 2
+    
+    # Para mercado, somos mais permissivos: até uma palavra pode ser typo (ex: "salk")
+    return len(item_text.strip()) >= 3
 
 
 async def suggest_correction(
@@ -46,32 +58,43 @@ async def suggest_correction(
     max_len: int = 256,
 ) -> str | None:
     """
-    Usa Mimo para sugerir correção de possível typo (ex: Corone rythym of the nai → Corona - Rhythm of the Night).
-    Retorna o texto corrigido ou None se não aplicar/indisponível.
+    Usa Mimo para sugerir correção de typos e separar itens combinados (ex: sal açúcar -> sal, açúcar).
+    Retorna o texto corrigido (possivelmente com vírgulas) ou None.
     """
     if not scope_provider or not scope_model or not item_text or not item_text.strip():
         return None
     if not is_curated_list(list_name):
         return None
-    if not _looks_like_title(item_text):
+    if not _looks_like_title(item_text, list_name):
         return None
+
     try:
-        list_type = "música" if "music" in _normalize_list_name(list_name) or "musica" in _normalize_list_name(list_name) else "filme" if "filme" in _normalize_list_name(list_name) else "livro" if "livro" in _normalize_list_name(list_name) else "receita" if "receita" in _normalize_list_name(list_name) else "item"
-        prompt = (
-            f"User wants to add to {list_type} list: «{item_text[:150]}». "
-            "If there are spelling errors in artist/song/movie/book title, reply with ONLY the corrected form (e.g. 'Artist - Song Title'). "
-            "Otherwise reply with the exact same text. One line, no explanation, no quotes."
-        )
+        norm_ln = _normalize_list_name(list_name)
+        if any(p in norm_ln for p in ("musica", "filme", "livro", "serie", "receita")):
+            list_type = "músicas" if "musica" in norm_ln else "filmes" if "filme" in norm_ln else "livros" if "livro" in norm_ln else "séries" if "serie" in norm_ln else "receitas"
+            prompt = (
+                f"User wants to add to {list_type} list: «{item_text[:300]}». "
+                "Correct any spelling errors in titles. If multiple items are in the same line, separate them with commas. "
+                "Reply ONLY with the corrected text. No quotes, no explanation."
+            )
+        else:
+            prompt = (
+                f"User wants to add to grocery list: «{item_text[:300]}». "
+                "Correct any typos (e.g. 'salk acucar' -> 'sal, açúcar'). "
+                "If multiple items are in one line or separated by spaces/newlines, separate them with commas. "
+                "Reply ONLY with the corrected comma-separated items. No quotes, no explanation."
+            )
+
         r = await scope_provider.chat(
             messages=[{"role": "user", "content": prompt}],
             model=scope_model,
-            max_tokens=80,
+            max_tokens=400, # Aumentado para suportar listas longas
             temperature=0,
         )
         out = (r.content or "").strip().strip('"\'')
-        if not out or len(out) > max_len:
+        if not out or len(out) > max_len * 4: # Permitir bastantes itens
             return None
-        # Só usa se for diferente (evita chamadas inúteis retornando igual)
+        # Só usa se for diferente
         if out.lower() != (item_text or "").lower():
             return out
     except Exception:

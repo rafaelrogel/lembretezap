@@ -45,6 +45,16 @@ def test_format_schedule_for_display():
     assert "segunda às 19h" in format_schedule_for_display("0 19 * * 1")
     assert "segunda a sexta" in format_schedule_for_display("0 8 * * 1-5")
     assert "segunda" in format_schedule_for_display("0 19 * * 1,3") and "quarta" in format_schedule_for_display("0 19 * * 1,3")
+    
+    # Monthly
+    assert "todo dia 21 às 9h" == format_schedule_for_display("0 9 21 * *")
+    assert "every day 21 at 9h" == format_schedule_for_display("0 9 21 * *", lang="en")
+    assert "todos los días 21 a las 9h" == format_schedule_for_display("0 9 21 * *", lang="es")
+    
+    # Languages
+    assert "monday at 8h" == format_schedule_for_display("0 8 * * 1", lang="en")
+    assert "lunes a las 8h" == format_schedule_for_display("0 8 * * 1", lang="es")
+    assert "monday to friday at 8h" == format_schedule_for_display("0 8 * * 1-5", lang="en")
 
 
 def test_parse_end_date_response():
@@ -55,7 +65,15 @@ def test_parse_end_date_response():
     assert parse_end_date_response("fim do mês") == "fim_mes"
     assert parse_end_date_response("fim do ano") == "fim_ano"
     assert parse_end_date_response("não sei") is None  # ambíguo, não é indefinido
-    assert parse_end_date_response("xyz") is None
+    
+    # Specific years
+    assert parse_end_date_response("até o fim de 2028") == "year:2028"
+    assert parse_end_date_response("until end of 2030") == "year:2030"
+    assert parse_end_date_response("fin de 2027") == "year:2027"
+    
+    # Specific dates
+    assert parse_end_date_response("até 31/12/2026") == "date:2026-12-31"
+    assert parse_end_date_response("until 10/10") is not None # should parse as some date
 
 
 def test_looks_like_confirm():

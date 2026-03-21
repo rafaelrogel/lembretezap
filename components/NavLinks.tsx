@@ -5,13 +5,13 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const links = [
-  { href: "/about", label: "Sobre nós", sectionId: "sobre" as const },
-  { href: "#", label: "Funcionalidades", sectionId: null },
-  { href: "#", label: "FAQ", sectionId: null },
+  { href: "#funcionalidades", label: "Como funciona", sectionId: "funcionalidades" as const },
+  { href: "/about", label: "Nossa missão", sectionId: "sobre" as const },
+  { href: "#entenda-mais", label: "Entenda mais", sectionId: "entenda-mais" as const },
 ] as const;
 
 const baseClass =
-  "text-[14px] leading-[140%] transition-token hover:opacity-90";
+  "text-[14px] leading-[140%] transition-token hover:text-[var(--Text-900,#212121)]";
 const activeClass =
   "font-semibold text-[var(--Text-900,#212121)]";
 const inactiveClass =
@@ -20,6 +20,8 @@ const inactiveClass =
 export function NavLinks() {
   const pathname = usePathname();
   const [sobreInView, setSobreInView] = useState(false);
+  const [featuresInView, setFeaturesInView] = useState(false);
+  const [entendaMaisInView, setEntendaMaisInView] = useState(false);
 
   useEffect(() => {
     if (pathname !== "/") return;
@@ -33,18 +35,54 @@ export function NavLinks() {
     return () => observer.disconnect();
   }, [pathname]);
 
+  useEffect(() => {
+    if (pathname !== "/") return;
+    const el = document.getElementById("funcionalidades");
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setFeaturesInView(entry.isIntersecting),
+      { threshold: 0.2, rootMargin: "-80px 0px -40% 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pathname]);
+
+  useEffect(() => {
+    if (pathname !== "/") return;
+    const el = document.getElementById("entenda-mais");
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setEntendaMaisInView(entry.isIntersecting),
+      { threshold: 0.2, rootMargin: "-80px 0px -40% 0px" }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pathname]);
+
   return (
     <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-10 md:flex">
       {links.map(({ href, label, sectionId }) => {
         const isActive =
           href !== "#" && pathname === href;
         const isSectionActive =
-          sectionId === "sobre" && pathname === "/" && sobreInView;
+          pathname === "/" &&
+          ((sectionId === "sobre" && sobreInView) ||
+            (sectionId === "funcionalidades" &&
+              featuresInView &&
+              !sobreInView) ||
+            (sectionId === "entenda-mais" &&
+              entendaMaisInView &&
+              !sobreInView &&
+              !featuresInView));
         const showActive = isActive || isSectionActive;
         return (
           <Link
             key={href + label}
-            href={pathname === "/" && sectionId === "sobre" ? "#sobre" : href}
+            href={
+              pathname === "/" && sectionId === "sobre"
+                ? "#sobre"
+                : href
+            }
             className={`${baseClass} ${
               showActive ? activeClass : inactiveClass
             }`}

@@ -144,10 +144,10 @@ EMPATHY_CATEGORIES: list[_Category] = [
     # Exames diagnósticos / resultados
     {
         "keywords": {
-            "pt-BR": ["resultado do exame", "resultado de exame", "resultados", "diagnóstico", "diagnostico", "laudo", "ressonância", "ressonancia", "tomografia", "mamografia", "preventivo", "biópsia", "biospsia"],
-            "pt-PT": ["resultado do exame", "resultado de exame", "resultados", "diagnóstico", "diagnostico", "laudo", "ressonância", "ressonancia", "tomografia", "mamografia", "preventivo", "biópsia", "biopsia"],
-            "es": ["resultado del análisis", "resultados", "diagnóstico", "informe", "resonancia", "tomografía", "mamografía", "biopsia"],
-            "en": ["test results", "diagnosis", "lab results", "MRI", "CT scan", "mammogram", "biopsy result"],
+            "pt-BR": ["resultado do exame", "resultado de exame", "resultados", "diagnóstico", "diagnostico", "laudo", "ressonância", "ressonancia", "tomografia", "mamografia", "preventivo", "biópsia", "biospsia", "sangue", "exame de sangue"],
+            "pt-PT": ["resultado do exame", "resultado de exame", "resultados", "diagnóstico", "diagnostico", "laudo", "ressonância", "ressonancia", "tomografia", "mamografia", "preventivo", "biópsia", "biopsia", "sangue", "análise de sangue"],
+            "es": ["resultado del análisis", "resultados", "diagnóstico", "informe", "resonancia", "tomografía", "mamografía", "biopsia", "sangre", "análisis"],
+            "en": ["test results", "diagnosis", "lab results", "MRI", "CT scan", "mammogram", "biopsy result", "blood test", "blood results", "exam results"],
         },
         "messages": {
             "pt-BR": "💙 Espero que os resultados tragam boas notícias. Se cuide.",

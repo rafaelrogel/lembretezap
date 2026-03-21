@@ -57,10 +57,37 @@ docker compose $COMPOSE_FILES run --rm --entrypoint sh \
   -c 'DATA_PATH="${ZAPISTA_DATA:-/root/.zapista}"; tar -czf /backup/zapista-${BACKUP_TS}.tar.gz -C "$DATA_PATH" . 2>/dev/null || true'
 
 if [ -f "$BACKUP_FILE" ]; then
-  SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
-  echo "    Backup criado: $SIZE"
+  SIZE_BYTES=$(stat -c%s "$BACKUP_FILE" 2>/dev/null || echo 0)
+  SIZE_HUMAN=$(du -h "$BACKUP_FILE" | cut -f1)
+  
+  # Verificar se backup não está vazio/corrompido (mínimo 1KB)
+  if [ "$SIZE_BYTES" -lt 1024 ]; then
+    echo "    ERRO: Backup parece vazio ou incompleto ($SIZE_BYTES bytes)"
+    echo "    Possíveis causas:"
+    echo "      - Volume não montado corretamente"
+    echo "      - Pasta de dados vazia ou inacessível"
+    echo "      - Disco cheio"
+    rm -f "$BACKUP_FILE"
+    exit 1
+  fi
+  
+  # Verificar integridade do tar.gz
+  if ! tar -tzf "$BACKUP_FILE" >/dev/null 2>&1; then
+    echo "    ERRO: Backup corrompido (tar.gz inválido)"
+    rm -f "$BACKUP_FILE"
+    exit 1
+  fi
+  
+  # Verificar se contém arquivos essenciais
+  if ! tar -tzf "$BACKUP_FILE" 2>/dev/null | grep -qE "(organizer\.db|config\.json)"; then
+    echo "    AVISO: Backup não contém organizer.db ou config.json"
+    echo "    O backup pode estar incompleto."
+  fi
+  
+  echo "    Backup criado: $SIZE_HUMAN ($SIZE_BYTES bytes)"
 else
-  echo "    Aviso: ficheiro de backup não foi criado. Verifique se os serviços estão a correr."
+  echo "    ERRO: Ficheiro de backup não foi criado."
+  echo "    Verifique se os serviços estão a correr: docker compose ps"
   exit 1
 fi
 

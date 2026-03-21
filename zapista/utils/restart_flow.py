@@ -43,21 +43,8 @@ def clear_restart_stage(channel: str, chat_id: str) -> None:
     _STATE.pop(_key(channel, chat_id), None)
 
 
-# Mensagens do fluxo (WhatsApp: * = negrito)
-MSG_FIRST = (
-    "Queres reiniciar toda a tua sessão e voltar ao zero? "
-    "Responde *sim* ou *não*."
-)
-MSG_SECOND = (
-    "⚠️ Última confirmação: vais reiniciar toda a conversa e apagar "
-    "*todos os lembretes*, *compromissos agendados*, *tarefas*, *listas* — "
-    "tudo volta à estaca zero. Esta ação não tem volta.\n\n"
-    "Confirma com *sim* ou *não*."
-)
-MSG_CANCELLED = "Reinício cancelado. Nada foi alterado."
-MSG_DONE = "Tudo reiniciado. É um novo começo."
-
-
+# Mensagens do fluxo foram migradas para backend.locale
+# e as chamadas no whatsapp.py já as obtêm diretamente.
 def is_confirm_reply(content: str) -> bool:
     t = (content or "").strip().lower()
     return t in ("sim", "s", "não", "nao", "n", "1", "2", "yes", "no", "y")
@@ -93,11 +80,14 @@ async def run_restart(
         logger.warning(f"Restart: session delete failed: {e}")
     # 2) Cron jobs cujo payload.to == chat_id e payload.channel == channel
     try:
+        user_id_base = chat_id.split("@")[0] if chat_id else ""
         for job in cron_service.list_jobs(include_disabled=True):
             p = getattr(job, "payload", None)
-            if p and getattr(p, "channel", None) == channel and getattr(p, "to", None) == chat_id:
-                cron_service.remove_job(job.id)
-                logger.info(f"Restart: cron job removed {job.id}")
+            if p and getattr(p, "channel", None) == channel:
+                to_val = getattr(p, "to", "") or ""
+                if to_val == chat_id or (user_id_base and to_val.split("@")[0] == user_id_base):
+                    cron_service.remove_job_and_deadline_followups(job.id)
+                    logger.info(f"Restart: cron job removed {job.id}")
     except Exception as e:
         logger.warning(f"Restart: cron remove failed: {e}")
     # 3) Listas e eventos do utilizador (backend DB)

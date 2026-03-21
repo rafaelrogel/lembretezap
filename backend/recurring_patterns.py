@@ -228,6 +228,7 @@ def looks_like_reminder_without_time(content: str) -> tuple[bool, str | None]:
         r"amanha", r"mañana", r"manana", r"hoje", r"today", r"hoy",
         r"daqui a", r"em \d+", r"em \d+ (min|hora|dia)", r"todo dia",
         r"diariamente", r"a cada", r"segunda", r"terça", r"segunda-feira",
+        r"\b\d{1,2}\s*[/]\s*\d{1,2}\b", r"\b\d{1,2}\s*[-]\s*\d{1,2}\b",
         r"\d{1,2}\s*(de|/)\s*(janeiro|fevereiro|março|julho|etc)",
     ]
     for pat in time_patterns:

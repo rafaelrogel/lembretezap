@@ -203,7 +203,7 @@ async def handle_admin_command(
         cmd = cmd_only
     if not cmd or cmd not in _VALID_COMMANDS:
         return (
-            f"Comando desconhecido: #{command or '?'}\n"
+            f"Command unknown: #{command or '?'}\n"
             "Comandos: #hora #ativos #erros #diagnostico #help #clientes #jobs #redis #whatsapp | "
             "#status #users #cron #server #system #msgs #lembretes <nr> #tz <nr> #history <nr> | "
             "#add <nr> #remove <nr> #mute <nr> #lockout #cleanup #quit"
@@ -267,26 +267,26 @@ async def handle_admin_command(
     if cmd == "add":
         _, arg = parse_admin_command_arg(raw)
         if not arg:
-            return "#add\nUso: #add <número de telefone>"
+            return "#add\nUsage: #add <phone number>"
         from zapista.utils.extra_allowed import add_extra_allowed
         digits = "".join(c for c in str(arg or "") if c.isdigit())
         if not digits:
-            return "#add\nNúmero inválido."
+            return "#add\nInvalid number."
         if add_extra_allowed(arg):
-            return f"#add\nAdicionado: {digits}"
-        return f"#add\nO número {digits} já estava na lista."
+            return f"#add\nAdded: {digits}"
+        return f"#add\nNumber {digits} was already in list."
 
     if cmd == "remove":
         _, arg = parse_admin_command_arg(raw)
         if not arg:
-            return "#remove\nUso: #remove <número de telefone>"
+            return "#remove\nUsage: #remove <phone number>"
         from zapista.utils.extra_allowed import remove_extra_allowed
         digits = "".join(c for c in str(arg or "") if c.isdigit())
         if not digits:
-            return "#remove\nNúmero inválido."
+            return "#remove\nInvalid number."
         if remove_extra_allowed(arg):
-            return f"#remove\nRemovido: {digits}"
-        return f"#remove\nO número {digits} não estava na lista."
+            return f"#remove\nRemoved: {digits}"
+        return f"#remove\nNumber {digits} was not in list."
 
     if cmd in ("hora", "time"):
         return _cmd_hora()
@@ -323,22 +323,18 @@ async def handle_admin_command(
 
     # quit e mute são tratados no canal (WhatsApp) para enviar mensagem ao utilizador muted
     if cmd == "quit":
-        return "God-mode desativado. (Use #<senha> para ativar de novo.)"
+        return "God-mode disabled. (Use #<password> to activate again.)"
     if cmd == "mute":
-        return "#mute\nUso: #mute <número de telefone> (tratado no canal)"
+        return "#mute\nUsage: #mute <phone number> (handled in channel)"
 
     return "?"
 
 
-def _cmd_status() -> str:
+def _cmd_status(lang: str = "en") -> str:
     """Resumo rápido do sistema."""
-    lines = [
-        "#status",
-        "God Mode ativo. Comandos: #hora #ativos #erros #diagnostico #help #clientes #jobs #redis #whatsapp",
-        "#users #cron [detalhado] #lembretes <nr> #tz <nr> #history <nr> #server #msgs #system #ai #painpoints",
-        "#injection #blocked #lockout #cleanup #add <nr> #remove <nr> #mute <nr> #quit",
-    ]
-    return "\n".join(lines)
+    from backend.locale import GOD_MODE_ACTIVE
+    msg = GOD_MODE_ACTIVE.get(lang, GOD_MODE_ACTIVE["en"])
+    return f"#status\n{msg}"
 
 
 async def _cmd_users(db_session_factory: Any) -> str:
