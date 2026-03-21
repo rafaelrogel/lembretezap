@@ -223,14 +223,14 @@ def normalize_nl_to_command(content: str) -> str:
         return "/data"
 
     # Remove / Delete
-    m = re.match(r"^(remover|apagar|deletar|tirar|quitar|borrar|apaga|borra|quita|delete|remove|suprimir|effacer|supprimer)\s+(.+)$", lower_ascii)
+    m = re.match(r"^(remover|apagar|deletar|tirar|quitar|borrar|apaga|borra|quita|delete|remove|suprimir)\s+(.+)$", lower_ascii)
     if m:
         rest = m.group(2).strip()
         if rest:
             return f"/remove {rest}"
 
     # Feito / Done / Hecho
-    m = re.match(r"^(feito|concluido|pronto|ok|done|hecho|termine|fini|check|concluir)\s+(.+)$", lower_ascii)
+    m = re.match(r"^(feito|concluido|pronto|ok|done|hecho|check|concluir)\s+(.+)$", lower_ascii)
     if m:
         rest = m.group(2).strip()
         if rest:
