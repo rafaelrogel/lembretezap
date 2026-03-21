@@ -9,6 +9,7 @@ import re
 from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
+from calendar import monthrange
 
 # Recorrência: dia da semana em cron (0=domingo, 1=segunda, ..., 6=sábado)
 DIAS_SEMANA = {
@@ -366,7 +367,8 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             hora = adjust_am_pm_hour(hora, period)
             try:
                 tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
-                target = datetime(ano, mes, min(dia, 28), hora, minute, 0, tzinfo=tz)
+                _, last_day = monthrange(ano, mes)
+                target = datetime(ano, mes, min(dia, last_day), hora, minute, 0, tzinfo=tz)
                 delta = (target - now).total_seconds()
                 if target < now and target.date() == now.date() and delta >= -86400:
                     # Hoje mas o horário já passou: devolver in_seconds negativo para o cron avisar (não agendar ano seguinte)
@@ -374,7 +376,8 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                     return {"in_seconds": int(delta), "message": clean_message(message)}
                 if target < now:
                     # Data inteira no passado: não agendar; avisar e pedir confirmação para ano seguinte
-                    target_next = datetime(ano + 1, mes, min(dia, 28), hora, minute, 0, tzinfo=tz)
+                    _, last_day = monthrange(ano + 1, mes)
+                    target_next = datetime(ano + 1, mes, min(dia, last_day), hora, minute, 0, tzinfo=tz)
                     delta_next = (target_next - now).total_seconds()
                     if delta_next > 0 and delta_next <= 86400 * 366:
                         message = strip_pattern(text, _pat_data_hora)
@@ -420,7 +423,6 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                         # Tenta restaurar o dia exato se possível (evita dia 31 -> 28 se o dia existe no próximo mês)
                         try:
                             # Próximo mês real
-                            from calendar import monthrange
                             _, last_day = monthrange(target.year, target.month)
                             target = target.replace(day=min(dia_target, last_day))
                         except Exception: pass
@@ -452,10 +454,12 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             hora = 9
             try:
                 tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
-                target = datetime(ano, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                _, last_day = monthrange(ano, mes)
+                target = datetime(ano, mes, min(dia, last_day), hora, 0, 0, tzinfo=tz)
                 if target < now:
                     # Data no passado: pedir confirmação para ano seguinte
-                    target_next = datetime(ano + 1, mes, min(dia, 28), hora, 0, 0, tzinfo=tz)
+                    _, last_day = monthrange(ano + 1, mes)
+                    target_next = datetime(ano + 1, mes, min(dia, last_day), hora, 0, 0, tzinfo=tz)
                     delta_next = (target_next - now).total_seconds()
                     if delta_next > 0 and delta_next <= 86400 * 366:
                         message = strip_pattern(text, _pat_data_strip)

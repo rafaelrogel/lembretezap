@@ -605,14 +605,9 @@ def compute_in_seconds_from_date_hour(
                 mes = int(m.group(2)) if m.group(2) else now.month
                 ano = now.year
                 try:
-                    target_date = datetime(ano, mes, min(dia, 28)).date()
-                    # Tenta restaurar o dia exato
-                    try:
-                        from calendar import monthrange
-                        _, last_day = monthrange(ano, mes)
-                        target_date = target_date.replace(day=min(dia, last_day))
-                    except Exception: pass
-
+                    from calendar import monthrange
+                    _, last_day = monthrange(ano, mes)
+                    target_date = datetime(ano, mes, min(dia, last_day)).date()
                     if target_date < today:
                         if not m.group(2):
                             # Se já passou este mês e não especificou mês, tenta próximo mês
@@ -636,6 +631,7 @@ def compute_in_seconds_from_date_hour(
             target_date.year, target_date.month, target_date.day,
             hour, minute, 0, 0, tzinfo=z
         )
+        delta = (target - now).total_seconds()
         if delta <= 0:
             # If it's a numeric date like "22/03" and it's already past for THIS year, assume next year
             if dl.startswith("dia ") or dl.isdigit() or "/" in dl:
