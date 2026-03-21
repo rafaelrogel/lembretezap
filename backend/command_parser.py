@@ -14,7 +14,7 @@ RE_LEMBRETE = re.compile(r"^/(?:lembrete|reminder|recordatorio)\s+([^\r\n]+)$", 
 RE_LIST_ADD = re.compile(r"^/(?:list|lista)\s+(\S+)\s+add\s+([^\r\n]+)$", re.I)
 # /list filme|livro|musica|receita|notas|nota|sites|site|links|link <item> (categorias; sem "add")
 RE_LIST_CATEGORY_ADD = re.compile(
-    r"^/(?:list|lista)\s+(filme|filmes|livro|livros|musica|musicas|m[uú]sicas?|receita|receitas|recipe|recipes|receta|recetas|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+([^\r\n]+)$",
+    r"^/(?:list|lista)\s+(filme|filmes|livro|livros|musica|musicas|m[uú]sicas?|s[ée]ries?|jogo|jogos|juegos?|games?|receita|receitas|recipe|recipes|receta|recetas|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+([^\r\n]+)$",
     re.I,
 )
 RE_LIST_SHOW = re.compile(r"^/(?:list|lista)\s+(\S+)\s*$", re.I)
@@ -43,6 +43,8 @@ RE_NL_LISTA_SOZINHA = re.compile(r"^(lista|mercado|compras|pendentes)\s*$", re.I
 RE_FILME = re.compile(r"^/filmes?\s+([^\r\n]+)$", re.I)
 RE_LIVRO = re.compile(r"^/livros?\s+([^\r\n]+)$", re.I)
 RE_MUSICA = re.compile(r"^/(?:musica|m[uú]sica)s?\s+([^\r\n]+)$", re.I)
+RE_SERIE = re.compile(r"^/s[ée]ries?\s+([^\r\n]+)$", re.I)
+RE_JOGO = re.compile(r"^/jogos?\s+([^\r\n]+)$", re.I)
 RE_RECEITA = re.compile(r"^/receita\s+([^\r\n]+)$", re.I)
 # Atalhos ES/EN
 RE_PELICULA = re.compile(r"^/pel[ií]culas?\s+([^\r\n]+)$", re.I)
@@ -56,7 +58,7 @@ RE_NL_ADICIONE_LISTA = re.compile(
 )
 # NL: "add lista filmes X", "add list filmes X" → list_add filme
 RE_NL_ADD_LISTA_CATEGORIA = re.compile(
-    r"^(?:add|adicione|adiciona|a[ñn]adir)\s+(?:listas?\s+)?(filmes?|livros?|m[uú]sicas?|receitas?|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+([^\r\n]+)$",
+    r"^(?:add|adicione|adiciona|a[ñn]adir)\s+(?:listas?\s+)?(filmes?|livros?|m[uú]sicas?|s[ée]ries?|jogos?|juegos?|games?|receitas?|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+([^\r\n]+)$",
     re.I,
 )
 # Verbos de visualização: mostre, mostra, exiba, muéstrame, muestra, exhibe, show me, show, display
@@ -115,27 +117,30 @@ RE_NL_FILME_LIVRO_VER = re.compile(
 # Qualquer outro nome (ex.: ingredientes, tarefas) fica como está — lista com esse nome.
 _CATEGORY_TO_LIST = {
     # PT
-    "filme": "filme", "filmes": "filme",
-    "livro": "livro", "livros": "livro",
-    "musica": "musica", "musicas": "musica", "música": "musica", "músicas": "musica",
-    "receita": "receita", "receitas": "receita",
-    # "compras" e "mercado" são aliases fortes mas o usuário pode querer listas separadas.
-    # Vamos manter o mapeamento mas o Tool vai tentar encontrar a lista exata primeiro.
+    "filme": "filmes", "filmes": "filmes",
+    "livro": "livros", "livros": "livros",
+    "musica": "músicas", "musicas": "músicas", "música": "músicas", "músicas": "músicas",
+    "série": "séries", "séries": "séries", "serie": "séries", "series": "séries",
+    "receita": "receitas", "receitas": "receitas",
+    "jogo": "jogos", "jogos": "jogos",
     "mercado": "mercado", "supermercado": "mercado",
     "nota": "notas", "notas": "notas",
     "site": "sites", "sites": "sites",
     "link": "sites", "links": "sites",
     # EN
-    "movie": "filme", "movies": "filme", "film": "filme", "films": "filme",
-    "book": "livro", "books": "livro",
-    "music": "musica", "song": "musica", "songs": "musica",
-    "recipe": "receita", "recipes": "receita",
+    "movie": "filmes", "movies": "filmes", "film": "filmes", "films": "filmes",
+    "book": "livros", "books": "livros",
+    "music": "músicas", "song": "músicas", "songs": "músicas",
+    "recipe": "receitas", "recipes": "receitas",
+    "game": "jogos", "games": "jogos",
     "note": "notas", "notes": "notas",
     "shopping": "mercado", "grocery": "mercado", "groceries": "mercado",
     # ES
-    "película": "filme", "películas": "filme", "pelicula": "filme", "peliculas": "filme",
-    "libro": "livro", "libros": "livro",
-    "receta": "receita", "recetas": "receita",
+    "película": "filmes", "películas": "filmes", "pelicula": "filmes", "peliculas": "filmes",
+    "libro": "livros", "libros": "livros",
+    "juego": "jogos", "juegos": "jogos",
+    "canción": "músicas", "canciones": "músicas",
+    "receta": "receitas", "recetas": "receitas",
     "notas": "notas",
 }
 
@@ -257,32 +262,38 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     # Atalhos: /filme X, /livro X, /musica X → list_add (dentro de /list)
     m = RE_FILME.match(text)
     if m:
-        return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "filmes", "item": m.group(1).strip()}
     m = RE_LIVRO.match(text)
     if m:
-        return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "livros", "item": m.group(1).strip()}
     m = re.match(r"^/(?:musica|m[uú]sica)s?\s+(.+)$", text, re.I)
     if m:
-        return {"type": "list_add", "list_name": "musica", "item": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "músicas", "item": m.group(1).strip()}
+    m = RE_SERIE.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "séries", "item": m.group(1).strip()}
+    m = RE_JOGO.match(text)
+    if m:
+        return {"type": "list_add", "list_name": "jogos", "item": m.group(1).strip()}
     
     # ES/EN Shortcuts
     m = RE_PELICULA.match(text)
     if m:
-        return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "filmes", "item": m.group(1).strip()}
     m = RE_LIBRO.match(text)
     if m:
-        return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "livros", "item": m.group(1).strip()}
     m = RE_MOVIE.match(text)
     if m:
-        return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "filmes", "item": m.group(1).strip()}
     m = RE_BOOK.match(text)
     if m:
-        return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "livros", "item": m.group(1).strip()}
     
-    # Receita continua como lista por enquanto (ou pode mover para event se quiser)
+    # Receitas continua como lista por enquanto
     m = RE_RECEITA.match(text)
     if m:
-        return {"type": "list_add", "list_name": "receita", "item": m.group(1).strip()}
+        return {"type": "list_add", "list_name": "receitas", "item": m.group(1).strip()}
 
     # NL: "add lista filmes X" → list_add filme
     m = RE_NL_ADD_LISTA_CATEGORIA.match(text)

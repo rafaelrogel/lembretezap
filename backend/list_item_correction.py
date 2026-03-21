@@ -6,6 +6,7 @@ import unicodedata
 _CURATED_LIST_NAMES = frozenset({
     "musica", "musicas", "music", "filme", "filmes", "movie", "movies",
     "livro", "livros", "book", "books", "receita", "receitas", "recipe", "recipes",
+    "serie", "series", "série", "séries",
     "musicas_dance", "musicas dance", "filmes para ver", "livros para ler",
 })
 
@@ -29,8 +30,8 @@ def is_curated_list(list_name: str) -> bool:
     norm = _normalize_list_name(list_name or "")
     if norm in _CURATED_LIST_NAMES or norm in _GROCERY_LIST_NAMES:
         return True
-    # Match prefixos: musica_, filme_, livro_, mercado_, compra_
-    for prefix in ("musica", "filme", "livro", "receita", "mercado", "compra"):
+    # Match prefixos: musicas_, filmes_, livros_, series_, receitas_, mercado_, compra_
+    for prefix in ("musica", "filme", "livro", "serie", "receita", "mercado", "compra"):
         if norm.startswith(prefix + "_") or norm.startswith(prefix):
             return True
     return False
@@ -42,7 +43,7 @@ def _looks_like_title(item_text: str, list_name: str) -> bool:
         return False
     # Para listas curadas (filmes/musicas), quase sempre vale tentar corrigir se > 1 palavra
     norm_ln = _normalize_list_name(list_name)
-    if any(p in norm_ln for p in ("musica", "filme", "livro", "receita")):
+    if any(p in norm_ln for p in ("musica", "filme", "livro", "serie", "receita")):
         return len(item_text.strip().split()) >= 2
     
     # Para mercado, somos mais permissivos: até uma palavra pode ser typo (ex: "salk")
@@ -69,8 +70,8 @@ async def suggest_correction(
 
     try:
         norm_ln = _normalize_list_name(list_name)
-        if any(p in norm_ln for p in ("musica", "filme", "livro", "receita")):
-            list_type = "música" if "musica" in norm_ln else "filme" if "filme" in norm_ln else "livro" if "livro" in norm_ln else "receita"
+        if any(p in norm_ln for p in ("musica", "filme", "livro", "serie", "receita")):
+            list_type = "músicas" if "musica" in norm_ln else "filmes" if "filme" in norm_ln else "livros" if "livro" in norm_ln else "séries" if "serie" in norm_ln else "receitas"
             prompt = (
                 f"User wants to add to {list_type} list: «{item_text[:300]}». "
                 "Correct any spelling errors in titles. If multiple items are in the same line, separate them with commas. "

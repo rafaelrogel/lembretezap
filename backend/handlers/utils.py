@@ -44,7 +44,7 @@ async def handle_start(ctx: "HandlerContext", content: str) -> str | None:
         return None
     return (
         "👋 Olá! Sou o Zappelin: lembretes, listas e eventos.\n\n"
-        "📌 Comandos: /lembrete, /list (filme, livro, musica, receita, notas, compras…).\n"
+        "📌 Comandos: /lembrete, /list (filmes, livros, músicas, séries, receitas, notas, mercado…).\n"
         "🌍 Timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.\n\n"
         "Digite /help para ver tudo — ou escreve/envia áudio para conversar. 😊"
     )
