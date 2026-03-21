@@ -15,6 +15,11 @@ DIAS_SEMANA = {
     "segunda-feira": 1, "terça-feira": 2, "terca-feira": 2, "quarta-feira": 3, "quinta-feira": 4, "sexta-feira": 5,
     "domingo": 0, "segunda": 1, "terça": 2, "terca": 2, "quarta": 3, "quinta": 4, "sexta": 5,
     "sábado": 6, "sabado": 6,
+    # EN
+    "monday": 1, "tuesday": 2, "wednesday": 3, "thursday": 4, "friday": 5, "saturday": 6, "sunday": 0,
+    "mon": 1, "tue": 2, "wed": 3, "thu": 4, "fri": 5, "sat": 6, "sun": 0,
+    # ES
+    "lunes": 1, "martes": 2, "miércoles": 3, "miercoles": 3, "jueves": 4, "viernes": 5,
 }
 
 MESES = {
@@ -42,6 +47,8 @@ _MONTH_NAMES = (
 
 RE_LEMBRETE_DAQUI = re.compile(r"daqui\s+a\s+(\d+)\s*(minutos?|minuto?|min|horas?|hora?|dias?|dia?)\b", re.I)
 RE_LEMBRETE_EM = re.compile(r"em\s+(\d+)\s*(minutos?|minuto?|min|horas?|hora?|dias?|dia?)\b", re.I)
+RE_LEMBRETE_IN = re.compile(r"in\s+(\d+)\s*(minutes?|min|hours?|hr|days?)\b", re.I)
+RE_LEMBRETE_EN = re.compile(r"en\s+(\d+)\s*(minutos?|horas?|d[íi]as?)\b", re.I)
 
 # Modificadores de período (PT, ES, EN)
 _AM_PM_MODIFIERS = (
@@ -159,14 +166,14 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         except Exception:
             pass
 
-    for pattern in (RE_LEMBRETE_DAQUI, RE_LEMBRETE_EM):
+    for pattern in (RE_LEMBRETE_DAQUI, RE_LEMBRETE_EM, RE_LEMBRETE_IN, RE_LEMBRETE_EN):
         m = pattern.search(text)
         if m:
             n = int(m.group(1))
             unit = (m.group(2) or "").lower()
-            if "hora" in unit:
+            if any(w in unit for w in ("hora", "hour", "hr")):
                 n *= 3600
-            elif "dia" in unit:
+            elif any(w in unit for w in ("dia", "day", "d[íi]a")):
                 n *= 86400
             else:
                 n *= 60
@@ -174,18 +181,18 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                 message = (text[: m.start()] + text[m.end() :]).strip()
                 return {"in_seconds": n, "message": clean_message(message)}
 
-    m = re.search(r"a\s+cada\s+(\d+)\s*(minuto?s?|hora?s?|dia?s?)\b", text_lower, re.I)
+    m = re.search(r"(?:a\s+cada|cada|every)\s+(\d+)\s*(minuto?s?|hora?s?|dia?s?|minutes?|hours?|days?)\b", text_lower, re.I)
     if m:
         num = int(m.group(1))
         u = (m.group(2) or "").lower()
-        if "hora" in u:
+        if any(w in u for w in ("hora", "hour")):
             every = num * 3600
-        elif "dia" in u:
+        elif any(w in u for w in ("dia", "day")):
             every = num * 86400
         else:
             every = num * 60
         if 1800 <= every <= 86400 * 30:
-            message = strip_pattern(text, r"a\s+cada\s+\d+\s*(minuto?s?|hora?s?|dia?s?)\s*")
+            message = strip_pattern(text, r"(?:a\s+cada|cada|every)\s+\d+\s*(minuto?s?|hora?s?|dia?s?|minutes?|hours?|days?)\s*")
             return {"every_seconds": every, "message": clean_message(message)}
 
     m = re.search(
@@ -235,16 +242,22 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         if delta > 0 and delta <= 86400 * 30:
             return {"in_seconds": int(delta), "message": clean_message(message)}
 
-    if "a partir de" in text_lower:
+    if any(p in text_lower for p in ["a partir de", "starting from", "starting on", "a partir del"]):
         m = re.search(
-            r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+(?:às?|as)\s*(\d{1,2})\s*h?\b",
+            r"(?:todo\s+dia|todos\s+os\s+dias|diariamente|every\s+day|daily|todos\s+los\s+d[íi]as|cada\s+d[íi]a)\s+"
+            r"(?:às?|as|at|a\s+las?|a\s+los?)\s*(\d{1,2})(?::(\d{2}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
             text_lower,
             re.I,
         )
         if m:
-            hora = min(23, max(0, int(m.group(1))))
+            hora = int(m.group(1))
+            minute = int(m.group(2) or 0)
+            period = m.group(3)
+            hora = adjust_am_pm_hour(hora, period)
+            hora = min(23, max(0, hora))
             message = strip_pattern(
-                text, r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+(?:às?|as)\s*\d{1,2}\s*h?\s*"
+                text, r"(?:todo\s+dia|todos\s+os\s+dias|diariamente|every\s+day|daily|todos\s+los\s+d[íi]as|cada\s+d[íi]a)\s+"
+                      r"(?:às?|as|at|a\s+las?|a\s+los?)\s*\d{1,2}(?::\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\s*"
             )
             out = {"cron_expr": f"0 {hora} * * *", "message": clean_message(message)}
             sd = extract_start_date(text, tz_iana)
@@ -252,12 +265,16 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                 out["start_date"] = sd
             return out
         for dia_name, cron_dow in DIAS_SEMANA.items():
-            pat = rf"\btoda\s+(?:semana\s+)?{re.escape(dia_name)}\b\s+(?:às?|as)\s*(\d{{1,2}})\s*h?\b"
+            pat = rf"\b(?:toda|every|cada)\s+(?:semana\s+|week\s+)?{re.escape(dia_name)}\b\s+(?:às?|as|at|a\s+las?)\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b"
             m = re.search(pat, text_lower, re.I)
             if m:
-                hora = min(23, max(0, int(m.group(1))))
+                hora = int(m.group(1))
+                minute = int(m.group(2) or 0)
+                period = m.group(3)
+                hora = adjust_am_pm_hour(hora, period)
+                hora = min(23, max(0, hora))
                 message = re.sub(pat, "", text, flags=re.I).strip()
-                out = {"cron_expr": f"0 {hora} * * {cron_dow}", "message": clean_message(message)}
+                out = {"cron_expr": f"{minute} {hora} * * {cron_dow}", "message": clean_message(message)}
                 sd = extract_start_date(text, tz_iana)
                 if sd:
                     out["start_date"] = sd
@@ -388,35 +405,45 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                 pass
 
     m = re.search(
-        r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+às?\s*(\d{1,2})\s*h?\b",
+        r"(?:todo\s+dia|todos\s+os\s+dias|diariamente|every\s+day|daily|todos\s+los\s+d[íi]as|cada\s+d[íi]a)\s+"
+        r"(?:às?|as|at|a\s+las?|a\s+los?)\s*(\d{1,2})(?::(\d{2}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
         text_lower,
         re.I,
     )
     if m:
-        hora = min(23, max(0, int(m.group(1))))
+        hora = int(m.group(1))
+        minute = int(m.group(2) or 0)
+        period = m.group(3)
+        hora = adjust_am_pm_hour(hora, period)
+        hora = min(23, max(0, hora))
         message = strip_pattern(
             text,
-            r"(?:todo\s+dia|todos\s+os\s+dias|diariamente)\s+às?\s*\d{1,2}\s*h?\s*",
+            r"(?:todo\s+dia|todos\s+os\s+dias|diariamente|every\s+day|daily|todos\s+los\s+d[íi]as|cada\s+d[íi]a)\s+"
+            r"(?:às?|as|at|a\s+las?|a\s+los?)\s*\d{1,2}(?::\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\s*",
         )
-        return {"cron_expr": f"0 {hora} * * *", "message": clean_message(message)}
+        return {"cron_expr": f"{minute} {hora} * * *", "message": clean_message(message)}
 
-    m = re.search(r"(?:todo\s+dia|todos\s+os\s+dias)\s+(.+)$", text_lower, re.I)
+    m = re.search(r"(?:todo\s+dia|todos\s+os\s+dias|every\s+day|todos\s+los\s+d[íi]as|cada\s+d[íi]a)\s+(.+)$", text_lower, re.I)
     if m:
         message = m.group(1).strip()
         return {"cron_expr": "0 9 * * *", "message": clean_message(message)}
-    if re.search(r"^(?:todo\s+dia|todos\s+os\s+dias)\s*$", text_lower):
+    if re.search(r"^(?:todo\s+dia|todos\s+os\s+dias|every\s+day|todos\s+los\s+d[íi]as|cada\s+d[íi]a)\s*$", text_lower):
         return {"cron_expr": "0 9 * * *", "message": "Lembrete"}
 
     for dia_name, cron_dow in DIAS_SEMANA.items():
-        pat = rf"\btoda\s+(?:semana\s+)?{re.escape(dia_name)}\b\s+às?\s*(\d{{1,2}})\s*h?\b"
+        pat = rf"\b(?:toda|every|cada)\s+(?:semana\s+|week\s+)?{re.escape(dia_name)}\b\s+(?:às?|as|at|a\s+las?)\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b"
         m = re.search(pat, text_lower, re.I)
         if m:
-            hora = min(23, max(0, int(m.group(1))))
+            hora = int(m.group(1))
+            minute = int(m.group(2) or 0)
+            period = m.group(3)
+            hora = adjust_am_pm_hour(hora, period)
+            hora = min(23, max(0, hora))
             message = re.sub(pat, "", text, flags=re.I).strip()
-            return {"cron_expr": f"0 {hora} * * {cron_dow}", "message": clean_message(message)}
+            return {"cron_expr": f"{minute} {hora} * * {cron_dow}", "message": clean_message(message)}
 
     m = re.search(
-        r"mensalmente\s+(?:dia\s+)?(\d{1,2})\s*às?\s*(\d{1,2})\s*h?\b",
+        r"(?:mensalmente|monthly|mensualmente)\s+(?:dia\s+|day\s+)?(\d{1,2})\s*(?:às?|as|at|a\s+las?)\s*(\d{1,2})\s*h?\b",
         text_lower,
         re.I,
     )
@@ -426,7 +453,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         if 1 <= dia_mes <= 28:
             message = strip_pattern(
                 text,
-                r"mensalmente\s+(?:dia\s+)?\d{1,2}\s*às?\s*\d{1,2}\s*h?\s*",
+                r"(?:mensalmente|monthly|mensualmente)\s+(?:dia\s+|day\s+)?\d{1,2}\s*(?:às?|as|at|a\s+las?)\s*\d{1,2}\s*h?\s*",
             )
             return {"cron_expr": f"0 {hora} {dia_mes} * *", "message": clean_message(message)}
 

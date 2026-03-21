@@ -804,6 +804,13 @@ REMINDER_ASK_TIME_HINT: dict[LangCode, str] = {
     "en": "Please provide the time (e.g., 6pm, 10:30, tomorrow at 2pm).",
 }
 
+REMINDER_ASK_WHEN_HINT: dict[LangCode, str] = {
+    "pt-PT": "Ex: em 10 min, amanhã 8h, todo dia ou a cada 2h.",
+    "pt-BR": "Ex: em 10 min, amanhã 8h, todo dia ou a cada 2h.",
+    "es": "Ej: en 10 min, mañana 8h, cada día o cada 2h.",
+    "en": "E.g. in 10 min, tomorrow 8am, daily or every 2h.",
+}
+
 REMINDER_ASK_DATE_HINT: dict[LangCode, str] = {
     "pt-PT": "Indica o dia (ex: amanhã, hoje, sexta, dia 25/03).",
     "pt-BR": "Indique o dia (ex: amanhã, hoje, sexta, dia 25/03).",

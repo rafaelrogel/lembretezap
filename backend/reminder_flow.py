@@ -66,6 +66,7 @@ _REMINDER_HINTS = (
 FLOW_KEY = "pending_reminder_flow"
 STAGE_NEED_TIME = "need_time"
 STAGE_NEED_DATE = "need_date"
+STAGE_NEED_WHEN = "need_when"
 STAGE_NEED_ADVANCE_PREFERENCE = "need_advance_preference"
 STAGE_NEED_ADVANCE_AMOUNT = "need_advance_amount"
 
