@@ -78,10 +78,59 @@ async def handle_help(ctx: "HandlerContext", content: str) -> str | list[str] | 
 
 async def handle_stop(ctx: "HandlerContext", content: str) -> str | None:
     """/stop: opt-out. Aceita NL: parar, pausar, stop."""
-    from backend.handler_context import _reply_confirm_prompt
     content = _normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/stop"):
         return None
-    return _reply_confirm_prompt(
-        "🔕 Quer pausar as mensagens? Vais deixar de receber lembretes e notificações."
-    )
+    
+    from backend.locale import STOP_CONFIRM_PROMPT, resolve_response_language
+    from backend.user_store import get_user_language
+    from backend.database import SessionLocal
+    
+    lang = "pt-BR"
+    db = SessionLocal()
+    try:
+        lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+        lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
+    finally:
+        db.close()
+        
+    prompt = STOP_CONFIRM_PROMPT.get(lang, STOP_CONFIRM_PROMPT["en"])
+    from backend.confirmations import set_pending
+    set_pending(ctx.channel, ctx.chat_id, "confirm_stop", {})
+    
+    from backend.handler_context import _reply_confirm_prompt
+    return _reply_confirm_prompt(prompt)
+
+
+async def handle_resume(ctx: "HandlerContext", content: str) -> str | None:
+    """/resume, /start: opt-in. Aceita NL: continuar, retomar, voltar."""
+    from backend.command_nl import normalize_nl_to_command
+    content = normalize_nl_to_command(content)
+    c = content.strip().lower()
+    
+    # /resume ou /start (se já estiver pausado)
+    if not (c.startswith("/resume") or c.startswith("/start") or c.startswith("/continuar") or c.startswith("/retomar")):
+        return None
+        
+    from backend.database import SessionLocal
+    from backend.user_store import get_user_language, get_or_create_user
+    from backend.locale import RESUME_SUCCESS_MSG, RESUME_ALREADY_ACTIVE_MSG, resolve_response_language
+    
+    db = SessionLocal()
+    try:
+        user = get_or_create_user(db, ctx.chat_id)
+        lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+        lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
+        
+        if getattr(user, "is_paused", False):
+            user.is_paused = False
+            db.commit()
+            return RESUME_SUCCESS_MSG.get(lang, RESUME_SUCCESS_MSG["en"])
+        else:
+            # Se for /resume explícito, avisar que já está ativo. Se for /start, deixar seguir para o boas-vindas padrão?
+            # Se for /start, o router vai tentar handle_start primeiro.
+            if c.startswith("/resume") or c.startswith("/continuar") or c.startswith("/retomar"):
+                return RESUME_ALREADY_ACTIVE_MSG.get(lang, RESUME_ALREADY_ACTIVE_MSG["en"])
+            return None # Deixar handle_start processar se for /start
+    finally:
+        db.close()

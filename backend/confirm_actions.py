@@ -278,6 +278,27 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
             return CONFIRM_COMPLETION_ERROR.get(_lang, CONFIRM_COMPLETION_ERROR["en"])
         return None
 
+    if action == "confirm_stop":
+        from backend.locale import STOP_SUCCESS_MSG, STOP_CANCELLED_MSG
+        _lang = _get_lang(ctx)
+        if is_confirm_no(content):
+            return STOP_CANCELLED_MSG.get(_lang, STOP_CANCELLED_MSG["en"])
+        if is_confirm_yes(content):
+            try:
+                from backend.database import SessionLocal
+                from backend.user_store import get_or_create_user
+                db = SessionLocal()
+                try:
+                    user = get_or_create_user(db, ctx.chat_id)
+                    user.is_paused = True
+                    db.commit()
+                finally:
+                    db.close()
+                return STOP_SUCCESS_MSG.get(_lang, STOP_SUCCESS_MSG["en"])
+            except Exception as e:
+                return f"Erro ao pausar: {e}"
+        return None
+
     if action == "nuke_all":
         lang = (pending.get("payload") or {}).get("lang", "pt-BR")
         from backend.settings_handlers import _NUKE_CANCELLED_MSGS, _NUKE_DONE_MSGS

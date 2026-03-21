@@ -117,6 +117,7 @@ def init_db() -> None:
         "ALTER TABLE lists ADD COLUMN project_id INTEGER",
         "ALTER TABLE audit_log ADD COLUMN payload_json TEXT",
         "ALTER TABLE list_items ADD COLUMN position INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN is_paused BOOLEAN DEFAULT 0",
     ):
         try:
             from sqlalchemy import text

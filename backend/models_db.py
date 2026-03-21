@@ -43,6 +43,7 @@ class User(Base):
     last_list_name = Column(String(128), nullable=True)  # Nome da última lista com a qual o utilizador interagiu
     quiet_start = Column(String(5), nullable=True)  # HH:MM início do horário silencioso (ex.: 22:00)
     quiet_end = Column(String(5), nullable=True)    # HH:MM fim (ex.: 08:00); janela pode ser overnight
+    is_paused = Column(Boolean, default=False)
     created_at = Column(DateTime, default=_utc_now)
     updated_at = Column(DateTime, default=_utc_now, onupdate=_utc_now)
 

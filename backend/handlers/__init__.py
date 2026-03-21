@@ -33,6 +33,7 @@ from backend.handlers.utils import (
     handle_start,
     handle_help,
     handle_stop,
+    handle_resume,
 )
 
 __all__ = [
@@ -52,4 +53,5 @@ __all__ = [
     "handle_start",
     "handle_help",
     "handle_stop",
+    "handle_resume",
 ]

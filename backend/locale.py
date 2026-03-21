@@ -798,10 +798,46 @@ REMINDER_RETRY_SUFFIX: dict[LangCode, str] = {
 }
 
 REMINDER_ASK_TIME_HINT: dict[LangCode, str] = {
-    "pt-PT": "Por favor, indica a hora (ex: 18h, 10:30, amanhã às 14h).",
-    "pt-BR": "Por favor, indique a hora (ex: 18h, 10:30, amanhã às 14h).",
-    "es": "Por favor, indica la hora (ej: 18h, 10:30, mañana a las 14h).",
-    "en": "Please provide the time (e.g., 6pm, 10:30, tomorrow at 2pm).",
+    "pt-PT": "Podes dizer: amanhã 9h, às 10:30, segunda 15h, todo dia 8h...",
+    "pt-BR": "Você pode dizer: amanhã 9h, às 10:30, segunda 15h, todo dia 8h...",
+    "es": "Puedes decir: mañana 9h, a las 10:30, lunes 15h, todos los días 8h...",
+    "en": "You can say: tomorrow 9am, at 10:30, monday 3pm, every day 8am...",
+}
+
+# --- Stop / Resume ---
+STOP_CONFIRM_PROMPT: dict[LangCode, str] = {
+    "pt-PT": "🔕 Queres pausar as mensagens? Vais deixar de receber lembretes e notificações.",
+    "pt-BR": "🔕 Quer pausar as mensagens? Você vai deixar de receber lembretes e notificações.",
+    "es": "🔕 ¿Quieres pausar los mensajes? Dejarás de recibir recordatorios y notificaciones.",
+    "en": "🔕 Do you want to pause messages? You will stop receiving reminders and notifications.",
+}
+
+STOP_CANCELLED_MSG: dict[LangCode, str] = {
+    "pt-PT": "Ok, as notificações continuam ativas. 😊",
+    "pt-BR": "Ok, as notificações continuam ativas. 😊",
+    "es": "Vale, las notificaciones siguen activas. 😊",
+    "en": "Ok, notifications remain active. 😊",
+}
+
+STOP_SUCCESS_MSG: dict[LangCode, str] = {
+    "pt-PT": "🔕 Pausado. Não receberás mais mensagens automáticas. Digita /resume ou /start para voltar. 👋",
+    "pt-BR": "🔕 Pausado. Você não receberá mais mensagens automáticas. Digite /resume ou /start para voltar. 👋",
+    "es": "🔕 Pausado. No recibirás más mensajes automáticos. Escribe /resume o /start para volver. 👋",
+    "en": "🔕 Paused. You will no longer receive automatic messages. Type /resume or /start to resume. 👋",
+}
+
+RESUME_SUCCESS_MSG: dict[LangCode, str] = {
+    "pt-PT": "🔔 Bem-vindo de volta! As notificações foram reativadas. ✨",
+    "pt-BR": "🔔 Bem-vindo de volta! As notificações foram reativadas. ✨",
+    "es": "🔔 ¡Bienvenido de nuevo! Las notificaciones han sido reactivadas. ✨",
+    "en": "🔔 Welcome back! Notifications have been reactivated. ✨",
+}
+
+RESUME_ALREADY_ACTIVE_MSG: dict[LangCode, str] = {
+    "pt-PT": "As tuas notificações já estão ativas. 😊",
+    "pt-BR": "Suas notificações já estão ativas. 😊",
+    "es": "Tus notificaciones ya están activas. 😊",
+    "en": "Your notifications are already active. 😊",
 }
 
 REMINDER_ASK_WHEN_HINT: dict[LangCode, str] = {

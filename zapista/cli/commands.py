@@ -548,6 +548,23 @@ def gateway(
 
         if job.payload.deliver and job.payload.to and provider and (config.agents.defaults.model or "").strip():
             try:
+                from backend.database import SessionLocal
+                from backend.user_store import get_or_create_user
+                db = SessionLocal()
+                try:
+                    user = get_or_create_user(db, job.payload.to)
+                    if getattr(user, "is_paused", False):
+                        # Se pausado, adiar por 4 horas (evita loop infinito mas não "perde" o lembrete se despausar)
+                        cron.snooze_job(job.id, delay_seconds=4 * 3600)
+                        logger.info("Cron snooze (user paused): to=%s job=%s", (job.payload.to or "")[:24], job.name)
+                        return "snoozed (user paused)"
+                finally:
+                    db.close()
+            except Exception as e:
+                logger.warning(f"Pause check failed: {e}")
+                pass
+
+            try:
                 from backend.user_store import get_seconds_until_quiet_end
                 seconds_left = get_seconds_until_quiet_end(job.payload.to)
                 if seconds_left > 0:

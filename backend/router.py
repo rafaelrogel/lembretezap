@@ -21,6 +21,7 @@ from backend.handlers import (
     handle_recorrente,
     handle_pendente,
     handle_stop,
+    handle_resume,
 )
 from backend.integrations import handle_atendimento_request, handle_crypto, handle_sacred_text
 from backend.confirm_actions import handle_exportar, handle_deletar_tudo, resolve_confirm
@@ -103,6 +104,7 @@ HANDLERS = [
     handle_resumo_conversa,
     handle_analytics,
     handle_rever,
+    handle_resume,
     handle_stop,
     handle_reset,
     handle_exportar,
