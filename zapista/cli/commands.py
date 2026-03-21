@@ -691,6 +691,13 @@ def gateway(
             remind_sec = getattr(job.payload, "remind_again_if_unconfirmed_seconds", None) or 0
             remind_max = min(getattr(job.payload, "remind_again_max_count", 0) or 0, 3)
             if remind_sec and remind_max > 0 and ch == "whatsapp":
+                # Disable automatic rescheduling of the original job in service.py
+                # because we are manually adding a NEW follow-up job here.
+                try:
+                    job.payload.has_deadline = False
+                except Exception:
+                    pass
+
                 from zapista.cron.types import CronSchedule
                 base_time = job.state.last_run_at_ms or _now_ms()
                 at_ms = base_time + remind_sec * 1000
@@ -711,6 +718,12 @@ def gateway(
                 metadata_job_id = follow_up.id
             elif remind_sec and remind_max <= 0 and ch == "whatsapp":
                 # Hard cap reached: auto-mark as done and notify user
+                # Disable automatic rescheduling of the original job in service.py
+                try:
+                    job.payload.has_deadline = False
+                except Exception:
+                    pass
+
                 try:
                     from backend.locale import REMINDER_AUTO_COMPLETED
                     from backend.database import SessionLocal
@@ -725,18 +738,17 @@ def gateway(
                         db.close()
                     msg_text = (job.payload.message or job.name or "").strip()[:80]
                     auto_msg = REMINDER_AUTO_COMPLETED.get(lang, REMINDER_AUTO_COMPLETED["en"]).format(message=msg_text)
-                    await bus.publish_outbound(OutboundMessage(
-                        channel=ch, chat_id=to, content=auto_msg,
-                        metadata={"priority": "low"},
-                    ))
+                    # Set response to the auto-completion message to avoid duplicate delivery
+                    response = auto_msg
                 except Exception as e:
                     logger.debug(f"Auto-complete reminder failed: {e}")
-            await bus.publish_outbound(OutboundMessage(
-                channel=ch,
-                chat_id=to,
-                content=response or "",
-                metadata={"job_id": metadata_job_id, "priority": "high"},
-            ))
+            if response:
+                await bus.publish_outbound(OutboundMessage(
+                    channel=ch,
+                    chat_id=to,
+                    content=response,
+                    metadata={"job_id": metadata_job_id, "priority": "high"},
+                ))
 
             # Se houver um draft sugerido (aniversário, felicitações, etc), enviar como mensagem SEPARADA
             # para o cliente poder encaminhar com 1 clique sem ter de editar o texto.
