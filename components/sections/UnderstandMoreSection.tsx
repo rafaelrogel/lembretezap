@@ -11,33 +11,39 @@ const FAQ_ITEMS = [
     question: "O Zappelin precisa ser instalado?",
     answer:
       "Não. Ele funciona direto no seu app de mensagens. Sem download, sem configuração complicada.",
+    icon: "/icons/download_48dp_FFFFFF_FILL0_wght400_GRAD0_opsz48.svg",
   },
   {
     question: "Como eu crio um\nlembrete?",
     answer:
       "Basta escrever como você já escreve. A gente entende a mensagem e confirma o lembrete na hora.",
+    icon: "/icons/mobile_chat_48dp_FFFFFF_FILL0_wght400_GRAD0_opsz48.svg",
   },
   {
     question: "Posso criar lembretes recorrentes?",
     answer:
       "Sim. Você pode criar lembretes diários, semanais ou mensais de forma simples.",
+    icon: "/icons/date_range_48dp_FFFFFF_FILL0_wght400_GRAD0_opsz48.svg",
   },
   {
-    question: "O Zappelin entende mensagens naturais?",
+    question: "O Zappelin entende minhas mensagens?",
     answer:
       "Sim. Você pode escrever “amanhã cedo”, “daqui a pouco” ou “sexta às 18h”. Ele interpreta automaticamente.",
+    icon: "/icons/chat_48dp_FFFFFF_FILL0_wght400_GRAD0_opsz48.svg",
   },
   {
     question: "Posso transformar mensagens em tarefas?",
     answer:
       "Sim. Encaminhe uma mensagem ou escreva uma ação, e ela vira uma tarefa organizada.",
+    icon: "/icons/done_all_48dp_FFFFFF_FILL0_wght400_GRAD0_opsz48.svg",
   },
   {
     question: "Funciona com áudio?",
     answer:
       "Sim. Você pode enviar um áudio e a gente transforma em ação.",
+    icon: "/icons/mic_48dp_FFFFFF_FILL0_wght400_GRAD0_opsz48.svg",
   },
-];
+] as const;
 
 const EASE_SMOOTH = "cubic-bezier(0.25, 0.46, 0.45, 0.94)";
 
@@ -210,11 +216,18 @@ export function UnderstandMoreSection() {
               >
                 <div className="relative z-[1] mb-3">
                   <Image
-                    src="/emojis/heart.svg"
+                    src={item.icon}
                     alt=""
-                    width={isActive ? 32 : 24}
-                    height={isActive ? 32 : 24}
-                    className={isActive ? "h-8 w-8" : "h-6 w-6"}
+                    width={isActive ? 40 : 28}
+                    height={isActive ? 40 : 28}
+                    className={`select-none transition-[width,height,filter] duration-[400ms] [transition-timing-function:cubic-bezier(0.25,0.46,0.45,0.94)] ${
+                      isActive ? "h-10 w-10" : "h-7 w-7"
+                    }`}
+                    style={{
+                      filter: isActive
+                        ? undefined
+                        : "brightness(0) saturate(100%) opacity(0.38)",
+                    }}
                     aria-hidden
                   />
                 </div>
