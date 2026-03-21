@@ -32,10 +32,10 @@ function FooterContent({ linkTone = "green" }: { linkTone?: "green" | "gray" }) 
 
   return (
     <div className="mx-auto w-full max-w-[1280px] px-[40px]">
-      <div className="grid gap-y-[40px] md:grid-cols-[1fr_auto] md:gap-x-8">
-        <div className="min-w-0">
+      <div className="grid gap-y-[40px] md:grid-cols-[1fr_auto] md:items-center md:gap-x-8">
+        <div className="flex min-w-0 items-center">
           <Image
-            src="/logoZappelin.svg"
+            src={`/icons/${encodeURIComponent("logo 6.svg")}`}
             alt="Zappelin"
             width={128}
             height={28}
@@ -43,7 +43,7 @@ function FooterContent({ linkTone = "green" }: { linkTone?: "green" | "gray" }) 
           />
         </div>
 
-        <div className="md:justify-self-end">
+        <div className="flex items-center md:justify-self-end">
           <div className="flex items-center gap-2 md:justify-end">
             <SocialIcon label="X" href="#">
               <Image src="/x%20twitter.svg" alt="" width={21} height={21} className="h-[21px] w-[21px]" />
