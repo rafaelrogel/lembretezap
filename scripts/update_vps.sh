@@ -88,8 +88,7 @@ if ! docker compose $COMPOSE_FILES build --no-cache; then
   echo "  ERRO: Falha ao construir imagens. Verifica os logs acima."
   exit 1
 fi
-# Usamos --force-recreate para garantir que alterações de volume ou prompts entrem em vigor
-if ! docker compose $COMPOSE_FILES up -d --force-recreate; then
+if ! docker compose $COMPOSE_FILES up -d; then
   echo ""
   echo "  ERRO: Falha ao iniciar os contentores."
   exit 1

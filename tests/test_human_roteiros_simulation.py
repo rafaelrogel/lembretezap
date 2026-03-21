@@ -22,10 +22,7 @@ from typing import Any
 
 import pytest
 
-<<<<<<< HEAD
 from unittest.mock import MagicMock, AsyncMock
-=======
->>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 from backend.command_parser import parse
 from backend.database import SessionLocal, init_db
 from backend.user_store import get_or_create_user
@@ -38,18 +35,13 @@ init_db()
 
 
 def create_test_context(chat_id: str) -> HandlerContext:
-<<<<<<< HEAD
     """Cria contexto de teste para um usuário com ferramentas mockadas."""
-=======
-    """Cria contexto de teste para um usuário."""
->>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
     db = SessionLocal()
     try:
         get_or_create_user(db, chat_id)
     finally:
         db.close()
     
-<<<<<<< HEAD
     # Mocks para ferramentas
     mock_list = MagicMock()
     mock_list.execute = AsyncMock(return_value="[MOCK] Sucesso na lista")
@@ -72,15 +64,6 @@ def create_test_context(chat_id: str) -> HandlerContext:
         list_tool=mock_list,
         event_tool=MagicMock(),
         session_manager=mock_session_manager,
-=======
-    return HandlerContext(
-        channel="test",
-        chat_id=chat_id,
-        cron_service=None,
-        cron_tool=None,
-        list_tool=None,
-        event_tool=None,
->>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
     )
 
 

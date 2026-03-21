@@ -660,11 +660,7 @@ class CronTool(Tool):
         elif remind_again_if_unconfirmed_seconds is not None:
              remind_again_max_count = 3 # cap follow-ups to avoid runaway chains
         else:
-<<<<<<< HEAD
              remind_again_max_count = 0 # no follow-ups unless explicitly set
-=======
-             remind_again_max_count = 3 # cap follow-ups to avoid runaway chains (was 10)
->>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 
         try:
             job = self._cron.add_job(
@@ -939,7 +935,6 @@ class CronTool(Tool):
                 return REMINDER_TYPE_SCHEDULED.get(_lang, "agendado")
             return j.schedule.kind
         lines = [
-<<<<<<< HEAD
             f"* {(j.payload.message or j.name)} ({_sched_label(j)}) [id: {j.id}]"
             for j in jobs
         ]
@@ -950,12 +945,6 @@ class CronTool(Tool):
             from backend.locale import CRON_RECURRING_FOOTER
             out += "\n\n" + CRON_RECURRING_FOOTER.get(_lang, CRON_RECURRING_FOOTER["en"])
         return out
-=======
-            f"\u2022 {(j.payload.message or j.name)} ({_sched_label(j)}) [id: {j.id}]"
-            for j in jobs
-        ]
-        return CRON_REMINDERS_HEADER.get(_lang, CRON_REMINDERS_HEADER["en"]) + "\n" + "\n".join(lines)
->>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
     
     def _remove_job(self, job_id: str | None) -> str:
         if not job_id:

@@ -689,11 +689,7 @@ def gateway(
                 pass
             metadata_job_id = job.id
             remind_sec = getattr(job.payload, "remind_again_if_unconfirmed_seconds", None) or 0
-<<<<<<< HEAD
             remind_max = min(getattr(job.payload, "remind_again_max_count", 0) or 0, 3)
-=======
-            remind_max = min(getattr(job.payload, "remind_again_max_count", 3) or 0, 3)
->>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
             if remind_sec and remind_max > 0 and ch == "whatsapp":
                 # Disable automatic rescheduling of the original job in service.py
                 # because we are manually adding a NEW follow-up job here.
@@ -722,15 +718,12 @@ def gateway(
                 metadata_job_id = follow_up.id
             elif remind_sec and remind_max <= 0 and ch == "whatsapp":
                 # Hard cap reached: auto-mark as done and notify user
-<<<<<<< HEAD
                 # Disable automatic rescheduling of the original job in service.py
                 try:
                     job.payload.has_deadline = False
                 except Exception:
                     pass
 
-=======
->>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
                 try:
                     from backend.locale import REMINDER_AUTO_COMPLETED
                     from backend.database import SessionLocal
@@ -745,7 +738,6 @@ def gateway(
                         db.close()
                     msg_text = (job.payload.message or job.name or "").strip()[:80]
                     auto_msg = REMINDER_AUTO_COMPLETED.get(lang, REMINDER_AUTO_COMPLETED["en"]).format(message=msg_text)
-<<<<<<< HEAD
                     # Set response to the auto-completion message to avoid duplicate delivery
                     response = auto_msg
                 except Exception as e:
@@ -757,20 +749,6 @@ def gateway(
                     content=response,
                     metadata={"job_id": metadata_job_id, "priority": "high"},
                 ))
-=======
-                    await bus.publish_outbound(OutboundMessage(
-                        channel=ch, chat_id=to, content=auto_msg,
-                        metadata={"priority": "low"},
-                    ))
-                except Exception as e:
-                    logger.debug(f"Auto-complete reminder failed: {e}")
-            await bus.publish_outbound(OutboundMessage(
-                channel=ch,
-                chat_id=to,
-                content=response or "",
-                metadata={"job_id": metadata_job_id, "priority": "high"},
-            ))
->>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 
             # Se houver um draft sugerido (aniversário, felicitações, etc), enviar como mensagem SEPARADA
             # para o cliente poder encaminhar com 1 clique sem ter de editar o texto.
