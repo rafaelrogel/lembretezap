@@ -41,13 +41,23 @@ RE_REMOVE_TEXT = re.compile(rf"^/(?:{REMOVE_ALIASES_STR})\s+(.+)$", re.I)
 RE_HORA = re.compile(r"^/(?:hora|time)\s*$", re.I)
 RE_DATA = re.compile(r"^/(?:data|date|fecha)\s*$", re.I)
 
-RE_NL_LIST_ACTION = re.compile(
-    rf"^(?:{VERBS_MOSTRE_STR}|{VERBS_CRIA_STR}|me\s+d)\S*\s+"
+# Unified NL patterns
+RE_NL_LIST_SHOW = re.compile(
+    rf"^(?:{VERBS_MOSTRE_STR}|show\s+me|me\s+d)\S*\s+"
+    rf"(?:(?:{ARTICLES_STR})\s+)?(?:(?:{POSSESSIVES_STR}|ma|mon)\s+)?(?:{LIST_WORDS_STR})"
+    rf"(?:\s+(?:(?:{PREPOSITIONS_OF_STR})\S*\s+)?({ALL_CATEGORIES_STR}|[\"']?[^\"'\r\n]+?[\"']?))?"
+    rf"(?:\s+(.+))?\s*$",
+    re.I | re.UNICODE,
+)
+
+RE_NL_LIST_ADD = re.compile(
+    rf"^(?:{VERBS_CRIA_STR}|add|adicione|adiciona|a[ñn]adir)\S*\s+"
     rf"(?:(?:{ARTICLES_STR})\s+)?(?:(?:{POSSESSIVES_STR}|ma|mon)\s+)?(?:{LIST_WORDS_STR})\s+"
     rf"(?:(?:{PREPOSITIONS_OF_STR})\S*\s+)?"
     rf"([\"']?[^\"'\r\n]+?[\"']?)(?:\s+(.+))?$",
     re.I | re.UNICODE,
 )
+
 RE_NL_LISTA_SOZINHA = re.compile(rf"^(?:{'|'.join(pt.LISTA_SOZINHA_WORDS)})\s*$", re.I)
 
 # Shortcuts
@@ -70,13 +80,6 @@ RE_NL_ADD_LISTA_CATEGORIA = re.compile(
     rf"^(?:add|adicione|adiciona|a[ñn]adir)\s+(?:listas?\s+)?({ALL_CATEGORIES_STR})\s+([^\r\n]+)$",
     re.I,
 )
-RE_NL_MOSTRE_LISTA_DE = re.compile(
-    rf"^(?:{VERBS_MOSTRE_STR}|show\s+me)\s+"
-    rf"(?:uma\s+|una\s+|a\s+|la\s+)?(?:{LIST_WORDS_STR})\s+"
-    rf"(?:(?:{PREPOSITIONS_OF_STR})\s+)?"
-    rf"[\"']?([^\"'\r\n]+)[\"']?(?:\s+(.+))?$",
-    re.I,
-)
 RE_NL_POR_LISTA = re.compile(
     rf"^(?:{'|'.join(pt.POR_LISTA_VERBS)})\s+(.+?)\s+(?:{'|'.join(pt.NA_LISTA_WORDS)})\s+(?:lista|listas)\s*$",
     re.I,
@@ -95,6 +98,14 @@ RE_NL_HOJE_TENHO_DE = re.compile(
     re.I,
 )
 RE_NL_LEMBRA_COMPRAR = re.compile(rf"^{pt.LEMBRA_COMPRAR_FRAGMENT}\s+([^\r\n]+)$", re.I)
+RE_HOJE = re.compile(rf"^/(?:hoje|hoy|today)\s*$", re.I)
+RE_SEMANA = re.compile(rf"^/(?:semana|week)\s*$", re.I)
+RE_AGENDA = re.compile(rf"^/(?:agenda|schedule|calendario|calendário)\s*(.*)$", re.I)
+RE_NL_REMIND_ME = re.compile(
+    rf"^(?:me\s+)?(?:lembra|remind|recordar|avisa)\S*\s+(?:de\s+)?(.+)$",
+    re.I | re.UNICODE
+)
+RE_NL_GENERIC_LEMBRETE = re.compile(rf"^(?:lembrete|reminder|recordatorio)\s*:\s*(.+)$", re.I)
 RE_NL_FILME_LIVRO_VER = re.compile(rf"^{pt.FILME_LIVRO_VER_FRAGMENT}([^\r\n]+)$", re.I)
 
 def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
@@ -174,7 +185,24 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     if RE_HORA.match(text): return {"type": "hora"}
     if RE_DATA.match(text): return {"type": "data"}
 
-    m = RE_NL_LIST_ACTION.match(text)
+    m = RE_NL_LIST_SHOW.match(text)
+    if m:
+        _cat_raw = m.group(1)
+        if not _cat_raw:
+            return {"type": "list_show", "list_name": None}
+        _name = _cat_raw.strip().lower()
+        if _name in _REMINDER_AGENDA_WORDS_SHOW:
+            # "mostra minha agenda" -> let handle_agenda handle it unless we add it here
+            return {"type": "agenda"}
+        list_name = _CATEGORY_TO_LIST.get(_name, _name)
+        return {"type": "list_show", "list_name": list_name}
+
+    if RE_HOJE.match(text): return {"type": "hoje"}
+    if RE_SEMANA.match(text): return {"type": "semana"}
+    m = RE_AGENDA.match(text)
+    if m: return {"type": "agenda", "query": m.group(1).strip()}
+
+    m = RE_NL_LIST_ADD.match(text)
     if m:
         _name = m.group(1).strip().lower()
         if _name in _REMINDER_AGENDA_WORDS_SHOW:
@@ -191,25 +219,25 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         return {"type": "list_show", "list_name": name if name != "lista" else None}
 
     m = RE_FILME.match(text)
-    if m: return {"type": "list_add", "list_name": "filmes", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
     m = RE_LIVRO.match(text)
-    if m: return {"type": "list_add", "list_name": "livros", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
     m = re.match(r"^/(?:musica|m[uú]sica)s?\s+(.+)$", text, re.I)
-    if m: return {"type": "list_add", "list_name": "músicas", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "musica", "item": m.group(1).strip()}
     m = RE_SERIE.match(text)
-    if m: return {"type": "list_add", "list_name": "séries", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "serie", "item": m.group(1).strip()}
     m = RE_JOGO.match(text)
-    if m: return {"type": "list_add", "list_name": "jogos", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "jogo", "item": m.group(1).strip()}
     m = RE_PELICULA.match(text)
-    if m: return {"type": "list_add", "list_name": "filmes", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
     m = RE_LIBRO.match(text)
-    if m: return {"type": "list_add", "list_name": "livros", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
     m = RE_MOVIE.match(text)
-    if m: return {"type": "list_add", "list_name": "filmes", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
     m = RE_BOOK.match(text)
-    if m: return {"type": "list_add", "list_name": "livros", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
     m = RE_RECEITA.match(text)
-    if m: return {"type": "list_add", "list_name": "receitas", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "receita", "item": m.group(1).strip()}
 
     m = RE_NL_ADD_LISTA_CATEGORIA.match(text)
     if m:
@@ -217,13 +245,6 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         list_name = _CATEGORY_TO_LIST.get(cat, cat)
         item = m.group(2).strip()
         if item: return {"type": "list_add", "list_name": list_name, "item": item}
-
-    m = RE_NL_MOSTRE_LISTA_DE.match(text)
-    if m:
-        list_name = m.group(1).strip().lower()
-        if list_name in _REMINDER_AGENDA_WORDS_SHOW: return None
-        list_name = _CATEGORY_TO_LIST.get(list_name, list_name)
-        return {"type": "list_show", "list_name": list_name}
 
     m = RE_NL_POR_LISTA.match(text)
     if m:
@@ -285,5 +306,13 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         if not items: return None
         if len(items) == 1: return {"type": "list_add", "list_name": "mercado", "item": items[0]}
         return {"type": "list_add", "list_name": "mercado", "items": items}
+
+    m = RE_NL_REMIND_ME.match(text)
+    if m:
+        return {"type": "lembrete", "msg": m.group(1).strip()}
+
+    m = RE_NL_GENERIC_LEMBRETE.match(text)
+    if m:
+        return {"type": "lembrete", "msg": m.group(1).strip()}
 
     return None

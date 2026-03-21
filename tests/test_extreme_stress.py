@@ -26,6 +26,13 @@ if os.path.dirname(os.path.dirname(os.path.abspath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+@pytest.fixture(autouse=True)
+def mock_rate_limit(monkeypatch):
+    import backend.rate_limit
+    monkeypatch.setattr(backend.rate_limit, "is_rate_limited", lambda *a, **k: False)
+    monkeypatch.setattr(backend.rate_limit, "is_rest_rate_limited", lambda *a, **k: False)
+
+
 # =============================================================================
 # FIXTURES E HELPERS
 # =============================================================================

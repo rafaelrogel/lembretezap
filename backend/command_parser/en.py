@@ -33,12 +33,12 @@ LISTA_DOIS_PONTOS_FRAGMENT = r"(?:add|put)\s+(?:to\s+(?:the\s+)?|on\s+(?:the\s+)
 
 # Category to list mapping
 CATEGORY_TO_LIST = {
-    "movie": "filmes", "movies": "filmes", "film": "filmes", "films": "filmes",
-    "book": "livros", "books": "livros",
-    "music": "músicas", "song": "músicas", "songs": "músicas",
-    "recipe": "receitas", "recipes": "receitas",
-    "game": "jogos", "games": "jogos",
-    "note": "notas", "notes": "notas",
+    "movie": "filme", "movies": "filme", "film": "filme", "films": "filme",
+    "book": "livro", "books": "livro",
+    "music": "musica", "song": "musica", "songs": "musica",
+    "recipe": "receita", "recipes": "receita",
+    "game": "jogo", "games": "jogo",
+    "note": "nota", "notes": "nota",
     "shopping": "mercado", "grocery": "mercado", "groceries": "mercado", "market": "mercado",
 }
 

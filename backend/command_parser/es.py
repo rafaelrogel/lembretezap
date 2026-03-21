@@ -27,11 +27,11 @@ LISTA_DOIS_PONTOS_FRAGMENT = r"(?:pon|pone|a[ñn]ade|a[ñn]adir|agrega|agregar)\
 
 # Category to list mapping
 CATEGORY_TO_LIST = {
-    "película": "filmes", "películas": "filmes", "pelicula": "filmes", "peliculas": "filmes",
-    "libro": "filmes", "libros": "livros", # Wait, libro -> filmes? No, original had it? Let me check.
-    "juego": "jogos", "juegos": "jogos",
-    "canción": "músicas", "canciones": "músicas",
-    "receta": "receitas", "recetas": "receitas",
+    "película": "filme", "películas": "filme", "pelicula": "filme", "peliculas": "filme",
+    "libro": "livro", "libros": "livro",
+    "juego": "jogo", "juegos": "jogo",
+    "canción": "musica", "canciones": "musica",
+    "receta": "receita", "recetas": "receita",
 }
 
 REMINDER_AGENDA_WORDS = {

@@ -749,6 +749,8 @@ async def handle_lembrete(ctx: HandlerContext, content: str) -> str | None:
             if ask_msg:
                 # Iniciar fluxo stateful
                 from backend.reminder_flow import FLOW_KEY, STAGE_NEED_WHEN
+                session_key = f"{ctx.channel}:{ctx.chat_id}"
+                session = ctx.session_manager.get_or_create(session_key)
                 session.metadata[FLOW_KEY] = {
                     "stage": STAGE_NEED_WHEN,
                     "content": msg_text or content,
