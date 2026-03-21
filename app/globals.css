@@ -23,10 +23,10 @@
   --space-20: 5rem;     /* 80px */
   --space-24: 6rem;     /* 96px */
 
-  /* Semantic spacing – 80px entre seções (40px + 40px com py-page-y) */
+  /* Semantic spacing – premium breathing room */
   --spacing-page-x: var(--space-8);
-  --spacing-page-y: 2.5rem; /* 40px – espaço entre seções = 80px */
-  --spacing-section: 2.5rem; /* 40px */
+  --spacing-page-y: var(--space-24);
+  --spacing-section: var(--space-24);
   --spacing-block: var(--space-8);
   --spacing-element: var(--space-3);
 
@@ -129,34 +129,6 @@
   }
 }
 
-.day-pill {
-  opacity: 0.6;
-}
-
-@keyframes day-pill-activate {
-  0% {
-    opacity: 0.6;
-  }
-  40% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.6;
-  }
-}
-
-@keyframes day-pill-activate-last {
-  0% {
-    opacity: 0.6;
-  }
-  40% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
 @keyframes chat-bubble-grey-enter {
   from {
     opacity: 0;
@@ -211,41 +183,6 @@
 .chat-typing-dot:nth-child(2) { animation-delay: 0.15s; }
 .chat-typing-dot:nth-child(3) { animation-delay: 0.3s; }
 
-/* Ondinha de áudio no mock hero */
-@keyframes hero-audio-bar {
-  0%, 100% { transform: scaleY(0.4); }
-  50% { transform: scaleY(1); }
-}
-.hero-audio-bar {
-  animation: hero-audio-bar 0.8s ease-in-out infinite;
-}
-.hero-audio-bar:nth-child(1) { animation-delay: 0s; }
-.hero-audio-bar:nth-child(2) { animation-delay: 0.1s; }
-.hero-audio-bar:nth-child(3) { animation-delay: 0.2s; }
-.hero-audio-bar:nth-child(4) { animation-delay: 0.15s; }
-.hero-audio-bar:nth-child(5) { animation-delay: 0.05s; }
-.hero-audio-bar:nth-child(6) { animation-delay: 0.25s; }
-.hero-audio-bar:nth-child(7) { animation-delay: 0.18s; }
-.hero-audio-bar:nth-child(8) { animation-delay: 0.08s; }
-
-/* Mock 5 hero: inicia após o telefone (0.7s); ordem 4 → 3 → 2 → 1; duração +0.5s */
-.hero-chat-mock .hero-bubble-4.chat-sent-bubble-enter {
-  animation: chat-sent-block-enter 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.7s both;
-}
-.hero-chat-mock .hero-bubble-4 .chat-avatar-enter {
-  animation: chat-sent-block-enter 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.7s both;
-}
-.hero-chat-mock .hero-bubble-3.chat-bubble-grey-enter {
-  animation: chat-bubble-grey-enter 1s cubic-bezier(0.22, 1, 0.36, 1) 1.1s both;
-}
-.hero-chat-mock .hero-bubble-2.chat-sent-bubble-enter,
-.hero-chat-mock .hero-bubble-2 .chat-avatar-enter {
-  animation: chat-sent-block-enter 1.5s cubic-bezier(0.22, 1, 0.36, 1) 1.5s both;
-}
-.hero-chat-mock .hero-bubble-1.chat-bubble-grey-enter {
-  animation: chat-bubble-grey-enter 1s cubic-bezier(0.22, 1, 0.36, 1) 1.9s both;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .chat-avatar-enter,
   .chat-sent-bubble-enter,
@@ -257,10 +194,6 @@
   .chat-typing-dot {
     animation: none;
     opacity: 0.7;
-  }
-  .hero-audio-bar {
-    animation: none;
-    transform: scaleY(0.7);
   }
 }
 
@@ -322,23 +255,6 @@
     }
   }
 
-  /* Features section cards – entrance suave (fade + slide) */
-  @media (prefers-reduced-motion: no-preference) {
-    .animate-features-card-in {
-      animation: features-card-in 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-    }
-  }
-  @keyframes features-card-in {
-    from {
-      opacity: 0;
-      transform: translateY(16px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
   /* Hero rotating word – subtle fade/slide */
   @media (prefers-reduced-motion: no-preference) {
     .animate-hero-word {
@@ -371,84 +287,6 @@
     100% {
       opacity: 0;
     }
-  }
-}
-
-
-/* Features cards – hover +40px on card, −40px on neighbor; group width unchanged; Apple-like transition */
-.features-row {
-  width: 100%;
-}
-@media (min-width: 768px) {
-  .features-row-1 {
-    display: flex;
-    gap: 16px;
-  }
-  .features-row-2 {
-    display: flex;
-    gap: 16px;
-  }
-  .features-row .features-card {
-    flex: 0 1 auto;
-    min-width: 0;
-    transition:
-      flex 0.42s cubic-bezier(0.25, 0.1, 0.25, 1),
-      box-shadow 0.42s cubic-bezier(0.25, 0.1, 0.25, 1);
-  }
-  /* Card 1 = largura de card 3 + gap + card 4 (alinhado à linha de baixo) */
-  .features-row-1 .features-card-1 {
-    flex: 0 1 calc((100% - 32px) * 2 / 3 + 16px);
-  }
-  .features-row-1 .features-card-2 {
-    flex: 0 1 calc((100% - 32px) / 3);
-  }
-  .features-row-1:has(.features-card-1:hover) .features-card-1 {
-    flex: 0 1 calc((100% - 32px) * 2 / 3 + 40px);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
-  }
-  .features-row-1:has(.features-card-1:hover) .features-card-2 {
-    flex: 0 1 calc((100% - 32px) / 3 - 24px);
-  }
-  .features-row-1:has(.features-card-2:hover) .features-card-1 {
-    flex: 0 1 calc((100% - 32px) * 2 / 3 - 8px);
-  }
-  .features-row-1:has(.features-card-2:hover) .features-card-2 {
-    flex: 0 1 calc((100% - 32px) / 3 + 24px);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
-  }
-  .features-row-2 .features-card-3,
-  .features-row-2 .features-card-4,
-  .features-row-2 .features-card-5 {
-    flex: 0 1 calc((100% - 32px) / 3);
-  }
-  .features-row-2:has(.features-card-3:hover) .features-card-3 {
-    flex: 0 1 calc((100% - 32px) / 3 + 24px);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
-  }
-  .features-row-2:has(.features-card-3:hover) .features-card-4 {
-    flex: 0 1 calc((100% - 32px) / 3 - 24px);
-  }
-  .features-row-2:has(.features-card-4:hover) .features-card-3 {
-    flex: 0 1 calc((100% - 32px) / 3 - 24px);
-  }
-  .features-row-2:has(.features-card-4:hover) .features-card-4 {
-    flex: 0 1 calc((100% - 32px) / 3 + 24px);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
-  }
-  .features-row-2:has(.features-card-4:hover) .features-card-5 {
-    flex: 0 1 calc((100% - 32px) / 3);
-  }
-  .features-row-2:has(.features-card-5:hover) .features-card-4 {
-    flex: 0 1 calc((100% - 32px) / 3 - 24px);
-  }
-  .features-row-2:has(.features-card-5:hover) .features-card-5 {
-    flex: 0 1 calc((100% - 32px) / 3 + 24px);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
-  }
-}
-@media (min-width: 768px) and (prefers-reduced-motion: reduce) {
-  .features-row .features-card {
-    transition: none;
   }
 }
 

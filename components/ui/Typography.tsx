@@ -22,8 +22,7 @@ type TextElement =
   | "h6"
   | "p"
   | "span"
-  | "label"
-  | "blockquote";
+  | "label";
 
 export interface TypographyProps {
   children: ReactNode;

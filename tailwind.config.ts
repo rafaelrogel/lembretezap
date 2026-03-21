@@ -8,12 +8,6 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      screens: {
-        // <= 1079px
-        mobile: { max: "1079px" },
-        // >= 1080px
-        desktop: "1080px",
-      },
       colors: {
         brand: {
           50: "var(--color-brand-50)",

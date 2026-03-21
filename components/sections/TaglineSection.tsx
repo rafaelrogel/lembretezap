@@ -42,6 +42,10 @@ export function TaglineSection() {
           setSectionVisible(true);
           setSectionPlayKey((k) => k + 1);
         }
+        if (!isVisible) {
+          wasVisibleRef.current = false;
+          setSectionVisible(false);
+        }
       },
       { threshold: 0.25, rootMargin: "0px" }
     );
@@ -102,11 +106,7 @@ export function TaglineSection() {
   });
 
   return (
-    <section
-      ref={sectionRef}
-      className="py-page-y"
-      aria-labelledby="tagline-heading"
-    >
+    <section ref={sectionRef} className="py-page-y" aria-labelledby="tagline-heading">
       <Container as="div" size="lg" className="text-center">
         <div className="mx-auto max-w-4xl">
           {/* Linha 1: acima da mensagem – esquerda mock 1, direita mock 3 */}
@@ -123,7 +123,7 @@ export function TaglineSection() {
             id="tagline-heading"
             variant="display-sm"
             as="h1"
-            className={`${sectionVisible ? "hero-entrance " : ""}-mb-4 mx-auto max-w-3xl`}
+            className="-mb-4 mx-auto max-w-3xl"
             style={{
               color: "var(--Text-900, #212121)",
               textAlign: "center",
@@ -132,7 +132,6 @@ export function TaglineSection() {
               fontStyle: "normal",
               fontWeight: 700,
               lineHeight: "120%",
-              ...(sectionVisible && { animationDelay: "0.6s" }),
             }}
           >
             <WaveLettersText

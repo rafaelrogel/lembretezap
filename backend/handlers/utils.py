@@ -44,11 +44,7 @@ async def handle_start(ctx: "HandlerContext", content: str) -> str | None:
         return None
     return (
         "👋 Olá! Sou o Zappelin: lembretes, listas e eventos.\n\n"
-<<<<<<< HEAD
         "📌 Comandos: /lembrete, /list (filmes, livros, músicas, séries, receitas, notas, mercado…).\n"
-=======
-        "📌 Comandos: /lembrete, /list (filme, livro, musica, receita, notas, compras…).\n"
->>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
         "🌍 Timezone: /tz Cidade  |  Idioma: /lang pt-pt ou pt-br ou es ou en.\n\n"
         "Digite /help para ver tudo — ou escreve/envia áudio para conversar. 😊"
     )
@@ -82,7 +78,6 @@ async def handle_help(ctx: "HandlerContext", content: str) -> str | list[str] | 
 
 async def handle_stop(ctx: "HandlerContext", content: str) -> str | None:
     """/stop: opt-out. Aceita NL: parar, pausar, stop."""
-<<<<<<< HEAD
     content = _normalize_nl_to_command(content)
     if not content.strip().lower().startswith("/stop"):
         return None
@@ -139,12 +134,3 @@ async def handle_resume(ctx: "HandlerContext", content: str) -> str | None:
             return None # Deixar handle_start processar se for /start
     finally:
         db.close()
-=======
-    from backend.handler_context import _reply_confirm_prompt
-    content = _normalize_nl_to_command(content)
-    if not content.strip().lower().startswith("/stop"):
-        return None
-    return _reply_confirm_prompt(
-        "🔕 Quer pausar as mensagens? Vais deixar de receber lembretes e notificações."
-    )
->>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
