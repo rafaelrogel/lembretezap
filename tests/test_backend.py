@@ -193,17 +193,17 @@ def test_command_parser():
     i = parse("/feito mercado 2")
     assert i == {"type": "feito", "list_name": "mercado", "item_id": 2}
 
-    # /filme, /livro, /musica, /receita → list_add (tudo dentro de /list)
+    # /filme, /livro, /musica, /receita -> list_add (tudo dentro de /list)
     i = parse("/filme Matrix")
-    assert i == {"type": "list_add", "list_name": "filme", "item": "Matrix"}
+    assert i == {"type": "list_add", "list_name": "filmes", "item": "Matrix"}
     i = parse("/filme O Senhor dos Anéis")
-    assert i is not None and i["type"] == "list_add" and i["list_name"] == "filme" and "Senhor" in i["item"]
+    assert i is not None and i["type"] == "list_add" and i["list_name"] == "filmes" and "Senhor" in i["item"]
     i = parse("/list filme Inception")
-    assert i == {"type": "list_add", "list_name": "filme", "item": "Inception"}
+    assert i == {"type": "list_add", "list_name": "filmes", "item": "Inception"}
     i = parse("/list receita Bolo de chocolate")
-    assert i is not None and i["type"] == "list_add" and i["list_name"] == "receita"
+    assert i is not None and i["type"] == "list_add" and i["list_name"] == "receitas"
     i = parse("/receita Torta de maçã")
-    assert i == {"type": "list_add", "list_name": "receita", "item": "Torta de maçã"}
+    assert i == {"type": "list_add", "list_name": "receitas", "item": "Torta de maçã"}
 
     # Não comando
     assert parse("me lembre amanhã") is None

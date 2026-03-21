@@ -1912,6 +1912,45 @@ class AgentLoop:
         except Exception as e:
             logger.debug(f"Contextual reasoning failed: {e}")
 
+        # Sensitive Data Filter (LGPD/GDPR/Credentials)
+        try:
+            from backend.sensitive_data_filter import check_sensitive_data, get_refusal_message
+            import json
+            from backend.database import SessionLocal
+            from backend.models_db import AuditLog
+
+            # Use same provider/model as scope filter
+            scope_p = self.scope_provider if self.scope_provider else self.provider
+            sen_res = await check_sensitive_data(msg.content, provider=scope_p, model=self.scope_model, user_language=user_lang)
+            
+            if sen_res.blocked:
+                try:
+                    db = SessionLocal()
+                    user_id = None
+                    from backend.user_store import get_user_by_chat_id
+                    u = get_user_by_chat_id(db, msg.chat_id, msg.phone_for_locale)
+                    if u:
+                        user_id = u.id
+                    
+                    log = AuditLog(
+                        user_id=user_id,
+                        action="SENSITIVE_DATA_BLOCKED",
+                        resource=sen_res.category,
+                        payload_json=json.dumps({"stage": sen_res.stage})
+                    )
+                    db.add(log)
+                    db.commit()
+                    db.close()
+                except Exception as ex:
+                    logger.warning(f"Failed to log sensitive data block: {ex}")
+
+                refusal = get_refusal_message(sen_res.category, sen_res.detected_language)
+                return OutboundMessage(
+                    channel=msg.channel, chat_id=msg.chat_id, content=refusal, metadata=dict(msg.metadata or {}),
+                )
+        except Exception as e:
+            logger.warning(f"Sensitive data filter failed: {e}")
+
         # Scope filter: LLM SIM/NAO (fallback: regex). Follow-ups: se a última mensagem do user estava no escopo, considerar esta também.
         from backend.scope_filter import is_in_scope_fast, is_in_scope_llm, is_follow_up_llm
         session = self.sessions.get_or_create(msg.session_key)
