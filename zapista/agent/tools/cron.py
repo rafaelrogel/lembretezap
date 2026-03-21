@@ -200,7 +200,7 @@ class CronTool(Tool):
         logger.info(f"CronTool.execute inputs: action={action}, msg={message}, time_input={time_input}, target={target_at_iso}, in_seconds={in_seconds}, every={every_seconds}, cron={cron_expr}, chat_id={self._chat_id}, channel={self._channel}")
 
         if action == "list":
-            return self._list_jobs()
+            return self._list_jobs(recurring_only=kwargs.get("recurring_only", False))
         if action == "remove":
             return self._remove_job(job_id)
         if action == "remove_all":
@@ -906,7 +906,7 @@ class CronTool(Tool):
         }
         return msgs.get(_lang, msgs["en"])
 
-    def _list_jobs(self) -> str:
+    def _list_jobs(self, recurring_only: bool = False) -> str:
         """Lista apenas os lembretes do usuário atual (payload.to == chat_id). Isolamento por conversa.
         Nudge proativo, avisos e prazos internos não aparecem — apenas lembretes principais."""
         all_jobs = self._cron.list_jobs()
@@ -918,7 +918,10 @@ class CronTool(Tool):
             and not getattr(j.payload, "deadline_check_for_job_id", None)
             and not getattr(j.payload, "deadline_main_job_id", None)
         ]
-        from backend.locale import CRON_NO_REMINDERS, CRON_REMINDERS_HEADER
+        if recurring_only:
+            jobs = [j for j in jobs if j.schedule.kind in ("every", "cron")]
+
+        from backend.locale import CRON_NO_REMINDERS, CRON_REMINDERS_HEADER, CRON_RECURRING_HEADER
         _lang = self._get_user_lang()
         if not jobs:
             return CRON_NO_REMINDERS.get(_lang, CRON_NO_REMINDERS["en"])
@@ -932,10 +935,16 @@ class CronTool(Tool):
                 return REMINDER_TYPE_SCHEDULED.get(_lang, "agendado")
             return j.schedule.kind
         lines = [
-            f"\u2022 {(j.payload.message or j.name)} ({_sched_label(j)}) [id: {j.id}]"
+            f"* {(j.payload.message or j.name)} ({_sched_label(j)}) [id: {j.id}]"
             for j in jobs
         ]
-        return CRON_REMINDERS_HEADER.get(_lang, CRON_REMINDERS_HEADER["en"]) + "\n" + "\n".join(lines)
+        header_dict = CRON_RECURRING_HEADER if recurring_only else CRON_REMINDERS_HEADER
+        header = header_dict.get(_lang, header_dict["en"])
+        out = header + "\n" + "\n".join(lines)
+        if recurring_only:
+            from backend.locale import CRON_RECURRING_FOOTER
+            out += "\n\n" + CRON_RECURRING_FOOTER.get(_lang, CRON_RECURRING_FOOTER["en"])
+        return out
     
     def _remove_job(self, job_id: str | None) -> str:
         if not job_id:

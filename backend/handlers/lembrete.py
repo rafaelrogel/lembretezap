@@ -689,10 +689,16 @@ async def handle_recorrente(ctx: HandlerContext, content: str) -> str | None:
     from backend.command_parser import parse
     from backend.user_store import get_user_timezone
     from backend.database import SessionLocal
-    m = re.match(r"^/recorrente\s+(.+)$", content.strip(), re.I)
+    m = re.match(r"^/recorrente(?:\s+(.+))?$", content.strip(), re.I)
     if not m:
         return None
-    rest = m.group(1).strip()
+    
+    rest = (m.group(1) or "").strip()
+    if not rest:
+        # Lista lembretes recorrentes
+        ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
+        return await ctx.cron_tool.execute(action="list", recurring_only=True)
+
     tz_iana = "UTC"
     try:
         db = SessionLocal()

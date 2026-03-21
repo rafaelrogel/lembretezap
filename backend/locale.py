@@ -1126,6 +1126,20 @@ CRON_REMINDERS_HEADER: dict[LangCode, str] = {
     "en": "Scheduled reminders:",
 }
 
+CRON_RECURRING_HEADER: dict[LangCode, str] = {
+    "pt-PT": "📅 *Lembretes recorrentes*",
+    "pt-BR": "📅 *Lembretes recorrentes*",
+    "es": "📅 *Recordatorios recurrentes*",
+    "en": "📅 *Recurring reminders*",
+}
+
+CRON_RECURRING_FOOTER: dict[LangCode, str] = {
+    "pt-PT": "Quer remover algum? Diga o ID (ex: REM01) ou \"todos\".",
+    "pt-BR": "Quer remover algum? Diga o ID (ex: REM01) ou \"todos\".",
+    "es": "¿Quieres eliminar alguno? Di el ID (ej: REM01) o \"todos\".",
+    "en": "Want to remove any? Tell me the ID (e.g. REM01) or \"all\".",
+}
+
 CRON_REMOVED: dict[LangCode, str] = {
     "pt-PT": "Removido: {job_id}",
     "pt-BR": "Removido: {job_id}",
