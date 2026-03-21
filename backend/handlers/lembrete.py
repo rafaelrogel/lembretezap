@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from loguru import logger
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -481,7 +482,7 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
         from backend.database import SessionLocal
         from backend.user_store import get_or_create_user
 
-        if has_full_event_datetime(text):
+        if has_full_event_datetime(text) and not _looks_like_new_reminder_request(text):
             parsed = parse_full_event_datetime(text, tz_iana)
             if parsed:
                 content_ev, in_sec, data_at = parsed
@@ -584,16 +585,12 @@ def _looks_like_new_reminder_request(text: str) -> bool:
     if t.startswith("/") or has_recurrence_indicator(text):
         return True
     
-    from backend.pending_confirmation import looks_like_time_response
-    if looks_like_time_response(t):
-        return False
-    
-    from backend.recurring_event_flow import is_scheduled_recurring_event
-    if is_scheduled_recurring_event(text):
+    from backend.reminder_flow import has_reminder_intent
+    if has_reminder_intent(t):
         return True
 
-    from backend.reminder_flow import has_reminder_intent
-    if not has_reminder_intent(t):
+    from backend.pending_confirmation import looks_like_time_response
+    if looks_like_time_response(t):
         return False
     # At least 15 chars suggests a full sentence, not just "me avisa" or "2h"
     if len(t) < 15:
