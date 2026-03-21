@@ -101,63 +101,55 @@ class ListTool(Tool):
                     db.commit()
 
             if action == "add":
-                list_clean = self._normalize_list_name(sanitize_string(list_name or "", MAX_LIST_NAME_LEN))
-                # Fallback to last_list_name if none provided or it's a connector
+                list_name_requested = list_name or ""
+                list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name_requested)
+                
                 if not list_clean and user.last_list_name:
                     list_clean = user.last_list_name
 
-                # Receitas e conteúdo longo: até MAX_LIST_ITEM_TEXT_LEN, com newlines
                 item_clean = sanitize_string(item_text or "", MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
                 corrected = await suggest_correction(
-                    list_clean, item_clean,
+                    list_clean or list_name_requested or "mercado", item_clean,
                     self._scope_provider, self._scope_model,
                     max_len=MAX_LIST_ITEM_TEXT_LEN,
                 )
                 if corrected:
                     item_clean = sanitize_string(corrected, MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
                 
-                result = self._add(db, user.id, list_clean, item_clean, no_split=no_split)
-                
-                # Update last_list_name based on resolved list_clean (might have been "ai" -> "filme")
+                result = self._add(db, user.id, list_clean or list_name_requested or "mercado", item_clean, no_split=no_split)
+                return result
+
+            if action == "list":
+                list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
+                res = self._list(db, user.id, list_clean or list_name)
                 if list_clean:
                     user.last_list_name = list_clean
                     db.commit()
-                return result
+                return res
+            
+            if action == "remove":
+                list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
+                res = self._remove(db, user.id, list_clean or list_name, item_id)
+                return res
+
+            if action == "feito":
+                list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
+                if not list_clean and item_id is not None:
+                    list_clean = self._resolve_list_by_item_id(db, user.id, item_id)
+                res = self._feito(db, user.id, list_clean or list_name, item_id)
+                return res
+
+            if action == "delete_list":
+                list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
+                return self._delete_list(db, user.id, list_clean or list_name)
 
             if action == "habitual":
-                return await self._habitual(db, user.id, list_name or "")
-            if action == "list":
-                res = self._list(db, user.id, list_name)
-                # If viewing a specific list, update last_list_name
-                ln_norm = self._normalize_list_name(list_name)
-                if ln_norm:
-                    user.last_list_name = ln_norm
-                    db.commit()
-                return res
-            if action == "remove":
-                res = self._remove(db, user.id, list_name, item_id)
-                ln_norm = self._normalize_list_name(list_name)
-                if ln_norm:
-                    user.last_list_name = ln_norm
-                    db.commit()
-                return res
-            if action == "delete_list":
-                return self._delete_list(db, user.id, list_name)
-            if action == "feito":
-                if (not list_name or not list_name.strip()) and item_id is not None:
-                    list_name = self._resolve_list_by_item_id(db, user.id, item_id)
-                    if not list_name:
-                        from backend.locale import LIST_ITEM_NOT_FOUND_GLOBAL
-                        lang = self._get_lang()
-                        return LIST_ITEM_NOT_FOUND_GLOBAL.get(lang, LIST_ITEM_NOT_FOUND_GLOBAL["en"]).format(item_id=item_id)
-                res = self._feito(db, user.id, list_name, item_id)
-                ln_norm = self._normalize_list_name(list_name)
-                if ln_norm:
-                    user.last_list_name = ln_norm
-                    db.commit()
-                return res
+                list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
+                return await self._habitual(db, user.id, list_clean or list_name or "")
+
             if action == "shuffle":
-                return self._shuffle(db, user.id, list_name or "")
+                list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
+                return self._shuffle(db, user.id, list_clean or list_name or "")
             return f"Unknown action: {action}"
         except Exception as e:
             try:
@@ -179,22 +171,29 @@ class ListTool(Tool):
     @staticmethod
     def _split_items(item_text: str) -> list[str]:
         """
-        Divide texto em múltiplos itens quando separados por vírgula ou ' e ' (PT/ES) ou ' and ' (EN) ou ' y ' (ES).
-        Só divide se todas as partes forem curtas (< 200 chars) — evita dividir
-        títulos longos de livros/filmes que contenham vírgulas intercaladas.
-        Ex.: '[item A], [item B] e [item C]' -> ['[item A]', '[item B]', '[item C]']
-             'Paulo Coelho - O Alquimista' -> ['Paulo Coelho - O Alquimista'] (não divide)
+        Divide texto em múltiplos itens quando separados por vírgula, nova linha ou conectores.
         """
         import re
         text = item_text.strip()
-        # Substituir conectores por vírgula para uniformizar (PT: " e ", ES: " y ", EN: " and ")
+        # Primeiro dividir por novas linhas (user colou lista)
+        # Se contiver novas linhas, assumimos que cada linha é um item
+        if "\n" in text:
+            lines = [p.strip() for p in text.split("\n") if p.strip()]
+            all_parts = []
+            for line in lines:
+                # Cada linha pode ainda ter vírgulas
+                norm = re.sub(r"\s+(?:e|y|and)\s+", ", ", line, flags=re.IGNORECASE)
+                parts = [p.strip() for p in re.split(r",\s*", norm) if p.strip()]
+                all_parts.extend(parts)
+            return all_parts
+
+        # Se não tem nova linha, dividir por vírgula e conectores
         normalized = re.sub(r"\s+(?:e|y|and)\s+", ", ", text, flags=re.IGNORECASE)
         parts = [p.strip() for p in re.split(r",\s*", normalized) if p.strip()]
         if len(parts) <= 1:
             return [text]
-        # Só dividir se todas as partes forem curtas (itens simples, não títulos com vírgula)
-        max_part_len = 200
-        if all(len(p) <= max_part_len for p in parts):
+        # Só dividir se as partes forem razoavelmente curtas
+        if all(len(p) <= 200 for p in parts):
             return parts
         return [text]
 
@@ -210,6 +209,45 @@ class ListTool(Tool):
             if not s.endswith(("ss", "is", "us")):
                 return s[:-1]
         return s
+
+    def _resolve_list_name_fuzzy(self, db, user_id: int, name: str) -> str:
+        """Resolve o nome da lista considerando aliases e existência.
+        Ex: se user pede 'compras' mas só existe 'mercado', retorna 'mercado'.
+        """
+        if not name:
+            return ""
+        name = self._normalize_list_name(name)
+        if not name:
+            return ""
+        
+        # 1. Tentar match exato
+        from backend.models_db import List
+        lst = db.query(List).filter(List.user_id == user_id, List.name == name).first()
+        if lst:
+            return name
+        
+        # 2. Se não existe, tentar aliases comuns
+        _ALIASES = {
+            "compras": "mercado",
+            "mercado": "compras",
+            "shopping": "mercado",
+            "grocery": "mercado",
+            "groceries": "mercado",
+            "filme": "filmes",
+            "filmes": "filme",
+            "livro": "livros",
+            "livros": "livro",
+            "musica": "musicas",
+            "musicas": "musica",
+        }
+        alias = _ALIASES.get(name.lower())
+        if alias:
+            lst_alias = db.query(List).filter(List.user_id == user_id, List.name == alias).first()
+            if lst_alias:
+                return alias
+        
+        # 3. Se ainda não encontrou, retornar o original
+        return name
 
     @staticmethod
     def _normalize_list_name(name: str) -> str:

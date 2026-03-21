@@ -29,11 +29,11 @@ RE_HORA = re.compile(r"^/(?:hora|time)\s*$", re.I)
 RE_DATA = re.compile(r"^/(?:data|date|fecha)\s*$", re.I)
 # Linguagem natural: mostre lista X, lista de X, minha lista X, qual lista, mercado, compras
 RE_NL_MOSTRE_LISTA = re.compile(
-    r"^(?:mostr(?:e|ar)|ver|listar|mostra)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?(\w+)\s*$", re.I
+    r"^(?:mostr(?:e|ar)|ver|listar|mostra)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?[\"']?(\w+)[\"']?\s*$", re.I
 )
-RE_NL_LISTA_DE = re.compile(r"^lista\s+(?:de\s+)?(\w+)\s*\??\s*$", re.I)
+RE_NL_LISTA_DE = re.compile(r"^lista\s+(?:de\s+)?[\"']?(\w+)[\"']?\s*\??\s*$", re.I)
 RE_NL_QUAL_LISTA = re.compile(
-    r"^qual\s+(?:é|e)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?(\w+)\s*\??\s*$", re.I
+    r"^qual\s+(?:é|e)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?[\"']?(\w+)[\"']?\s*\??\s*$", re.I
 )
 RE_NL_LISTA_SOZINHA = re.compile(r"^(lista|mercado|compras|pendentes)\s*$", re.I)
 # Atalhos: /filme, /livro, /musica, /receita, /nota, /site → equivalente a /list <categoria> <item>
@@ -63,13 +63,13 @@ RE_NL_CRIA_LISTA_DE = re.compile(
     r"^(?:cria|crie|faça|faz|me\s+d[êe]|de-me|dê-me"
     r"|crea|crear|haz|dame"
     r"|create|make|give\s+me)\s+"
-    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?(\w+)(?:\s+(.+))?$",
+    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?[\"']?(\w+)[\"']?(?:\s+(.+))?$",
     re.I,
 )
 # Verbos de visualização: mostre, mostra, exiba, muéstrame, muestra, exhibe, show me, show, display
 RE_NL_MOSTRE_LISTA_DE = re.compile(
     r"^(?:mostre|mostra|exiba|mu[eé]strame|muestra|exhibe|show\s+me|show|display)\s+"
-    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?(\w+)(?:\s+(.+))?$",
+    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?[\"']?(\w+)[\"']?(?:\s+(.+))?$",
     re.I,
 )
 # NL: "coloca/põe/anota X na lista", "põe leite na lista" → list_add mercado
@@ -124,7 +124,9 @@ _CATEGORY_TO_LIST = {
     "livro": "livro", "livros": "livro",
     "musica": "musica", "musicas": "musica", "música": "musica", "músicas": "musica",
     "receita": "receita", "receitas": "receita",
-    "compras": "mercado", "mercado": "mercado",
+    # "compras" e "mercado" são aliases fortes mas o usuário pode querer listas separadas.
+    # Vamos manter o mapeamento mas o Tool vai tentar encontrar a lista exata primeiro.
+    "mercado": "mercado", "supermercado": "mercado",
     "nota": "notas", "notas": "notas",
     "site": "sites", "sites": "sites",
     "link": "sites", "links": "sites",
