@@ -29,10 +29,10 @@ RE_REMOVE_TEXT = re.compile(r"^/(?:remove|delete|quitar|borrar)\s+(.+)$", re.I)
 
 RE_HORA = re.compile(r"^/(?:hora|time)\s*$", re.I)
 RE_DATA = re.compile(r"^/(?:data|date|fecha)\s*$", re.I)
-# NL: General list actions (show, create, add) across 3 main languages (PT-BR/PT-PT, ES, EN)
+# NL: General list actions (show, create, add) across 4 language versions (PT-BR, PT-PT, ES, EN)
 RE_NL_LIST_ACTION = re.compile(
-    r"^(?:mostr|ver|listar?|show|display|view|mu[^\s]str|exib|cria?r?|crie?|fa[çc]a|faz|fazer|make|create|haz|crea?r?|donne?|give|dame|me\s+d)\S*\s+"
-    r"(?:(?:a|as|os|uma?|un[ae]?|la|las|el|los|the|an?)\s+)?(?:(?:minha?|minhas|meus|meu|mi|mis|my|ma|mon)\s+)?(?:lista?|list)\s+"
+    r"^(?:mostr|ver|listar?|show|display|view|mu[^\s]str|exib|cria?r?|crie?|fa[çc]a|faz|fazer|make|create|haz|crea?r?|give|dame|me\s+d)\S*\s+"
+    r"(?:(?:a|as|os|uma?|un[a]?|la|las|el|los|the|an?)\s+)?(?:(?:minha?|minhas|meus|meu|mi|mis|my|ma|mon)\s+)?(?:lista?|list)\s+"
     r"(?:(?:de|of|denominad|chamad|nomead|llamada|nombrada|called|named)\S*\s+)?"
     r"([\"']?[^\"'\r\n]+?[\"']?)(?:\s+(.+))?$",
     re.I | re.UNICODE,
@@ -61,9 +61,9 @@ RE_NL_ADD_LISTA_CATEGORIA = re.compile(
 )
 # Verbos de visualização: mostre, mostra, exiba, muéstrame, muestra, exhibe, show me, show, display
 RE_NL_MOSTRE_LISTA_DE = re.compile(
-    r"^(?:mostre|mostra|exiba|mu[eé]strame|muestra|exhibe|show\s+me|show|display|affiche|afficher)\s+"
-    r"(?:uma\s+|una\s+|a\s+|une\s+|la\s+)?(?:lista?|list)\s+"
-    r"(?:(?:de|of|denominada|chamada|nomeada|nomeado|denominado|chamado|llamada|llamado|nombrada|nombrado|called|named|nomm[ée]e?|appel[ée]e?)\s+)?"
+    r"^(?:mostre|mostra|exiba|mu[eé]strame|muestra|exhibe|show\s+me|show|display)\s+"
+    r"(?:uma\s+|una\s+|a\s+|la\s+)?(?:lista?|list)\s+"
+    r"(?:(?:de|of|denominada|chamada|nomeada|nomeado|denominado|chamado|llamada|llamado|nombrada|nombrado|called|named)\s+)?"
     r"[\"']?([^\"'\r\n]+)[\"']?(?:\s+(.+))?$",
     re.I,
 )
