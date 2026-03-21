@@ -251,11 +251,16 @@ _AGENDA_NL_PHRASES = frozenset([
 async def handle_agenda_nl(ctx: "HandlerContext", content: str) -> str | None:
     """Pedido por texto/áudio tipo 'minha agenda', 'o que tenho hoje' → mesma visão que /agenda (conta para 2.ª vez)."""
     t = (content or "").strip().lower()
-    if not t or len(t) > 80:
+    if not t or len(t) > 100:
         return None
         
     t_clean = t.rstrip(".?!")
-    if t_clean in _AGENDA_NL_PHRASES:
+    
+    # Se já foi normalizado para /agenda <resto>
+    is_agenda_cmd = t_clean.startswith("/agenda")
+    
+    # 1) Match exato ou via regex para maior flexibilidade
+    if t_clean in _AGENDA_NL_PHRASES or is_agenda_cmd:
         offset = 0
         if any(kw in t_clean for kw in ["amanhã", "amanha", "tomorrow", "mañana"]):
             offset = 1
@@ -283,10 +288,9 @@ async def handle_agenda_nl(ctx: "HandlerContext", content: str) -> str | None:
             finally:
                 db.close()
                 
-            # "o o que tenho amanhã" costuma querer agenda + lembretes (estilo /hoje)
-            # Mas se for "minha agenda", talvez só eventos? 
-            # O usuário Rafael R usou "o que tenho amanhã?", então vamos usar _visao_hoje(target_date).
-            if "agenda" in t_clean and "o que tenho" not in t_clean:
+            # Se for "minha agenda", "agenda de amanhã" → só eventos?
+            # Se for "o que tenho amanhã" → agenda + lembretes
+            if "agenda" in t_clean and ("o que tenho" not in t_clean and "que tenho" not in t_clean):
                  return _visao_agenda_dia(ctx, target_date=target_date)
             return _visao_hoje(ctx, target_date=target_date)
             

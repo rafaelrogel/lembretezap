@@ -66,6 +66,7 @@ HANDLERS = [
     handle_curated_search,  # Busca filmes/livros/música — antes de list
     handle_list,  # primeiro: "cria lista de X", "mostre lista" → evita cair no LLM com histórico de erro
     handle_list_or_events_ambiguous,  # "tenho de X, Y" → pergunta lista ou lembretes
+    handle_agenda_nl,  # "minha agenda", "o que tenho hoje/amanhã"
     handle_vague_time_reminder,
     handle_recurring_event,
     handle_eventos_unificado,
@@ -75,7 +76,6 @@ HANDLERS = [
     handle_quiet,  # /quiet e NL "parar horário silencioso" — antes do fluxo de lembrete
     handle_recipe,  # receita/ingredientes via Perplexity (rápido, fallback agent)
     handle_recurring_prompt,
-    handle_agenda_nl,  # "minha agenda", "o que tenho hoje/amanhã"
     handle_lembrete,
     handle_add,
     handle_start,
