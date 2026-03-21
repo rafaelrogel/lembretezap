@@ -34,17 +34,26 @@ async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str 
 
     if not (looks_like_confirmation(content) or looks_like_time_response(content)):
         return None
+
+    # Guard: if the message is itself a full new reminder request (e.g. "me lembra de comprar
+    # presente da mãe no sábado"), it should NOT be treated as an answer to the pending question.
+    # Bail out and let handle_lembrete/handle_vague_time_reminder process it instead.
+    if _looks_like_new_reminder_request(content):
+        return None
     if not ctx.cron_tool or not ctx.session_manager or not ctx.scope_provider or not ctx.scope_model:
         return None
 
     session_key = f"{ctx.channel}:{ctx.chat_id}"
     session = ctx.session_manager.get_or_create(session_key)
-    history = session.get_history(max_messages=10)
+    # Get history with timestamps for better LLM context extraction
+    history = session.get_history(max_messages=10, include_timestamps=True)
     if len(history) < 2:
         return None
 
     last_assistant = None
-    for m in reversed(history):
+    # Use clean history (no timestamps) for flow logic checks
+    clean_history = session.get_history(max_messages=10, include_timestamps=False)
+    for m in reversed(clean_history):
         if m.get("role") == "assistant":
             last_assistant = (m.get("content") or "").strip()
             break
@@ -63,7 +72,18 @@ async def handle_pending_confirmation(ctx: HandlerContext, content: str) -> str 
         return None
 
     ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
-    msg_text = (params.get("message") or "").strip()
+
+    # Priority: Metadata from vague flow (avoids LLM hallucination from old context)
+    from backend.reminder_flow import FLOW_KEY
+    flow = session.metadata.get(FLOW_KEY)
+    msg_text = ""
+    if flow and isinstance(flow, dict):
+        msg_text = (flow.get("content") or "").strip()
+    
+    # Fallback to LLM extracted message if metadata not found
+    if not msg_text:
+        msg_text = (params.get("message") or "").strip()
+
     if not msg_text:
         return None
     every = params.get("every_seconds")
@@ -557,6 +577,10 @@ def _looks_like_new_reminder_request(text: str) -> bool:
     # Any slash command is always a new request
     if t.startswith("/"):
         return True
+    
+    from backend.pending_confirmation import looks_like_time_response
+    if looks_like_time_response(t):
+        return False
     
     from backend.recurring_event_flow import is_scheduled_recurring_event
     if is_scheduled_recurring_event(text):

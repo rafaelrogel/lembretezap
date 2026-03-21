@@ -51,12 +51,13 @@ class Session:
         self.messages.append(msg)
         self.updated_at = _now
     
-    def get_history(self, max_messages: int = 25) -> list[dict[str, Any]]:
+    def get_history(self, max_messages: int = 25, include_timestamps: bool = False) -> list[dict[str, Any]]:
         """
         Get message history for LLM context.
         
         Args:
             max_messages: Maximum messages to return.
+            include_timestamps: Whether to include relative timestamps in the content.
         
         Returns:
             List of messages in LLM format.
@@ -64,8 +65,39 @@ class Session:
         # Get recent messages
         recent = self.messages[-max_messages:] if len(self.messages) > max_messages else self.messages
         
-        # Convert to LLM format (just role and content)
-        return [{"role": m["role"], "content": m["content"]} for m in recent]
+        if not include_timestamps:
+            # Convert to LLM format (just role and content)
+            return [{"role": m["role"], "content": m["content"]} for m in recent]
+
+        # Enhanced version with relative timestamps
+        try:
+            from zapista.clock_drift import get_effective_time
+            now_ts = get_effective_time()
+        except Exception:
+            import time
+            now_ts = time.time()
+
+        res = []
+        for m in recent:
+            ts_str = m.get("timestamp")
+            content = m.get("content", "")
+            if ts_str:
+                try:
+                    dt = datetime.fromisoformat(ts_str)
+                    diff = now_ts - dt.timestamp()
+                    if diff < 60:
+                        prefix = "[Just now] "
+                    elif diff < 3600:
+                        prefix = f"[{int(diff // 60)} min ago] "
+                    elif diff < 24 * 3600:
+                        prefix = f"[{int(diff // 3600)} hours ago] "
+                    else:
+                        prefix = f"[{int(diff // 86400)} days ago] "
+                    content = prefix + content
+                except Exception:
+                    pass
+            res.append({"role": m["role"], "content": content})
+        return res
     
     def clear(self) -> None:
         """Clear all messages in the session."""
