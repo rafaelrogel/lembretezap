@@ -5,7 +5,7 @@
  */
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import clsx from "clsx";
 
 const PHOTO_1 =
@@ -15,7 +15,12 @@ const PHOTO_2 =
 const PHOTO_3 = "/grupo%20de%20carnaval%201.png";
 const PHOTO_4 = "/calas%201.png";
 
-const FADE_MS = { in: 0.32, out: 0.28 };
+const REACTION_SCALE_SPRING = {
+  type: "spring" as const,
+  stiffness: 320,
+  damping: 24,
+  mass: 0.85,
+};
 
 function PhotoReactionBubble({
   emoji,
@@ -29,18 +34,25 @@ function PhotoReactionBubble({
       className="pointer-events-none absolute bottom-[calc(0.75rem-28px)] right-4 z-20 flex h-11 w-11 transform-gpu items-center justify-center rounded-full bg-white shadow-[0_4px_14px_rgba(0,0,0,0.14),0_1px_3px_rgba(0,0,0,0.08)] ring-1 ring-[rgba(0,0,0,0.06)] will-change-transform [backface-visibility:hidden]"
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0, opacity: 0 }}
+      exit={{
+        scale: 0,
+        opacity: 1,
+        transition: reduceMotion
+          ? {
+              opacity: { duration: 0 },
+              scale: { duration: 0.22, ease: "easeOut" },
+            }
+          : {
+              opacity: { duration: 0 },
+              scale: REACTION_SCALE_SPRING,
+            },
+      }}
       transition={
         reduceMotion
           ? { duration: 0.22, ease: "easeOut" }
           : {
               opacity: { duration: 0.34, ease: [0.16, 1, 0.3, 1] },
-              scale: {
-                type: "spring",
-                stiffness: 320,
-                damping: 24,
-                mass: 0.85,
-              },
+              scale: REACTION_SCALE_SPRING,
             }
       }
       style={{ transformOrigin: "50% 50%" }}
@@ -59,26 +71,10 @@ export function GrupoFoto1({ className }: { className?: string }) {
   const reduceMotion = useReducedMotion();
   const [photo, setPhoto] = useState<1 | 2 | 3 | 4>(1);
   const [showReaction, setShowReaction] = useState(false);
-  const swapTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (swapTimeoutRef.current) {
-        clearTimeout(swapTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const schedulePhotoChange = useCallback((nextPhoto: 1 | 2 | 3 | 4) => {
-    if (swapTimeoutRef.current) {
-      clearTimeout(swapTimeoutRef.current);
-    }
     setShowReaction(false);
-    // Segura um pouco para ver a reação saindo.
-    swapTimeoutRef.current = setTimeout(() => {
-      setPhoto(nextPhoto);
-      swapTimeoutRef.current = null;
-    }, 240);
+    setPhoto(nextPhoto);
   }, []);
 
   const handleActivate = useCallback(() => {
@@ -202,6 +198,7 @@ export function GrupoFoto1({ className }: { className?: string }) {
         <AnimatePresence>
           {showReaction && (
             <PhotoReactionBubble
+              key={photo}
               emoji={
                 photo === 1
                   ? "🎨"

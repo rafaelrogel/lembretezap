@@ -101,12 +101,21 @@ class ListTool(Tool):
                     db.commit()
 
             if action == "add":
+<<<<<<< HEAD
                 list_name_requested = list_name or ""
                 list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name_requested)
                 
                 if not list_clean and user.last_list_name:
                     list_clean = user.last_list_name
 
+=======
+                list_clean = self._normalize_list_name(sanitize_string(list_name or "", MAX_LIST_NAME_LEN))
+                # Fallback to last_list_name if none provided or it's a connector
+                if not list_clean and user.last_list_name:
+                    list_clean = user.last_list_name
+
+                # Receitas e conteúdo longo: até MAX_LIST_ITEM_TEXT_LEN, com newlines
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
                 item_clean = sanitize_string(item_text or "", MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
                 corrected = await suggest_correction(
                     list_clean or list_name_requested or "mercado", item_clean,
@@ -116,6 +125,7 @@ class ListTool(Tool):
                 if corrected:
                     item_clean = sanitize_string(corrected, MAX_LIST_ITEM_TEXT_LEN, allow_newline=True)
                 
+<<<<<<< HEAD
                 result = self._add(db, user.id, list_clean or list_name_requested or "mercado", item_clean, no_split=no_split)
                 return result
 
@@ -147,6 +157,48 @@ class ListTool(Tool):
                 list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
                 return await self._habitual(db, user.id, list_clean or list_name or "")
 
+=======
+                result = self._add(db, user.id, list_clean, item_clean, no_split=no_split)
+                
+                # Update last_list_name based on resolved list_clean (might have been "ai" -> "filme")
+                if list_clean:
+                    user.last_list_name = list_clean
+                    db.commit()
+                return result
+
+            if action == "habitual":
+                return await self._habitual(db, user.id, list_name or "")
+            if action == "list":
+                res = self._list(db, user.id, list_name)
+                # If viewing a specific list, update last_list_name
+                ln_norm = self._normalize_list_name(list_name)
+                if ln_norm:
+                    user.last_list_name = ln_norm
+                    db.commit()
+                return res
+            if action == "remove":
+                res = self._remove(db, user.id, list_name, item_id)
+                ln_norm = self._normalize_list_name(list_name)
+                if ln_norm:
+                    user.last_list_name = ln_norm
+                    db.commit()
+                return res
+            if action == "delete_list":
+                return self._delete_list(db, user.id, list_name)
+            if action == "feito":
+                if (not list_name or not list_name.strip()) and item_id is not None:
+                    list_name = self._resolve_list_by_item_id(db, user.id, item_id)
+                    if not list_name:
+                        from backend.locale import LIST_ITEM_NOT_FOUND_GLOBAL
+                        lang = self._get_lang()
+                        return LIST_ITEM_NOT_FOUND_GLOBAL.get(lang, LIST_ITEM_NOT_FOUND_GLOBAL["en"]).format(item_id=item_id)
+                res = self._feito(db, user.id, list_name, item_id)
+                ln_norm = self._normalize_list_name(list_name)
+                if ln_norm:
+                    user.last_list_name = ln_norm
+                    db.commit()
+                return res
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
             if action == "shuffle":
                 list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
                 return self._shuffle(db, user.id, list_clean or list_name or "")
@@ -210,6 +262,7 @@ class ListTool(Tool):
                 return s[:-1]
         return s
 
+<<<<<<< HEAD
     def _resolve_list_name_fuzzy(self, db, user_id: int, name: str) -> str:
         """Resolve o nome da lista considerando aliases e existência.
         Ex: se user pede 'compras' mas só existe 'mercado', retorna 'mercado'.
@@ -279,6 +332,17 @@ class ListTool(Tool):
             # FR
             "nommee", "nommée", "nomme", "nommé", "appelee", "appelée", "appele", "appelé", "avec", "le",
             # Misc
+=======
+    @staticmethod
+    def _normalize_list_name(name: str) -> str:
+        """Strip connector words mistakenly used as list names.
+
+        'chamada'/'chamado' (PT), 'llamada'/'llamado' (ES), 'called'/'named' (EN)
+        mean 'named' -- they are not list names themselves.
+        """
+        _CONNECTORS = {
+            "chamada", "chamado", "llamada", "llamado", "called", "named",
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
             "ai", "aí", "ahi", "ahí", "ali", "allí", "here", "there", "aqui", "aquí",
             "lá", "alla", "allá", "it", "esto", "eso", "isto", "isso"
         }
@@ -536,6 +600,7 @@ class ListTool(Tool):
 
     def _remove(self, db, user_id: int, list_name: str, item_id: int | None = None, item_text: str | None = None) -> str:
         list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
+<<<<<<< HEAD
         lang = self._get_lang()
         if not list_name and item_id:
             # Tenta inferir lista pelo item_id
@@ -545,10 +610,16 @@ class ListTool(Tool):
             from backend.locale import LIST_NAME_REQUIRED_REMOVE
             return LIST_NAME_REQUIRED_REMOVE.get(lang, LIST_NAME_REQUIRED_REMOVE["en"])
 
+=======
+        if not list_name or item_id is None:
+            return "Error: list_name and item_id required for remove"
+        lang = self._get_lang()
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
             from backend.locale import LIST_NOT_FOUND
             return LIST_NOT_FOUND.get(lang, LIST_NOT_FOUND["en"]).format(list_name=list_name)
+<<<<<<< HEAD
 
         item = None
         if item_id is not None:
@@ -575,6 +646,12 @@ class ListTool(Tool):
             return LIST_ITEM_NOT_FOUND.get(lang, LIST_ITEM_NOT_FOUND["en"]).format(item_id=item_id or item_text)
 
         item_id = item.id
+=======
+        item = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.id == item_id).first()
+        if not item:
+            from backend.locale import LIST_ITEM_NOT_FOUND
+            return LIST_ITEM_NOT_FOUND.get(lang, LIST_ITEM_NOT_FOUND["en"]).format(item_id=item_id)
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
         item_text = item.text
         item.done = True  # soft-delete
         payload = json.dumps({"list_name": list_name, "item_id": item_id, "item_text": item_text})
@@ -645,6 +722,7 @@ class ListTool(Tool):
 
     def _feito(self, db, user_id: int, list_name: str, item_id: int | None = None, item_text: str | None = None) -> str:
         list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
+<<<<<<< HEAD
         lang = self._get_lang()
         if not list_name and item_id:
             list_name = self._resolve_list_by_item_id(db, user_id, item_id)
@@ -654,10 +732,16 @@ class ListTool(Tool):
             # Fallback se a chave não existir
             return LIST_NAME_REQUIRED_FEITO.get(lang, "Indique o nome da lista.") if 'LIST_NAME_REQUIRED_FEITO' in locals() else "Indique o nome da lista."
 
+=======
+        if not list_name or item_id is None:
+            return "Error: list_name and item_id required for feito"
+        lang = self._get_lang()
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
             from backend.locale import LIST_NOT_FOUND
             return LIST_NOT_FOUND.get(lang, LIST_NOT_FOUND["en"]).format(list_name=list_name)
+<<<<<<< HEAD
 
         item = None
         if item_id is not None:
@@ -681,6 +765,12 @@ class ListTool(Tool):
             return LIST_ITEM_NOT_FOUND.get(lang, LIST_ITEM_NOT_FOUND["en"]).format(item_id=item_id or item_text)
 
         item_id = item.id
+=======
+        item = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.id == item_id).first()
+        if not item:
+            from backend.locale import LIST_ITEM_NOT_FOUND
+            return LIST_ITEM_NOT_FOUND.get(lang, LIST_ITEM_NOT_FOUND["en"]).format(item_id=item_id)
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
         item_text = item.text
         item.done = True
         payload = json.dumps({"list_name": list_name, "item_id": item_id, "item_text": item_text})

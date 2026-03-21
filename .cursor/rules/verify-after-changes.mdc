@@ -1,0 +1,24 @@
+---
+description: Sempre validar build após alterações no Zappelin (Next.js)
+alwaysApply: true
+---
+
+# Verificação obrigatória após mudanças
+
+Este projeto quebra com facilidade quando o cache do Next fica inconsistente ou quando há erros de TypeScript que só aparecem no `next build`.
+
+## Depois de qualquer alteração em código
+
+1. Rodar **`npm run verify`** na raiz do projeto (equivale a `next build` + checagem de tipos e ESLint do Next).
+2. **Só considerar a tarefa concluída** se o comando terminar com **exit code 0**.
+3. Se falhar, **corrigir** (TypeScript, imports, RSC/client boundaries, etc.) e rodar `npm run verify` de novo até passar.
+
+## Dev local
+
+- **`npm run dev`** já roda **`npm run clean`** antes do servidor (evita `.next` corrompido / chunks 404 no Windows). A primeira compilação demora um pouco mais; para pular a limpeza use **`npm run dev:fast`** (só quando souber que o cache está íntegro).
+- Se ainda falhar: **`npm run dev:fix`** (mata também 3001 e 3020, limpa e sobe na 3000).
+
+## Evitar
+
+- Encerrar uma tarefa só com “deve funcionar” sem ter executado `npm run verify`.
+- Mudanças em `components/`, `app/`, `package.json` ou `scripts/` sem validar o build.

@@ -24,6 +24,7 @@ if os.path.dirname(os.path.dirname(os.path.abspath(__file__))) not in sys.path:
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+<<<<<<< HEAD
 @pytest.fixture(autouse=True)
 def mock_rate_limit(monkeypatch):
     import backend.rate_limit
@@ -31,6 +32,8 @@ def mock_rate_limit(monkeypatch):
     monkeypatch.setattr(backend.rate_limit, "is_rest_rate_limited", lambda *a, **k: False)
 
 
+=======
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 # =============================================================================
 # 1. INTENT DETECTION
 # =============================================================================

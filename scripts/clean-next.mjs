@@ -13,5 +13,16 @@ function rm(p) {
   }
 }
 
-rm(path.join(root, ".next"));
-rm(path.join(root, "node_modules", ".cache"));
+/** Pastas que o Next / bundlers usam; apagar evita chunks 404 e tela branca no dev. */
+const paths = [
+  path.join(root, ".next"),
+  path.join(root, "node_modules", ".cache"),
+  path.join(root, ".turbo"),
+  path.join(root, "out"),
+];
+
+for (const p of paths) {
+  rm(p);
+}
+
+console.log("Cache Next limpo. Suba o dev de novo (ex.: npm run dev).");

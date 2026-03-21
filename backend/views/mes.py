@@ -13,11 +13,16 @@ def _visao_mes(ctx: "HandlerContext", year: int, month: int) -> str:
     """Visão de lista filtrada pelo mês (agenda e lembretes)."""
     from backend.database import SessionLocal
     from backend.user_store import get_or_create_user, get_user_timezone, get_user_language
+<<<<<<< HEAD
     from backend.locale import (
         VIEW_MONTH_NAMES, VIEW_ERROR, VIEW_AGENDA_MONTH_HEADER,
         VIEW_NO_EVENTS_MONTH, VIEW_REMINDERS_MONTH_HEADER, VIEW_NO_REMINDERS_MONTH
     )
     from backend.views.utils import get_events_in_period, get_reminders_in_period
+=======
+    from backend.models_db import Event
+    from backend.locale import VIEW_MONTH_NAMES, VIEW_WEEKDAY_HEADER, VIEW_ERROR
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 
     try:
         db = SessionLocal()
@@ -65,13 +70,32 @@ def _visao_mes(ctx: "HandlerContext", year: int, month: int) -> str:
             else:
                 lines.append(VIEW_NO_REMINDERS_MONTH.get(lang, VIEW_NO_REMINDERS_MONTH["en"]))
 
+<<<<<<< HEAD
+=======
+            cal = calendar.Calendar(firstweekday=6)
+            _mnames = VIEW_MONTH_NAMES.get(lang, VIEW_MONTH_NAMES["en"])
+            month_name = _mnames[month - 1]
+            lines = [f"       {month_name} {year}", VIEW_WEEKDAY_HEADER.get(lang, VIEW_WEEKDAY_HEADER["en"])]
+            for week in cal.monthdayscalendar(year, month):
+                row = []
+                for d in week:
+                    if d == 0:
+                        row.append("  ")
+                    else:
+                        mark = "*" if d in days_with_activity else " "
+                        row.append(f"{d:2}{mark}")
+                lines.append(" ".join(row))
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
             return "\n".join(lines)
         finally:
             db.close()
     except Exception as e:
         return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
+<<<<<<< HEAD
     except Exception as e:
         return VIEW_ERROR.get("pt-BR", VIEW_ERROR["en"]).format(error=e)
+=======
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 
 
 async def handle_mes(ctx: "HandlerContext", content: str) -> str | None:
