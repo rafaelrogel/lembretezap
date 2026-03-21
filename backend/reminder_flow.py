@@ -631,8 +631,13 @@ def compute_in_seconds_from_date_hour(
             target_date.year, target_date.month, target_date.day,
             hour, minute, 0, 0, tzinfo=z
         )
-        delta = (target - now).total_seconds()
-        if delta > 0 and delta <= 86400 * 365:
+        if delta <= 0:
+            # If it's a numeric date like "22/03" and it's already past for THIS year, assume next year
+            if dl.startswith("dia ") or dl.isdigit() or "/" in dl:
+                target = target.replace(year=target.year + 1)
+                delta = (target - now).total_seconds()
+
+        if delta > 0 and delta <= 86400 * 365 * 2: # up to 2 years
             return int(delta)
     except Exception:
         pass

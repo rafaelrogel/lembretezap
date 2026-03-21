@@ -157,6 +157,16 @@ def normalize_nl_to_command(content: str) -> str:
         if lower_ascii.startswith(cat + " "):
             return f"/list {lower_ascii}"
 
+    # Common list items (fallback to /add if it looks like an item)
+    _COMMON_ITEMS = {
+        "arroz", "feijao", "massa", "azeite", "sal", "acucar", "leite", "ovos", "queijo", "manteiga",
+        "tomate", "cebola", "alho", "batata", "frango", "carne", "peixe", "pao", "cafe", "agua",
+        "cerveja", "vinho", "fruta", "maca", "banana", "laranja", "peru", "presunto", "iogurte",
+        "detergente", "papel", "sabonete", "shampoo", "creme", "pasta", "escova"
+    }
+    if lower_ascii in _COMMON_ITEMS:
+        return f"/add {lower_ascii}"
+
     # Produtividade
     if lower in ("produtividade", "productividad", "productivity"):
         return "/produtividade"
@@ -211,5 +221,19 @@ def normalize_nl_to_command(content: str) -> str:
         return "/hora"
     if lower in ("data", "date", "fecha", "que dia", "qué día", "que dia é hoje"):
         return "/data"
+
+    # Remove / Delete
+    m = re.match(r"^(remover|apagar|deletar|tirar|quitar|borrar|apaga|borra|quita|delete|remove|suprimir|effacer|supprimer)\s+(.+)$", lower_ascii)
+    if m:
+        rest = m.group(2).strip()
+        if rest:
+            return f"/remove {rest}"
+
+    # Feito / Done / Hecho
+    m = re.match(r"^(feito|concluido|pronto|ok|done|hecho|termine|fini|check|concluir)\s+(.+)$", lower_ascii)
+    if m:
+        rest = m.group(2).strip()
+        if rest:
+            return f"/feito {rest}"
 
     return content

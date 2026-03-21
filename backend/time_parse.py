@@ -244,26 +244,40 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
 
     # -- Recurring patterns (High Priority) --
     m = re.search(
-        r"(?:todo\s+dia|todos\s+os\s+dias|diariamente|every\s+day|daily|todos\s+los\s+d[íi]as|cada\s+d[íi]a)\s+"
-        r"(?:às?|as|at|a\s+las?|a\s+los?)\s*(\d{1,2})(?::(\d{2}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
+        r"(?P<rec>(?:todo\s+dia|todos\s+os\s+dias|diariamente|every\s+day|daily|todos\s+los\s+d[íi]as|cada\s+d[íi]a))\s+"
+        r"(?:às?|as|at|a\s+las?|a\s+los?)\s*(?P<h>\d{1,2})(?::(?P<m>\d{2}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b",
         text_lower,
         re.I,
     )
     if m:
-        hora = int(m.group(1))
-        minute = int(m.group(2) or 0)
-        period = m.group(3)
+        hora = int(m.group("h"))
+        minute = int(m.group("m") or 0)
+        # Check if it was "todo dia N:" where N is the day and ":" is the separator
+        # But RE above requires (às|at|...) explicitly.
+        # If it matched, it's definitely a time request.
+        period = m.group(4) # _AM_PM_MODIFIERS
         hora = adjust_am_pm_hour(hora, period)
         hora = min(23, max(0, hora))
         message = strip_pattern(
             text,
-            r"(?:todo\s+dia|todos\s+os\s+dias|diariamente|every\s+day|daily|todos\s+los\s+d[íi]as|cada\s+d[íi]a)\s+"
+            r"(?P<rec>(?:todo\s+dia|todos\s+os\s+dias|diariamente|every\s+day|daily|todos\s+los\s+d[íi]as|cada\s+d[íi]a))\s+"
             r"(?:às?|as|at|a\s+las?|a\s+los?)\s*\d{1,2}(?::\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\s*",
         )
         return {"cron_expr": f"{minute} {hora} * * *", "message": clean_message(message)}
 
-    # "todo dia 21" -> monthly at 9 AM
-    m = re.search(r"(?:todo\s+dia|every\s+day|todos\s+los\s+d[íi]as|cada\s+d[íi]a)\s+(\d{1,2})\b", text_lower, re.I)
+    # "todo dia 21: pagar" or "todo dia 21 pagar" -> monthly at 9 AM
+    # Stricter check for Day vs Hour: if followed by ":" and then a word (not digits), it's a separator.
+    m = re.search(r"(?P<rec>(?:todo\s+dia|every\s+day|todos\s+los\s+d[íi]as|cada\s+d[íi]a))\s+(?P<day>\d{1,2})(?:\s*[:\-]\s*|\s+)(?P<rest>.+)$", text_lower, re.I)
+    if m:
+        dia_mes = int(m.group("day"))
+        if 1 <= dia_mes <= 31:
+            rest = m.group("rest").strip()
+            # If rest starts with digits, it's likely a time (e.g., "todo dia 21:30")
+            if not re.match(r"^\d{2}", rest):
+                message = rest
+                return {"cron_expr": f"0 9 {dia_mes} * *", "message": clean_message(message)}
+
+    m = re.search(r"(?P<rec>(?:todo\s+dia|every\s+day|todos\s+los\s+d[íi]as|cada\s+d[íi]a))\s+(?P<day>\d{1,2})\b", text_lower, re.I)
     if m:
         dia_mes = int(m.group(1))
         if 1 <= dia_mes <= 31:

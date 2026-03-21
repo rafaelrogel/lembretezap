@@ -61,6 +61,8 @@ from backend.views import (
 HANDLERS = [
     handle_atendimento_request,
     handle_pending_confirmation,
+    handle_feito,
+    handle_remove,
     handle_curated_search,  # Busca filmes/livros/música — antes de list
     handle_list,  # primeiro: "cria lista de X", "mostre lista" → evita cair no LLM com histórico de erro
     handle_list_or_events_ambiguous,  # "tenho de X, Y" → pergunta lista ou lembretes

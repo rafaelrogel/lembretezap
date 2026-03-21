@@ -146,6 +146,7 @@ async def handle_feito(ctx: "HandlerContext", content: str) -> str | None:
         action="feito",
         list_name=intent.get("list_name") or "",
         item_id=intent.get("item_id"),
+        item_text=intent.get("item"),
     )
 
 
@@ -162,6 +163,7 @@ async def handle_remove(ctx: "HandlerContext", content: str) -> str | None:
         action="remove",
         list_name=intent.get("list_name") or "",
         item_id=intent.get("item_id"),
+        item_text=intent.get("item"),
     )
 
 

@@ -129,14 +129,14 @@ class ListTool(Tool):
             
             if action == "remove":
                 list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
-                res = self._remove(db, user.id, list_clean or list_name, item_id)
+                res = self._remove(db, user.id, list_clean or list_name, item_id, item_text)
                 return res
 
             if action == "feito":
                 list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
                 if not list_clean and item_id is not None:
                     list_clean = self._resolve_list_by_item_id(db, user.id, item_id)
-                res = self._feito(db, user.id, list_clean or list_name, item_id)
+                res = self._feito(db, user.id, list_clean or list_name, item_id, item_text)
                 return res
 
             if action == "delete_list":
@@ -220,16 +220,18 @@ class ListTool(Tool):
         if not name:
             return ""
         
-        # 1. Tentar match exato
+        # 1. Tentar match exato (insensível a maiúsculas na DB)
         from backend.models_db import List
-        lst = db.query(List).filter(List.user_id == user_id, List.name == name).first()
+        lst = db.query(List).filter(List.user_id == user_id, func.lower(List.name) == name.lower()).first()
         if lst:
-            return name
+            return lst.name
         
         # 2. Se não existe, tentar aliases comuns
         _ALIASES = {
             "compras": "mercado",
             "mercado": "compras",
+            "mercado": "compras",
+            "comprar": "mercado",
             "shopping": "mercado",
             "grocery": "mercado",
             "groceries": "mercado",
@@ -242,9 +244,9 @@ class ListTool(Tool):
         }
         alias = _ALIASES.get(name.lower())
         if alias:
-            lst_alias = db.query(List).filter(List.user_id == user_id, List.name == alias).first()
+            lst_alias = db.query(List).filter(List.user_id == user_id, func.lower(List.name) == alias.lower()).first()
             if lst_alias:
-                return alias
+                return lst_alias.name
         
         # 3. Se ainda não encontrou, retornar o original
         return name
@@ -304,14 +306,12 @@ class ListTool(Tool):
         else:
             items_to_add = self._split_items(item_text)
         
-        from backend.locale import CONFIRM_ITEMS_ADDED_TO_LIST
-        from backend.database import SessionLocal
-        from backend.user_store import get_user_language
-        _db = SessionLocal()
+        # Obter idioma para confirmação
         try:
-            _lg = get_user_language(_db, self._chat_id) or "pt-BR"
-        finally:
-            _db.close()
+            from backend.user_store import get_user_language
+            _lg = get_user_language(db, self._chat_id) or "pt-BR"
+        except Exception:
+            _lg = "pt-BR"
 
         added_count = 0
         for single_item in items_to_add:
@@ -515,21 +515,49 @@ class ListTool(Tool):
         from backend.locale import LIST_HEADER
         return LIST_HEADER.get(lang, LIST_HEADER["en"]).format(list_name=list_name) + "\n" + "\n".join(lines)
 
-    def _remove(self, db, user_id: int, list_name: str, item_id: int | None) -> str:
+    def _remove(self, db, user_id: int, list_name: str, item_id: int | None = None, item_text: str | None = None) -> str:
         list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
-        if not list_name or item_id is None:
-            return "Error: list_name and item_id required for remove"
         lang = self._get_lang()
+        if not list_name and item_id:
+            # Tenta inferir lista pelo item_id
+            list_name = self._resolve_list_by_item_id(db, user_id, item_id)
+
+        if not list_name:
+            from backend.locale import LIST_NAME_REQUIRED_REMOVE
+            return LIST_NAME_REQUIRED_REMOVE.get(lang, LIST_NAME_REQUIRED_REMOVE["en"])
+
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
             from backend.locale import LIST_NOT_FOUND
             return LIST_NOT_FOUND.get(lang, LIST_NOT_FOUND["en"]).format(list_name=list_name)
-        item = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.id == item_id).first()
+
+        item = None
+        if item_id is not None:
+            item = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.id == item_id).first()
+        elif item_text:
+            # Procura por texto (exato ou contido, insensível a maiúsculas)
+            item_text_clean = item_text.strip().lower()
+            # Tenta exato primeiro
+            item = db.query(ListItem).filter(
+                ListItem.list_id == lst.id,
+                ListItem.done == False,
+                func.lower(ListItem.text) == item_text_clean
+            ).order_by(ListItem.id.desc()).first()
+            if not item:
+                # Tenta contido
+                item = db.query(ListItem).filter(
+                    ListItem.list_id == lst.id,
+                    ListItem.done == False,
+                    func.lower(ListItem.text).contains(item_text_clean)
+                ).order_by(ListItem.id.desc()).first()
+
         if not item:
             from backend.locale import LIST_ITEM_NOT_FOUND
-            return LIST_ITEM_NOT_FOUND.get(lang, LIST_ITEM_NOT_FOUND["en"]).format(item_id=item_id)
+            return LIST_ITEM_NOT_FOUND.get(lang, LIST_ITEM_NOT_FOUND["en"]).format(item_id=item_id or item_text)
+
+        item_id = item.id
         item_text = item.text
-        item.done = True  # soft-delete: mantém no DB para auditoria/recuperação
+        item.done = True  # soft-delete
         payload = json.dumps({"list_name": list_name, "item_id": item_id, "item_text": item_text})
         db.add(AuditLog(user_id=user_id, action="list_remove", resource=f"{list_name}#{item_id}", payload_json=payload))
         db.commit()
@@ -596,21 +624,46 @@ class ListTool(Tool):
         from backend.locale import LIST_SHUFFLED
         return LIST_SHUFFLED.get(lang, LIST_SHUFFLED["en"]).format(list_name=list_name, count=len(items))
 
-    def _feito(self, db, user_id: int, list_name: str, item_id: int | None) -> str:
+    def _feito(self, db, user_id: int, list_name: str, item_id: int | None = None, item_text: str | None = None) -> str:
         list_name = sanitize_string(list_name or "", MAX_LIST_NAME_LEN)
-        if not list_name or item_id is None:
-            return "Error: list_name and item_id required for feito"
         lang = self._get_lang()
+        if not list_name and item_id:
+            list_name = self._resolve_list_by_item_id(db, user_id, item_id)
+
+        if not list_name:
+            from backend.locale import LIST_NAME_REQUIRED_FEITO
+            # Fallback se a chave não existir
+            return LIST_NAME_REQUIRED_FEITO.get(lang, "Indique o nome da lista.") if 'LIST_NAME_REQUIRED_FEITO' in locals() else "Indique o nome da lista."
+
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
             from backend.locale import LIST_NOT_FOUND
             return LIST_NOT_FOUND.get(lang, LIST_NOT_FOUND["en"]).format(list_name=list_name)
-        item = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.id == item_id).first()
+
+        item = None
+        if item_id is not None:
+            item = db.query(ListItem).filter(ListItem.list_id == lst.id, ListItem.id == item_id).first()
+        elif item_text:
+            item_text_clean = item_text.strip().lower()
+            item = db.query(ListItem).filter(
+                ListItem.list_id == lst.id,
+                ListItem.done == False,
+                func.lower(ListItem.text) == item_text_clean
+            ).order_by(ListItem.id.desc()).first()
+            if not item:
+                item = db.query(ListItem).filter(
+                    ListItem.list_id == lst.id,
+                    ListItem.done == False,
+                    func.lower(ListItem.text).contains(item_text_clean)
+                ).order_by(ListItem.id.desc()).first()
+
         if not item:
             from backend.locale import LIST_ITEM_NOT_FOUND
-            return LIST_ITEM_NOT_FOUND.get(lang, LIST_ITEM_NOT_FOUND["en"]).format(item_id=item_id)
+            return LIST_ITEM_NOT_FOUND.get(lang, LIST_ITEM_NOT_FOUND["en"]).format(item_id=item_id or item_text)
+
+        item_id = item.id
         item_text = item.text
-        item.done = True  # soft-delete: mantém no DB para auditoria (sem auto-limpeza)
+        item.done = True
         payload = json.dumps({"list_name": list_name, "item_id": item_id, "item_text": item_text})
         db.add(AuditLog(user_id=user_id, action="list_feito", resource=f"{list_name}#{item_id}", payload_json=payload))
         db.commit()

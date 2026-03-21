@@ -21,9 +21,11 @@ RE_LIST_SHOW = re.compile(r"^/(?:list|lista)\s+(\S+)\s*$", re.I)
 RE_LIST_ALL = re.compile(r"^/(?:list|lista)\s*$", re.I)
 RE_FEITO_LIST_ID = re.compile(r"^/(?:feito|done|hecho)\s+(\S+)\s+(\d+)\s*$", re.I)
 RE_FEITO_ID_ONLY = re.compile(r"^/(?:feito|done|hecho)\s+(\d+)\s*$", re.I)
+RE_FEITO_TEXT = re.compile(r"^/(?:feito|done|hecho)\s+(.+)$", re.I)
 # /remove
 RE_REMOVE_LIST_ID = re.compile(r"^/(?:remove|delete|quitar|borrar)\s+(\S+)\s+(\d+)\s*$", re.I)
 RE_REMOVE_ID_ONLY = re.compile(r"^/(?:remove|delete|quitar|borrar)\s+(\d+)\s*$", re.I)
+RE_REMOVE_TEXT = re.compile(r"^/(?:remove|delete|quitar|borrar)\s+(.+)$", re.I)
 
 RE_HORA = re.compile(r"^/(?:hora|time)\s*$", re.I)
 RE_DATA = re.compile(r"^/(?:data|date|fecha)\s*$", re.I)
@@ -201,6 +203,14 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     m = RE_FEITO_ID_ONLY.match(text)
     if m:
         return {"type": "feito", "list_name": None, "item_id": int(m.group(1))}
+    m = RE_FEITO_TEXT.match(text)
+    if m:
+        # Tenta extrair [lista] [item_text]
+        parts = m.group(1).strip().split(None, 1)
+        if len(parts) == 2:
+            _fn = parts[0].strip().lower()
+            return {"type": "feito", "list_name": _CATEGORY_TO_LIST.get(_fn, parts[0].strip()), "item": parts[1].strip()}
+        return {"type": "feito", "list_name": None, "item": m.group(1).strip()}
 
     # /remove
     m = RE_REMOVE_LIST_ID.match(text)
@@ -210,6 +220,13 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     m = RE_REMOVE_ID_ONLY.match(text)
     if m:
         return {"type": "remove", "list_name": None, "item_id": int(m.group(1))}
+    m = RE_REMOVE_TEXT.match(text)
+    if m:
+        parts = m.group(1).strip().split(None, 1)
+        if len(parts) == 2:
+            _rn = parts[0].strip().lower()
+            return {"type": "remove", "list_name": _CATEGORY_TO_LIST.get(_rn, parts[0].strip()), "item": parts[1].strip()}
+        return {"type": "remove", "list_name": None, "item": m.group(1).strip()}
 
     # /hora e /data
     if RE_HORA.match(text):
