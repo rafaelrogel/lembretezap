@@ -29,15 +29,16 @@ RE_REMOVE_TEXT = re.compile(r"^/(?:remove|delete|quitar|borrar)\s+(.+)$", re.I)
 
 RE_HORA = re.compile(r"^/(?:hora|time)\s*$", re.I)
 RE_DATA = re.compile(r"^/(?:data|date|fecha)\s*$", re.I)
-# Linguagem natural: mostre lista X, lista de X, minha lista X, qual lista, mercado, compras
-RE_NL_MOSTRE_LISTA = re.compile(
-    r"^(?:mostr(?:e|ar)|ver|listar|mostra)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?[\"']?(\w+)[\"']?\s*$", re.I
-)
-RE_NL_LISTA_DE = re.compile(r"^lista\s+(?:de\s+)?[\"']?(\w+)[\"']?\s*\??\s*$", re.I)
-RE_NL_QUAL_LISTA = re.compile(
-    r"^qual\s+(?:é|e)\s+(?:a\s+)?(?:minha\s+)?lista\s+(?:de\s+)?[\"']?(\w+)[\"']?\s*\??\s*$", re.I
+# NL: General list actions (show, create, add) across 4 languages
+RE_NL_LIST_ACTION = re.compile(
+    r"^(?:mostr|ver|listar?|show|display|view|mu[^\s]str|exib|affich|voi|cria?r?|crie?|fa[^\s]a|faz|fazer|make|create|haz|crea?r?|fai|fait|cr[^\s]er|donne?z?|give|dame|me\s+d)[^\s]*\s+"
+    r"(?:(?:a|as|os|uma?|un[ae]?|la|las|el|los|the|le?s?|l'|an?)\s+)?(?:(?:minha?|minhas|meus|meu|mi|mis|my|ma|mon|mes)\s+)?(?:lista?|list)\s+"
+    r"(?:(?:de|of|denominad|chamad|nomead|llamada|nombrada|called|named|nomm|appel)\S*\s+)?"
+    r"([\"']?[^\"'\r\n]+?[\"']?)(?:\s+(.+))?$",
+    re.I | re.UNICODE,
 )
 RE_NL_LISTA_SOZINHA = re.compile(r"^(lista|mercado|compras|pendentes)\s*$", re.I)
+
 # Atalhos: /filme, /livro, /musica, /receita, /nota, /site → equivalente a /list <categoria> <item>
 RE_FILME = re.compile(r"^/filmes?\s+([^\r\n]+)$", re.I)
 RE_LIVRO = re.compile(r"^/livros?\s+([^\r\n]+)$", re.I)
@@ -58,25 +59,17 @@ RE_NL_ADD_LISTA_CATEGORIA = re.compile(
     r"^(?:add|adicione|adiciona|a[ñn]adir)\s+(?:listas?\s+)?(filmes?|livros?|m[uú]sicas?|receitas?|notas?|sites?|links?|pel[ií]culas?|libros?|movies?|books?)\s+([^\r\n]+)$",
     re.I,
 )
-# PT: cria, crie, faça, faz, me dê, me de, de-me, dê-me
-# ES: crea, crear, haz, dame
-# EN: create, make, give me
-RE_NL_CRIA_LISTA_DE = re.compile(
-    r"^(?:cria|crie|faça|faz|me\s+d[êe]|de-me|dê-me"
-    r"|crea|crear|haz|dame"
-    r"|create|make|give\s+me)\s+"
-    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?[\"']?(\w+)[\"']?(?:\s+(.+))?$",
-    re.I,
-)
 # Verbos de visualização: mostre, mostra, exiba, muéstrame, muestra, exhibe, show me, show, display
 RE_NL_MOSTRE_LISTA_DE = re.compile(
-    r"^(?:mostre|mostra|exiba|mu[eé]strame|muestra|exhibe|show\s+me|show|display)\s+"
-    r"(?:uma\s+|una\s+|a\s+)?(?:lista|list)\s+(?:de\s+|of\s+)?[\"']?(\w+)[\"']?(?:\s+(.+))?$",
+    r"^(?:mostre|mostra|exiba|mu[eé]strame|muestra|exhibe|show\s+me|show|display|affiche|afficher)\s+"
+    r"(?:uma\s+|una\s+|a\s+|une\s+|la\s+)?(?:lista?|list)\s+"
+    r"(?:(?:de|of|denominada|chamada|nomeada|nomeado|denominado|chamado|llamada|llamado|nombrada|nombrado|called|named|nomm[ée]e?|appel[ée]e?)\s+)?"
+    r"[\"']?([^\"'\r\n]+)[\"']?(?:\s+(.+))?$",
     re.I,
 )
 # NL: "coloca/põe/anota X na lista", "põe leite na lista" → list_add mercado
 RE_NL_POR_LISTA = re.compile(
-    r"^(?:coloca|coloque|p[oô]e|põe|anota|anotar|inclui|incluir|marca)\s+(.+?)\s+(?:na|no|à|a)\s+(?:lista|listas)\s*$",
+    r"^(?:coloca|coloque|p[oô]e|põe|anota|anotar|inclui|incluir|marca)\s+(.+?)\s+(?:na|no|è|a)\s+(?:lista|listas)\s*$",
     re.I,
 )
 # NL (4 idiomas): "coloca na lista: X", "adiciona à lista: X", "pon en la lista: X", "add to list: X"
@@ -238,28 +231,23 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     # Guard partilhado: palavras de lembretes/agenda não são nomes de lista
     _REMINDER_AGENDA_WORDS_SHOW = {
         "lembretes", "lembrete", "agenda", "agendas", "compromissos",
-        "compromisso", "eventos", "evento", "tarefas", "tarefa",
-        "reminders", "reminder", "calendar", "tasks", "task",
+        "compromisso", "eventos", "evento",
+        "reminders", "reminder", "calendar",
         "recordatorios", "recordatorio",
     }
-    m = RE_NL_MOSTRE_LISTA.match(text)
-    if m:
-        _name = m.group(1).strip().lower()
-        if _name in _REMINDER_AGENDA_WORDS_SHOW:
-            return None  # Deixa o LLM tratar como consulta de agenda/lembretes
-        return {"type": "list_show", "list_name": _CATEGORY_TO_LIST.get(_name, _name)}
-    m = RE_NL_LISTA_DE.match(text)
+    # -- General List Action (NL) --
+    m = RE_NL_LIST_ACTION.match(text)
     if m:
         _name = m.group(1).strip().lower()
         if _name in _REMINDER_AGENDA_WORDS_SHOW:
             return None
-        return {"type": "list_show", "list_name": _CATEGORY_TO_LIST.get(_name, _name)}
-    m = RE_NL_QUAL_LISTA.match(text)
-    if m:
-        _name = m.group(1).strip().lower()
-        if _name in _REMINDER_AGENDA_WORDS_SHOW:
-            return None
-        return {"type": "list_show", "list_name": _CATEGORY_TO_LIST.get(_name, _name)}
+        list_name = _CATEGORY_TO_LIST.get(_name, _name)
+        item = (m.group(2) or "").strip()
+        
+        if item:
+            return {"type": "list_add", "list_name": list_name, "item": item}
+        return {"type": "list_show", "list_name": list_name}
+
     m = RE_NL_LISTA_SOZINHA.match(text)
     if m:
         name = m.group(1).strip()
@@ -304,24 +292,6 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         item = m.group(2).strip()
         if item:
             return {"type": "list_add", "list_name": list_name, "item": item}
-    # NL: "cria uma lista de livros do lovecraft para eu comprar" ou "cria uma lista de livros" → list_add
-    m = RE_NL_CRIA_LISTA_DE.match(text)
-    if m:
-        list_name = m.group(1).strip().lower()
-        # Guard: palavras de lembretes/agenda nunca devem ser tratadas como nomes de lista
-        _REMINDER_AGENDA_WORDS = {
-            "lembretes", "lembrete", "agenda", "agendas", "compromissos",
-            "compromisso", "eventos", "evento", "tarefas", "tarefa",
-            "reminders", "reminder", "calendar", "tasks", "task",
-            "recordatorios", "recordatorio",
-        }
-        if list_name in _REMINDER_AGENDA_WORDS:
-            return None
-        list_name = _CATEGORY_TO_LIST.get(list_name, list_name)
-        item = (m.group(2) or "").strip()
-        if item:
-            return {"type": "list_add", "list_name": list_name, "item": item}
-        return {"type": "list_show", "list_name": list_name}
 
     m = RE_NL_MOSTRE_LISTA_DE.match(text)
     if m:

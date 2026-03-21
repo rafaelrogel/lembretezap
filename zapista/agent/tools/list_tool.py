@@ -253,13 +253,17 @@ class ListTool(Tool):
 
     @staticmethod
     def _normalize_list_name(name: str) -> str:
-        """Strip connector words mistakenly used as list names.
-
-        'chamada'/'chamado' (PT), 'llamada'/'llamado' (ES), 'called'/'named' (EN)
-        mean 'named' -- they are not list names themselves.
-        """
+        """Strip connector words mistakenly used as list names across 4 languages."""
         _CONNECTORS = {
-            "chamada", "chamado", "llamada", "llamado", "called", "named",
+            # PT
+            "chamada", "chamado", "denominada", "denominado", "nomeada", "nomeado", "de", "do", "da",
+            # ES
+            "llamada", "llamado", "denominada", "denominado", "nombrada", "nombrado", "con", "el", "la",
+            # EN
+            "called", "named", "with", "the",
+            # FR
+            "nommee", "nommée", "nomme", "nommé", "appelee", "appelée", "appele", "appelé", "avec", "le",
+            # Misc
             "ai", "aí", "ahi", "ahí", "ali", "allí", "here", "there", "aqui", "aquí",
             "lá", "alla", "allá", "it", "esto", "eso", "isto", "isso"
         }
