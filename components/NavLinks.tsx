@@ -62,8 +62,7 @@ export function NavLinks() {
   return (
     <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-10 md:flex">
       {links.map(({ href, label, sectionId }) => {
-        const isActive =
-          href !== "#" && pathname === href;
+        const isActive = pathname === href && !href.startsWith("#");
         const isSectionActive =
           pathname === "/" &&
           ((sectionId === "sobre" && sobreInView) ||

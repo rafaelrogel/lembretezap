@@ -101,7 +101,7 @@ export function AboutSection() {
                       praticamente tudo no Zappelin. Bom demais!
                     </Typography>
                     <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
-                      Ana, 29 anos
+                      Ana &quot;caos controlado&quot;
                     </figcaption>
                   </div>
                 </div>
@@ -128,7 +128,7 @@ export function AboutSection() {
                       já sei que aquilo vai virar lembrete.
                     </Typography>
                     <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
-                      Rodrigo, 34 anos
+                      Rodrigo Checklist
                     </figcaption>
                   </div>
                 </div>
@@ -140,7 +140,7 @@ export function AboutSection() {
                 <div className="flex items-start gap-3">
                   <Image
                     src="/yo1.png"
-                    alt="Foto de perfil de Julia"
+                    alt="Foto de perfil de Júlia Desenrolada"
                     width={34}
                     height={34}
                     className="mt-0.5 rounded-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
@@ -155,7 +155,7 @@ export function AboutSection() {
                       como ter uma memória extra no celular.
                     </Typography>
                     <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
-                      Júlia, 41 anos
+                      Júlia Desenrolada
                     </figcaption>
                   </div>
                 </div>
@@ -182,7 +182,7 @@ export function AboutSection() {
                       mais esqueci nada!
                     </Typography>
                     <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
-                      Carla, 52 anos
+                      Carla &quot;perde nada&quot;
                     </figcaption>
                   </div>
                 </div>

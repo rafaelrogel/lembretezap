@@ -214,7 +214,11 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
     if tz_iana == "UTC" and user_lang in DEFAULT_TZ_BY_LANG:
         tz_iana = DEFAULT_TZ_BY_LANG[user_lang]
 
+<<<<<<< HEAD
     def _retry_or_fail(flow: dict, current_question: str, invalid_hint: str | None = None) -> str | None:
+=======
+    def _retry_or_fail(flow: dict, current_question: str) -> str | None:
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
         """Incrementa retry_count; se >= MAX_RETRIES, desiste e retorna REMINDER_FAILED_NO_INFO."""
         retry = flow.get("retry_count", 0) + 1
         if retry >= MAX_RETRIES:
@@ -228,12 +232,17 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
         # Better hint based on stage
         stage = flow.get("stage")
         from backend.locale import (
+<<<<<<< HEAD
             REMINDER_ASK_TIME_HINT, REMINDER_ASK_DATE_HINT, REMINDER_ASK_ADVANCE_HINT, REMINDER_ASK_WHEN_HINT
+=======
+            REMINDER_ASK_TIME_HINT, REMINDER_ASK_DATE_HINT, REMINDER_ASK_ADVANCE_HINT
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
         )
         hint = ""
         if stage == STAGE_NEED_TIME:
             hint = REMINDER_ASK_TIME_HINT.get(user_lang, "Por favor, indique a hora (ex: 18h, 10:30).")
         elif stage == STAGE_NEED_DATE:
+<<<<<<< HEAD
             hint = REMINDER_ASK_DATE_HINT.get(user_lang, "Indique o dia (ex: amanhã, hoje, sexta, dia 25/03).")
         elif stage == STAGE_NEED_WHEN:
             hint = REMINDER_ASK_WHEN_HINT.get(user_lang, "Ex: em 10 min, amanhã 8h, todo dia ou a cada 2h.")
@@ -243,9 +252,41 @@ async def handle_vague_time_reminder(ctx: HandlerContext, content: str) -> str |
         prefix = (invalid_hint + "\n") if invalid_hint else ""
         suffix = REMINDER_RETRY_SUFFIX.get(user_lang, REMINDER_RETRY_SUFFIX["en"]).format(n=retry)
         return f"{prefix}{current_question}\n\n{hint}\n{REMINDER_ASK_AGAIN.get(user_lang, REMINDER_ASK_AGAIN['en'])}{suffix}"
+=======
+            hint = REMINDER_ASK_DATE_HINT.get(user_lang, "Indique o dia (ex: amanhã, hoje, sexta).")
+        elif stage == STAGE_NEED_ADVANCE_PREFERENCE:
+            hint = REMINDER_ASK_ADVANCE_HINT.get(user_lang, "Responda com 'sim', 'na hora' ou 'não quero'.")
+
+        suffix = REMINDER_RETRY_SUFFIX.get(user_lang, REMINDER_RETRY_SUFFIX["en"]).format(n=retry)
+        return f"{current_question}\n\n{hint}\n{REMINDER_ASK_AGAIN.get(user_lang, REMINDER_ASK_AGAIN['en'])}{suffix}"
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 
     # --- Estamos no fluxo: processar resposta ---
     if flow and isinstance(flow, dict):
+        if _looks_like_new_reminder_request(text):
+            # Se for um pedido completo de evento + data + hora, assumimos que é uma refinação
+            # ou um novo pedido. Cancelamos o fluxo anterior SEM agendar o incompleto
+            # para evitar o bug de duplicação (BAN01 + BAN02).
+            from backend.reminder_flow import has_full_event_datetime
+            if has_full_event_datetime(text):
+                session.metadata.pop(FLOW_KEY, None)
+                ctx.session_manager.save(session)
+                return None  # Cai para handle_lembrete que fará o agendamento correto e único
+
+            # Se for um pedido novo mas ainda não completo, tentamos salvar o anterior se possível
+            _flow_in_sec = flow.get("in_seconds")
+            _flow_msg = (flow.get("content") or "").strip()
+            if _flow_in_sec and _flow_in_sec > 0 and _flow_msg:
+                ctx.cron_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
+                await ctx.cron_tool.execute(
+                    action="add",
+                    message=_flow_msg,
+                    in_seconds=_flow_in_sec,
+                )
+            session.metadata.pop(FLOW_KEY, None)
+            ctx.session_manager.save(session)
+            return None
+
         stage = flow.get("stage")
         if stage != STAGE_NEED_WHEN and _looks_like_new_reminder_request(text):
             # Se for um pedido completo de evento + data + hora, assumimos que é uma refinação
@@ -581,6 +622,7 @@ def _looks_like_new_reminder_request(text: str) -> bool:
         return False
     t = text.strip().lower()
     # Any slash command is always a new request
+<<<<<<< HEAD
     from backend.recurring_event_flow import has_recurrence_indicator
     if t.startswith("/") or has_recurrence_indicator(text):
         return True
@@ -591,13 +633,23 @@ def _looks_like_new_reminder_request(text: str) -> bool:
 
     from backend.pending_confirmation import looks_like_time_response
     if looks_like_time_response(t):
+=======
+    if t.startswith("/"):
+        return True
+    from backend.reminder_flow import has_reminder_intent
+    if not has_reminder_intent(t):
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
         return False
     # At least 15 chars suggests a full sentence, not just "me avisa" or "2h"
     if len(t) < 15:
         return False
     # Exclude bare time expressions like "me lembra daqui 30 min"
     _TIME_ONLY = re.compile(
+<<<<<<< HEAD
         r"^(me\s+)?(avisa|lembra|lembre|remind|avisame|recuerdame)\s*(de\s+)?"
+=======
+        r"^(me\s+)?(avisa|lembra|lembre|remind)\s*(de\s+)?"
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
         r"(daqui\s+a?\s*)?\d+\s*(min|h|hora|seg|segundo|dia|mes)s?\s*$",
         re.I,
     )
@@ -975,6 +1027,17 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
     except Exception:
         pass
 
+    # Resolve user_lang early for cancel check (avoid NameError)
+    _cancel_lang: LangCode = "pt-BR"
+    try:
+        _cdb = SessionLocal()
+        try:
+            _cancel_lang = get_user_language(_cdb, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
+        finally:
+            _cdb.close()
+    except Exception:
+        pass
+
     # --- Cancelar fluxo se o usuário pedir ---
     t_clean = content.strip().lower()
     if t_clean in ("esc", "cancel", "cancelar", "sair", "stop", "para", "parar", "nvm"):
@@ -1019,6 +1082,7 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
     # --- Estamos no fluxo ---
     if flow and isinstance(flow, dict):
         # If the user sent a new reminder/command instead of answering,
+<<<<<<< HEAD
         # abandon this flow and process it as a new request.
         if _looks_like_new_reminder_request(text):
             # Clear ALL pending flows to prevent context leak
@@ -1033,6 +1097,18 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
             cron_expr = (flow.get("cron_expr") or "").strip()
             every_seconds = flow.get("every_seconds")
             schedule_display = format_schedule_for_display(cron_expr, user_lang)
+=======
+        # abandon this flow and let the message fall through.
+        if _looks_like_new_reminder_request(text):
+            session.metadata.pop(FLOW_KEY, None)
+            ctx.session_manager.save(session)
+            return None
+
+        stage = flow.get("stage")
+        event = (flow.get("event") or "").strip()
+        cron_expr = (flow.get("cron_expr") or "").strip()
+        schedule_display = format_schedule_for_display(cron_expr, user_lang)
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 
             if stage == STAGE_NEED_CONFIRM:
                 if looks_like_confirm_no(text):
@@ -1125,9 +1201,12 @@ async def handle_recurring_event(ctx: HandlerContext, content: str) -> str | Non
             }
             ctx.session_manager.save(session)
 
+<<<<<<< HEAD
             return RECURRING_EVENT_CONFIRM.get(user_lang, RECURRING_EVENT_CONFIRM["en"]).format(
                 event=event_content,
                 schedule=schedule_display,
             )
 
+=======
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
     return None

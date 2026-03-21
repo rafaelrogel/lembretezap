@@ -47,7 +47,11 @@ _EXPLICIT_DATE_PATTERNS = (
     r"\d{1,2}\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)",
     r"\d{1,2}\s+de\s+(?:enero|febrero|marzo|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)",
     r"\d{1,2}\s+(?:enero|febrero|marzo|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)",
+<<<<<<< HEAD
     r"\b(?:dia\s+|day\s+|el\s+d[íi]a\s+)\d{1,2}\b",                      # dia 22, day 22
+=======
+    r"(?:dia\s+)?\d{1,2}\b",                      # dia 22, 22
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 )
 _EXPLICIT_DATE_RE = re.compile("|".join(_EXPLICIT_DATE_PATTERNS), re.I)
 
@@ -605,12 +609,26 @@ def compute_in_seconds_from_date_hour(
                 mes = int(m.group(2)) if m.group(2) else now.month
                 ano = now.year
                 try:
+<<<<<<< HEAD
                     from calendar import monthrange
                     _, last_day = monthrange(ano, mes)
                     target_date = datetime(ano, mes, min(dia, last_day)).date()
                     if target_date < today:
                         if not m.group(2):
                             # Se já passou este mês e não especificou mês, tenta próximo mês
+=======
+                    target_date = datetime(ano, mes, min(dia, 28)).date()
+                    # Tenta restaurar o dia exato
+                    try:
+                        from calendar import monthrange
+                        _, last_day = monthrange(ano, mes)
+                        target_date = target_date.replace(day=min(dia, last_day))
+                    except Exception: pass
+
+                    if target_date < today:
+                        # Se já passou este mês e não especificou mês, tenta próximo mês
+                        if not m.group(2):
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
                             if now.month == 12:
                                 target_date = target_date.replace(year=ano + 1, month=1)
                             else:
@@ -619,9 +637,12 @@ def compute_in_seconds_from_date_hour(
                                     _, last_day = monthrange(target_date.year, target_date.month)
                                     target_date = target_date.replace(day=min(dia, last_day))
                                 except Exception: pass
+<<<<<<< HEAD
                         else:
                             # Mês especificado mas no passado: assume ano seguinte (fix loop)
                             target_date = target_date.replace(year=ano + 1)
+=======
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
                 except ValueError:
                     return None
         else:
@@ -632,6 +653,7 @@ def compute_in_seconds_from_date_hour(
             hour, minute, 0, 0, tzinfo=z
         )
         delta = (target - now).total_seconds()
+<<<<<<< HEAD
         if delta <= 0:
             # If it's a numeric date like "22/03" and it's already past for THIS year, assume next year
             if dl.startswith("dia ") or dl.isdigit() or "/" in dl:
@@ -639,6 +661,9 @@ def compute_in_seconds_from_date_hour(
                 delta = (target - now).total_seconds()
 
         if delta > 0 and delta <= 86400 * 365 * 2: # up to 2 years
+=======
+        if delta > 0 and delta <= 86400 * 365:
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
             return int(delta)
     except Exception:
         pass

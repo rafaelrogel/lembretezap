@@ -71,11 +71,19 @@ async def handle_list(ctx: "HandlerContext", content: str) -> str | None:
         item_text = intent.get("item", "")
         if items:
             for it in items:
+<<<<<<< HEAD
                 if list_name in ("filmes", "filme", "livros", "livro", "músicas", "musica", "música", "séries", "série", "serie", "receitas", "receita", "jogos", "jogo", "juegos") and is_absurd_request(it):
                     r = is_absurd_request(it)
                     if r:
                         return r
         elif list_name in ("filmes", "filme", "livros", "livro", "músicas", "musica", "música", "séries", "série", "serie", "receitas", "receita", "jogos", "jogo", "juegos") and is_absurd_request(item_text):
+=======
+                if list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(it):
+                    r = is_absurd_request(it)
+                    if r:
+                        return r
+        elif list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(item_text):
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
             return is_absurd_request(item_text)
     ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
     if intent.get("type") == "list_add":
@@ -146,7 +154,10 @@ async def handle_feito(ctx: "HandlerContext", content: str) -> str | None:
         action="feito",
         list_name=intent.get("list_name") or "",
         item_id=intent.get("item_id"),
+<<<<<<< HEAD
         item_text=intent.get("item"),
+=======
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
     )
 
 
@@ -163,7 +174,10 @@ async def handle_remove(ctx: "HandlerContext", content: str) -> str | None:
         action="remove",
         list_name=intent.get("list_name") or "",
         item_id=intent.get("item_id"),
+<<<<<<< HEAD
         item_text=intent.get("item"),
+=======
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
     )
 
 

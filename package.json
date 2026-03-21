@@ -7,10 +7,15 @@
   },
   "scripts": {
     "clean": "node scripts/clean-next.mjs",
-    "dev": "node scripts/kill-port-node.mjs 3000 && next dev -p 3000",
-    "dev:clean": "npm run clean && node scripts/kill-port-node.mjs 3000 && next dev -p 3000",
+    "dev": "node scripts/kill-port-node.mjs 3000 && npm run clean && next dev -p 3000",
+    "dev:fast": "node scripts/kill-port-node.mjs 3000 && next dev -p 3000",
+    "dev:alt": "next dev -p 3001",
+    "dev:clean": "node scripts/kill-port-node.mjs 3000 && npm run clean && next dev -p 3000",
+    "dev:fix": "node scripts/kill-port-node.mjs 3000 && node scripts/kill-port-node.mjs 3001 && node scripts/kill-port-node.mjs 3020 && npm run clean && next dev -p 3000",
+    "build:clean": "npm run clean && next build",
     "dev:turbo": "node scripts/kill-port-node.mjs 3000 && next dev --turbo -p 3000",
     "build": "next build",
+    "verify": "npm run build",
     "start": "next start",
     "lint": "next lint"
   },

@@ -798,6 +798,7 @@ REMINDER_RETRY_SUFFIX: dict[LangCode, str] = {
 }
 
 REMINDER_ASK_TIME_HINT: dict[LangCode, str] = {
+<<<<<<< HEAD
     "pt-PT": "Podes dizer: amanhã 9h, às 10:30, segunda 15h, todo dia 8h...",
     "pt-BR": "Você pode dizer: amanhã 9h, às 10:30, segunda 15h, todo dia 8h...",
     "es": "Puedes decir: mañana 9h, a las 10:30, lunes 15h, todos los días 8h...",
@@ -845,6 +846,12 @@ REMINDER_ASK_WHEN_HINT: dict[LangCode, str] = {
     "pt-BR": "Ex: em 10 min, amanhã 8h, todo dia ou a cada 2h.",
     "es": "Ej: en 10 min, mañana 8h, cada día o cada 2h.",
     "en": "E.g. in 10 min, tomorrow 8am, daily or every 2h.",
+=======
+    "pt-PT": "Por favor, indica a hora (ex: 18h, 10:30, amanhã às 14h).",
+    "pt-BR": "Por favor, indique a hora (ex: 18h, 10:30, amanhã às 14h).",
+    "es": "Por favor, indica la hora (ej: 18h, 10:30, mañana a las 14h).",
+    "en": "Please provide the time (e.g., 6pm, 10:30, tomorrow at 2pm).",
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 }
 
 REMINDER_ASK_DATE_HINT: dict[LangCode, str] = {
@@ -2727,6 +2734,7 @@ VIEW_AGENDA_TODAY_HEADER: dict[LangCode, str] = {
     "en": "📆 **Agenda — today**",
 }
 
+<<<<<<< HEAD
 VIEW_AGENDA_TOMORROW_HEADER: dict[LangCode, str] = {
     "pt-PT": "📅 **Agenda — amanhã**",
     "pt-BR": "📅 **Agenda — amanhã**",
@@ -2734,6 +2742,8 @@ VIEW_AGENDA_TOMORROW_HEADER: dict[LangCode, str] = {
     "en": "📅 **Agenda — tomorrow**",
 }
 
+=======
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 VIEW_AGENDA_WEEK_HEADER: dict[LangCode, str] = {
     "pt-PT": "📆 **Agenda — esta semana** (até {end_date})",
     "pt-BR": "📆 **Agenda — esta semana** (até {end_date})",
@@ -2748,6 +2758,7 @@ VIEW_NO_EVENTS_WEEK: dict[LangCode, str] = {
     "en": "• No events this week.",
 }
 
+<<<<<<< HEAD
 VIEW_AGENDA_MONTH_HEADER: dict[LangCode, str] = {
     "pt-PT": "\n📆 **Agenda — {month} {year}**",
     "pt-BR": "\n📆 **Agenda — {month} {year}**",
@@ -2776,6 +2787,8 @@ VIEW_NO_REMINDERS_MONTH: dict[LangCode, str] = {
     "en": "• No reminders for this month.",
 }
 
+=======
+>>>>>>> fc59fbbc9549cabba5363c89a1bd01849f6f6d88
 VIEW_PRODUTIVIDADE_HEADER: dict[LangCode, str] = {
     "pt-PT": "📊 **Relatório de produtividade**",
     "pt-BR": "📊 **Relatório de produtividade**",
