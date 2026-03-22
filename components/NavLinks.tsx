@@ -34,7 +34,7 @@ export function NavLinks() {
   }, [pathname]);
 
   return (
-    <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-10 md:flex">
+    <div className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-10 desktop:flex">
       {links.map(({ href, label, sectionId }) => {
         const isActive =
           href !== "#" && pathname === href;

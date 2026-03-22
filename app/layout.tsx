@@ -32,7 +32,7 @@ export default function RootLayout({
         </a>
         <header className="navbar-entrance sticky top-0 z-50 bg-[#FFFDFA]">
           <nav
-            className="relative mx-auto flex w-full max-w-container-lg items-center justify-between gap-8 px-[40px] py-5"
+            className="relative mx-auto flex w-full max-w-container-lg items-center justify-between gap-8 px-6 py-5 desktop:px-[40px]"
             aria-label="Main"
           >
             <Link

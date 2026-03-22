@@ -57,7 +57,7 @@ export function PhonePreview({ children, pointerRef }: PhonePreviewProps) {
 
   return (
     <div
-      className="relative flex flex-shrink-0 items-center justify-end w-full max-w-[280px] sm:max-w-[320px] md:max-w-[min(380px,42vw)] md:mr-0 bg-transparent"
+      className="relative flex w-full max-w-[280px] flex-shrink-0 items-center justify-end bg-transparent desktop:mr-0 desktop:w-[380px] desktop:max-w-[380px]"
       style={{ background: "transparent", perspective: 900 }}
       aria-hidden
     >
@@ -73,11 +73,11 @@ export function PhonePreview({ children, pointerRef }: PhonePreviewProps) {
         <img
           src="/phone-preview.svg"
           alt=""
-          width={280}
-          height={606}
-          className="phone-mockup-img h-auto w-full max-w-[280px] sm:max-w-[320px] md:max-w-[min(380px,42vw)] object-contain object-top"
+          width={454}
+          height={928}
+          className="phone-mockup-img h-auto w-full max-w-[280px] object-contain object-top desktop:max-w-[380px]"
           style={{
-            aspectRatio: "9 / 19.5",
+            aspectRatio: "454 / 928",
             background: "transparent",
           }}
         />

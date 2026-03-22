@@ -75,6 +75,9 @@ export function WaveLettersText({
     );
   }
 
+  /** Partes de cada linha: palavras (não quebram ao meio) e espaços (quebra permitida). */
+  const lineParts = (line: string) => line.split(/(\s+)/).filter((p) => p.length > 0);
+
   let charIndex = 0;
   return (
     <span
@@ -90,19 +93,33 @@ export function WaveLettersText({
     >
       {lines.map((line, lineIdx) => (
         <span key={lineIdx} className={`wave-letters-line ${lineIdx > 0 ? "wave-letters-line-follow" : ""}`}>
-          {Array.from(line).map((char, i) => {
-            const index = charIndex++;
-            const isSpace = char === " ";
+          {lineParts(line).map((part, partIdx) => {
+            if (/^\s+$/.test(part)) {
+              charIndex += part.length;
+              return (
+                <span key={`${lineIdx}-ws-${partIdx}`} className="wave-letters-ws">
+                  {part}
+                </span>
+              );
+            }
             return (
-              <span
-                key={`${lineIdx}-${i}`}
-                className={`wave-letters-char ${isSpace ? "wave-letters-space" : ""}`}
-                style={{
-                  animationDelay: isSpace ? undefined : `calc(var(--wave-stagger) * ${index})`,
-                }}
-                aria-hidden={false}
-              >
-                {isSpace ? "\u00A0" : char}
+              <span key={`${lineIdx}-w-${partIdx}`} className="wave-letters-word">
+                {Array.from(part).map((char, i) => {
+                  const index = charIndex++;
+                  const isSpace = char === " ";
+                  return (
+                    <span
+                      key={`${lineIdx}-${partIdx}-${i}`}
+                      className={`wave-letters-char ${isSpace ? "wave-letters-space" : ""}`}
+                      style={{
+                        animationDelay: isSpace ? undefined : `calc(var(--wave-stagger) * ${index})`,
+                      }}
+                      aria-hidden={false}
+                    >
+                      {isSpace ? "\u00A0" : char}
+                    </span>
+                  );
+                })}
               </span>
             );
           })}

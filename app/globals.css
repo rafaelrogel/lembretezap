@@ -117,6 +117,12 @@
   --duration-slow: 300ms;
 }
 
+@media (min-width: 1080px) {
+  :root {
+    --spacing-page-x: var(--space-8);
+  }
+}
+
 /* Chat mockup entrance – avatar + verde juntos (fade de baixo), depois cinza */
 @keyframes chat-sent-block-enter {
   from {
@@ -290,6 +296,83 @@
   }
 }
 
+/* Features cards – hover +40px on card, −40px on neighbor; group width unchanged; Apple-like transition */
+.features-row {
+  width: 100%;
+}
+@media (min-width: 1080px) {
+  .features-row-1 {
+    display: flex;
+    gap: 16px;
+  }
+  .features-row-2 {
+    display: flex;
+    gap: 16px;
+  }
+  .features-row .features-card {
+    flex: 0 1 auto;
+    min-width: 0;
+    transition:
+      flex 0.42s cubic-bezier(0.25, 0.1, 0.25, 1),
+      box-shadow 0.42s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  /* Card 1 = largura de card 3 + gap + card 4 (alinhado à linha de baixo) */
+  .features-row-1 .features-card-1 {
+    flex: 0 1 calc((100% - 32px) * 2 / 3 + 16px);
+  }
+  .features-row-1 .features-card-2 {
+    flex: 0 1 calc((100% - 32px) / 3);
+  }
+  .features-row-1:has(.features-card-1:hover) .features-card-1 {
+    flex: 0 1 calc((100% - 32px) * 2 / 3 + 40px);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+  }
+  .features-row-1:has(.features-card-1:hover) .features-card-2 {
+    flex: 0 1 calc((100% - 32px) / 3 - 24px);
+  }
+  .features-row-1:has(.features-card-2:hover) .features-card-1 {
+    flex: 0 1 calc((100% - 32px) * 2 / 3 - 8px);
+  }
+  .features-row-1:has(.features-card-2:hover) .features-card-2 {
+    flex: 0 1 calc((100% - 32px) / 3 + 24px);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+  }
+  .features-row-2 .features-card-3,
+  .features-row-2 .features-card-4,
+  .features-row-2 .features-card-5 {
+    flex: 0 1 calc((100% - 32px) / 3);
+  }
+  .features-row-2:has(.features-card-3:hover) .features-card-3 {
+    flex: 0 1 calc((100% - 32px) / 3 + 24px);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+  }
+  .features-row-2:has(.features-card-3:hover) .features-card-4 {
+    flex: 0 1 calc((100% - 32px) / 3 - 24px);
+  }
+  .features-row-2:has(.features-card-4:hover) .features-card-3 {
+    flex: 0 1 calc((100% - 32px) / 3 - 24px);
+  }
+  .features-row-2:has(.features-card-4:hover) .features-card-4 {
+    flex: 0 1 calc((100% - 32px) / 3 + 24px);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+  }
+  .features-row-2:has(.features-card-4:hover) .features-card-5 {
+    flex: 0 1 calc((100% - 32px) / 3);
+  }
+  .features-row-2:has(.features-card-5:hover) .features-card-4 {
+    flex: 0 1 calc((100% - 32px) / 3 - 24px);
+  }
+  .features-row-2:has(.features-card-5:hover) .features-card-5 {
+    flex: 0 1 calc((100% - 32px) / 3 + 24px);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+  }
+}
+@media (min-width: 1080px) and (prefers-reduced-motion: reduce) {
+  .features-row .features-card {
+    transition: none;
+  }
+}
+
 /* Navbar: hidden until animation, then slides down from top (no visible fade) */
 @keyframes navbar-entrance {
   0% {
@@ -454,6 +537,15 @@
 .wave-letters-line.wave-letters-line-follow {
   margin-top: 8px;
 }
+/* Palavra inteira anima junto; quebras de linha só entre palavras (evita partir ao meio no mobile). */
+.wave-letters-word {
+  white-space: nowrap;
+  display: inline-block;
+}
+.wave-letters-ws {
+  display: inline;
+  white-space: normal;
+}
 .wave-letters-char {
   display: inline-block;
   transform: scale(1);
@@ -464,6 +556,25 @@
 }
 .wave-letters-space {
   animation: none;
+}
+
+/* Tagline hero: uma linha no mobile (≤1079px, alinhado a mobile/desktop no Tailwind) */
+@media (max-width: 1079px) {
+  #tagline-heading .wave-letters-line {
+    display: inline;
+  }
+  #tagline-heading .wave-letters-line.wave-letters-line-follow {
+    margin-top: 0;
+  }
+  #tagline-heading .wave-letters-line.wave-letters-line-follow::before {
+    content: "\00a0";
+  }
+  #tagline-heading br {
+    display: none;
+  }
+  #tagline-heading > span > span + span::before {
+    content: "\00a0";
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .wave-letters-active .wave-letters-char {

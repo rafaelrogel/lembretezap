@@ -8,6 +8,11 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      screens: {
+        // max 1079px = mobile; min 1080px = desktop
+        mobile: { max: "1079px" },
+        desktop: "1080px",
+      },
       colors: {
         brand: {
           50: "var(--color-brand-50)",

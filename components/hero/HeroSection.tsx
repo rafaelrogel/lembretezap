@@ -1,12 +1,23 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { AnimatedBlobs } from "./AnimatedBlobs";
 // import { BackgroundShapes } from "./BackgroundShapes"; // kept if we need to revert
+import { HeroChatMockup } from "./HeroChatMockup";
 import { PhonePreview } from "./PhonePreview";
 import { Button, Typography } from "@/components/ui";
 
 const DEBUG = false;
+
+/* Mesmos valores do PhonePreview para pan/parallax no mock 5 */
+const PAN_STRENGTH = 8;
+const TILT_DEG = 3;
+const PAN_SMOOTHING = 0.1;
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
 
 const ROTATING_WORDS = ["lembretes", "listas", "eventos", "tarefas"] as const;
 const TICK_MS = 85;
@@ -70,7 +81,78 @@ function HeroTypewriter() {
 export function HeroSection() {
   const heroRef = useRef<HTMLDivElement>(null);
   const pointerRef = useRef({ x: 0, y: 0, isHovering: false, clientX: 0, clientY: 0 });
+  const mock5WrapperRef = useRef<HTMLDivElement>(null);
+  const mock5MotionRef = useRef({ x: 0, y: 0, rotateX: 0, rotateY: 0 });
   const lastLogRef = useRef(0);
+  const [discoverHover, setDiscoverHover] = useState(false);
+  const [isHeroInView, setIsHeroInView] = useState(true);
+  const [discoverBreathe, setDiscoverBreathe] = useState(false);
+  /** Clique em Descubra mais dispara leave antes / durante o scroll */
+  const [discoverDismissed, setDiscoverDismissed] = useState(false);
+  /** Primeira entrada mantém delay 1.4s; após já ter fechado por clique, voltar à hero sem esse delay */
+  const [discoverWasEverDismissed, setDiscoverWasEverDismissed] = useState(false);
+  const prevHeroInViewRef = useRef(true);
+
+  useEffect(() => {
+    let rafId: number;
+    const tick = () => {
+      const raw = pointerRef.current;
+      const pt = raw ? { x: raw.x, y: raw.y, isHovering: raw.isHovering } : { x: 0, y: 0, isHovering: false };
+      const on = pt.isHovering ? 1 : 0;
+      const targetX = pt.x * PAN_STRENGTH * on;
+      const targetY = pt.y * PAN_STRENGTH * on;
+      const targetRotateY = pt.x * TILT_DEG * on;
+      const targetRotateX = -pt.y * TILT_DEG * on;
+      const m = mock5MotionRef.current;
+      m.x = lerp(m.x, targetX, PAN_SMOOTHING);
+      m.y = lerp(m.y, targetY, PAN_SMOOTHING);
+      m.rotateX = lerp(m.rotateX, targetRotateX, PAN_SMOOTHING);
+      m.rotateY = lerp(m.rotateY, targetRotateY, PAN_SMOOTHING);
+      if (mock5WrapperRef.current) {
+        mock5WrapperRef.current.style.transform =
+          `translate(${m.x}px, ${m.y}px) rotateX(${m.rotateX}deg) rotateY(${m.rotateY}deg)`;
+      }
+      rafId = requestAnimationFrame(tick);
+    };
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
+  // "Respiro" único após a entrance do CTA Descubra mais.
+  useEffect(() => {
+    const start = setTimeout(() => setDiscoverBreathe(true), 2100);
+    const end = setTimeout(() => setDiscoverBreathe(false), 2750);
+    return () => {
+      clearTimeout(start);
+      clearTimeout(end);
+    };
+  }, []);
+
+  // Controla visibilidade do "Descubra mais" – só aparece enquanto a hero está visível
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const el = heroRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        const inView = entry?.isIntersecting ?? false;
+        if (inView && !prevHeroInViewRef.current) {
+          setDiscoverDismissed(false);
+        }
+        prevHeroInViewRef.current = inView;
+        setIsHeroInView(inView);
+      },
+      {
+        threshold: 0.2,
+      }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const el = heroRef.current;
     if (!el) return;
@@ -106,14 +188,16 @@ export function HeroSection() {
     if (DEBUG) console.log("[HeroSection] onMouseLeave");
   };
 
+  const ctaVisible = isHeroInView && !discoverDismissed;
+
   return (
     <section
-      className="relative overflow-hidden mx-auto w-full max-w-container-lg px-[40px] pt-12 pb-page-y"
+      className="relative mx-auto w-full max-w-[1280px] overflow-hidden px-6 pb-6 pt-6 desktop:px-[40px] desktop:pb-page-y desktop:pt-12"
       aria-labelledby="hero-heading"
     >
       <div
         ref={heroRef}
-        className="relative overflow-hidden rounded-[2.5rem] max-h-[624px]"
+        className="relative max-h-[704px] overflow-hidden rounded-[2.5rem] desktop:max-h-[624px]"
         onMouseMove={handleMouseMove}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -129,30 +213,28 @@ export function HeroSection() {
         <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
           <AnimatedBlobs />
         </div>
-        <div className="relative z-20 flex max-h-[624px] flex-col items-center gap-section md:flex-row md:items-center md:justify-between md:gap-12 lg:gap-16 pl-8 pr-0 py-10 md:pl-12 md:pr-0 md:py-12 lg:pl-16 lg:pr-0 lg:py-14">
-          <div className="flex flex-1 flex-col justify-center max-w-xl min-w-0">
+        <div className="relative z-20 flex flex-col items-center gap-8 px-4 py-8 desktop:max-h-[624px] desktop:flex-row desktop:items-center desktop:justify-between desktop:gap-x-[clamp(1rem,3vw,4rem)] desktop:px-0 desktop:py-14">
+          <div className="flex w-full max-w-xl min-w-0 flex-1 flex-col items-center justify-center text-center desktop:min-w-0 desktop:items-start desktop:pl-12 desktop:text-left">
             <Typography
               id="hero-heading"
               variant="display-lg"
               as="h1"
-              className="hero-entrance font-bold"
+              className="hero-entrance text-center text-[36px] font-bold leading-[110%] desktop:text-left desktop:text-[56px]"
               style={{
                 color: "var(--Text-900, #212121)",
-                fontSize: 56,
                 fontWeight: 700,
-                lineHeight: "110%",
                 animationDelay: "0.5s",
               }}
             >
-              Suas mensagens viram{" "}
-              <span className="inline-block">
+              <span className="block desktop:inline">Suas mensagens viram</span>
+              <span className="mt-1 block desktop:ml-2 desktop:mt-0 desktop:inline-block">
                 <HeroTypewriter />
               </span>
             </Typography>
             <Typography
               variant="body-lg"
               as="p"
-              className="hero-entrance mt-4 max-w-lg font-normal"
+              className="hero-entrance mt-4 w-full max-w-[350px] text-center font-normal desktop:text-left"
               style={{
                 color: "var(--Text-600, #797781)",
                 fontSize: 16,
@@ -161,11 +243,13 @@ export function HeroSection() {
                 animationDelay: "0.75s",
               }}
             >
-              Escreva como sempre escreveu. Sem nada para
-              <br />
-              aprender, nem instalar.
+              Escreva como sempre escreveu. Sem nada para aprender, nem instalar.
             </Typography>
-            <span id="hero-cta" className="hero-entrance inline-block" style={{ animationDelay: "1s" }}>
+            <span
+              id="hero-cta"
+              className="hero-entrance flex w-full justify-center desktop:inline-block desktop:w-auto"
+              style={{ animationDelay: "1s" }}
+            >
               <Button
                 href="/about"
                 variant="primary"
@@ -181,14 +265,111 @@ export function HeroSection() {
               </Button>
             </span>
           </div>
+          {/* Mobile: esconder telefone + mock quando viewport ≤359px (área útil abaixo de 280px: section px-6 + bloco px-4). */}
           <div
-            className="hero-phone-entrance flex flex-1 items-center justify-center md:items-end md:justify-end min-w-0 pt-[328px] md:pt-[320px] pr-12 md:pr-20 lg:pr-24 overflow-visible"
+            className="hero-phone-entrance flex w-full min-w-0 flex-1 items-center justify-center overflow-visible pt-0 pr-0 max-[359px]:hidden desktop:w-[380px] desktop:min-w-[380px] desktop:max-w-[380px] desktop:flex-none desktop:shrink-0 desktop:items-end desktop:justify-end desktop:pt-[320px] desktop:pr-12"
             style={{ animationDelay: "1.2s" }}
           >
-            <PhonePreview pointerRef={pointerRef} />
+            {/* Desktop: telefone com largura fixa; mock com largura responsiva como antes (min(380px,42vw)). */}
+            <div className="hero-phone-and-mock relative flex w-full max-w-[280px] scale-100 items-center justify-center transform-gpu origin-top desktop:-mt-16 desktop:ml-16 desktop:h-auto desktop:w-[380px] desktop:max-w-[380px] desktop:shrink-0 desktop:justify-end">
+              <PhonePreview pointerRef={pointerRef} />
+              {/* Wrapper externo: posição no mobile (o ref aplica transform via JS e não pode partilhar translate com Tailwind) */}
+              <div
+                className="absolute z-30 bottom-[21%] left-1/2 w-[min(260px,88vw)] max-w-full -translate-x-[calc(50%+10px)] translate-y-[4px] desktop:bottom-[calc(38%-80px)] desktop:left-auto desktop:right-8 desktop:h-auto desktop:w-full desktop:max-w-[min(380px,42vw)] desktop:translate-x-0 desktop:translate-y-0"
+              >
+                <div
+                  ref={mock5WrapperRef}
+                  className="flex w-full flex-shrink-0 items-end justify-end will-change-transform"
+                  style={{
+                    transformStyle: "preserve-3d",
+                    transformOrigin: "50% 50%",
+                    perspective: 900,
+                  }}
+                >
+                  <HeroChatMockup />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Call-to-scroll: Descubra mais */}
+      <motion.div
+        className="mt-8 hidden justify-center text-[13px] text-[var(--Text-500,#9CA3AF)] desktop:flex"
+        initial={{ opacity: 0, y: 8 }}
+        animate={ctaVisible ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
+        transition={
+          ctaVisible
+            ? {
+                duration: 0.5,
+                delay: discoverWasEverDismissed ? 0 : 1.4,
+                ease: "easeOut",
+              }
+            : { duration: 0.45, ease: "easeInOut" }
+        }
+        style={{ pointerEvents: ctaVisible ? "auto" : "none" }}
+      >
+        <motion.button
+          type="button"
+          className="inline-flex items-center gap-1.5 cursor-pointer"
+          onClick={() => {
+            if (typeof document === "undefined") return;
+            setDiscoverDismissed(true);
+            setDiscoverWasEverDismissed(true);
+            window.setTimeout(() => {
+              document.getElementById("tagline-heading")?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+                inline: "nearest",
+              });
+            }, 450);
+          }}
+          onHoverStart={() => setDiscoverHover(true)}
+          onHoverEnd={() => setDiscoverHover(false)}
+          animate={
+            discoverHover
+              ? { color: "#4B5563", opacity: 1 }
+              : discoverBreathe
+                ? { color: "#4B5563", opacity: 1 }
+                : { color: "#4B5563", opacity: 0.6 }
+          }
+          transition={{ duration: 0.22, ease: "easeOut" }}
+          >
+          <motion.span
+            className="inline-flex items-center"
+            style={{ gap: 8 }}
+            animate={
+              discoverHover
+                ? { scale: 1.08 }
+                : discoverBreathe
+                  ? { scale: [1, 1.06, 1] }
+                  : { scale: 1 }
+            }
+            transition={
+              discoverHover
+                ? { duration: 0.22, ease: "easeOut" }
+                : discoverBreathe
+                  ? { duration: 0.55, ease: "easeInOut", times: [0, 0.5, 1] }
+                  : { duration: 0.22, ease: "easeInOut" }
+            }
+          >
+            <span>Descubra mais</span>
+            <span
+              className="inline-flex h-4 w-4 items-center justify-center"
+              aria-hidden
+            >
+              <Image
+                src="/pointing down.svg"
+                alt=""
+                width={16}
+                height={16}
+                className="h-4 w-4"
+              />
+            </span>
+          </motion.span>
+          </motion.button>
+      </motion.div>
     </section>
   );
 }

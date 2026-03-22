@@ -42,10 +42,6 @@ export function TaglineSection() {
           setSectionVisible(true);
           setSectionPlayKey((k) => k + 1);
         }
-        if (!isVisible) {
-          wasVisibleRef.current = false;
-          setSectionVisible(false);
-        }
       },
       { threshold: 0.25, rootMargin: "0px" }
     );
@@ -106,15 +102,22 @@ export function TaglineSection() {
   });
 
   return (
-    <section ref={sectionRef} className="py-page-y" aria-labelledby="tagline-heading">
+    <section
+      ref={sectionRef}
+      className="pt-6 pb-page-y desktop:py-page-y"
+      aria-labelledby="tagline-heading"
+    >
       <Container as="div" size="lg" className="text-center">
         <div className="mx-auto max-w-4xl">
           {/* Linha 1: acima da mensagem – esquerda mock 1, direita mock 3 */}
-          <div className="linha-1 mb-2 flex flex-wrap items-start justify-between gap-4">
+          <div className="linha-1 mb-12 flex flex-wrap items-start justify-center gap-4 desktop:mb-2 desktop:justify-between">
             <div className="min-w-0 flex-1 basis-[260px]" style={{ maxWidth: 340, ...floatStyles[0] }}>
               <TaglineChatMockup playTrigger={playTrigger} />
             </div>
-            <div className="min-w-0 flex-1 basis-[260px] origin-center opacity-65 blur-[1px] mr-6" style={{ maxWidth: 340, ...floatStyles[2] }}>
+            <div
+              className="hidden min-w-0 flex-1 basis-[260px] origin-center opacity-65 blur-[1px] desktop:block mr-6"
+              style={{ maxWidth: 340, ...floatStyles[2] }}
+            >
               <TaglineChatMockupReuniao playTrigger={playTrigger} entranceDelayMs={1350} />
             </div>
           </div>
@@ -123,7 +126,7 @@ export function TaglineSection() {
             id="tagline-heading"
             variant="display-sm"
             as="h1"
-            className="-mb-4 mx-auto max-w-3xl"
+            className={`${sectionVisible ? "hero-entrance " : ""}mb-8 mx-auto max-w-3xl desktop:-mb-4`}
             style={{
               color: "var(--Text-900, #212121)",
               textAlign: "center",
@@ -132,6 +135,7 @@ export function TaglineSection() {
               fontStyle: "normal",
               fontWeight: 700,
               lineHeight: "120%",
+              ...(sectionVisible && { animationDelay: "0.6s" }),
             }}
           >
             <WaveLettersText
@@ -143,8 +147,11 @@ export function TaglineSection() {
           </Typography>
 
           {/* Linha 2: abaixo da mensagem – esquerda mock 2, direita mock 4 */}
-          <div className="linha-2 flex flex-wrap items-start justify-between gap-4">
-            <div className="min-w-0 flex-1 basis-[260px] origin-center opacity-65 blur-[1px] ml-6" style={{ maxWidth: 340, ...floatStyles[1] }}>
+          <div className="linha-2 flex flex-wrap items-start justify-center gap-4 desktop:justify-between">
+            <div
+              className="hidden min-w-0 flex-1 basis-[260px] origin-center opacity-65 blur-[1px] desktop:block ml-6"
+              style={{ maxWidth: 340, ...floatStyles[1] }}
+            >
               <TaglineChatMockupCompras playTrigger={playTrigger} entranceDelayMs={1350} />
             </div>
             <div className="min-w-0 flex-1 basis-[260px]" style={{ maxWidth: 340, ...floatStyles[3] }}>

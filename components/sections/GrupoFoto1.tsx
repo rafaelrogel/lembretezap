@@ -144,7 +144,11 @@ export function GrupoFoto1({ className }: { className?: string }) {
               ? "Grupo de carnaval — toque para reação; com a máscara visível, toque para ver a foto seguinte"
               : "Calas — toque para reação; com a reação visível, toque para voltar à primeira foto"
       }
-      className={clsx("mb-10 mt-8 w-full overflow-visible", className)}
+      className={clsx(
+        "mb-4 mt-8 w-full max-w-[min(100%,420px)] overflow-visible mx-auto desktop:mb-10 desktop:mx-0 desktop:max-w-none",
+        !reduceMotion && "origin-center desktop:origin-bottom",
+        className,
+      )}
       tabIndex={0}
       onClick={handleActivate}
       onKeyDown={(e) => {
@@ -164,9 +168,8 @@ export function GrupoFoto1({ className }: { className?: string }) {
               ease: [0.22, 1, 0.36, 1],
             }
       }
-      style={reduceMotion ? undefined : { transformOrigin: "50% 100%" }}
     >
-      <div className="relative z-0 w-full origin-left scale-[0.96] cursor-pointer overflow-visible rounded-[26px] shadow-[0_5px_14px_-6px_rgba(33,33,33,0.1),0_2px_6px_-4px_rgba(33,33,33,0.06)] transition-[transform,box-shadow] duration-300 ease-out select-none hover:scale-100 hover:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] focus-visible:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/45 focus-visible:ring-offset-2 focus-visible:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] motion-reduce:scale-100">
+      <div className="relative z-0 w-full origin-center scale-[0.96] cursor-pointer overflow-visible rounded-[26px] shadow-[0_5px_14px_-6px_rgba(33,33,33,0.1),0_2px_6px_-4px_rgba(33,33,33,0.06)] transition-[transform,box-shadow] duration-300 ease-out select-none hover:scale-100 hover:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] focus-visible:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600/45 focus-visible:ring-offset-2 focus-visible:shadow-[0_12px_32px_-8px_rgba(33,33,33,0.18),0_4px_12px_-4px_rgba(33,33,33,0.08)] motion-reduce:scale-100 desktop:origin-left">
         <div className="overflow-visible rounded-[26px] border-[10px] border-solid border-[#FFFEFC] bg-[#FFFEFC]">
           <div className="relative aspect-square w-full overflow-hidden rounded-[16px]">
             <Image

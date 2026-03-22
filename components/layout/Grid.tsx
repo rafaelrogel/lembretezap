@@ -41,12 +41,12 @@ const smClasses: Record<number, string> = {
 };
 
 const mdClasses: Record<number, string> = {
-  1: "md:grid-cols-1",
-  2: "md:grid-cols-2",
-  3: "md:grid-cols-3",
-  4: "md:grid-cols-4",
-  6: "md:grid-cols-6",
-  12: "md:grid-cols-12",
+  1: "desktop:grid-cols-1",
+  2: "desktop:grid-cols-2",
+  3: "desktop:grid-cols-3",
+  4: "desktop:grid-cols-4",
+  6: "desktop:grid-cols-6",
+  12: "desktop:grid-cols-12",
 };
 
 const lgClasses: Record<number, string> = {
