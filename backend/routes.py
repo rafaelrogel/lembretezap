@@ -2,9 +2,10 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import func
 
 from backend.auth import require_api_key
 from backend.database import get_db
@@ -29,6 +30,13 @@ class UserOut(BaseModel):
     phone_truncated: str
 
 
+class UserPaginatedOut(BaseModel):
+    users: list[UserOut]
+    total: int
+    skip: int
+    limit: int
+
+
 class ListItemOut(BaseModel):
     id: int
     text: str
@@ -48,14 +56,23 @@ class EventOut(BaseModel):
 
 
 # --- Rotas protegidas (requerem X-API-Key quando API_SECRET_KEY está definido) ---
-@router.get("/users", response_model=list[UserOut])
+@router.get("/users", response_model=UserPaginatedOut)
 def list_users(
+    skip: int = 0,
+    limit: int = Query(default=100, le=500),
     db: Session = Depends(get_db),
     _: None = Depends(require_api_key),
     __: None = Depends(_rate_limit_rest),
-) -> list[UserOut]:
-    users = db.query(User).all()
-    return [UserOut(id=u.id, phone_truncated=u.phone_truncated) for u in users]
+) -> UserPaginatedOut:
+    users = db.query(User).offset(skip).limit(limit).all()
+    total = db.query(func.count(User.id)).scalar()
+    
+    return UserPaginatedOut(
+        users=[UserOut(id=u.id, phone_truncated=u.phone_truncated) for u in users],
+        total=total,
+        skip=skip,
+        limit=limit
+    )
 
 
 @router.get("/users/{user_id}/lists", response_model=list[ListOut])
