@@ -508,9 +508,9 @@ POSITIVE_CATEGORIES: list[_Category] = [
     # Encontro de trabalho / networking
     {
         "keywords": {
-            "pt-BR": ["networking", "encontro de trabalho", "evento corporativo", "congresso", "workshop", "seminário", "seminario", "feira", "conferência", "conferencia", "palestra", "curso profissional"],
-            "pt-PT": ["networking", "encontro de trabalho", "evento corporativo", "congresso", "workshop", "seminário", "seminario", "feira", "conferência", "conferencia", "palestra", "curso profissional"],
-            "es": ["networking", "encuentro de trabajo", "evento corporativo", "congreso", "workshop", "seminario", "feria", "conferencia", "charla", "curso profesional"],
+            "pt-BR": ["networking", "encontro de trabalho", "evento corporativo", "congresso", "workshop", "seminário", "seminario", "feira de negócios", "feira corporativa", "conferência", "conferencia", "palestra", "curso profissional"],
+            "pt-PT": ["networking", "encontro de trabalho", "evento corporativo", "congresso", "workshop", "seminário", "seminario", "feira de negócios", "feira corporativa", "conferência", "conferencia", "palestra", "curso profissional"],
+            "es": ["networking", "encuentro de trabajo", "evento corporativo", "congreso", "workshop", "seminario", "feria de negocios", "feria corporativa", "conferencia", "charla", "curso profesional"],
             "en": ["networking", "work event", "corporate event", "conference", "workshop", "seminar", "trade show", "professional course"],
         },
         "messages": {

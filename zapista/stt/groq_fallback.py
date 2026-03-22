@@ -3,7 +3,8 @@
 from pathlib import Path
 
 import httpx
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.stt.audio_utils import decode_base64_to_temp, get_duration_seconds
 from zapista.stt.config import groq_api_key

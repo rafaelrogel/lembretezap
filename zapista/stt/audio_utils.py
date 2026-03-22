@@ -6,7 +6,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 # Duração máxima em segundos — comandos de voz devem ser sucintos
 MAX_DURATION_SEC = 60

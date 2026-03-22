@@ -70,7 +70,8 @@ async def run_restart(
     """
     Executa o restart completo: apaga sessão, lembretes (cron) deste chat, listas e eventos no DB.
     """
-    from loguru import logger
+    from backend.logger import get_logger
+    logger = get_logger(__name__)
     session_key = f"{channel}:{chat_id}"
     # 1) Sessão (histórico de conversa)
     try:

@@ -2,11 +2,11 @@
 
 import re
 import json
-import logging
 from dataclasses import dataclass
 from typing import Optional
+from backend.logger import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 @dataclass
 class SensitiveDataResult:
@@ -155,6 +155,12 @@ async def check_sensitive_data(
         
         # If high confidence block -> Block immediately
         if creds.blocked and creds.confidence == "high":
+            logger.warning("sensitive_data_blocked", extra={"extra": {
+                "action": "SENSITIVE_DATA_BLOCKED",
+                "category": "credentials",
+                "stage": "regex",
+                "reason": f"High confidence match: {creds.pattern_matched}"
+            }})
             return SensitiveDataResult(
                 blocked=True,
                 reason=f"High confidence match: {creds.pattern_matched}",
@@ -176,6 +182,12 @@ async def check_sensitive_data(
         # If medium confidence regex -> Wait for LLM or block if no LLM
         if creds.blocked and creds.confidence == "medium":
             if provider is None:
+                logger.warning("sensitive_data_blocked", extra={"extra": {
+                    "action": "SENSITIVE_DATA_BLOCKED",
+                    "category": "credentials",
+                    "stage": "regex",
+                    "reason": f"Medium confidence match (no LLM): {creds.pattern_matched}"
+                }})
                 return SensitiveDataResult(
                     blocked=True,
                     reason=f"Medium confidence match (no LLM): {creds.pattern_matched}",
@@ -207,15 +219,24 @@ async def check_sensitive_data(
             raw = raw.split("```")[1].split("```")[0].strip()
         
         data = json.loads(raw)
+        res_blocked = data.get("blocked", False)
+        if res_blocked:
+            logger.warning("sensitive_data_blocked", extra={"extra": {
+                "action": "SENSITIVE_DATA_BLOCKED",
+                "category": data.get("category", "allowed"),
+                "stage": "llm",
+                "reason": data.get("reason", "")
+            }})
+            
         return SensitiveDataResult(
-            blocked=data.get("blocked", False),
+            blocked=res_blocked,
             reason=data.get("reason", ""),
             category=data.get("category", "allowed"),
             stage="llm",
             detected_language=data.get("language", user_language)
         )
     except Exception as e:
-        logger.error(f"Sensitive data filter critical error (FAIL-SAFE OPEN): {e}")
+        logger.error("sensitive_data_filter_error", extra={"extra": {"error": str(e)}})
         # FAIL-SAFE: If filter crashes, DO NOT block the user.
         return SensitiveDataResult(blocked=False, reason=f"Critical error: {e}", category="allowed", stage="none", detected_language=user_language)
 

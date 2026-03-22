@@ -11,7 +11,8 @@ import time
 import uuid
 from typing import Any
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.bus.events import OutboundMessage
 from zapista.bus.queue import MessageBus

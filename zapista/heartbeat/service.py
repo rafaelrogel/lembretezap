@@ -4,7 +4,8 @@ import asyncio
 from pathlib import Path
 from typing import Any, Callable, Coroutine
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 # Default interval: 30 minutes
 DEFAULT_HEARTBEAT_INTERVAL_S = 30 * 60

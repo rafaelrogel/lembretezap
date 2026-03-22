@@ -31,7 +31,7 @@ O script `update_vps.sh` **só atualiza código** (git) e **reconstrói e reinic
 | Jobs de cron (lembretes agendados) | `INSTALL_DIR/data/cron/` | ✅ Sim |
 | Configuração (canal, modelos, etc.) | `INSTALL_DIR/data/config.json` | ✅ Sim |
 | Chaves API e senha god-mode | `INSTALL_DIR/.env` | ✅ Sim |
-| Logs da aplicação (Loguru) | `INSTALL_DIR/data/logs/` (se `ZAPISTA_LOG_FILE` estiver definido no .env) | ✅ Sim |
+| Logs da aplicação (JSON) | `INSTALL_DIR/data/logs/` (se `ZAPISTA_LOG_FILE` estiver definido no .env) | ✅ Sim |
 | Piper TTS (vozes e binário) | `INSTALL_DIR/data/bin/`, `INSTALL_DIR/data/models/piper/` | ✅ Sim |
 
 Os **logs do Docker** (saída de `docker compose logs`) são por contentor. Após o update, os contentores são novos, por isso os “logs antigos” deixam de aparecer no `docker compose logs`. Se quiseres guardar um cópia dos logs antes do update, usa o passo opcional de backup de logs abaixo.

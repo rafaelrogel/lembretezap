@@ -49,22 +49,17 @@ async def handle_list(ctx: "HandlerContext", content: str) -> str | None:
     """/list nome add item, /list filme|livro|musica item, ou /list [nome]."""
     from backend.command_parser import parse
     from backend.guardrails import is_absurd_request
-    from loguru import logger
-    intent = parse(content)
-    if not intent or intent.get("type") not in ("list_add", "list_show"):
-        return None
-
-    try:
-        from backend.guardrails import is_complex_request
-        if is_complex_request(content):
-            return None
-    except Exception:
-        pass
-
     if not ctx.list_tool:
-        logger.warning("handle_list: list_tool is None, chat_id=%s", (ctx.chat_id or "")[:24])
+        from backend.logger import get_logger
+        logger = get_logger(__name__)
+        logger.warning("list_tool_missing", extra={"extra": {"chat_id": str(ctx.chat_id or "")[:24]}})
         return None
-    logger.debug("handle_list: type=%s list_name=%s", intent.get("type"), intent.get("list_name"))
+    from backend.logger import get_logger
+    logger = get_logger(__name__)
+    logger.debug("handle_list", extra={"extra": {
+        "intent_type": intent.get("type"),
+        "list_name": intent.get("list_name")
+    }})
     if intent.get("type") == "list_add":
         list_name = intent.get("list_name", "")
         items = intent.get("items")

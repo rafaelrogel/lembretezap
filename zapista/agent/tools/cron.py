@@ -3,7 +3,8 @@
 import time
 from typing import Any, TYPE_CHECKING
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 from zapista.agent.tools.base import Tool
 
 def _effective_now_ms() -> int:
@@ -197,7 +198,17 @@ class CronTool(Tool):
         skip_pre_reminders: bool = False,  # Para ICS: apenas 1 lembrete, sem "antes"
         **kwargs: Any
     ) -> str:
-        logger.info(f"CronTool.execute inputs: action={action}, msg={message}, time_input={time_input}, target={target_at_iso}, in_seconds={in_seconds}, every={every_seconds}, cron={cron_expr}, chat_id={self._chat_id}, channel={self._channel}")
+        logger.info("cron_tool_execute", extra={"extra": {
+            "action": action,
+            "message": message,
+            "time_input": time_input,
+            "target": target_at_iso,
+            "in_seconds": in_seconds,
+            "every_seconds": every_seconds,
+            "cron_expr": cron_expr,
+            "chat_id": self._chat_id,
+            "channel": self._channel
+        }})
 
         if action == "list":
             return self._list_jobs(recurring_only=kwargs.get("recurring_only", False))
@@ -275,19 +286,25 @@ class CronTool(Tool):
                         if parsed_msg and (not message or message.lower().strip() in ("lembrete", "alerta", "aviso")):
                             message = parsed_msg
                         
-                        logger.info(f"CronTool extracted from time_input='{time_input}': in_s={in_seconds}, cron={cron_expr}, every={every_seconds}, msg='{message}'")
+                        logger.info("cron_tool_parsed", extra={"extra": {
+                            "time_input": time_input,
+                            "in_seconds": in_seconds,
+                            "cron_expr": cron_expr,
+                            "every_seconds": every_seconds,
+                            "message": message
+                        }})
                     else:
                         # Parsing returned None or empty dict
-                        logger.warning(f"CronTool: time_input='{time_input}' parsed to empty/None. Failing.")
+                        logger.warning("cron_tool_parse_empty", extra={"extra": {"time_input": time_input}})
                         return f"Error: Could not parse time from '{time_input}'. Please use standard format like 'daqui a 5 minutos', 'amanhã 9h', 'toda terça'."
                     
                     # VALIDATION: If we have time_input, we MUST have extracted a schedule.
                     if in_seconds is None and cron_expr is None and every_seconds is None and target_at_iso is None:
-                         logger.warning(f"CronTool: time_input='{time_input}' yielded no schedule. Returns: {parsed}")
+                         logger.warning("cron_tool_no_schedule", extra={"extra": {"time_input": time_input, "parsed": parsed}})
                          return f"Error: Could not extract time/schedule from '{time_input}'. Ensure it contains a time expression."
 
                 except Exception as e:
-                    logger.error(f"CronTool failed to parse time_input '{time_input}': {e}")
+                    logger.error("cron_tool_parse_failed", extra={"extra": {"time_input": time_input, "error": str(e)}})
                     return f"Error parsing time_input: {e}"
 
             from backend.guardrails import is_absurd_request
@@ -544,7 +561,7 @@ class CronTool(Tool):
                     now_ms = _effective_now_ms()
                     in_seconds = (at_ms - now_ms) // 1000
                 except Exception as e:
-                    logger.error(f"Failed to parse target_at_iso '{target_at_iso}': {e}")
+                    logger.error("cron_tool_iso_parse_failed", extra={"extra": {"target_at_iso": target_at_iso, "error": str(e)}})
                     return f"Error parsing time: {target_at_iso}. Use format YYYY-MM-DD HH:MM:SS"
             else:
                 now_ms = _effective_now_ms()
@@ -554,13 +571,13 @@ class CronTool(Tool):
                 now_ms = _effective_now_ms()
                 delta_past_ms = now_ms - at_ms
                 if delta_past_ms > 300_000:  # Aumentado para 5 minutos para maior robustez
-                    logger.warning(f"Cron: rejecting reminder {delta_past_ms/1000}s in the past")
+                    logger.warning("cron_reminder_past", extra={"extra": {"delta_past_ms": delta_past_ms}})
                     from backend.locale import REMINDER_TIME_PAST_TODAY
                     _lang = self._get_user_lang()
                     return REMINDER_TIME_PAST_TODAY.get(_lang, REMINDER_TIME_PAST_TODAY["pt-BR"])
                 # Se for apenas um pequeno atraso (até 5 min), agendar para o "agora" (daqui a 1s)
                 at_ms = now_ms + 1000 
-                logger.info(f"Cron: target time {delta_past_ms}ms in past; scheduling +1s instead")
+                logger.info("cron_reminder_shifted", extra={"extra": {"delta_past_ms": delta_past_ms}})
             
             schedule = CronSchedule(kind="at", at_ms=at_ms)
             delete_after_run = True

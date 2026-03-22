@@ -4,7 +4,8 @@
 
 import json
 from typing import Any, Dict, List, Optional
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 _CONTEXT_REASONER_PROMPT = """Analise o histórico da conversa e a mensagem atual do utilizador.
 O utilizador pode estar a falar sobre uma lista específica (livros, compras, mercado, tarefas, filmes, etc.).
@@ -90,6 +91,6 @@ async def classify_intent_with_full_context(
             }
 
     except Exception as e:
-        logger.debug(f"Context reasoner failed: {e}")
+        logger.debug("context_reasoner_failed", extra={"extra": {"error": str(e)}})
     
     return None

@@ -3,6 +3,8 @@
 import asyncio
 import time
 import pytest
+from unittest.mock import patch
+from backend import rate_limit
 
 # API key usada no stress test com endpoints de dados (BD temporária)
 _STRESS_API_KEY = "stress-test-api-key"
@@ -30,6 +32,8 @@ def _make_stress_app_with_temp_db():
 
     from backend.app import app
     from backend.database import get_db
+    from backend.models_db import Base, User, List, ListItem, Event, AuditLog
+    import backend.auth as auth_module
     from backend.models_db import Base, User, List, ListItem, Event, AuditLog
     import backend.auth as auth_module
 
@@ -77,7 +81,15 @@ def _make_stress_app_with_temp_db():
     auth_module.API_SECRET_KEY = _STRESS_API_KEY
     headers = {"X-API-Key": _STRESS_API_KEY}
 
+    # Mock rate limiter to avoid 429 in stress tests
+    patcher_rate = patch("backend.rate_limit.is_rate_limited", return_value=False)
+    patcher_rest = patch("backend.routes.is_rest_rate_limited", return_value=False)
+    patcher_rate.start()
+    patcher_rest.start()
+
     def cleanup():
+        patcher_rate.stop()
+        patcher_rest.stop()
         app.dependency_overrides.pop(get_db, None)
         auth_module.API_SECRET_KEY = old_api_key
         try:

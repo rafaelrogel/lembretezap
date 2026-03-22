@@ -2,6 +2,11 @@
 
 import re
 from pathlib import Path
+from backend.logger import get_logger
+
+logger = get_logger(__name__)
+
+# Keywords that indicate in-scope (comandos e intenções)
 
 # Keywords that indicate in-scope (comandos e intenções)
 SCOPE_KEYWORDS = re.compile(
@@ -43,7 +48,9 @@ def is_in_scope_fast(text: str) -> bool:
     # Qualquer comando slash é considerado in-scope por definição
     if t.startswith("/"):
         return True
-    return bool(SCOPE_KEYWORDS.search(t))
+    res = bool(SCOPE_KEYWORDS.search(t))
+    logger.info("scope_filter_decision", extra={"extra": {"in_scope": res, "method": "regex"}})
+    return res
 
 
 async def is_in_scope_llm(text: str, provider=None, model: str | None = None) -> bool:
@@ -63,6 +70,8 @@ async def is_in_scope_llm(text: str, provider=None, model: str | None = None) ->
         prompt_template = _load_scope_prompt()
         user_content = prompt_template.replace("{input}", text.strip())
         messages = [{"role": "user", "content": user_content}]
+        import time
+        start_t = time.perf_counter()
         response = await provider.chat(
             messages=messages,
             tools=None,
@@ -70,17 +79,28 @@ async def is_in_scope_llm(text: str, provider=None, model: str | None = None) ->
             max_tokens=10,
             temperature=0,
         )
+        latency_ms = int((time.perf_counter() - start_t) * 1000)
+        
         if not response or not response.content:
-            return is_in_scope_fast(text)
+            res = is_in_scope_fast(text)
+            logger.info("scope_filter_decision", extra={"extra": {"in_scope": res, "method": "llm_fallback", "error": "empty_response"}})
+            return res
+            
         raw = response.content.strip().upper()
+        res = False
         if "SIM" in raw or raw.startswith("S"):
-            return True
-        if "NAO" in raw or "NÃO" in raw.upper() or raw.startswith("N"):
-            return False
-        # ambiguous: treat as in-scope so we don't block organizer intents
-        return is_in_scope_fast(text)
-    except Exception:
-        return is_in_scope_fast(text)
+            res = True
+        elif "NAO" in raw or "NÃO" in raw.upper() or raw.startswith("N"):
+            res = False
+        else:
+            res = is_in_scope_fast(text)
+            
+        logger.info("scope_filter_decision", extra={"extra": {"in_scope": res, "method": "llm", "latency_ms": latency_ms}})
+        return res
+    except Exception as e:
+        res = is_in_scope_fast(text)
+        logger.warning("scope_filter_llm_error", extra={"extra": {"in_scope": res, "method": "llm_error", "error": str(e)}})
+        return res
 
 
 _FOLLOW_UP_PROMPT = """O utilizador disse antes: «{prev}»

@@ -1,6 +1,7 @@
 """Orquestra transcrição: whisper local → OpenAI (mesma API pedida na instalação)."""
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.stt.config import openai_api_key, stt_enabled, stt_local_url
 from zapista.stt.local import transcribe_local

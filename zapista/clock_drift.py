@@ -16,7 +16,8 @@ import threading
 import time
 from typing import Tuple
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 # Intervalo entre verificações (45 min)
 CLOCK_DRIFT_INTERVAL_S = 45 * 60

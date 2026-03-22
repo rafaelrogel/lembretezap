@@ -4,7 +4,8 @@ import json
 import random
 from typing import Any
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 from sqlalchemy import func
 
 from zapista.agent.tools.base import Tool
@@ -156,12 +157,12 @@ class ListTool(Tool):
                 db.rollback()
             except Exception:
                 pass
-            logger.exception(
-                "list_tool execute failed: action={} list_name={!r} chat_id_prefix={}",
-                action,
-                (list_name or "")[:50],
-                (self._chat_id or "")[:24],
-            )
+            logger.error("list_tool_execute_failed", extra={"extra": {
+                "action": action,
+                "list_name": list_name,
+                "chat_id": self._chat_id,
+                "error": str(e)
+            }})
             from backend.locale import LIST_TECH_ERROR
             lang = self._get_lang()
             return LIST_TECH_ERROR.get(lang, LIST_TECH_ERROR["en"])

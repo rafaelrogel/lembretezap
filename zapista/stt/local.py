@@ -1,7 +1,8 @@
 """Cliente HTTP para whisper.cpp server."""
 
 import httpx
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.stt.audio_utils import prepare_audio_for_whisper
 

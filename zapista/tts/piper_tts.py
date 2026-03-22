@@ -3,7 +3,8 @@
 import subprocess
 from pathlib import Path
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.tts.config import piper_bin, tts_piper_timeout_seconds
 

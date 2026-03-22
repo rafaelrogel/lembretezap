@@ -3,7 +3,8 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.bus.events import InboundMessage, OutboundMessage
 from zapista.bus.queue import MessageBus

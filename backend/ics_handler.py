@@ -3,7 +3,8 @@
 from datetime import date, datetime, time
 from typing import Any
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 # Limite de eventos por .ics e tamanho máximo do conteúdo
 MAX_EVENTS_PER_ICS = 50
@@ -147,7 +148,10 @@ def _get_dt_from_vevent(component: Any, key: str) -> datetime | None:
                 elif dt_naive is not None:
                     dt = dt_naive
         except Exception as e:
-            logger.debug(f"ics _get_dt_from_vevent fallback failed for {key}: {e}")
+            logger.debug("ics_dt_fallback_failed", extra={"extra": {
+                "key": key,
+                "error": str(e)
+            }})
 
     if dt is None:
         return None
@@ -189,7 +193,7 @@ async def handle_ics_payload(
     try:
         import icalendar
     except ImportError:
-        logger.warning("icalendar not installed; pip install icalendar")
+        logger.warning("icalendar_missing", extra={"extra": {"message": "pip install icalendar"}})
         return _summary_message(0, [], lang, error="Suporte a .ics não disponível.")
 
     cal = None
@@ -204,15 +208,22 @@ async def handle_ics_payload(
             cal = icalendar.Calendar.from_ical(attempt)
             if cal is not None:
                 if i > 0:
-                    logger.info(f"ics parse succeeded on encoding attempt {i+1}")
+                    logger.info("ics_parse_success_retry", extra={"extra": {"attempt": i + 1}})
                 break
         except Exception as e:
             parse_error = e
             if i == 0:
                 parse_error_detail = str(e)[:100]
-                logger.warning(f"ics parse failed (attempt {i+1}): {e}. Preview: {attempt[:200]!r}")
+                logger.warning("ics_parse_failed_primary", extra={"extra": {
+                    "attempt": i + 1,
+                    "error": str(e),
+                    "preview": attempt[:200]
+                }})
             else:
-                logger.debug(f"ics parse failed (attempt {i+1}): {e}")
+                logger.debug("ics_parse_failed_retry", extra={"extra": {
+                    "attempt": i + 1,
+                    "error": str(e)
+                }})
 
     if cal is None:
         # Tentar identificar o problema específico
@@ -341,7 +352,10 @@ async def handle_ics_payload(
                 ).first()
                 
                 if existing and existing.payload.get("nome", "").lower() == summary.lower():
-                    logger.info(f"ics_handler: skipping duplicate event '{summary}' at {data_at_utc}")
+                    logger.info("ics_duplicate_skipped", extra={"extra": {
+                        "summary": summary,
+                        "data_at": str(data_at_utc)
+                    }})
                     events_created.append({"nome": summary, "data_at": dtstart, "duplicate": True})
                     continue  # Pular evento duplicado
                 
@@ -357,7 +371,10 @@ async def handle_ics_payload(
                 
                 # Commit IMEDIATAMENTE para garantir que o evento é salvo antes do cron
                 db.commit()
-                logger.info(f"ics_handler: saved event '{summary}' to database (id={ev.id})")
+                logger.info("ics_event_saved", extra={"extra": {
+                    "summary": summary,
+                    "event_id": ev.id
+                }})
                 
                 events_created.append({"nome": summary, "data_at": dtstart})
                 count += 1
@@ -379,15 +396,15 @@ async def handle_ics_payload(
                             # skip_pre_reminders=True: ICS só cria 1 lembrete (15 min antes), sem "antes" extra
                             await cron_tool.execute(action="add", message=msg_reminder, in_seconds=int(delta), skip_pre_reminders=True)
                     except Exception as e:
-                        logger.debug(f"ics cron reminder failed: {e}")
+                        logger.debug("ics_cron_failed", extra={"extra": {"error": str(e)}})
             except Exception as e:
-                logger.debug(f"ics single event failed: {e}")
+                logger.debug("ics_single_event_failed", extra={"extra": {"error": str(e)}})
                 continue
         
         # Commit final já não é necessário pois cada evento é commitado individualmente
-        logger.info(f"ics_handler: processed {len(events_created)} event(s) total")
+        logger.info("ics_processing_complete", extra={"extra": {"total": len(events_created)}})
     except Exception as e:
-        logger.exception(f"ics_handler failed: {e}")
+        logger.error("ics_handler_failed", extra={"extra": {"error": str(e)}}, exc_info=True)
         if db:
             try:
                 db.rollback()

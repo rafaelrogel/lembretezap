@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.utils.helpers import ensure_dir, safe_filename
 
@@ -181,7 +182,7 @@ class SessionManager:
                 metadata=metadata
             )
         except Exception as e:
-            logger.warning(f"Failed to load session {key}: {e}")
+            logger.warning("session_load_failed", extra={"extra": {"key": key, "error": str(e)}})
             return None
     
     def save(self, session: Session) -> None:

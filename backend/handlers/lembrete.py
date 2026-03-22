@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from loguru import logger
 from typing import Any, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -580,18 +579,39 @@ def _looks_like_new_reminder_request(text: str) -> bool:
     if not text:
         return False
     t = text.strip().lower()
-    # Any slash command is always a new request
-    from backend.recurring_event_flow import has_recurrence_indicator
-    if t.startswith("/") or has_recurrence_indicator(text):
-        return True
     
-    from backend.reminder_flow import has_reminder_intent
-    if has_reminder_intent(t):
+    # Any slash command is always a new request
+    if t.startswith("/"):
         return True
 
     from backend.pending_confirmation import looks_like_time_response
+    from backend.reminder_flow import has_reminder_intent
+    from backend.recurring_event_flow import is_scheduled_recurring_event
+
+    # If it is clearly a time response (e.g. "todos os dias às 8h", "amanhã 10h"),
+    # then it is NOT a new request, but an answer to a pending flow.
     if looks_like_time_response(t):
+        # EXCEPTION: "me lembra todo dia às 8h" is definitely a new request (with intent).
+        # "academia todo dia às 8h" is also a new request (is_scheduled_recurring_event).
+        if has_reminder_intent(t) or is_scheduled_recurring_event(t):
+            # But wait, "todo dia às 8h" itself is_scheduled_recurring_event if it doesn't check for content.
+            # We already know is_scheduled_recurring_event might be too broad.
+            # Let's rely on has_reminder_intent OR if it has a specific recurring subject like "academia".
+            from backend.recurring_event_flow import parse_recurring_schedule
+            res = parse_recurring_schedule(t)
+            if res:
+                content, _, _, _ = res
+                if content and len(content) > 2:
+                    return True
+            if has_reminder_intent(t):
+                return True
         return False
+    
+    if is_scheduled_recurring_event(t):
+        return True
+
+    if has_reminder_intent(t):
+        return True
     # At least 15 chars suggests a full sentence, not just "me avisa" or "2h"
     if len(t) < 15:
         return False

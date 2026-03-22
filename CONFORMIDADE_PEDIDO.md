@@ -12,7 +12,7 @@ Checklist do que foi pedido vs estado atual do código.
 | **Bot "secretária organizada" para 100 users** | Escopo organizador; rate-limit por user; 1 número WhatsApp. |
 | **Escopo estrito: lembretes, listas, compras, eventos, filmes** | Scope filter (LLM SIM/NÃO + regex) + parser de comandos. |
 | **Filtro LLM "Analise se input é agenda/lembrete/lista; ignore resto"** | `backend/scope_filter.py`: `is_in_scope_llm()` + `prompts/scope_filter.txt`. |
-| **Comandos /lembrete "X em 2min"** | `command_parser.py`: /lembrete com daqui a N min/hora/dia, cron. |
+| **Comandos /lembrete "X em 2min"** | `backend/command_parser/`: /lembrete com daqui a N min/hora/dia, cron. |
 | **/list mercado add leite, /list pendentes** | Parser: list_add, list_show; ListTool: add, list. |
 | **/feito (delete)** | Parser: /feito lista id; ListTool: feito = marca e **apaga** item (sem histórico). |
 | **/filme, /livro, /musica, /agenda** | Parser mapeia para `list_add` na categoria correspondente. |

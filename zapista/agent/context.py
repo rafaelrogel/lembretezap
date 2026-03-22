@@ -6,7 +6,8 @@ import platform
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.agent.memory import MemoryStore
 from zapista.agent.skills import SkillsLoader

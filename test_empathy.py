@@ -14,8 +14,8 @@ def test_empathy():
         ("médico tomorrow", "pt-BR", "💙 Espero que esteja tudo bem. Se cuide."),
         ("consulta médica", "pt-PT", "💙 Espero que esteja tudo bem. Cuida-te."),
         ("exam results", "en", "💙 Hope the results bring good news. Take care."),
-        ("teste de sangue", "pt-PT", ""), # "teste" alone matches, but "teste de sangue" might match "sangue"
-        ("sangue", "pt-PT", "💙 Espero que corra tudo bem. Cuida-te."),
+        ("teste de sangue", "pt-PT", "💙 Espero que os resultados tragam boas notícias. Cuida-te."),
+        ("sangue", "pt-PT", "💙 Espero que os resultados tragam boas notícias. Cuida-te."),
     ]
 
     for content, lang, expected in test_cases:

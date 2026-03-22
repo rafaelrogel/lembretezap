@@ -46,11 +46,14 @@ def migrate_user_identity(db: Session, lid_id: str, jid_id: str) -> bool:
     if user_jid:
         return False
 
-    # 2. Verificar se o LID existe para migrar
     user_lid = db.query(User).filter(User.phone_hash == h_lid).first()
     if user_lid:
-        from loguru import logger
-        logger.info(f"Identity Migration: Migrating LID {lid_id} -> JID {jid_id}")
+        from backend.logger import get_logger
+        logger = get_logger(__name__)
+        logger.info("identity_migration", extra={"extra": {
+            "old_id": lid_id,
+            "new_id": jid_id
+        }})
         user_lid.phone_hash = h_jid
         # phone_truncated não precisa mudar se for só estatístico, mas podemos atualizar
         user_lid.phone_truncated = _truncate_phone(jid_id)

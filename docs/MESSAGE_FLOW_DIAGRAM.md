@@ -121,7 +121,7 @@
 │  backend/handlers.py                                                                │
 │  ─────────────────────────────────────────────────────────────────────────────────  │
 │  handle_list(ctx, content) / handle_add(ctx, content)                               │
-│  ├── command_parser.parse(content)  → intent dict                                   │
+│  ├── backend/command_parser/  → intent dict                                        │
 │  │   Ex: {"type": "list_add", "list_name": "mercado", "item": "ovos"}               │
 │  │                                                                                  │
 │  ├── Se intent["type"] == "list_add":                                               │
@@ -136,7 +136,7 @@
                                         │
                                         ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────┐
-│  backend/command_parser.py                                                          │
+│  backend/command_parser/                                                            │
 │  ─────────────────────────────────────────────────────────────────────────────────  │
 │  parse(raw: str, tz_iana: str) → dict | None                                        │
 │                                                                                     │
@@ -236,7 +236,7 @@
 | 5 | **AgentLoop** | `_set_tool_context()` → configura `ListTool` com `chat_id` |
 | 6 | **router.py** | `normalize_nl_to_command()` → não transforma (já é NL) |
 | 7 | **router.py** | Itera `HANDLERS`, `handle_list()` reconhece o padrão |
-| 8 | **command_parser** | `RE_NL_ADICIONE_LISTA` captura → `{"type": "list_add", "list_name": "mercado", "item": "ovos"}` |
+| 8 | **backend/command_parser/** | `RE_NL_ADICIONE_LISTA` captura → `{"type": "list_add", "list_name": "mercado", "item": "ovos"}` |
 | 9 | **handlers.py** | `ctx.list_tool.execute(action="add", list_name="mercado", item_text="ovos")` |
 | 10 | **ListTool** | `sanitize_string()`, `_add_single()`, `AuditLog`, `db.commit()` |
 | 11 | **ListTool** | Retorna `"Adicionado(s) à lista mercado (1 item)."` |
@@ -256,7 +256,7 @@
 - `zapista/bus/queue.py` → MessageBus (fila in-memory ou Redis)
 - `zapista/agent/loop.py` → AgentLoop (orquestrador principal)
 - `backend/router.py` → Dispatcher de handlers
-- `backend/command_parser.py` → Parser regex para comandos estruturados
+- `backend/command_parser/` → Parser regex para comandos estruturados
 
 ### Camada de Ferramentas
 - `zapista/agent/tools/list_tool.py` → Gestão de listas
