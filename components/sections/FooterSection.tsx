@@ -76,7 +76,7 @@ function FooterContent({ linkTone = "green" }: { linkTone?: "green" | "gray" }) 
 
 export function FooterSection() {
   return (
-    <footer className="pb-0 pt-6 desktop:pt-12">
+    <footer className="pb-0 pt-8 desktop:pt-page-y">
       <div className="w-full">
         <div className="relative overflow-hidden py-8 desktop:py-[40px]">
           <div className="absolute inset-0 -z-10 bg-[#F6FAF7]" />

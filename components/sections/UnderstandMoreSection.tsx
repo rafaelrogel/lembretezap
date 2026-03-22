@@ -196,7 +196,7 @@ export function UnderstandMoreSection() {
                   id="understand-more-heading"
                   variant="display-sm"
                   as="h2"
-                  className="min-w-0 flex-1 font-bold"
+                  className="min-w-0 flex-1 font-bold mobile:text-[1.375rem] mobile:leading-[1.22] mobile:tracking-tight"
                 >
                   Entenda mais
                 </Typography>
@@ -214,8 +214,8 @@ export function UnderstandMoreSection() {
               <Typography
                 as="p"
                 variant="body-lg"
-                className="w-full min-w-0 max-w-none text-pretty text-[var(--Text-600,#797781)]"
-                style={{ fontSize: 16, fontWeight: 400, lineHeight: "140%" }}
+                className="w-full min-w-0 max-w-none text-pretty text-[var(--Text-600,#797781)] mobile:text-[0.9375rem] mobile:leading-[1.45] desktop:text-base desktop:leading-[1.4]"
+                style={{ fontWeight: 400 }}
               >
                 Dúvidas comuns sobre como o Zappelin organiza lembretes,
                 <br className="hidden desktop:inline" />
@@ -305,26 +305,23 @@ export function UnderstandMoreSection() {
                 <Typography
                   as="h3"
                   variant="body-lg"
-                  className={`relative z-[1] min-w-0 whitespace-pre-line font-semibold ${
-                    isActive ? "text-white" : "text-[var(--Text-900,#212121)]"
+                  className={`relative z-[1] min-w-0 whitespace-pre-line font-semibold transition-[font-size] duration-[400ms] [transition-timing-function:cubic-bezier(0.25,0.46,0.45,0.94)] ${
+                    isActive
+                      ? "text-white mobile:text-[1.0625rem] desktop:text-[1.26rem]"
+                      : "text-[var(--Text-900,#212121)] mobile:text-[1rem] desktop:text-[1.125rem]"
                   }`}
-                  style={{
-                    fontSize: isActive ? "1.26rem" : "1.125rem",
-                    transition: `font-size 0.4s ${EASE_SMOOTH}`,
-                    lineHeight: "1.4",
-                  }}
+                  style={{ lineHeight: "1.4" }}
                 >
                   {item.question}
                 </Typography>
                 <Typography
                   as="p"
                   variant="body-sm"
-                  className={`relative z-[1] min-w-0 overflow-hidden transition-[max-height,opacity,transform,margin-top] duration-700 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] ${
+                  className={`relative z-[1] min-w-0 overflow-hidden transition-[max-height,opacity,transform,margin-top] duration-700 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] mobile:text-[13px] mobile:leading-[1.4] desktop:text-sm desktop:leading-[1.4] ${
                     isActive
                       ? "mt-2 max-h-44 translate-y-0 text-white/90 opacity-85"
                       : "mt-0 max-h-0 translate-y-[2px] text-[var(--Text-600,#797781)] opacity-0"
                   }`}
-                  style={{ lineHeight: "140%" }}
                 >
                   {item.answer}
                 </Typography>

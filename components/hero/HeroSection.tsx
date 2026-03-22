@@ -234,12 +234,10 @@ export function HeroSection() {
             <Typography
               variant="body-lg"
               as="p"
-              className="hero-entrance mt-4 w-full max-w-[350px] text-center font-normal desktop:text-left"
+              className="hero-entrance mt-4 w-full max-w-[350px] text-center font-normal mobile:text-[0.9375rem] mobile:leading-[1.45] desktop:text-left desktop:text-base desktop:leading-[1.4]"
               style={{
                 color: "var(--Text-600, #797781)",
-                fontSize: 16,
                 fontWeight: 400,
-                lineHeight: "140%",
                 animationDelay: "0.75s",
               }}
             >

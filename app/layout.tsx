@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { NavLinks } from "@/components/NavLinks";
 import { HeaderActions } from "@/components/HeaderActions";
@@ -40,12 +41,13 @@ export default function RootLayout({
               className="flex items-center text-body-sm font-medium text-emerald-600 hover:text-emerald-700 transition-token"
               aria-label="Zappelin – início"
             >
-              <img
-                src="/logonovo.svg"
+              <Image
+                src={`/emojis/${encodeURIComponent("logo definitivo zapellin.svg")}`}
                 alt="Zappelin"
-                width={120}
-                height={28}
-                className="h-8 w-auto"
+                width={105}
+                height={21}
+                className="h-6 w-auto"
+                priority
               />
             </Link>
             <NavLinks />

@@ -102,11 +102,7 @@ export function TaglineSection() {
   });
 
   return (
-    <section
-      ref={sectionRef}
-      className="pt-6 pb-page-y desktop:py-page-y"
-      aria-labelledby="tagline-heading"
-    >
+    <section ref={sectionRef} className="py-page-y" aria-labelledby="tagline-heading">
       <Container as="div" size="lg" className="text-center">
         <div className="mx-auto max-w-4xl">
           {/* Linha 1: acima da mensagem – esquerda mock 1, direita mock 3 */}
@@ -126,15 +122,13 @@ export function TaglineSection() {
             id="tagline-heading"
             variant="display-sm"
             as="h1"
-            className={`${sectionVisible ? "hero-entrance " : ""}mb-8 mx-auto max-w-3xl desktop:-mb-4`}
+            className={`${sectionVisible ? "hero-entrance " : ""}mb-8 mx-auto max-w-3xl mobile:text-[1.625rem] mobile:leading-[1.2] desktop:text-[2rem] desktop:leading-[1.2] desktop:-mb-4`}
             style={{
               color: "var(--Text-900, #212121)",
               textAlign: "center",
               fontFamily: '"Plus Jakarta Sans", sans-serif',
-              fontSize: 32,
               fontStyle: "normal",
               fontWeight: 700,
-              lineHeight: "120%",
               ...(sectionVisible && { animationDelay: "0.6s" }),
             }}
           >

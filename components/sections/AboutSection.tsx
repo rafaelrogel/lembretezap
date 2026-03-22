@@ -23,7 +23,7 @@ export function AboutSection() {
   return (
     <section
       id="sobre"
-      className="py-page-y mt-10 desktop:mt-20"
+      className="py-page-y"
       aria-labelledby="about-heading"
     >
       <Container as="div" size="lg">
@@ -39,7 +39,7 @@ export function AboutSection() {
               id="about-heading"
               variant="display-sm"
               as="h2"
-              className="font-bold"
+              className="font-bold mobile:text-[1.375rem] mobile:leading-[1.22] mobile:tracking-tight"
               style={{
                 color: "var(--Text-900, #212121)",
                 fontWeight: 700,
@@ -50,11 +50,9 @@ export function AboutSection() {
             <Typography
               variant="body-lg"
               as="p"
-              className="mt-4 text-[var(--Text-600,#797781)]"
+              className="mt-4 text-[var(--Text-600,#797781)] mobile:text-[0.9375rem] mobile:leading-[1.45] desktop:text-base desktop:leading-[1.4]"
               style={{
-                fontSize: 16,
                 fontWeight: 400,
-                lineHeight: "140%",
               }}
             >
               O Zappelin cuida do que você precisa lembrar, para você focar em
@@ -96,10 +94,10 @@ export function AboutSection() {
                     <Typography
                       as="blockquote"
                       variant="body-sm"
-                      className="text-[var(--Text-700,#4B4A47)]"
+                      className="text-[var(--Text-700,#4B4A47)] mobile:text-[13px] mobile:leading-[1.45] desktop:text-body-sm desktop:leading-normal"
                     >
-                      Comecei usando para lista de mercado e hoje organizo
-                      praticamente tudo no Zappelin. Bom demais!
+                      Sempre esquecia pequenas tarefas do dia. Agora mando um
+                      áudio rápido e o Zappelin já transforma em lembrete.
                     </Typography>
                     <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
                       Ana &quot;caos controlado&quot;
@@ -123,10 +121,11 @@ export function AboutSection() {
                     <Typography
                       as="blockquote"
                       variant="body-sm"
-                      className="text-[var(--Text-700,#4B4A47)]"
+                      className="text-[var(--Text-700,#4B4A47)] mobile:text-[13px] mobile:leading-[1.45] desktop:text-body-sm desktop:leading-normal"
                     >
-                      Gosto porque não preciso abrir outro app. Mando mensagem e
-                      já sei que aquilo vai virar lembrete.
+                      Esquecia reunião, conta pra pagar e até compromisso
+                      importante. Agora mando mensagem e sei que o Zappelin vai
+                      lembrar.
                     </Typography>
                     <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
                       Rodrigo Checklist
@@ -141,7 +140,7 @@ export function AboutSection() {
                 <div className="flex flex-col items-center gap-3 desktop:flex-row desktop:items-start">
                   <Image
                     src="/yo1.png"
-                    alt="Foto de perfil de Júlia Desenrolada"
+                    alt="Foto de perfil de Mauro Desenrolado"
                     width={34}
                     height={34}
                     className="mt-0.5 rounded-full object-cover transition-transform duration-300 ease-out group-hover:scale-110"
@@ -150,13 +149,13 @@ export function AboutSection() {
                     <Typography
                       as="blockquote"
                       variant="body-sm"
-                      className="text-[var(--Text-700,#4B4A47)]"
+                      className="text-[var(--Text-700,#4B4A47)] mobile:text-[13px] mobile:leading-[1.45] desktop:text-body-sm desktop:leading-normal"
                     >
-                      Me ajudou muito a não esquecer pequenos tarefas do dia. É
-                      como ter uma memória extra no celular.
+                      Minha esposa nunca mais reclamou que esqueço das coisas.
+                      Agora vou buscar meu filho no karatê antes do horário.
                     </Typography>
                     <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
-                      Júlia Desenrolada
+                      Mauro Desenrolado
                     </figcaption>
                   </div>
                 </div>
@@ -177,10 +176,11 @@ export function AboutSection() {
                     <Typography
                       as="blockquote"
                       variant="body-sm"
-                      className="text-[var(--Text-700,#4B4A47)]"
+                      className="text-[var(--Text-700,#4B4A47)] mobile:text-[13px] mobile:leading-[1.45] desktop:text-body-sm desktop:leading-normal"
                     >
-                      Mando áudios e organizo minhas coisas pra fazer. Nunca
-                      mais esqueci nada!
+                      Eu vivia esquecendo coisa boba do dia a dia. Agora troco
+                      mensagens no Zappelin até pra fazer lista de mercado.
+                      Muito bom!
                     </Typography>
                     <figcaption className="mt-2 text-xs font-medium text-[var(--Text-500,#9CA3AF)]">
                       Carla &quot;perde nada&quot;

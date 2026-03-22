@@ -1363,19 +1363,18 @@ function FeatureCard({
         <Typography
           variant="body-lg"
           as="h3"
-          className="min-w-0 font-semibold text-[var(--Text-900,#212121)]"
-          style={{
-            fontSize: isHovered ? "1.26rem" : "1.125rem",
-            transition: `font-size 0.4s ${EASE_SMOOTH}`,
-          }}
+          className={`min-w-0 font-semibold text-[var(--Text-900,#212121)] transition-[font-size] duration-[400ms] [transition-timing-function:cubic-bezier(0.25,0.46,0.45,0.94)] ${
+            isHovered
+              ? "mobile:text-[1.0625rem] desktop:text-[1.26rem]"
+              : "mobile:text-[1rem] desktop:text-[1.125rem]"
+          }`}
         >
           {title}
         </Typography>
         <Typography
           variant="body-sm"
           as="p"
-          className="mt-1 min-w-0 text-[var(--Text-600,#797781)]"
-          style={{ lineHeight: "140%", fontSize: 14 }}
+          className="mt-1 min-w-0 text-[var(--Text-600,#797781)] mobile:text-[13px] mobile:leading-[1.4] desktop:text-sm desktop:leading-[1.4]"
         >
           {isHovered ? description : description.replace(/,$/, "")}
           {isHovered && firstAccessoryLineInline && accessoryLines.length > 0 && (
@@ -1416,8 +1415,7 @@ function FeatureCard({
               <Typography
                 variant="body-sm"
                 as="p"
-                className="mt-0 min-w-0 text-[var(--Text-600,#797781)]"
-                style={{ lineHeight: "140%", fontSize: 14 }}
+                className="mt-0 min-w-0 text-[var(--Text-600,#797781)] mobile:text-[13px] mobile:leading-[1.4] desktop:text-sm desktop:leading-[1.4]"
               >
                 {line}
               </Typography>
@@ -1457,7 +1455,7 @@ export function FeaturesSection() {
     <section
       ref={sectionRef}
       id="funcionalidades"
-      className="pt-page-y pb-6 desktop:py-page-y"
+      className="py-page-y"
       aria-labelledby="features-heading"
     >
       <Container as="div" size="lg" className="text-center">
@@ -1465,7 +1463,7 @@ export function FeaturesSection() {
           id="features-heading"
           variant="display-sm"
           as="h2"
-          className={`font-bold ${shouldAnimate ? "hero-entrance" : ""}`}
+          className={`font-bold mobile:text-[1.375rem] mobile:leading-[1.22] mobile:tracking-tight ${shouldAnimate ? "hero-entrance" : ""}`}
           style={{
             color: "var(--Text-900,#212121)",
             fontWeight: 700,
@@ -1479,11 +1477,9 @@ export function FeaturesSection() {
         <Typography
           variant="body-lg"
           as="p"
-          className={`mt-4 text-[var(--Text-600,#797781)] ${shouldAnimate ? "hero-entrance" : ""}`}
+          className={`mt-4 text-[var(--Text-600,#797781)] mobile:text-[0.9375rem] mobile:leading-[1.45] desktop:text-base desktop:leading-[1.4] ${shouldAnimate ? "hero-entrance" : ""}`}
           style={{
-            fontSize: 16,
             fontWeight: 400,
-            lineHeight: "140%",
             ...(shouldAnimate
               ? { animationDelay: "0.75s" }
               : { opacity: 0, transform: "translateY(8px)" }),
