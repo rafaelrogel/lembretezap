@@ -289,7 +289,7 @@ _WORD_TO_HOUR: dict[str, int] = {
     "vinte e uma": 21, "vinte e duas": 22, "vinte e três": 23, "vinte e tres": 23,
     # Spanish
     "uno": 1, "dos": 2, "cuatro": 4, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
-    "once": 11, "doce": 12, "trece": 13, "catorce": 14, "quince": 15,
+    "once": 11, "doce": 12, "trece": 13, "caturce": 14, "quince": 15,
     "dieciséis": 16, "dieciseis": 16, "diecisiete": 17, "dieciocho": 18,
     "diecinueve": 19, "veinte": 20, "veintiuna": 21, "veintidós": 22, "veintidos": 22,
     "veintitrés": 23, "veintitres": 23,
@@ -542,7 +542,8 @@ def parse_full_event_datetime(
             target_date = today + timedelta(days=1)
         elif dl in ("hoje", "today"):
             target_date = today
-        elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo"):
+        elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo",
+                     "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira"):
             from backend.time_parse import DIAS_SEMANA
             dow_target = DIAS_SEMANA.get(dl)
             if dow_target is not None:
@@ -588,7 +589,8 @@ def compute_in_seconds_from_date_hour(
             target_date = today + timedelta(days=1)
         elif dl in ("hoje", "today"):
             target_date = today
-        elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo"):
+        elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo",
+                     "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira"):
             from backend.time_parse import DIAS_SEMANA
             dow_target = DIAS_SEMANA.get(dl)
             if dow_target is not None:

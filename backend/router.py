@@ -81,8 +81,6 @@ HANDLERS = [
     handle_help,
     handle_recorrente,
     handle_pendente,
-    handle_feito,
-    handle_remove,
     handle_hora_data,
     handle_hoje,
     handle_semana,

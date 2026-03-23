@@ -23,6 +23,11 @@ POSSESSIVES_STR = "|".join(set(pt.POSSESSIVES + en.POSSESSIVES + es.POSSESSIVES)
 LIST_WORDS_STR = "|".join(set(pt.LIST_WORDS + en.LIST_WORDS + es.LIST_WORDS))
 PREPOSITIONS_OF_STR = "|".join(set(pt.PREPOSITIONS_OF + en.PREPOSITIONS_OF + es.PREPOSITIONS_OF))
 
+ADICIONE_VERBS_STR = "|".join(set(pt.ADICIONE_VERBS + en.ADICIONE_VERBS + es.ADICIONE_VERBS))
+NAS_WORDS_STR = "|".join(set(pt.NAS_WORDS + en.NAS_WORDS + es.NAS_WORDS))
+POR_LISTA_VERBS_STR = "|".join(set(pt.POR_LISTA_VERBS + en.POR_LISTA_VERBS + es.POR_LISTA_VERBS))
+NA_LISTA_WORDS_STR = "|".join(set(pt.NA_LISTA_WORDS + en.NA_LISTA_WORDS + es.NA_LISTA_WORDS))
+
 # Regex compilation
 RE_LEMBRETE = re.compile(rf"^/(?:{LEMBRETE_ALIASES_STR})\s+([^\r\n]+)$", re.I)
 RE_LIST_ADD = re.compile(rf"^/(?:{LISTA_ALIASES_STR})\s+(\S+)\s+add\s+([^\r\n]+)$", re.I)
@@ -73,7 +78,7 @@ RE_MOVIE = re.compile(r"^/movies?\s+([^\r\n]+)$", re.I)
 RE_BOOK = re.compile(r"^/books?\s+([^\r\n]+)$", re.I)
 
 RE_NL_ADICIONE_LISTA = re.compile(
-    rf"^(?:{'|'.join(pt.ADICIONE_VERBS)})\s+(.+?)\s+(?:{'|'.join(pt.NAS_WORDS)})\s+listas?\s*$",
+    rf"^(?:{ADICIONE_VERBS_STR})\s+(.+?)\s+(?:{NAS_WORDS_STR})\s+(.+)$",
     re.I,
 )
 RE_NL_ADD_LISTA_CATEGORIA = re.compile(
@@ -81,7 +86,7 @@ RE_NL_ADD_LISTA_CATEGORIA = re.compile(
     re.I,
 )
 RE_NL_POR_LISTA = re.compile(
-    rf"^(?:{'|'.join(pt.POR_LISTA_VERBS)})\s+(.+?)\s+(?:{'|'.join(pt.NA_LISTA_WORDS)})\s+(?:lista|listas)\s*$",
+    rf"^(?:{POR_LISTA_VERBS_STR})\s+(.+?)\s+(?:{NA_LISTA_WORDS_STR})\s+(.+)$",
     re.I,
 )
 RE_NL_LISTA_DOIS_PONTOS = re.compile(
@@ -102,11 +107,28 @@ RE_HOJE = re.compile(rf"^/(?:hoje|hoy|today)\s*$", re.I)
 RE_SEMANA = re.compile(rf"^/(?:semana|week)\s*$", re.I)
 RE_AGENDA = re.compile(rf"^/(?:agenda|schedule|calendario|calendário)\s*(.*)$", re.I)
 RE_NL_REMIND_ME = re.compile(
-    rf"^(?:me\s+)?(?:lembra|remind|recordar|avisa)\S*\s+(?:de\s+)?(.+)$",
+    rf"^(?:me\s+)?(?:lembra|remind|recordar|avisa|recordatorio|reminder|lembrete)\S*\s+(?:de\s+)?(.+)$",
     re.I | re.UNICODE
 )
-RE_NL_GENERIC_LEMBRETE = re.compile(rf"^(?:lembrete|reminder|recordatorio)\s*:\s*(.+)$", re.I)
+RE_NL_GENERIC_LEMBRETE = re.compile(rf"^(?:lembrete|reminder|recordatorio)\s*[:\s]\s*(.+)$", re.I)
 RE_NL_FILME_LIVRO_VER = re.compile(rf"^{pt.FILME_LIVRO_VER_FRAGMENT}([^\r\n]+)$", re.I)
+
+def _extract_list_name(full: str) -> str:
+    """Extrai o nome da lista (ex: 'mercado' de 'lista mercado' ou 'shopping' de 'shopping list')."""
+    clean = re.sub(rf"\b(?:{ARTICLES_STR}|{POSSESSIVES_STR}|ma|mon)\b", "", full, flags=re.I).strip()
+    words = clean.split()
+    if not words: return "mercado"
+    # Se "lista" estiver no início, o nome é o resto
+    if re.match(rf"^(?:{LIST_WORDS_STR})$", words[0], re.I):
+        name = " ".join(words[1:]).strip()
+        return name if name else "mercado"
+    # Se "lista" estiver no fim, o nome é o que vem antes
+    if re.match(rf"^(?:{LIST_WORDS_STR})$", words[-1], re.I):
+        name = " ".join(words[:-1]).strip()
+        return name if name else "mercado"
+    # Fallback: se houver a palavra "lista" no meio, remove ela
+    name = re.sub(rf"\s*(?:{LIST_WORDS_STR})\s*", " ", clean, flags=re.I).strip()
+    return name if name else "mercado"
 
 def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     """Parseia a mensagem. Retorna um intent dict ou None."""
@@ -219,25 +241,25 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         return {"type": "list_show", "list_name": name if name != "lista" else None}
 
     m = RE_FILME.match(text)
-    if m: return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "filmes", "item": m.group(1).strip()}
     m = RE_LIVRO.match(text)
-    if m: return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "livros", "item": m.group(1).strip()}
     m = re.match(r"^/(?:musica|m[uú]sica)s?\s+(.+)$", text, re.I)
-    if m: return {"type": "list_add", "list_name": "musica", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "músicas", "item": m.group(1).strip()}
     m = RE_SERIE.match(text)
-    if m: return {"type": "list_add", "list_name": "serie", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "séries", "item": m.group(1).strip()}
     m = RE_JOGO.match(text)
-    if m: return {"type": "list_add", "list_name": "jogo", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "jogos", "item": m.group(1).strip()}
     m = RE_PELICULA.match(text)
-    if m: return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "filmes", "item": m.group(1).strip()}
     m = RE_LIBRO.match(text)
-    if m: return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "livros", "item": m.group(1).strip()}
     m = RE_MOVIE.match(text)
-    if m: return {"type": "list_add", "list_name": "filme", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "filmes", "item": m.group(1).strip()}
     m = RE_BOOK.match(text)
-    if m: return {"type": "list_add", "list_name": "livro", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "livros", "item": m.group(1).strip()}
     m = RE_RECEITA.match(text)
-    if m: return {"type": "list_add", "list_name": "receita", "item": m.group(1).strip()}
+    if m: return {"type": "list_add", "list_name": "receitas", "item": m.group(1).strip()}
 
     m = RE_NL_ADD_LISTA_CATEGORIA.match(text)
     if m:
@@ -249,7 +271,11 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     m = RE_NL_POR_LISTA.match(text)
     if m:
         item = m.group(1).strip()
-        if item: return {"type": "list_add", "list_name": "mercado", "item": item}
+        if item:
+            _raw_name = m.group(2).strip()
+            _name = _extract_list_name(_raw_name).lower()
+            list_name = _CATEGORY_TO_LIST.get(_name, _name)
+            return {"type": "list_add", "list_name": list_name, "item": item}
 
     m = RE_NL_LISTA_DOIS_PONTOS.match(text)
     if m:
@@ -295,17 +321,20 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     if m:
         item = m.group(1).strip()
         if item:
-            list_name = "livro" if "ler" in text.lower() or "livro" in text.lower() else "filme"
+            list_name = "livros" if "ler" in text.lower() or "livro" in text.lower() else "filmes"
             return {"type": "list_add", "list_name": list_name, "item": item}
 
     m = RE_NL_ADICIONE_LISTA.match(text)
     if m:
         raw_items = m.group(1).strip()
+        _raw_name = m.group(2).strip()
+        _name = _extract_list_name(_raw_name).lower()
+        list_name = _CATEGORY_TO_LIST.get(_name, _name)
         parts = re.split(r"\s*,\s*|\s+e\s+", raw_items)
         items = [p.strip() for p in parts if p.strip()]
         if not items: return None
-        if len(items) == 1: return {"type": "list_add", "list_name": "mercado", "item": items[0]}
-        return {"type": "list_add", "list_name": "mercado", "items": items}
+        if len(items) == 1: return {"type": "list_add", "list_name": list_name, "item": items[0]}
+        return {"type": "list_add", "list_name": list_name, "items": items}
 
     m = RE_NL_REMIND_ME.match(text)
     if m:

@@ -308,47 +308,47 @@ class TestRecipeCommandParser:
         result = self.parse("/receita bolo de chocolate")
         assert result is not None
         assert result["type"] == "list_add"
-        assert result["list_name"] == "receita"
+        assert result["list_name"] == "receitas"
         assert "bolo de chocolate" in result["item"]
 
     def test_receita_category_mapping(self):
-        assert self.categories.get("receita") == "receita"
-        assert self.categories.get("receitas") == "receita"
-        assert self.categories.get("recipe") == "receita"
-        assert self.categories.get("recipes") == "receita"
-        assert self.categories.get("receta") == "receita"
-        assert self.categories.get("recetas") == "receita"
+        assert self.categories.get("receita") == "receitas"
+        assert self.categories.get("receitas") == "receitas"
+        assert self.categories.get("recipe") == "receitas"
+        assert self.categories.get("recipes") == "receitas"
+        assert self.categories.get("receta") == "receitas"
+        assert self.categories.get("recetas") == "receitas"
 
     def test_list_receita_add(self):
         result = self.parse("/list receita add bolo de cenoura")
         assert result is not None
         assert result["type"] == "list_add"
-        assert result["list_name"] == "receita"
+        assert result["list_name"] == "receitas"
 
     def test_list_receita_category(self):
         result = self.parse("/list receita brigadeiro")
         assert result is not None
         assert result["type"] == "list_add"
-        assert result["list_name"] == "receita"
+        assert result["list_name"] == "receitas"
         assert "brigadeiro" in result["item"]
 
     def test_list_recipe_en(self):
         result = self.parse("/list recipe chocolate cake")
         assert result is not None
         assert result["type"] == "list_add"
-        assert result["list_name"] == "receita"
+        assert result["list_name"] == "receitas"
 
     def test_list_receta_es(self):
         result = self.parse("/list receta tortilla española")
         assert result is not None
         assert result["type"] == "list_add"
-        assert result["list_name"] == "receita"
+        assert result["list_name"] == "receitas"
 
     def test_nl_add_receita(self):
         result = self.parse("add receita pavê de chocolate")
         assert result is not None
         assert result["type"] == "list_add"
-        assert result["list_name"] == "receita"
+        assert result["list_name"] == "receitas"
 
 
 # =============================================================================
@@ -585,7 +585,7 @@ async def test_recipe_via_command_parser_stress():
             errors.append(f"#{i} parse returned None for '{cmd}'")
         elif result.get("type") != "list_add":
             errors.append(f"#{i} type={result.get('type')} for '{cmd}'")
-        elif result.get("list_name") != "receita":
+        elif result.get("list_name") != "receitas":
             errors.append(f"#{i} list_name={result.get('list_name')} for '{cmd}'")
 
     print(f"\n[PARSER STRESS] 100 /receita commands: {100 - len(errors)} OK, {len(errors)} errors")

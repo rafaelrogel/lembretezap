@@ -20,19 +20,24 @@ LIST_WORDS = ["lista?"]
 PREPOSITIONS_OF = ["de", "llamada", "llamado", "nombrada", "nombrado"]
 
 # NL Adicione Lista
-ADICIONE_VERBS = ["a[ñn]adir"]
+ADICIONE_VERBS = ["a[ñn]adir", "agregar", "poner"]
+NAS_WORDS = ["a", "en"]
 
 # NL Lista Dois Pontos
 LISTA_DOIS_PONTOS_FRAGMENT = r"(?:pon|pone|a[ñn]ade|a[ñn]adir|agrega|agregar)\s+(?:en\s+la|a\s+la)\s+lista"
 
 # Category to list mapping
 CATEGORY_TO_LIST = {
-    "película": "filme", "películas": "filme", "pelicula": "filme", "peliculas": "filme",
-    "libro": "livro", "libros": "livro",
-    "juego": "jogo", "juegos": "jogo",
-    "canción": "musica", "canciones": "musica",
-    "receta": "receita", "recetas": "receita",
+    "película": "filmes", "películas": "filmes", "pelicula": "filmes", "peliculas": "filmes",
+    "libro": "livros", "libros": "livros",
+    "juego": "jogos", "juegos": "jogos",
+    "canción": "músicas", "canciones": "músicas",
+    "receta": "receitas", "recetas": "receitas",
 }
+
+# NL Por Lista
+POR_LISTA_VERBS = ["pon", "pone", "poner", "agrega", "agregar", "a[ñn]ade", "a[ñn]adir"]
+NA_LISTA_WORDS = ["en", "a", "al"]
 
 REMINDER_AGENDA_WORDS = {
     "recordatorios", "recordatorio"

@@ -392,7 +392,7 @@ class AgentLoop:
                 return None
             list_name = intent.get("list_name", "")
             item_text = intent.get("item", "")
-            if list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(item_text):
+            if list_name in ("filmes", "livros", "músicas", "receitas") and is_absurd_request(item_text):
                 return is_absurd_request(item_text)
             return await list_tool.execute(
                 action="add",

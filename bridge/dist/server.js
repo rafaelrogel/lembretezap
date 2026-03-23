@@ -1,0 +1,125 @@
+/**
+ * WebSocket server for Python-Node.js bridge communication.
+ * Serves GET /health on the same port for Docker healthchecks.
+ */
+import * as http from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
+import { WhatsAppClient } from './whatsapp.js';
+export class BridgeServer {
+    port;
+    authDir;
+    httpServer = null;
+    wss = null;
+    wa = null;
+    clients = new Set();
+    constructor(port, authDir) {
+        this.port = port;
+        this.authDir = authDir;
+    }
+    async start() {
+        const healthToken = process.env.BRIDGE_HEALTH_TOKEN || '';
+        // HTTP server for /health and WebSocket upgrade. If BRIDGE_HEALTH_TOKEN is set, /health requires header X-Health-Token (internal only).
+        this.httpServer = http.createServer((req, res) => {
+            if (req.url === '/health' && req.method === 'GET') {
+                if (healthToken) {
+                    const token = req.headers['x-health-token'];
+                    if (token !== healthToken) {
+                        res.writeHead(401);
+                        res.end('Unauthorized');
+                        return;
+                    }
+                }
+                res.writeHead(200, { 'Content-Type': 'text/plain' });
+                res.end('ok');
+                return;
+            }
+            res.writeHead(404);
+            res.end();
+        });
+        this.wss = new WebSocketServer({ server: this.httpServer });
+        this.httpServer.listen(this.port, () => {
+            console.log(`🌉 Bridge server listening on ws://localhost:${this.port} (GET /health for healthcheck)`);
+        });
+        // Initialize WhatsApp client
+        this.wa = new WhatsAppClient({
+            authDir: this.authDir,
+            onMessage: (msg) => this.broadcast({ type: 'message', ...msg }),
+            onReaction: (ev) => this.broadcast({ type: 'reaction', ...ev }),
+            onQR: (qr) => this.broadcast({ type: 'qr', qr }),
+            onStatus: (status) => this.broadcast({ type: 'status', status }),
+        });
+        // Handle WebSocket connections
+        this.wss.on('connection', (ws) => {
+            console.log('🔗 Python client connected');
+            this.clients.add(ws);
+            ws.on('message', async (data) => {
+                try {
+                    const cmd = JSON.parse(data.toString());
+                    const result = await this.handleCommand(cmd);
+                    ws.send(JSON.stringify({
+                        type: 'sent',
+                        to: cmd.to,
+                        id: result?.id ?? null,
+                        job_id: cmd.job_id ?? null,
+                        request_id: cmd.request_id ?? null,
+                    }));
+                }
+                catch (error) {
+                    console.error('Error handling command:', error);
+                    ws.send(JSON.stringify({ type: 'error', error: String(error) }));
+                }
+            });
+            ws.on('close', () => {
+                console.log('🔌 Python client disconnected');
+                this.clients.delete(ws);
+            });
+            ws.on('error', (error) => {
+                console.error('WebSocket error:', error);
+                this.clients.delete(ws);
+            });
+        });
+        // Connect to WhatsApp
+        await this.wa.connect();
+    }
+    async handleCommand(cmd) {
+        if (!this.wa)
+            return null;
+        if (cmd.type === 'send') {
+            return await this.wa.sendMessage(cmd.to, cmd.text);
+        }
+        if (cmd.type === 'send_voice') {
+            return await this.wa.sendVoiceNote(cmd.to, cmd.audio_path);
+        }
+        return null;
+    }
+    broadcast(msg) {
+        const data = JSON.stringify(msg);
+        for (const client of Array.from(this.clients)) {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(data);
+            }
+        }
+    }
+    async stop() {
+        // Close all client connections
+        for (const client of Array.from(this.clients)) {
+            client.close();
+        }
+        this.clients.clear();
+        // Close WebSocket server
+        if (this.wss) {
+            this.wss.close();
+            this.wss = null;
+        }
+        // Close HTTP server
+        if (this.httpServer) {
+            this.httpServer.close();
+            this.httpServer = null;
+        }
+        // Disconnect WhatsApp
+        if (this.wa) {
+            await this.wa.disconnect();
+            this.wa = null;
+        }
+    }
+}
