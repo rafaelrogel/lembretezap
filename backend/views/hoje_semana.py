@@ -35,7 +35,10 @@ def _visao_hoje(ctx: "HandlerContext", target_date=None) -> str:
             now = datetime.fromtimestamp(_now_ts, tz=tz)
             today = target_date or now.date()
 
-            from backend.locale import VIEW_LABEL_HOJE, VIEW_LABEL_AMANHA
+            from backend.locale import (
+                VIEW_LABEL_HOJE, VIEW_LABEL_AMANHA, VIEW_AGENDA_HEADER,
+                VIEW_AGENDA_EVENT_TODAY, VIEW_AGENDA_EVENT_TOMORROW, VIEW_AGENDA_EVENT_WITH_TIME
+            )
             lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
             
             header_label = VIEW_LABEL_HOJE
@@ -64,18 +67,32 @@ def _visao_hoje(ctx: "HandlerContext", target_date=None) -> str:
 
             # Agenda (eventos) do dia
             event_list = get_events_in_period(db, user.id, today, today, tz, lang=lang)
-            from backend.locale import VIEW_AGENDA_HEADER
             lines.append(VIEW_AGENDA_HEADER.get(lang, VIEW_AGENDA_HEADER["en"]))
             date_fmt = "%Y-%m-%d" if lang == "en" else "%d/%m"
             if event_list:
-                for d, _, nome in event_list[:15]:
-                    lines.append(f"• {d.strftime(date_fmt)} — {nome}")
+                for ev_local, ev_utc, nome in event_list[:15]:
+                    from datetime import time as dt_time
+                    has_time = False
+                    time_str = ""
+                    if ev_utc:
+                        ev_tz = ev_utc.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+                        if ev_tz.time() != dt_time(0, 0):
+                            has_time = True
+                            time_str = ev_tz.strftime("%H:%M")
+                    
+                    if has_time:
+                        item_label = VIEW_AGENDA_EVENT_WITH_TIME
+                        if ev_local == now.date():
+                            item_label = VIEW_AGENDA_EVENT_TODAY
+                        elif ev_local == now.date() + timedelta(days=1):
+                            item_label = VIEW_AGENDA_EVENT_TOMORROW
+                        lines.append(f"• {item_label.get(lang, item_label['en']).format(time=time_str, nome=nome, date=ev_local.strftime(date_fmt))}")
+                    else:
+                        lines.append(f"• {ev_local.strftime(date_fmt)} — {nome}")
                 # Oferecer criar lembrete antes do evento (ex.: 15 min antes)
-                from backend.user_store import get_user_language
                 from backend.locale import AGENDA_OFFER_REMINDER, resolve_response_language
-                lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
-                lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
-                lines.append(AGENDA_OFFER_REMINDER.get(lang, AGENDA_OFFER_REMINDER["en"]))
+                _lang_resp = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
+                lines.append(AGENDA_OFFER_REMINDER.get(_lang_resp, AGENDA_OFFER_REMINDER["en"]))
             else:
                 from backend.locale import VIEW_NO_EVENTS_TODAY, VIEW_NO_EVENTS_AMANHA
                 is_amanha = target_date and target_date == now.date() + timedelta(days=1)
@@ -128,7 +145,7 @@ def _visao_agenda_dia(ctx: "HandlerContext", target_date=None) -> str:
             today = target_date or now.date()
             lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
 
-            from backend.locale import VIEW_AGENDA_TODAY_HEADER, VIEW_AGENDA_TOMORROW_HEADER
+            from backend.locale import VIEW_AGENDA_TODAY_HEADER, VIEW_AGENDA_TOMORROW_HEADER, VIEW_AGENDA_EVENT_TODAY, VIEW_AGENDA_EVENT_TOMORROW, VIEW_AGENDA_EVENT_WITH_TIME
             header_label = VIEW_AGENDA_TODAY_HEADER
             if target_date and target_date == now.date() + timedelta(days=1):
                 header_label = VIEW_AGENDA_TOMORROW_HEADER
@@ -138,8 +155,25 @@ def _visao_agenda_dia(ctx: "HandlerContext", target_date=None) -> str:
             event_list = get_events_in_period(db, user.id, today, today, tz, lang=lang)
             date_fmt = "%Y-%m-%d" if lang == "en" else "%d/%m"
             if event_list:
-                for d, _, nome in event_list[:15]:
-                    lines.append(f"• {d.strftime(date_fmt)} — {nome}")
+                for ev_local, ev_utc, nome in event_list[:15]:
+                    from datetime import time as dt_time
+                    has_time = False
+                    time_str = ""
+                    if ev_utc:
+                        ev_tz = ev_utc.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+                        if ev_tz.time() != dt_time(0, 0):
+                            has_time = True
+                            time_str = ev_tz.strftime("%H:%M")
+                    
+                    if has_time:
+                        item_label = VIEW_AGENDA_EVENT_WITH_TIME
+                        if ev_local == now.date():
+                            item_label = VIEW_AGENDA_EVENT_TODAY
+                        elif ev_local == now.date() + timedelta(days=1):
+                            item_label = VIEW_AGENDA_EVENT_TOMORROW
+                        lines.append(f"• {item_label.get(lang, item_label['en']).format(time=time_str, nome=nome, date=ev_local.strftime(date_fmt))}")
+                    else:
+                        lines.append(f"• {ev_local.strftime(date_fmt)} — {nome}")
 
                 lang = get_user_language(db, ctx.chat_id, ctx.phone_for_locale) or "pt-BR"
                 lang = resolve_response_language(lang, ctx.chat_id, ctx.phone_for_locale)
@@ -188,14 +222,31 @@ def _visao_semana(ctx: "HandlerContext") -> str:
             today = now.date()
             end_date = today + timedelta(days=6)  # 7 dias: hoje + 6
 
-            from backend.locale import VIEW_AGENDA_WEEK_HEADER, VIEW_NO_EVENTS_WEEK
+            from backend.locale import VIEW_AGENDA_WEEK_HEADER, VIEW_NO_EVENTS_WEEK, VIEW_AGENDA_EVENT_TODAY, VIEW_AGENDA_EVENT_TOMORROW, VIEW_AGENDA_EVENT_WITH_TIME
             lines = [VIEW_AGENDA_WEEK_HEADER.get(lang, VIEW_AGENDA_WEEK_HEADER["en"]).format(end_date=end_date.strftime('%d/%m'))]
 
             event_list = get_events_in_period(db, user.id, today, end_date, tz, lang=lang)
             date_fmt = "%Y-%m-%d" if lang == "en" else "%d/%m"
             if event_list:
-                for d, _, nome in event_list[:25]:
-                    lines.append(f"• {d.strftime(date_fmt)} — {nome}")
+                for ev_local, ev_utc, nome in event_list[:25]:
+                    from datetime import time as dt_time
+                    has_time = False
+                    time_str = ""
+                    if ev_utc:
+                        ev_tz = ev_utc.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+                        if ev_tz.time() != dt_time(0, 0):
+                            has_time = True
+                            time_str = ev_tz.strftime("%H:%M")
+                    
+                    if has_time:
+                        item_label = VIEW_AGENDA_EVENT_WITH_TIME
+                        if ev_local == now.date():
+                            item_label = VIEW_AGENDA_EVENT_TODAY
+                        elif ev_local == now.date() + timedelta(days=1):
+                            item_label = VIEW_AGENDA_EVENT_TOMORROW
+                        lines.append(f"• {item_label.get(lang, item_label['en']).format(time=time_str, nome=nome, date=ev_local.strftime(date_fmt))}")
+                    else:
+                        lines.append(f"• {ev_local.strftime(date_fmt)} — {nome}")
             else:
                 lines.append(VIEW_NO_EVENTS_WEEK.get(lang, VIEW_NO_EVENTS_WEEK["en"]))
 

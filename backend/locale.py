@@ -2755,6 +2755,27 @@ VIEW_AGENDA_HEADER: dict[LangCode, str] = {
     "en": "\n📆 **Agenda**",
 }
 
+VIEW_AGENDA_EVENT_TODAY: dict[LangCode, str] = {
+    "pt-PT": "Hoje {time} — {nome}",
+    "pt-BR": "Hoje {time} — {nome}",
+    "es": "Hoy {time} — {nome}",
+    "en": "Today {time} — {nome}",
+}
+
+VIEW_AGENDA_EVENT_TOMORROW: dict[LangCode, str] = {
+    "pt-PT": "Amanhã {time} — {nome}",
+    "pt-BR": "Amanhã {time} — {nome}",
+    "es": "Mañana {time} — {nome}",
+    "en": "Tomorrow {time} — {nome}",
+}
+
+VIEW_AGENDA_EVENT_WITH_TIME: dict[LangCode, str] = {
+    "pt-PT": "{date} {time} — {nome}",
+    "pt-BR": "{date} {time} — {nome}",
+    "es": "{date} {time} — {nome}",
+    "en": "{date} {time} — {nome}",
+}
+
 VIEW_AGENDA_TODAY_HEADER: dict[LangCode, str] = {
     "pt-PT": "📆 **Agenda — hoje**",
     "pt-BR": "📆 **Agenda — hoje**",
