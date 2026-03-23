@@ -330,6 +330,10 @@ class WhatsAppChannel(BaseChannel):
             return
 
         if msg_type == "message":
+            if data.get("fromMe") or data.get("from_me"):
+                logger.debug(f"Ignoring own message id={data.get('id')!r}")
+                return
+            
             sender = (data.get("sender") or "").strip()
             # Evitar processar o mesmo evento várias vezes (reduz chamadas LLM duplicadas)
             msg_id = (data.get("id") or "").strip()
