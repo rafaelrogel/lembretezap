@@ -16,7 +16,8 @@ from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
 _DATE_WORDS = {
     "amanhã", "amanha", "hoje", "depois", "tomorrow", "today",
     "mañana", "hoy", "lunes", "martes", "miércoles", "miercoles",
-    "jueves", "viernes", "tomorrow", "today",
+    "jueves", "viernes",
+    "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira",
     "segunda", "terça", "terca", "quarta", "quinta", "sexta",
     "sábado", "sabado", "domingo", "monday", "tuesday", "wednesday",
     "thursday", "friday", "saturday", "sunday",
