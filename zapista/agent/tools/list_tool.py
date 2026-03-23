@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 
 from backend.list_history import get_frequent_items
 from backend.user_store import get_user_timezone
+from backend.locale import CONFIRM_ITEMS_ADDED_TO_LIST
 
 
 class ListTool(Tool):
