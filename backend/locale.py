@@ -2502,6 +2502,20 @@ LIST_ITEM_NOT_FOUND: dict[LangCode, str] = {
     "en": "Item {item_id} not found.",
 }
 
+LIST_NAME_REQUIRED_REMOVE: dict[LangCode, str] = {
+    "pt-PT": "Indica o nome da lista para remover o item.",
+    "pt-BR": "Indique o nome da lista para remover o item.",
+    "es": "Indica el nombre de la lista para eliminar el elemento.",
+    "en": "Please specify the list name to remove the item.",
+}
+
+LIST_NAME_REQUIRED_FEITO: dict[LangCode, str] = {
+    "pt-PT": "Indica o nome da lista para marcar o item como feito.",
+    "pt-BR": "Indique o nome da lista para marcar o item como feito.",
+    "es": "Indica el nombre de la lista para marcar el elemento como hecho.",
+    "en": "Please specify the list name to mark the item as done.",
+}
+
 LIST_NAME_REQUIRED_DELETE: dict[LangCode, str] = {
     "pt-PT": "Indica o nome da lista para apagar.",
     "pt-BR": "Indique o nome da lista para apagar.",

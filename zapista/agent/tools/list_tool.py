@@ -653,8 +653,7 @@ class ListTool(Tool):
 
         if not list_name:
             from backend.locale import LIST_NAME_REQUIRED_FEITO
-            # Fallback se a chave não existir
-            return LIST_NAME_REQUIRED_FEITO.get(lang, "Indique o nome da lista.") if 'LIST_NAME_REQUIRED_FEITO' in locals() else "Indique o nome da lista."
+            return LIST_NAME_REQUIRED_FEITO.get(lang, LIST_NAME_REQUIRED_FEITO["en"])
 
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:
