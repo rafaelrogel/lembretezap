@@ -147,14 +147,30 @@ def extract_content_and_date(text: str) -> tuple[str, str]:
     tl = t.lower()
     content = t
     date_label = ""
-    for dw in sorted(_DATE_WORDS, key=len, reverse=True):
-        if dw in tl:
+    
+    # Sort by length to match "segunda-feira" before "segunda"
+    ordered_date_words = sorted(_DATE_WORDS, key=len, reverse=True)
+    
+    for dw in ordered_date_words:
+        # Use regex to ensure we match at word boundaries
+        # and don't partially match one part of a hyphenated word.
+        # Prefixes for 4 languages: na/no/dia (PT), el/la (ES), on/the/at (EN)
+        pattern = rf"\b(?:na|no|dia|el|la|on|the|at)\s+{re.escape(dw)}\b"
+        if re.search(pattern, tl, re.I):
             date_label = dw
-            # Remover "na segunda", "amanhã" ou só a palavra
-            content = re.sub(rf"\b(?:na|no|dia)\s+{re.escape(dw)}\b", "", t, flags=re.I)
-            content = re.sub(rf"\b{re.escape(dw)}\b", "", content, flags=re.I).strip()
-            content = re.sub(r"\s+", " ", content).strip()
+            content = re.sub(pattern, "", t, count=1, flags=re.I).strip()
             break
+        
+        pattern_simple = rf"\b{re.escape(dw)}\b"
+        if re.search(pattern_simple, tl, re.I):
+            # If dw is a short word like "segunda", ensure it's not followed by a hyphen
+            if "-" not in dw and re.search(rf"\b{re.escape(dw)}\-", tl, re.I):
+                continue
+            date_label = dw
+            content = re.sub(pattern_simple, "", t, count=1, flags=re.I).strip()
+            break
+            
+    content = re.sub(r"\s+", " ", content).strip()
     return content or t, date_label
 
 

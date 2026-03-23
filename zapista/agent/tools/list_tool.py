@@ -11,7 +11,7 @@ from sqlalchemy import func
 from zapista.agent.tools.base import Tool
 from backend.database import SessionLocal
 from backend.user_store import get_or_create_user
-from backend.models_db import List, ListItem, AuditLog, Project
+from backend.models_db import User, List, ListItem, AuditLog, Project
 from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_LIST_ITEM_TEXT_LEN, looks_like_confidential_data
 from backend.list_item_correction import suggest_correction
 from datetime import datetime

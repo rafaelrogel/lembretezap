@@ -580,8 +580,11 @@ def _looks_like_new_reminder_request(text: str) -> bool:
         return False
     t = text.strip().lower()
     
-    # Any slash command is always a new request
+    # Any slash command is normally a new request, UNLESS it is a short date/time shortcut
+    # that might have been normalized from NL (like "hoje" -> "/hoje").
     if t.startswith("/"):
+        if t in ("/hoje", "/hoy", "/today", "/amanha", "/amanhã", "/tomorrow", "/manana", "/mañana", "/data", "/date", "/fecha", "/hora", "/time"):
+            return False
         return True
 
     from backend.pending_confirmation import looks_like_time_response

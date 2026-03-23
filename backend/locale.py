@@ -2393,6 +2393,20 @@ POMODORO_STOPPED: dict[LangCode, str] = {
     "en": "🍅 Pomodoro stopped. {count} timer(s) cancelled.",
 }
 
+POMODORO_FINISHED_TASK: dict[LangCode, str] = {
+    "pt-PT": "🍅 Pomodoro terminado: {task}. Bom trabalho!",
+    "pt-BR": "🍅 Pomodoro terminado: {task}. Bom trabalho!",
+    "es": "🍅 Pomodoro terminado: {task}. ¡Buen trabalho!",
+    "en": "🍅 Pomodoro finished: {task}. Good job!",
+}
+
+POMODORO_FINISHED: dict[LangCode, str] = {
+    "pt-PT": "🍅 Pomodoro terminado. Tempo de descansar!",
+    "pt-BR": "🍅 Pomodoro terminado. Tempo de descansar!",
+    "es": "🍅 Pomodoro terminado. ¡Tiempo de descansar!",
+    "en": "🍅 Pomodoro finished. Time to rest!",
+}
+
 # ---------------------------------------------------------------------------
 # list_tool.py
 # ---------------------------------------------------------------------------
@@ -2423,6 +2437,13 @@ LIST_NAME_REQUIRED_ADD: dict[LangCode, str] = {
     "pt-BR": "Indique o nome da lista para adicionar o item.",
     "es": "Indica el nombre de la lista para agregar el elemento.",
     "en": "Please specify the list name to add the item.",
+}
+
+LIST_EMPTY_ITEM_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Não me disseste o que adicionar à lista '{list_name}'.",
+    "pt-BR": "Você não me disse o que adicionar à lista '{list_name}'.",
+    "es": "No me has dicho qué añadir a la lista '{list_name}'.",
+    "en": "You didn't tell me what to add to the '{list_name}' list.",
 }
 
 LIST_PRIVACY_WARNING: dict[LangCode, str] = {
