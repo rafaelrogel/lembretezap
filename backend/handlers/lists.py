@@ -54,6 +54,11 @@ async def handle_list(ctx: "HandlerContext", content: str) -> str | None:
         logger = get_logger(__name__)
         logger.warning("list_tool_missing", extra={"extra": {"chat_id": str(ctx.chat_id or "")[:24]}})
         return None
+    
+    intent = parse(content)
+    if not intent or intent.get("type") not in ("list_add", "list_show"):
+        return None
+
     from backend.logger import get_logger
     logger = get_logger(__name__)
     logger.debug("handle_list", extra={"extra": {
