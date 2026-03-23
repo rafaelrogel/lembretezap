@@ -15,7 +15,7 @@ _detect_install_dir() {
     echo "${ZAPISTA_INSTALL_DIR}"
     return
   fi
-  _found=$(find /opt /root /home -maxdepth 5 -name "docker-compose.vps.yml" -type f 2>/dev/null | head -1)
+  _found=$(find /opt /root /home -maxdepth 5 -name "docker-compose.prod.yml" -type f 2>/dev/null | head -1)
   if [ -n "$_found" ]; then
     dirname "$_found"
     return
@@ -80,8 +80,8 @@ echo ""
 
 echo "[2/3] A reconstruir imagens e reiniciar os serviços..."
 COMPOSE_FILES="-f docker-compose.yml"
-if [ -f "docker-compose.vps.yml" ]; then
-  COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.vps.yml"
+if [ -f "docker-compose.prod.yml" ]; then
+  COMPOSE_FILES="$COMPOSE_FILES -f docker-compose.prod.yml"
 fi
 if ! docker compose $COMPOSE_FILES build --no-cache; then
   echo ""
@@ -144,7 +144,7 @@ if [ -f ".env" ]; then
   fi
 
   # Verificar TTS dentro do container gateway (cobre setups onde os paths no host diferem do container)
-  _gw_container=$(docker ps --filter "name=gateway" --format "{{.Names}}" 2>/dev/null | head -1)
+  _gw_container=$(docker compose $COMPOSE_FILES ps gateway --format "{{.Names}}" 2>/dev/null | head -1)
   if [ -n "$_gw_container" ] && [ -n "$CUR_PIPER" ]; then
     if docker exec "$_gw_container" test -f "$CUR_PIPER" 2>/dev/null; then
       echo "    ✅ Piper acessível dentro do container ($CUR_PIPER)"
