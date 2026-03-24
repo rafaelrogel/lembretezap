@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func
@@ -106,7 +106,7 @@ def list_user_events(
     _: None = Depends(require_api_key),
     __: None = Depends(_rate_limit_rest),
 ) -> list[EventOut]:
-    q = db.query(Event).filter(Event.user_id == user_id, Event.deleted == False)
+    q = db.query(Event).filter(Event.user_id == user_id, Event.deleted.is_(False))
     if tipo:
         q = q.filter(Event.tipo == tipo)
     events = q.order_by(Event.created_at.desc()).limit(100).all()
