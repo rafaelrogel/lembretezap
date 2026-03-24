@@ -8,7 +8,7 @@ Lista de funcionalidades com documento de viabilidade, “em breve” no código
 
 ## 4. /feito com só o ID (sem nome da lista)
 
-**Onde:** `CONFORMIDADE_PEDIDO.md`; `backend/command_parser.py`, `handlers.py`  
+**Onde:** `CONFORMIDADE_PEDIDO.md`; `backend/command_parser/`, `handlers.py`  
 **Estado:** Hoje é obrigatório **/feito nome_da_lista id**. O pedido era permitir **/feito 1** (apagar por ID global ou inferir lista).
 
 **Ideia:**  

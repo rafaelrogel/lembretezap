@@ -4,13 +4,14 @@ import json
 import random
 from typing import Any
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 from sqlalchemy import func
 
 from zapista.agent.tools.base import Tool
 from backend.database import SessionLocal
 from backend.user_store import get_or_create_user
-from backend.models_db import List, ListItem, AuditLog, Project
+from backend.models_db import User, List, ListItem, AuditLog, Project
 from backend.sanitize import sanitize_string, MAX_LIST_NAME_LEN, MAX_LIST_ITEM_TEXT_LEN, looks_like_confidential_data
 from backend.list_item_correction import suggest_correction
 from datetime import datetime
@@ -18,6 +19,7 @@ from zoneinfo import ZoneInfo
 
 from backend.list_history import get_frequent_items
 from backend.user_store import get_user_timezone
+from backend.locale import CONFIRM_ITEMS_ADDED_TO_LIST
 
 
 class ListTool(Tool):
@@ -156,12 +158,12 @@ class ListTool(Tool):
                 db.rollback()
             except Exception:
                 pass
-            logger.exception(
-                "list_tool execute failed: action={} list_name={!r} chat_id_prefix={}",
-                action,
-                (list_name or "")[:50],
-                (self._chat_id or "")[:24],
-            )
+            logger.error("list_tool_execute_failed", extra={"extra": {
+                "action": action,
+                "list_name": list_name,
+                "chat_id": self._chat_id,
+                "error": str(e)
+            }})
             from backend.locale import LIST_TECH_ERROR
             lang = self._get_lang()
             return LIST_TECH_ERROR.get(lang, LIST_TECH_ERROR["en"])
@@ -651,8 +653,7 @@ class ListTool(Tool):
 
         if not list_name:
             from backend.locale import LIST_NAME_REQUIRED_FEITO
-            # Fallback se a chave não existir
-            return LIST_NAME_REQUIRED_FEITO.get(lang, "Indique o nome da lista.") if 'LIST_NAME_REQUIRED_FEITO' in locals() else "Indique o nome da lista."
+            return LIST_NAME_REQUIRED_FEITO.get(lang, LIST_NAME_REQUIRED_FEITO["en"])
 
         lst = db.query(List).filter(List.user_id == user_id, List.name == list_name).first()
         if not lst:

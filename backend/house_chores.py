@@ -8,7 +8,8 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from zoneinfo import ZoneInfo
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 from sqlalchemy.orm import Session
 
 from backend.models_db import HouseChoreTask, HouseChorePerson
@@ -152,9 +153,12 @@ async def run_house_chores_daily(
                 metadata={"priority": "high"},
             ))
             sent += 1
-            logger.info(f"House chores reminder sent to {chat_id[:20]}...")
+            logger.info("house_chores_reminder_sent", extra={"extra": {"chat_id": chat_id[:20]}})
         except Exception as e:
             errors += 1
-            logger.warning(f"House chores failed for {key}: {e}")
+            logger.warning("house_chores_failed", extra={"extra": {
+                "key": key,
+                "error": str(e)
+            }})
 
     return sent, errors

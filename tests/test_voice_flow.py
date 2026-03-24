@@ -56,7 +56,7 @@ async def test_voice_audio_too_large_sends_localized_message():
         await channel._handle_bridge_message(raw)
     channel.bus.publish_outbound.assert_called_once()
     out = channel.bus.publish_outbound.call_args[0][0]
-    assert "longo" in out.content or "curta" in out.content
+    assert "grande" in out.content or "processado" in out.content
     channel.bus.publish_inbound.assert_not_called()
 
 
@@ -72,7 +72,7 @@ async def test_voice_audio_too_large_english():
         })
         await channel._handle_bridge_message(raw)
     out = channel.bus.publish_outbound.call_args[0][0]
-    assert "audio" in out.content.lower() and "shorter" in out.content.lower()
+    assert "audio" in out.content.lower() and "large" in out.content.lower()
 
 
 # --- audioForwarded ---
@@ -89,7 +89,7 @@ async def test_voice_forwarded_rejected():
         await channel._handle_bridge_message(raw)
     channel.bus.publish_outbound.assert_called_once()
     out = channel.bus.publish_outbound.call_args[0][0]
-    assert "gravado" in out.content or "encaminhe" in out.content or "forward" in out.content.lower()
+    assert "encaminhados" in out.content or "forward" in out.content.lower()
     channel.bus.publish_inbound.assert_not_called()
 
 
@@ -107,7 +107,7 @@ async def test_voice_not_allowed_audio_sender_rejected():
         await channel._handle_bridge_message(raw)
     channel.bus.publish_outbound.assert_called_once()
     out = channel.bus.publish_outbound.call_args[0][0]
-    assert "disponível" in out.content or "available" in out.content.lower()
+    assert "autorizado" in out.content or "authorized" in out.content.lower()
     channel.bus.publish_inbound.assert_not_called()
 
 
@@ -146,7 +146,7 @@ async def test_voice_transcribe_failed_sends_error():
                 await channel._handle_bridge_message(raw)
     channel.bus.publish_outbound.assert_called_once()
     out = channel.bus.publish_outbound.call_args[0][0]
-    assert "transcrever" in out.content or "transcribe" in out.content.lower()
+    assert "entender" in out.content or "understand" in out.content.lower()
     channel.bus.publish_inbound.assert_not_called()
 
 
@@ -184,7 +184,7 @@ async def test_voice_no_mediabase64_sends_not_received():
         await channel._handle_bridge_message(raw)
     channel.bus.publish_outbound.assert_called_once()
     out = channel.bus.publish_outbound.call_args[0][0]
-    assert "recebido" in out.content or "received" in out.content.lower()
+    assert "Recebi" in out.content or "received" in out.content.lower()
     channel.bus.publish_inbound.assert_not_called()
 
 

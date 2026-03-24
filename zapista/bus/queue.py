@@ -14,7 +14,8 @@ import asyncio
 import os
 from typing import Callable, Awaitable
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.bus.events import InboundMessage, OutboundMessage
 

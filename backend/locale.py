@@ -1190,6 +1190,13 @@ CRON_REMOVED: dict[LangCode, str] = {
     "en": "Removed: {job_id}",
 }
 
+CRON_CONFIRM_REMOVE_ALL: dict[LangCode, str] = {
+    "pt-PT": "⚠️ Tens a certeza que queres remover TODOS os teus lembretes ({count} no total)? Esta ação não pode ser desfeita. Responde 'sim' para confirmar.",
+    "pt-BR": "⚠️ Você tem certeza que quer remover TODOS os seus lembretes ({count} no total)? Esta ação não pode ser desfeita. Responda 'sim' para confirmar.",
+    "es": "⚠️ ¿Estás seguro de que quieres eliminar TODOS tus recordatorios ({count} en total)? Esta acción no se puede deshacer. Responde 'sí' para confirmar.",
+    "en": "⚠️ Are you sure you want to remove ALL your reminders ({count} in total)? This action cannot be undone. Reply 'yes' to confirm.",
+}
+
 CRON_JOB_NOT_FOUND: dict[LangCode, str] = {
     "pt-PT": "Job {job_id} não encontrado.",
     "pt-BR": "Job {job_id} não encontrado.",
@@ -2393,6 +2400,20 @@ POMODORO_STOPPED: dict[LangCode, str] = {
     "en": "🍅 Pomodoro stopped. {count} timer(s) cancelled.",
 }
 
+POMODORO_FINISHED_TASK: dict[LangCode, str] = {
+    "pt-PT": "🍅 Pomodoro terminado: {task}. Bom trabalho!",
+    "pt-BR": "🍅 Pomodoro terminado: {task}. Bom trabalho!",
+    "es": "🍅 Pomodoro terminado: {task}. ¡Buen trabalho!",
+    "en": "🍅 Pomodoro finished: {task}. Good job!",
+}
+
+POMODORO_FINISHED: dict[LangCode, str] = {
+    "pt-PT": "🍅 Pomodoro terminado. Tempo de descansar!",
+    "pt-BR": "🍅 Pomodoro terminado. Tempo de descansar!",
+    "es": "🍅 Pomodoro terminado. ¡Tiempo de descansar!",
+    "en": "🍅 Pomodoro finished. Time to rest!",
+}
+
 # ---------------------------------------------------------------------------
 # list_tool.py
 # ---------------------------------------------------------------------------
@@ -2423,6 +2444,13 @@ LIST_NAME_REQUIRED_ADD: dict[LangCode, str] = {
     "pt-BR": "Indique o nome da lista para adicionar o item.",
     "es": "Indica el nombre de la lista para agregar el elemento.",
     "en": "Please specify the list name to add the item.",
+}
+
+LIST_EMPTY_ITEM_ERROR: dict[LangCode, str] = {
+    "pt-PT": "Não me disseste o que adicionar à lista '{list_name}'.",
+    "pt-BR": "Você não me disse o que adicionar à lista '{list_name}'.",
+    "es": "No me has dicho qué añadir a la lista '{list_name}'.",
+    "en": "You didn't tell me what to add to the '{list_name}' list.",
 }
 
 LIST_PRIVACY_WARNING: dict[LangCode, str] = {
@@ -2500,6 +2528,20 @@ LIST_ITEM_NOT_FOUND: dict[LangCode, str] = {
     "pt-BR": "Item {item_id} não encontrado.",
     "es": "Elemento {item_id} no encontrado.",
     "en": "Item {item_id} not found.",
+}
+
+LIST_NAME_REQUIRED_REMOVE: dict[LangCode, str] = {
+    "pt-PT": "Indica o nome da lista para remover o item.",
+    "pt-BR": "Indique o nome da lista para remover o item.",
+    "es": "Indica el nombre de la lista para eliminar el elemento.",
+    "en": "Please specify the list name to remove the item.",
+}
+
+LIST_NAME_REQUIRED_FEITO: dict[LangCode, str] = {
+    "pt-PT": "Indica o nome da lista para marcar o item como feito.",
+    "pt-BR": "Indique o nome da lista para marcar o item como feito.",
+    "es": "Indica el nombre de la lista para marcar el elemento como hecho.",
+    "en": "Please specify the list name to mark the item as done.",
 }
 
 LIST_NAME_REQUIRED_DELETE: dict[LangCode, str] = {
@@ -2718,6 +2760,27 @@ VIEW_AGENDA_HEADER: dict[LangCode, str] = {
     "pt-BR": "\n📆 **Agenda**",
     "es": "\n📆 **Agenda**",
     "en": "\n📆 **Agenda**",
+}
+
+VIEW_AGENDA_EVENT_TODAY: dict[LangCode, str] = {
+    "pt-PT": "Hoje {time} — {nome}",
+    "pt-BR": "Hoje {time} — {nome}",
+    "es": "Hoy {time} — {nome}",
+    "en": "Today {time} — {nome}",
+}
+
+VIEW_AGENDA_EVENT_TOMORROW: dict[LangCode, str] = {
+    "pt-PT": "Amanhã {time} — {nome}",
+    "pt-BR": "Amanhã {time} — {nome}",
+    "es": "Mañana {time} — {nome}",
+    "en": "Tomorrow {time} — {nome}",
+}
+
+VIEW_AGENDA_EVENT_WITH_TIME: dict[LangCode, str] = {
+    "pt-PT": "{date} {time} — {nome}",
+    "pt-BR": "{date} {time} — {nome}",
+    "es": "{date} {time} — {nome}",
+    "en": "{date} {time} — {nome}",
 }
 
 VIEW_AGENDA_TODAY_HEADER: dict[LangCode, str] = {

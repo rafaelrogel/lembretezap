@@ -10,7 +10,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from zoneinfo import ZoneInfo
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from backend.models_db import ReminderHistory, AuditLog, Event
 from backend.user_store import get_or_create_user, get_user_language, get_user_preferred_name, get_user_timezone
@@ -239,7 +240,7 @@ async def run_weekly_recap(
     do cliente (ver get_pending_recap_on_first_contact no agent loop).
     Retorna (0, 0).
     """
-    logger.debug("Weekly recap: not sending proactively (delivered on first contact)")
+    logger.debug("weekly_recap_info", extra={"extra": {"message": "Not sending proactively (delivered on first contact)"}})
     return 0, 0
 
 
@@ -254,5 +255,5 @@ async def run_monthly_recap(
     do cliente (ver get_pending_recap_on_first_contact no agent loop).
     Retorna (0, 0).
     """
-    logger.debug("Monthly recap: not sending proactively (delivered on first contact)")
+    logger.debug("monthly_recap_info", extra={"extra": {"message": "Not sending proactively (delivered on first contact)"}})
     return 0, 0

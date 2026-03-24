@@ -7,8 +7,8 @@ from backend.confirmations import set_pending, get_pending
 import os
 import sys
 
-# Ensure UTF-8 output for emojis in Windows
-if sys.platform == "win32":
+# Ensure UTF-8 output for emojis in Windows (only if running as script)
+if __name__ == "__main__" and sys.platform == "win32":
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 

@@ -5,12 +5,19 @@ Em produção definir API_SECRET_KEY e enviar header X-API-Key em todas as requi
 """
 
 import os
-import secrets
+import hmac
 from typing import Annotated
 
 from fastapi import Header, HTTPException
 
 API_SECRET_KEY = os.environ.get("API_SECRET_KEY", "").strip() or None
+
+
+def verify_api_key(provided_key: str, expected_key: str) -> bool:
+    return hmac.compare_digest(
+        provided_key.encode("utf-8"),
+        expected_key.encode("utf-8")
+    )
 
 
 def require_api_key(
@@ -21,5 +28,5 @@ def require_api_key(
         return
     if not x_api_key or not x_api_key.strip():
         raise HTTPException(status_code=401, detail="Missing X-API-Key header")
-    if not secrets.compare_digest(x_api_key.strip(), API_SECRET_KEY):
+    if not verify_api_key(x_api_key.strip(), API_SECRET_KEY):
         raise HTTPException(status_code=403, detail="Invalid API key")

@@ -13,7 +13,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Coroutine
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 # Tipo: lista de (channel, to, [(job_id, job_name), ...])
 StaleRemovals = list[tuple[str, str, list[tuple[str, str]]]]
@@ -165,7 +166,7 @@ class CronService:
                     ))
                 self._store = CronStore(jobs=jobs)
             except Exception as e:
-                logger.warning(f"Failed to load cron store: {e}")
+                logger.warning("cron_store_load_failed", extra={"extra": {"error": str(e)}})
                 self._store = CronStore()
         else:
             self._store = CronStore()
@@ -249,9 +250,9 @@ class CronService:
             try:
                 self.on_stale_removed(removals)
             except Exception as e:
-                logger.warning(f"Cron: on_stale_removed failed: {e}")
+                logger.warning("cron_stale_removed_callback_failed", extra={"extra": {"error": str(e)}})
         self._daily_stale_task = asyncio.create_task(self._daily_stale_loop())
-        logger.info(f"Cron service started with {len(self._store.jobs if self._store else [])} jobs")
+        logger.info("cron_service_started", extra={"extra": {"job_count": len(self._store.jobs if self._store else [])}})
     
     def stop(self) -> None:
         """Stop the cron service."""
@@ -284,10 +285,11 @@ class CronService:
                     if overdue_ms <= _CATCHUP_WINDOW_MS and job.state.last_run_at_ms is None:
                         # Rescatar: disparar daqui a 1s (não foi ainda executado)
                         job.state.next_run_at_ms = now + 1000
-                        logger.info(
-                            f"Cron startup catch-up: job '{job.name}' ({job.id}) "
-                            f"was {overdue_ms // 1000}s overdue, rescheduled to fire in 1s"
-                        )
+                        logger.info("cron_startup_catchup", extra={"extra": {
+                            "job_id": job.id,
+                            "job_name": job.name,
+                            "overdue_ms": overdue_ms
+                        }})
                     else:
                         # Muito antigo ou já executado: marcar como sem próxima execução (stale removal trata)
                         job.state.next_run_at_ms = None
@@ -335,11 +337,11 @@ class CronService:
                     try:
                         self.on_stale_removed(removals)
                     except Exception as e:
-                        logger.warning(f"Cron: on_stale_removed failed: {e}")
+                        logger.warning("cron_stale_notification_failed", extra={"extra": {"error": str(e)}})
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.warning(f"Cron: daily stale loop error: {e}")
+                logger.warning("cron_daily_stale_loop_error", extra={"extra": {"error": str(e)}})
     
     async def _on_timer(self) -> None:
         """Handle timer tick - run due jobs."""
@@ -361,7 +363,7 @@ class CronService:
     async def _execute_job(self, job: CronJob) -> None:
         """Execute a single job."""
         start_ms = _now_ms()
-        logger.info(f"Cron: executing job '{job.name}' ({job.id})")
+        logger.info("cron_executing_job", extra={"extra": {"job_id": job.id, "job_name": job.name}})
         
         try:
             response = None
@@ -370,12 +372,12 @@ class CronService:
             
             job.state.last_status = "ok"
             job.state.last_error = None
-            logger.info(f"Cron: job '{job.name}' completed")
+            logger.info("cron_job_completed", extra={"extra": {"job_id": job.id, "job_name": job.name}})
             
         except Exception as e:
             job.state.last_status = "error"
             job.state.last_error = str(e)
-            logger.error(f"Cron: job '{job.name}' failed: {e}")
+            logger.error("cron_job_failed", extra={"extra": {"job_id": job.id, "job_name": job.name, "error": str(e)}})
         
         job.state.last_run_at_ms = start_ms
         job.updated_at_ms = _now_ms()
@@ -392,19 +394,17 @@ class CronService:
                 # Deadline job: só volta a disparar se remind_again_if_unconfirmed_seconds estiver definido
                 # (e com mínimo de 900s = 15 min para evitar spam)
                 remind_again_secs = getattr(job.payload, "remind_again_if_unconfirmed_seconds", None)
-                if remind_again_secs and remind_again_secs >= 900:
+                remind_max = getattr(job.payload, "remind_again_max_count", None)
+                
+                if remind_again_secs and remind_again_secs >= 900 and remind_max and remind_max > 0:
                     job.state.next_run_at_ms = _now_ms() + remind_again_secs * 1000
-                    logger.info(
-                        f"Cron: deadline job '{job.name}' rescheduled in {remind_again_secs}s"
-                    )
+                    job.payload.remind_again_max_count = remind_max - 1
+                    logger.info("cron_deadline_rescheduled", extra={"extra": {"job_id": job.id, "job_name": job.name, "delay_s": remind_again_secs, "remains": job.payload.remind_again_max_count}})
                 else:
-                    # Sem intervalo válido: desactivar após o disparo inicial.
-                    # O deadline_check job (+ 5 min) trata de enviar alertas (1/3, 2/3, 3/3).
+                    # Sem intervalo válido ou limite atingido: desactivar após o disparo.
                     job.state.next_run_at_ms = None
                     job.enabled = False
-                    logger.info(
-                        f"Cron: deadline job '{job.name}' fired once, disabled (deadline checker handles alerts)"
-                    )
+                    logger.info("cron_deadline_disabled", extra={"extra": {"job_id": job.id, "job_name": job.name, "reason": "limit_reached"}})
         elif job.schedule.kind == "at" and (job.state.last_status or "").startswith("snoozed"):
             # Foi adiado (ex: quiet mode) → manter ativo para a nova next_run_at_ms (já setada pelo snooze)
             pass
@@ -451,17 +451,14 @@ class CronService:
         suggested_draft: str | None = None,
         is_important: bool = False,
     ) -> CronJob:
-        """Add a new job. suggested_prefix: quando dado (ex. pelo MIMO), usa para o ID em vez de derivar da mensagem."""
-        logger.debug(
-            "Cron add_job: name=%r schedule_kind=%s deliver=%s channel=%s to=%s delete_after_run=%s suggested_prefix=%s",
-            name[:50] if name else "",
-            getattr(schedule, "kind", "?"),
-            deliver,
-            channel or "(none)",
-            (to[:20] + "...") if to and len(to) > 20 else (to or "(none)"),
-            delete_after_run,
-            suggested_prefix or "(none)",
-        )
+        """Add a new job."""
+        logger.debug("cron_add_job_start", extra={"extra": {
+            "name": name,
+            "schedule_kind": getattr(schedule, "kind", "?"),
+            "deliver": deliver,
+            "channel": channel,
+            "to": to
+        }})
         msg_preview = (message or "")[:60] + ("..." if len(message or "") > 60 else "")
         logger.debug("Cron add_job: message_len=%d message_preview=%r", len(message or ""), msg_preview)
 
@@ -471,7 +468,7 @@ class CronService:
         MAX_JOBS_PER_USER = 200
         existing_for_user = [j for j in store.jobs if getattr(j.payload, "to", None) == to]
         if to and len(existing_for_user) >= MAX_JOBS_PER_USER:
-            logger.warning(f"Cron: user {(to or '')[:20]} has {len(existing_for_user)} jobs, rejecting add_job")
+            logger.warning("cron_max_jobs_exceeded", extra={"extra": {"to": to, "job_count": len(existing_for_user)}})
             raise ValueError("MAX_REMINDERS_EXCEEDED")
 
         # Log detalhado para debug (ZAPISTA_LOG_LEVEL=DEBUG)
@@ -509,7 +506,7 @@ class CronService:
                     continue
             else:
                 continue
-            logger.info(f"Cron: duplicate job detected, returning existing job '{existing.id}'")
+            logger.info("cron_duplicate_job", extra={"extra": {"existing_id": existing.id}})
             logger.debug("Cron add_job: duplicate returned, total_jobs=%d", len(store.jobs))
             return existing
 
@@ -582,17 +579,13 @@ class CronService:
             sched_desc += f" every={schedule.every_ms // 1000}s"
         elif schedule.kind == "cron" and schedule.expr:
             sched_desc += f" expr={schedule.expr!r}"
-        logger.info(
-            "Cron: added job id=%s name=%r schedule=%s deliver=%s channel=%s to=%s next_run=%s total_jobs=%d",
-            job_id,
-            name[:40] if name else "",
-            sched_desc,
-            deliver,
-            channel or "—",
-            (to[:15] + "...") if to and len(to) > 15 else (to or "—"),
-            time.strftime("%Y-%m-%d %H:%M", time.localtime(next_run_ms / 1000)) if next_run_ms else "N/A",
-            len(store.jobs),
-        )
+        logger.info("cron_job_added", extra={"extra": {
+            "job_id": job_id,
+            "name": name,
+            "schedule": sched_desc,
+            "to": to,
+            "next_run": next_run_ms
+        }})
         if deliver and channel == "cli":
             logger.info("Cron: job will not be delivered to WhatsApp (channel=cli); create reminder from WhatsApp to receive there.")
         return job
@@ -615,7 +608,7 @@ class CronService:
                 j.enabled = True
                 j.state.next_run_at_ms = now
                 count += 1
-                logger.info(f"Cron: ativado dependente {j.id} (depois de {completed_job_id})")
+                logger.info("cron_dependent_triggered", extra={"extra": {"job_id": j.id, "completed_id": completed_job_id}})
         if count > 0:
             self._save_store()
             self._arm_timer()
@@ -663,7 +656,7 @@ class CronService:
         if to_remove:
             self._save_store()
             self._arm_timer()
-            logger.info(f"Cron: removed {len(to_remove)} stale at jobs")
+            logger.info("cron_stale_jobs_removed", extra={"extra": {"count": len(to_remove)}})
         return [
             (ch, to, jobs, phone_by_chat.get((ch, to)))
             for (ch, to), jobs in notif_by_chat.items()
@@ -680,7 +673,7 @@ class CronService:
         if removed:
             self._save_store()
             self._arm_timer()
-            logger.info(f"Cron: removed job {job_id}")
+            logger.info("cron_job_removed", extra={"extra": {"job_id": job_id}})
         
         return removed
 
@@ -701,7 +694,7 @@ class CronService:
         if removed:
             self._save_store()
             self._arm_timer()
-            logger.info(f"Cron: removed job {job_id} and {removed - 1} deadline followups")
+            logger.info("cron_job_and_followups_removed", extra={"extra": {"job_id": job_id, "removed_count": removed}})
         return removed
 
     SNOOZE_MAX_COUNT = 3
@@ -725,7 +718,7 @@ class CronService:
                 job.updated_at_ms = now
                 self._save_store()
                 self._arm_timer()
-                logger.info(f"Cron: snoozed job {job_id} (+{delay_ms//1000}s, snooze {count+1}/{self.SNOOZE_MAX_COUNT})")
+                logger.info("cron_job_snoozed", extra={"extra": {"job_id": job_id, "delay_ms": delay_ms, "count": count + 1}})
                 return True, count + 1
         return False, 0
 

@@ -213,13 +213,13 @@ O `docker-compose.yml` tem rotação de logs para todos os serviços:
 - **max-size: 10m** — cada ficheiro de log até 10 MB
 - **max-file: 3** — até 3 ficheiros por container (≈30 MB por serviço)
 
-Os logs ficam em `/var/lib/docker/containers/`. Para logs em ficheiro dentro do volume (persistidos e rotacionados pelo Loguru), define no `.env`:
+Os logs ficam em `/var/lib/docker/containers/`. Para logs em ficheiro dentro do volume (persistidos e rotacionados pelo novo sistema de logging JSON), define no `.env`:
 
 ```
 ZAPISTA_LOG_FILE=/root/.zapista/logs/app.log
 ```
 
-O Loguru rota automaticamente (10 MB, 7 dias, compressão gzip).
+O sistema de logging (`backend/logger.py`) gera outputs estruturados em JSON para fácil integração com Datadog/Grafana.
 
 ---
 

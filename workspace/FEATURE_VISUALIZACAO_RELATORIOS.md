@@ -118,7 +118,7 @@ Unificar eventos, lembretes entregues, tarefas feitas e (opcional) mensagens de 
 
 | Recurso | Ficheiros |
 |---------|-----------|
-| /mes | `command_parser.py`, `handlers.py` |
+| /mes | `backend/command_parser/`, `handlers.py` |
 | /timeline | `handlers.py`, `routes.py` (API?) |
 | /stats | `handlers.py` |
 | /produtividade | `handlers.py` |

@@ -1,15 +1,12 @@
 """Core orchestration for time parsing, dynamically building patterns from language submodules."""
 
 import re
-import logging
 from datetime import datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
 from calendar import monthrange
 
 from . import pt, en, es
-
-logger = logging.getLogger(__name__)
 
 # Combine constants from all languages
 DIAS_SEMANA = {**pt.DIAS_SEMANA, **en.DIAS_SEMANA, **es.DIAS_SEMANA}
@@ -239,7 +236,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             if sd: out["start_date"] = sd
             return out
         for dia_name, cron_dow in DIAS_SEMANA.items():
-            pat = rf"\b(?:toda|every|cada)\s+(?:semana\s+|week\s+)?{re.escape(dia_name)}\b\s+(?:às?|as|at|a\s+las?)\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b"
+            pat = rf"\b(?:toda|every|cada)\s+(?:semana\s+|week\s+)?{re.escape(dia_name)}(?:\s*-?\s*f[eé]ira)?\b\s+(?:às?|as|at|a\s+las?)\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b"
             m = re.search(pat, text_lower, re.I)
             if m:
                 hora, minute, period = int(m.group(1)), int(m.group(2) or 0), m.group(3)
@@ -313,7 +310,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
 
     # 15. Weekly fallback
     for dia_name, cron_dow in DIAS_SEMANA.items():
-        pat = rf"\b(?:toda|every|cada)\s+(?:semana\s+|week\s+)?{re.escape(dia_name)}\b\s+(?:às?|as|at|a\s+las?)\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b"
+        pat = rf"\b(?:toda|every|cada)\s+(?:semana\s+|week\s+)?{re.escape(dia_name)}(?:\s*-?\s*f[eé]ira)?\b\s+(?:às?|as|at|a\s+las?)\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b"
         m = re.search(pat, text_lower, re.I)
         if m:
             hora, minute, period = int(m.group(1)), int(m.group(2) or 0), m.group(3)
@@ -334,10 +331,11 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             delta = ((now + timedelta(days=days_offset)).replace(hour=9, minute=0, second=0, microsecond=0) - now).total_seconds()
             if delta > 0: return {"in_seconds": int(delta), "message": clean_message(strip_pattern(text, rf"\b{re.escape(word)}\b"))}
     for dia_name, cron_dow in DIAS_SEMANA.items():
-        if re.search(rf"\b{re.escape(dia_name)}\b", text_lower, re.I):
+        pat = rf"\b{re.escape(dia_name)}(?:\s*-?\s*f[eé]ira)?\b"
+        if re.search(pat, text_lower, re.I):
             days_ahead = (cron_dow - ((now.weekday() + 1) % 7) + 7) % 7
             if days_ahead == 0 and now.hour >= 9: days_ahead = 7
             delta = ((now + timedelta(days=days_ahead)).replace(hour=9, minute=0, second=0, microsecond=0) - now).total_seconds()
-            if delta > 0: return {"in_seconds": int(delta), "message": clean_message(strip_pattern(text, rf"\b{re.escape(dia_name)}\b"))}
+            if delta > 0: return {"in_seconds": int(delta), "message": clean_message(strip_pattern(text, pat))}
 
     return {"message": text}

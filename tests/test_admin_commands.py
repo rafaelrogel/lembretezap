@@ -82,7 +82,7 @@ async def test_handle_admin_command_status():
 async def test_handle_admin_command_unknown():
     from backend.admin_commands import handle_admin_command
     out = await handle_admin_command("#invalid")
-    assert "Comando desconhecido" in out or "desconhecido" in out.lower()
+    assert "Comando desconhecido" in out or "desconhecido" in out.lower() or "Command unknown" in out or "unknown" in out.lower()
 
 
 @pytest.mark.asyncio

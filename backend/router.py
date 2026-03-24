@@ -1,7 +1,6 @@
 """Lista de handlers e função route() para despacho de mensagens."""
 
 import os
-from loguru import logger
 
 from backend.handler_context import HandlerContext
 from backend.handlers import (
@@ -82,8 +81,6 @@ HANDLERS = [
     handle_help,
     handle_recorrente,
     handle_pendente,
-    handle_feito,
-    handle_remove,
     handle_hora_data,
     handle_hoje,
     handle_semana,
@@ -132,7 +129,9 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
             finally:
                 db.close()
         except Exception as e:
-            logger.debug(f"Set language from /ayuda: {e}")
+            from backend.logger import get_logger
+            logger = get_logger(__name__)
+            logger.debug("set_language_ayuda_failed", extra={"extra": {"error": str(e)}})
 
     content_norm = normalize_nl_to_command(content)
     content_norm = normalize_command(content_norm.strip())
@@ -152,7 +151,12 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
                 return out
         except Exception as e:
             if strict: raise
-            logger.debug(f"Handler {h.__name__} failed for full block: {e}")
+            from backend.logger import get_logger
+            logger = get_logger(__name__)
+            logger.debug("handler_failed_full_block", extra={"extra": {
+                "handler": h.__name__,
+                "error": str(e)
+            }})
 
     # Tentativa 2: Se tem múltiplas linhas, tentar processar cada uma como comando/NL separado (Batch Handling)
     lines = content.strip().splitlines()

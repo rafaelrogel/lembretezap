@@ -16,7 +16,8 @@ from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
 _DATE_WORDS = {
     "amanhã", "amanha", "hoje", "depois", "tomorrow", "today",
     "mañana", "hoy", "lunes", "martes", "miércoles", "miercoles",
-    "jueves", "viernes", "tomorrow", "today",
+    "jueves", "viernes",
+    "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira",
     "segunda", "terça", "terca", "quarta", "quinta", "sexta",
     "sábado", "sabado", "domingo", "monday", "tuesday", "wednesday",
     "thursday", "friday", "saturday", "sunday",
@@ -146,14 +147,30 @@ def extract_content_and_date(text: str) -> tuple[str, str]:
     tl = t.lower()
     content = t
     date_label = ""
-    for dw in sorted(_DATE_WORDS, key=len, reverse=True):
-        if dw in tl:
+    
+    # Sort by length to match "segunda-feira" before "segunda"
+    ordered_date_words = sorted(_DATE_WORDS, key=len, reverse=True)
+    
+    for dw in ordered_date_words:
+        # Use regex to ensure we match at word boundaries
+        # and don't partially match one part of a hyphenated word.
+        # Prefixes for 4 languages: na/no/dia (PT), el/la (ES), on/the/at (EN)
+        pattern = rf"\b(?:na|no|dia|el|la|on|the|at)\s+{re.escape(dw)}\b"
+        if re.search(pattern, tl, re.I):
             date_label = dw
-            # Remover "na segunda", "amanhã" ou só a palavra
-            content = re.sub(rf"\b(?:na|no|dia)\s+{re.escape(dw)}\b", "", t, flags=re.I)
-            content = re.sub(rf"\b{re.escape(dw)}\b", "", content, flags=re.I).strip()
-            content = re.sub(r"\s+", " ", content).strip()
+            content = re.sub(pattern, "", t, count=1, flags=re.I).strip()
             break
+        
+        pattern_simple = rf"\b{re.escape(dw)}\b"
+        if re.search(pattern_simple, tl, re.I):
+            # If dw is a short word like "segunda", ensure it's not followed by a hyphen
+            if "-" not in dw and re.search(rf"\b{re.escape(dw)}\-", tl, re.I):
+                continue
+            date_label = dw
+            content = re.sub(pattern_simple, "", t, count=1, flags=re.I).strip()
+            break
+            
+    content = re.sub(r"\s+", " ", content).strip()
     return content or t, date_label
 
 
@@ -288,7 +305,7 @@ _WORD_TO_HOUR: dict[str, int] = {
     "vinte e uma": 21, "vinte e duas": 22, "vinte e três": 23, "vinte e tres": 23,
     # Spanish
     "uno": 1, "dos": 2, "cuatro": 4, "siete": 7, "ocho": 8, "nueve": 9, "diez": 10,
-    "once": 11, "doce": 12, "trece": 13, "catorce": 14, "quince": 15,
+    "once": 11, "doce": 12, "trece": 13, "caturce": 14, "quince": 15,
     "dieciséis": 16, "dieciseis": 16, "diecisiete": 17, "dieciocho": 18,
     "diecinueve": 19, "veinte": 20, "veintiuna": 21, "veintidós": 22, "veintidos": 22,
     "veintitrés": 23, "veintitres": 23,
@@ -541,7 +558,8 @@ def parse_full_event_datetime(
             target_date = today + timedelta(days=1)
         elif dl in ("hoje", "today"):
             target_date = today
-        elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo"):
+        elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo",
+                     "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira"):
             from backend.time_parse import DIAS_SEMANA
             dow_target = DIAS_SEMANA.get(dl)
             if dow_target is not None:
@@ -587,7 +605,8 @@ def compute_in_seconds_from_date_hour(
             target_date = today + timedelta(days=1)
         elif dl in ("hoje", "today"):
             target_date = today
-        elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo"):
+        elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo",
+                     "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira"):
             from backend.time_parse import DIAS_SEMANA
             dow_target = DIAS_SEMANA.get(dl)
             if dow_target is not None:

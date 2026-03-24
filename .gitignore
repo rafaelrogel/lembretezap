@@ -44,3 +44,9 @@ nanobot/
 # audit reports (generated)
 *_AUDIT*.md
 LOCALIZATION_AUDIT.md
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/

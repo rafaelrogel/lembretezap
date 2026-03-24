@@ -4,7 +4,8 @@ import os
 import subprocess
 from pathlib import Path
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.stt.audio_utils import get_duration_seconds
 

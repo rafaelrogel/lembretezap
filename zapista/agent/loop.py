@@ -8,9 +8,11 @@ import time
 import uuid
 from pathlib import Path
 from typing import Any
-from datetime import datetime
+from datetime import datetime, timezone
 
-from loguru import logger
+from backend.logger import get_logger
+
+logger = get_logger(__name__)
 
 from zapista.bus.events import InboundMessage, OutboundMessage
 from zapista.utils.logging_config import set_trace_id, reset_trace_id
@@ -98,7 +100,7 @@ class AgentLoop:
             from backend.database import init_db
             init_db()
         except Exception as e:
-            logger.warning("init_db failed (listas/eventos podem falhar): {}", e)
+            logger.warning("init_db_failed", extra={"extra": {"error": str(e)}})
         try:
             from backend.database import SessionLocal
             from backend.models_db import List
@@ -108,7 +110,7 @@ class AgentLoop:
             finally:
                 _db.close()
         except Exception as e:
-            logger.exception("Listas: verificação de BD ao arranque falhou: {}", e)
+            logger.error("db_init_verification_failed", exc_info=True, extra={"extra": {"error": str(e)}})
         # Message tool
         message_tool = MessageTool(send_callback=self.bus.publish_outbound)
         self.tools.register(message_tool)
@@ -178,7 +180,7 @@ class AgentLoop:
     async def run(self) -> None:
         """Run the agent loop, processing messages from the bus."""
         self._running = True
-        logger.info("Agent loop started")
+        logger.info("agent_loop_started")
         
         while self._running:
             try:
@@ -200,7 +202,10 @@ class AgentLoop:
                                 # SEGURANÇA: Apenas Admin em God Mode pode alterar o relógio global do servidor
                                 from backend.admin_commands import is_god_mode_activated
                                 if not is_god_mode_activated(msg.chat_id):
-                                    logger.warning(f"Clock Fix attempted by non-admin {msg.chat_id}: {content_str}")
+                                    logger.warning("security_clock_fix_unauthorized", extra={"extra": {
+                                        "chat_id": str(msg.chat_id),
+                                        "content": content_str
+                                    }})
                                     # Fallthrough to normal publishing or other handlers
                                     await self.bus.publish_outbound(response)
                                 else:
@@ -220,16 +225,16 @@ class AgentLoop:
                                         content=f"🕒 **Relógio Corrigido (God Mode)!**\n\nApliquei uma correção manual de {offset/3600:.1f}h.\nNova hora do sistema: **{new_time}** (UTC).\nEsta correção é permanente e afeta todo o sistema."
                                     ))
                             except Exception as e:
-                                logger.error(f"Failed to set manual offset: {e}")
+                                logger.error("clock_fix_failed", extra={"extra": {"error": str(e)}})
                                 await self.bus.publish_outbound(response)
 
                         elif "FIX|" in content_str:
-                             # This seems to be the timezone fix response which uses OutboundMessage
-                             await self.bus.publish_outbound(response)
+                            # This seems to be the timezone fix response which uses OutboundMessage
+                            await self.bus.publish_outbound(response)
                         else:
-                             await self.bus.publish_outbound(response)
+                            await self.bus.publish_outbound(response)
                 except Exception as e:
-                    logger.error(f"Error processing message: {e}")
+                    logger.error("message_processing_failed", extra={"extra": {"error": str(e)}})
                     # Send error response
                     await self.bus.publish_outbound(OutboundMessage(
                         channel=msg.channel,
@@ -242,7 +247,7 @@ class AgentLoop:
     def stop(self) -> None:
         """Stop the agent loop."""
         self._running = False
-        logger.info("Agent loop stopping")
+        logger.info("agent_loop_stopping")
 
     async def _maybe_compress_session(
         self,
@@ -317,9 +322,9 @@ class AgentLoop:
                         bullets[:500].strip(),
                     )
                 except Exception as e:
-                    logger.debug(f"Memory upsert failed: {e}")
+                    logger.debug("memory_upsert_failed", extra={"extra": {"error": str(e)}})
         except Exception as e:
-            logger.debug(f"Session compression failed: {e}")
+            logger.debug("session_compression_failed", extra={"extra": {"error": str(e)}})
 
     async def _maybe_sentiment_check(
         self, session, channel: str, chat_id: str
@@ -338,9 +343,9 @@ class AgentLoop:
                 history, self.scope_provider, self.scope_model
             ):
                 add_painpoint(chat_id, "frustração/reclamação detectada pelo Mimo")
-                logger.info(f"Painpoint registado: {chat_id[:20]}... (frustração/reclamação)")
+                logger.info("painpoint_registered", extra={"extra": {"chat_id": str(chat_id)}})
         except Exception as e:
-            logger.debug(f"Sentiment check failed: {e}")
+            logger.debug("sentiment_check_failed", extra={"extra": {"error": str(e)}})
 
     def _set_tool_context(self, channel: str, chat_id: str, phone_for_locale: str | None = None) -> None:
         """Define canal/chat (e phone_for_locale para agendamento) em todas as tools que suportam."""
@@ -387,7 +392,7 @@ class AgentLoop:
                 return None
             list_name = intent.get("list_name", "")
             item_text = intent.get("item", "")
-            if list_name in ("filme", "livro", "musica", "receita") and is_absurd_request(item_text):
+            if list_name in ("filmes", "livros", "músicas", "receitas") and is_absurd_request(item_text):
                 return is_absurd_request(item_text)
             return await list_tool.execute(
                 action="add",
@@ -430,7 +435,7 @@ class AgentLoop:
                 if out and len(out) <= 245:
                     return out
             except Exception as e:
-                logger.debug(f"Out-of-scope message (Xiaomi) failed: {e}")
+                logger.debug("out_of_scope_llm_failed", extra={"extra": {"error": str(e)}})
         return random.choice(fallbacks)
 
     async def _get_onboarding_intro(self, user_lang: str) -> str:
@@ -458,7 +463,7 @@ class AgentLoop:
                 if out and len(out) <= 385:
                     return out
             except Exception as e:
-                logger.debug(f"Onboarding intro (Xiaomi) failed: {e}")
+                logger.debug("onboarding_intro_mimo_failed", extra={"extra": {"error": str(e)}})
         try:
             r = await self.provider.chat(
                 messages=[{"role": "user", "content": prompt}],
@@ -469,7 +474,7 @@ class AgentLoop:
             if out and len(out) <= 385:
                 return out
         except Exception as e:
-            logger.debug(f"Onboarding intro (DeepSeek) failed: {e}")
+            logger.debug("onboarding_intro_llm_failed", extra={"extra": {"error": str(e)}})
         fallbacks = {
             "pt-PT": "Olá! Sou a tua assistente de organização. 📋 Listas (compras, receitas), lembretes e eventos. Vamos começar! 😊",
             "pt-BR": "Oi! Sou sua assistente de organização. 📋 Listas (compras, receitas), lembretes e eventos. Vamos começar! 😊",
@@ -503,7 +508,7 @@ class AgentLoop:
                 if out and len(out) <= 200:
                     return out
             except Exception as e:
-                logger.debug(f"Ask preferred name (Xiaomi) failed: {e}")
+                logger.debug("ask_preferred_name_mimo_failed", extra={"extra": {"error": str(e)}})
         lang = user_lang if user_lang in SUPPORTED_LANGS else "en"
         return PREFERRED_NAME_QUESTION.get(lang, PREFERRED_NAME_QUESTION["en"])
 
@@ -530,7 +535,7 @@ class AgentLoop:
                 if raw:
                     city_name = raw.split("\n")[0].strip()[:128]
             except Exception as e:
-                logger.debug(f"Mimo extract city failed: {e}")
+                logger.debug("mimo_extract_city_failed", extra={"extra": {"error": str(e)}})
         if not city_name:
             city_name = (user_content or "").strip()[:128]
         if not city_name:
@@ -556,7 +561,7 @@ class AgentLoop:
                 if raw_tz and is_valid_iana(raw_tz):
                     tz_iana = raw_tz
             except Exception as e:
-                logger.debug(f"Mimo timezone for city failed: {e}")
+                logger.debug("mimo_timezone_for_city_failed", extra={"extra": {"error": str(e)}})
         
         # 4) Fallback final: Search Tool (Perplexity/DDG)
         if (not tz_iana or not is_valid_iana(tz_iana)):
@@ -580,7 +585,7 @@ class AgentLoop:
                         if raw_tz3 and is_valid_iana(raw_tz3):
                             tz_iana = raw_tz3
                 except Exception as e:
-                    logger.debug(f"Search fallback for city timezone failed: {e}")
+                    logger.debug("search_fallback_city_timezone_failed", extra={"extra": {"error": str(e)}})
 
         return city_name, tz_iana if (tz_iana and is_valid_iana(tz_iana)) else None
 
@@ -619,7 +624,7 @@ class AgentLoop:
                 elif fallback_name and is_likely_valid_name(fallback_name):
                     return fallback_name[:128]
             except Exception as e:
-                logger.debug(f"Mimo extract name failed: {e}")
+                logger.debug("mimo_extract_name_failed", extra={"extra": {"error": str(e)}})
         return fallback_name
 
     async def _reply_calling_organizer_with_mimo(self, user_lang: str) -> str:
@@ -649,7 +654,7 @@ class AgentLoop:
             if out and len(out) <= 120:
                 return out
         except Exception as e:
-            logger.debug(f"Mimo reply calling organizer failed: {e}")
+            logger.debug("mimo_reply_calling_organizer_failed", extra={"extra": {"error": str(e)}})
         return CALLING_RESPONSE.get(user_lang, CALLING_RESPONSE["en"])
 
     async def _ask_city_question(self, user_lang: str, name: str) -> str:
@@ -677,7 +682,7 @@ class AgentLoop:
                 if out and len(out) <= 220:
                     return out
             except Exception as e:
-                logger.debug(f"Ask city (Mimo) failed: {e}")
+                logger.debug("ask_city_mimo_failed", extra={"extra": {"error": str(e)}})
         # Fallback: texto fixo — não precisa de DeepSeek para uma pergunta simples de onboarding
         fallbacks = {
             "pt-PT": "Em que cidade estás? (para acertarmos o fuso dos lembretes) 🌍",
@@ -695,7 +700,7 @@ class AgentLoop:
             if content.strip():
                 write_client_memory_file(self.workspace, chat_id, content)
         except Exception as e:
-            logger.debug(f"Client memory file write failed: {e}")
+            logger.debug("client_memory_file_write_failed", extra={"extra": {"error": str(e)}})
 
     def _sync_onboarding_to_memory(self, db, chat_id: str, session_key: str) -> None:
         """Regista os dados do onboarding na memória longa do agente e no ficheiro do cliente (workspace/users/<chat_id>.md)."""
@@ -705,7 +710,7 @@ class AgentLoop:
             self.context.memory.upsert_section(session_key, SECTION_HEADING, md)
             self._write_client_memory_file(db, chat_id)
         except Exception as e:
-            logger.debug(f"Onboarding memory sync failed: {e}")
+            logger.debug("onboarding_memory_sync_failed", extra={"extra": {"error": str(e)}})
 
     async def _handle_time_confusion(self, msg: InboundMessage) -> OutboundMessage | None:
         """
@@ -831,7 +836,7 @@ class AgentLoop:
                             content=f"Entendido! Ajustei o teu fuso horário para **{new_tz}**. Agora são **{time_str}** aí, certo? 🕒",
                         )
                     except Exception as e:
-                        logger.warning(f"Timezone Doctor fix failed for {new_tz}: {e}")
+                        logger.warning("timezone_doctor_fix_failed", extra={"extra": {"timezone": new_tz, "error": str(e)}})
                         
             elif out == "ASK_CITY":
                 return OutboundMessage(
@@ -841,7 +846,7 @@ class AgentLoop:
                 )
                 
         except Exception as e:
-            logger.error(f"Timezone Doctor error: {e}")
+            logger.error("timezone_doctor_error", extra={"extra": {"error": str(e)}})
             
         return None
 
@@ -922,7 +927,7 @@ class AgentLoop:
             return out
 
         except Exception as e:
-            logger.debug(f"MIMO Reasoning/Search error: {e}")
+            logger.debug("mimo_reasoning_search_error", extra={"extra": {"error": str(e)}})
             return None
 
     async def _verify_language_switch_with_mimo(
@@ -955,7 +960,7 @@ class AgentLoop:
             out = (r.content or "").strip().upper()
             return "CONFIRM" in out
         except Exception as e:
-            logger.debug(f"Mimo language switch verification failed: {e}")
+            logger.debug("mimo_language_switch_verification_failed", extra={"extra": {"error": str(e)}})
             return True # Em erro, deixar passar o switch original
 
     async def _process_message(self, msg: InboundMessage) -> OutboundMessage | None:
@@ -1015,7 +1020,7 @@ class AgentLoop:
         try:
             from backend.guardrails import should_skip_reply
             if should_skip_reply(content):
-                logger.debug("Skip reply: trivial message (ok/tá/não/emoji)")
+                logger.debug("skip_reply_trivial_message")
                 return None
         except Exception:
             pass
@@ -1194,7 +1199,7 @@ class AgentLoop:
             finally:
                 db.close()
         except Exception as e:
-            logger.debug(f"Language switch check failed: {e}")
+            logger.debug("language_switch_check_failed", extra={"extra": {"error": str(e)}})
 
         # Resposta rápida quando o utilizador "chama" o bot (ex.: "Organizador?", "Rapaz?", "Tá aí?") — não tratar como chamada se for evento+data+hora (ex.: "preciso ir ao médico amanhã às 17h")
         try:
@@ -1215,7 +1220,7 @@ class AgentLoop:
                         metadata=dict(msg.metadata or {}),
                     )
         except Exception as e:
-            logger.debug(f"Calling-phrases check failed: {e}")
+            logger.debug("calling_phrases_check_failed", extra={"extra": {"error": str(e)}})
 
         # Idioma: preferência guardada (fala em ptbr, /lang) tem prioridade; senão infere pelo número (phone_for_locale).
         # Timezone é independente. Em falha de DB usa número para não assumir "en" à toa.
@@ -1248,7 +1253,7 @@ class AgentLoop:
             from backend.command_filter import is_blocked, record_blocked
             blocked, reason = is_blocked(content)
             if blocked:
-                logger.warning(f"Command blocked: reason={reason} from {msg.chat_id[:16]}...")
+                logger.warning("command_blocked", extra={"extra": {"reason": reason}})
                 record_blocked(msg.channel, msg.chat_id, (content or "")[:80], reason)
                 return OutboundMessage(
                     channel=msg.channel,
@@ -1262,7 +1267,7 @@ class AgentLoop:
         try:
             from backend.injection_guard import is_injection_attempt, get_injection_response, record_injection_blocked
             if is_injection_attempt(content):
-                logger.info(f"Injection attempt blocked: {content[:80]}...")
+                logger.info("injection_attempt_blocked")
                 record_injection_blocked(msg.chat_id, (content or "")[:80])
                 injection_msg = get_injection_response(user_lang)
                 try:
@@ -1628,7 +1633,7 @@ class AgentLoop:
                 finally:
                     db.close()
             except Exception as e:
-                logger.debug(f"Onboarding (timezone) flow failed: {e}")
+                logger.debug("onboarding_timezone_flow_failed", extra={"extra": {"error": str(e)}})
 
         # Timezone Doctor (MIMO): verificar se o user já registrado está "perdido no tempo" (relógio ou fuso errado)
         # Chamado após onboarding para não interferir nas perguntas iniciais de fuso.
@@ -1666,12 +1671,15 @@ class AgentLoop:
             try:
                 intent = parse_cmd(msg.content)
             except Exception as e:
-                logger.debug("parse_cmd failed (using fallback): %s", e)
+                logger.debug("parse_cmd_failed", extra={"extra": {"error": str(e)}})
             if intent and intent.get("type") in ("list_add", "list_show") and ctx.list_tool:
                 try:
                     result = await handle_list_fn(ctx, msg.content)
                     if result is not None:
-                        logger.info("List intent handled early: type=%s list_name=%s", intent.get("type"), intent.get("list_name"))
+                        logger.info("list_intent_handled_early", extra={"extra": {
+                            "type": intent.get("type"),
+                            "list_name": intent.get("list_name")
+                        }})
                         try:
                             from backend.database import SessionLocal as _DB
                             _db = _DB()
@@ -1717,7 +1725,7 @@ class AgentLoop:
                             channel=msg.channel, chat_id=msg.chat_id, content=result, metadata=dict(msg.metadata or {}),
                         )
                 except Exception as e:
-                    logger.warning("Early list handle failed (falling through): %s", e)
+                    logger.warning("early_list_handle_failed", extra={"extra": {"error": str(e)}})
             # Fallback: regex local "cria/faça/mostre lista de X" sem depender do backend (funciona mesmo com backend antigo)
             if ctx.list_tool and msg.content and (not intent or intent.get("type") not in ("list_add", "list_show")):
                 t = (msg.content or "").strip()
@@ -1754,7 +1762,7 @@ class AgentLoop:
                         ctx.list_tool.set_context(ctx.channel, ctx.chat_id, _p_for_l)
                         result = await ctx.list_tool.execute(action="add", list_name=list_name, item_text=item)
                         if result:
-                            logger.info("List intent handled via fallback regex: list_name=%s", list_name)
+                            logger.info("list_intent_handled_fallback", extra={"extra": {"list_name": list_name}})
                             try:
                                 from backend.database import SessionLocal as _DB
                                 _db = _DB()
@@ -1801,7 +1809,7 @@ class AgentLoop:
                                 channel=msg.channel, chat_id=msg.chat_id, content=result, metadata=dict(msg.metadata or {}),
                             )
                     except Exception as e:
-                        logger.warning("Fallback list handle failed: %s", e)
+                        logger.warning("fallback_list_handle_failed", extra={"extra": {"error": str(e)}})
             result = await handlers_route(ctx, msg.content)
             if result is not None:
                 # Atualizar ficheiro de memória do cliente (ex.: /lang, /tz alteram dados na BD)
@@ -1859,7 +1867,7 @@ class AgentLoop:
                     metadata=dict(msg.metadata or {}),
                 )
         except Exception as e:
-            logger.debug(f"Handlers route failed: {e}")
+            logger.debug("handlers_route_failed", extra={"extra": {"error": str(e)}})
 
         # Raciocínio contextual (Mimo): se os handlers falharem, tentar identificar itens de lista pelo histórico
         try:
@@ -1892,7 +1900,7 @@ class AgentLoop:
                 self.tools["list"].set_context(ctx.channel, ctx.chat_id, _p_for_l)
                 result = await self.tools["list"].execute(action="add", list_name=list_name, item_text=item)
                 if result:
-                    logger.info("Intent handled via context reasoner: type=list_add list_name=%s", list_name)
+                    logger.info("intent_handled_context_reasoner", extra={"extra": {"list_name": list_name}})
                     if isinstance(result, list):
                         for part in result[1:]:
                             await self.bus.publish_outbound(OutboundMessage(
@@ -1910,7 +1918,7 @@ class AgentLoop:
                         channel=msg.channel, chat_id=msg.chat_id, content=result, metadata=dict(msg.metadata or {}),
                     )
         except Exception as e:
-            logger.debug(f"Contextual reasoning failed: {e}")
+            logger.debug("contextual_reasoning_failed", extra={"extra": {"error": str(e)}})
 
         # Sensitive Data Filter (LGPD/GDPR/Credentials)
         try:
@@ -1942,14 +1950,14 @@ class AgentLoop:
                     db.commit()
                     db.close()
                 except Exception as ex:
-                    logger.warning(f"Failed to log sensitive data block: {ex}")
+                    logger.warning("failed_to_log_sensitive_data_block", extra={"extra": {"error": str(ex)}})
 
                 refusal = get_refusal_message(sen_res.category, sen_res.detected_language)
                 return OutboundMessage(
                     channel=msg.channel, chat_id=msg.chat_id, content=refusal, metadata=dict(msg.metadata or {}),
                 )
         except Exception as e:
-            logger.warning(f"Sensitive data filter failed: {e}")
+            logger.warning("sensitive_data_filter_failed", extra={"extra": {"error": str(e)}})
 
         # Scope filter: LLM SIM/NAO (fallback: regex). Follow-ups: se a última mensagem do user estava no escopo, considerar esta também.
         from backend.scope_filter import is_in_scope_fast, is_in_scope_llm, is_follow_up_llm
@@ -2039,11 +2047,11 @@ class AgentLoop:
                         metadata=dict(msg.metadata or {}),
                     )
         except Exception as e:
-            logger.debug(f"Analytics (Mimo) pre-agent check failed: {e}")
+            logger.debug("analytics_mimo_pre_agent_check_failed", extra={"extra": {"error": str(e)}})
 
         # Circuit open: skip LLM, return degraded message (parser already ran above)
         if self.circuit_breaker.is_open():
-            logger.warning("Circuit breaker open: responding in degraded mode (parser-only)")
+            logger.warning("circuit_breaker_open_degraded_mode")
             return OutboundMessage(
                 channel=msg.channel,
                 chat_id=msg.chat_id,
@@ -2052,7 +2060,11 @@ class AgentLoop:
             )
 
         preview = msg.content[:80] + "..." if len(msg.content) > 80 else msg.content
-        logger.info(f"Processing message from {msg.channel}:{msg.sender_id}: {preview}")
+        logger.info("processing_message", extra={"extra": {
+            "channel": msg.channel,
+            "sender_id": str(msg.sender_id),
+            "preview": preview
+        }})
 
         # Conversacional: agente principal (DeepSeek)
         # Get or create session
@@ -2123,7 +2135,7 @@ class AgentLoop:
                         "content": f"## Analytical Context (from MIMO Logic Engine)\nUse this context to ensure accuracy in your response.\n\n{mimo_reasoning}"
                     })
             except Exception as e:
-                logger.debug(f"MIMO Reasoning failed: {e}")
+                logger.debug("mimo_reasoning_failed", extra={"extra": {"error": str(e)}})
 
         while iteration < self.max_iterations:
             iteration += 1
@@ -2147,7 +2159,7 @@ class AgentLoop:
                 self.circuit_breaker.record_success()
             except Exception as e:
                 self.circuit_breaker.record_failure()
-                logger.warning(f"LLM call failed: {e}")
+                logger.warning("llm_call_failed", extra={"extra": {"error": str(e)}})
                 # Fallback: tentar scope_provider (Mimo) se disponível e ainda não usado
                 if (
                     not used_fallback
@@ -2155,7 +2167,7 @@ class AgentLoop:
                     and (self.scope_model or "").strip()
                 ):
                     used_fallback = True
-                    logger.info("Retrying with fallback provider (scope_model)")
+                    logger.info("retrying_with_fallback_provider", extra={"extra": {"model": self.scope_model}})
                     try:
                         response = await self.scope_provider.chat(
                             messages=messages,
@@ -2168,7 +2180,7 @@ class AgentLoop:
                         else:
                             self.circuit_breaker.record_success()
                     except Exception as e2:
-                        logger.warning(f"Fallback provider also failed: {e2}")
+                        logger.warning("fallback_provider_failed", extra={"extra": {"error": str(e2)}})
                         response = None
                 if not response:
                     return OutboundMessage(
@@ -2199,16 +2211,25 @@ class AgentLoop:
                 # Execute tools
                 for tool_call in response.tool_calls:
                     args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
-                    logger.info(f"Tool call: {tool_call.name}({args_str[:200]})")
+                    logger.info("tool_call_initiated", extra={"extra": {
+                        "tool": tool_call.name,
+                        "arguments": args_str[:200]
+                    }})
                     result = await self.tools.execute(tool_call.name, tool_call.arguments)
                     # Log result (shortened if too long)
                     res_log = str(result)
                     if len(res_log) > 500:
                         res_log = res_log[:500] + "..."
                     if res_log.lower().startswith("erro"):
-                        logger.error(f"Tool {tool_call.name} returned: {res_log}")
+                        logger.error("tool_execution_error", extra={"extra": {
+                            "tool": tool_call.name,
+                            "result": res_log
+                        }})
                     else:
-                        logger.info(f"Tool {tool_call.name} result: {res_log}")
+                        logger.info("tool_execution_success", extra={"extra": {
+                            "tool": tool_call.name,
+                            "result": res_log
+                        }})
                         
                     messages = self.context.add_tool_result(
                         messages, tool_call.id, tool_call.name, result
@@ -2226,7 +2247,11 @@ class AgentLoop:
         
         # Log response preview
         preview = final_content[:120] + "..." if len(final_content) > 120 else final_content
-        logger.info(f"Response to {msg.channel}:{msg.sender_id}: {preview}")
+        logger.info("response_sent", extra={"extra": {
+            "channel": msg.channel,
+            "sender_id": str(msg.sender_id),
+            "preview": preview
+        }})
         
         # Save to session
         session.add_message("user", msg.content)

@@ -10,8 +10,6 @@ import threading
 import time
 from pathlib import Path
 
-from loguru import logger
-
 # chat_id -> {"count": int, "first_ts": float, "locked_until": float}
 _lockout_state: dict[str, dict] = {}
 _LOCK = threading.Lock()
@@ -104,12 +102,13 @@ def record_failed_attempt(chat_id: str) -> None:
         entry["count"] = entry.get("count", 0) + 1
         if entry["count"] >= _MAX_ATTEMPTS:
             entry["locked_until"] = now + _LOCKOUT_SECONDS
-            logger.warning(
-                "god_mode_lockout chat_id={} attempts={} locked_until_ts={}",
-                cid[:12] + "***" if len(cid) > 12 else "***",
-                entry["count"],
-                int(entry["locked_until"]),
-            )
+            from backend.logger import get_logger
+            logger = get_logger(__name__)
+            logger.warning("god_mode_lockout", extra={"extra": {
+                "chat_id": cid[:12] + "***" if len(cid) > 12 else "***",
+                "attempts": entry["count"],
+                "locked_until_ts": int(entry["locked_until"])
+            }})
     _save_state()
 
 

@@ -44,14 +44,14 @@ FILME_LIVRO_VER_FRAGMENT = r"(?:(?:filme|livro)\s+para\s+(?:ver|ler)\s*:\s*|quer
 
 # Category to list mapping
 CATEGORY_TO_LIST = {
-    "filme": "filme", "filmes": "filme",
-    "livro": "livro", "livros": "livro",
-    "musica": "música", "musicas": "música", "música": "música", "músicas": "música",
-    "série": "serie", "séries": "serie", "serie": "serie", "series": "serie",
-    "receita": "receita", "receitas": "receita",
-    "jogo": "jogo", "jogos": "jogo",
+    "filme": "filmes", "filmes": "filmes",
+    "livro": "livros", "livros": "livros",
+    "musica": "músicas", "musicas": "músicas", "música": "músicas", "músicas": "músicas",
+    "série": "séries", "séries": "séries", "serie": "séries", "series": "séries",
+    "receita": "receitas", "receitas": "receitas",
+    "jogo": "jogos", "jogos": "jogos",
     "mercado": "mercado", "supermercado": "mercado", "compras": "mercado",
-    "nota": "nota", "notas": "nota",
+    "nota": "notas", "notas": "notas",
     "site": "site", "sites": "site",
     "link": "site", "links": "site",
 }

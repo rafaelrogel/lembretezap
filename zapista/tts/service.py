@@ -14,7 +14,8 @@ divide o texto em blocos <= max_words e o canal pode enviar vários voice notes.
 import uuid
 from pathlib import Path
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.tts.audio import ensure_tmp_dir, cleanup_wav, wav_to_ogg_opus
 from zapista.tts.config import (

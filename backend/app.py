@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import secrets
 
 from backend.database import init_db
 from backend.routes import router
@@ -38,6 +39,6 @@ app.include_router(router)
 @app.get("/health")
 def health(x_health_token: str | None = Header(None, alias="X-Health-Token")) -> dict:
     """Health check. Com HEALTH_CHECK_TOKEN definido, exige header X-Health-Token (acesso interno)."""
-    if HEALTH_CHECK_TOKEN and x_health_token != HEALTH_CHECK_TOKEN:
+    if HEALTH_CHECK_TOKEN and not secrets.compare_digest(x_health_token or "", HEALTH_CHECK_TOKEN):
         raise HTTPException(status_code=401, detail="Unauthorized")
     return {"status": "ok"}

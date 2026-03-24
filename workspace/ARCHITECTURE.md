@@ -6,7 +6,7 @@
 - **backend/auth.py** — Autenticação por API key (`X-API-Key` / `API_SECRET_KEY`); dependency `require_api_key`.
 - **backend/routes.py** — Rotas protegidas: `/users`, `/users/{id}/lists`, `/users/{id}/events`, `/audit` (todas com `Depends(require_api_key)`).
 - **backend/database.py**, **backend/models_db.py** — SQLite, sessões e modelos (User, List, ListItem, Event, AuditLog).
-- **backend/command_parser.py**, **backend/scope_filter.py**, **backend/rate_limit.py**, **backend/sanitize.py** — Parser de comandos, scope, rate limit e sanitização de entrada.
+- **backend/command_parser/**, **backend/scope_filter.py**, **backend/rate_limit.py**, **backend/sanitize.py** — Parser de comandos, scope, rate limit e sanitização de entrada.
 - **zapista/** — Agente (loop, context, tools), canais (WhatsApp), cron, providers, bus, CLI. O gateway e o agente vivem aqui; a API é apenas o frontend “irmão” em `backend/`.
 
 Movimentações futuras (ex.: mais subpacotes em `backend/`) devem ser incrementais, com testes após cada alteração (ver `workspace/PLANO_IMPLEMENTACAO.md`).
@@ -15,7 +15,7 @@ Movimentações futuras (ex.: mais subpacotes em `backend/`) devem ser increment
 
 Comandos estruturados conhecidos (**/lembrete**, **/list**, **/feito**, **/filme**) são tratados **antes** do LLM:
 
-1. **Rate limit** → 2. **Parser** (`backend.command_parser.parse`) → se houver intent, **execução direta** (tools cron/list/event) e resposta imediata.
+1. **Rate limit** → 2. **Parser** (`backend/command_parser/`) → se houver intent, **execução direta** (tools cron/list/event) e resposta imediata.
 2. Só se o parser não reconhecer a mensagem é que entram o **scope filter** (LLM ou regex) e o **loop do agente** (LLM + tools).
 
 Assim reduz-se latência e custo para comandos simples; o LLM é usado para linguagem natural ou casos ambíguos.

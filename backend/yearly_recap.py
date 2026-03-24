@@ -8,7 +8,8 @@ mensagens, listas), benefícios e tempo de organização poupado.
 from datetime import datetime, timezone
 from typing import Any
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -276,6 +277,9 @@ async def run_year_recap(
             sent += 1
         except Exception as e:
             errors += 1
-            logger.warning(f"Year recap failed for {key}: {e}")
+            logger.warning("year_recap_failed", extra={"extra": {
+                "key": key,
+                "error": str(e)
+            }})
 
     return sent, errors

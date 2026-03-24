@@ -21,7 +21,7 @@ Comandos são **parseados primeiro** e executados direto (sem chamada ao LLM):
 - **`/feito mercado 1`** → marca e remove item 1 da lista mercado. **`/feito 1`** → pede "Use: /feito nome_da_lista id"
 - **`/filme Nome do Filme`** → event add tipo=filme
 
-Parser em **backend/command_parser.py**; execução em **AgentLoop._execute_parsed_intent**.
+Parser em **backend/command_parser/**; execução em **AgentLoop._execute_parsed_intent**.
 
 ## Rodar MVP local
 

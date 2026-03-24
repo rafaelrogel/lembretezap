@@ -9,7 +9,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 from sqlalchemy.orm import Session
 
 from backend.models_db import List, ListItem, Event
@@ -317,7 +318,7 @@ async def build_smart_reminder_analysis(
         )
         return (r.content or "").strip()
     except Exception as e:
-        logger.debug(f"Smart reminder Mimo analysis failed: {e}")
+        logger.debug("smart_reminder_mimo_analysis_failed", extra={"extra": {"error": str(e)}})
         return ""
 
 
@@ -392,7 +393,7 @@ async def build_smart_reminder_message(
                     time_str = c_local.strftime("%H:%M")
                     agenda_lines.append(f"* {c['message']} às {time_str}")
     except Exception as e:
-        logger.debug(f"Failed to generate agenda lines: {e}")
+        logger.debug("smart_reminder_agenda_failed", extra={"extra": {"error": str(e)}})
 
     final_preamble = preamble
     if agenda_lines:
@@ -412,7 +413,7 @@ async def build_smart_reminder_message(
             if out and len(out) <= 400:
                 return final_preamble + out[:300]
         except Exception as e:
-            logger.debug(f"Smart reminder Mimo message failed: {e}")
+            logger.debug("smart_reminder_mimo_message_failed", extra={"extra": {"error": str(e)}})
 
     # Fallback DeepSeek
     try:
@@ -429,7 +430,7 @@ async def build_smart_reminder_message(
         }.get(user_lang, f"Check your items above. 😊")
         return final_preamble + (out[:300] if out else fallback_msg)
     except Exception as e:
-        logger.debug(f"Smart reminder DeepSeek message failed: {e}")
+        logger.debug("smart_reminder_deepseek_message_failed", extra={"extra": {"error": str(e)}})
         return final_preamble + {
             "pt-BR": "Estou aqui se precisar de algo! 😊",
             "pt-PT": "Estou aqui se precisares de algo! 😊",
@@ -532,9 +533,12 @@ async def run_smart_reminder_daily(
             ))
             _mark_sent_today(chat_id)
             sent += 1
-            logger.info(f"Smart reminder sent to {chat_id[:20]}...")
+            logger.info("smart_reminder_sent", extra={"extra": {"chat_id": chat_id[:20]}})
         except Exception as e:
             errors += 1
-            logger.warning(f"Smart reminder failed for {key}: {e}")
+            logger.warning("smart_reminder_failed", extra={"extra": {
+                "key": key,
+                "error": str(e)
+            }})
 
     return sent, errors

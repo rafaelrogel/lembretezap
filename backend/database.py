@@ -40,11 +40,12 @@ def _make_engine():
         try:
             import pysqlcipher3.dbapi2 as sqlite_cipher  # type: ignore
         except ImportError:
-            import logging
-            logging.getLogger(__name__).warning(
-                "DB_PASSPHRASE definido mas pysqlcipher3 não instalado; a BD será SQLite sem criptografia. "
-                "Para SQLCipher: pip install pysqlcipher3 e instalar libsqlcipher no sistema."
-            )
+            from backend.logger import get_logger
+            logger = get_logger(__name__)
+            logger.warning("sqlcipher_missing", extra={"extra": {
+                "message": "DB_PASSPHRASE definido mas pysqlcipher3 não instalado; a BD será SQLite sem criptografia.",
+                "hint": "Para SQLCipher: pip install pysqlcipher3 e instalar libsqlcipher no sistema."
+            }})
             return create_engine(url, connect_args=connect_args, poolclass=StaticPool)
 
         engine = create_engine(

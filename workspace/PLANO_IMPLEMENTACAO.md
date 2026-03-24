@@ -50,8 +50,9 @@ Este documento descreve as fases de implementação para melhorias de segurança
 ### 2.1 Definição da nova estrutura
 
 - **Implementado:** Estrutura documentada em `workspace/ARCHITECTURE.md` (secção “Estrutura de ficheiros”).
-  - `backend/` — `app.py` (app + health + CORS), `auth.py`, `routes.py`, parser, DB, sanitize, rate limit, scope filter.
-  - `zapista/` — agente, canais, cron, providers, bus, CLI (core do bot).
+  - `backend/` — `app.py`, `auth.py`, `routes.py`, `logger.py` (Centralized JSON Logger).
+  - `backend/command_parser/` e `backend/time_parse/` convertidos em pacotes modulares.
+  - `zapista/` — agente, canais, cron, providers, bus, CLI.
 - Movimentações futuras (ex.: mais subpacotes) devem ser incrementais; ver ARCHITECTURE.
 
 ### 2.2 Movimentação incremental
@@ -70,8 +71,8 @@ Este documento descreve as fases de implementação para melhorias de segurança
 
 ### Critérios de conclusão da Fase 2
 
-- [ ] Estrutura de diretórios documentada em ARCHITECTURE.
-- [ ] Código movido e imports atualizados.
+- [x] Estrutura de diretórios documentada em ARCHITECTURE.
+- [x] Código movido e imports atualizados (command_parser, time_parse, logging).
 - [ ] Todos os testes a passar; Docker e CLI a funcionar.
 - [ ] Sem re-exports desnecessários ou caminhos obsoletos.
 

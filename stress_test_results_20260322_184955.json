@@ -1,0 +1,64 @@
+{
+  "timestamp": "20260322_184955",
+  "summary": {
+    "total_requests": 820,
+    "total_successes": 590,
+    "total_failures": 230,
+    "total_rate_limited": 216,
+    "overall_success_rate": "71.95%"
+  },
+  "results": [
+    {
+      "name": "Health Endpoint Stress Test",
+      "total_requests": 250,
+      "successes": 250,
+      "failures": 0,
+      "rate_limited": 0,
+      "success_rate": "100.00%",
+      "avg_latency_ms": "166.78",
+      "p50_latency_ms": "251.00",
+      "p95_latency_ms": "417.21",
+      "p99_latency_ms": "420.05",
+      "max_latency_ms": "421.05"
+    },
+    {
+      "name": "GET /users Endpoint Stress Test",
+      "total_requests": 30,
+      "successes": 30,
+      "failures": 0,
+      "rate_limited": 0,
+      "success_rate": "100.00%",
+      "avg_latency_ms": "2700.52",
+      "p50_latency_ms": "2754.76",
+      "p95_latency_ms": "3896.13",
+      "p99_latency_ms": "4067.69",
+      "max_latency_ms": "4067.69"
+    },
+    {
+      "name": "GET /users/{id}/lists Endpoint Stress Test",
+      "total_requests": 250,
+      "successes": 236,
+      "failures": 14,
+      "rate_limited": 0,
+      "success_rate": "94.40%",
+      "avg_latency_ms": "212.34",
+      "p50_latency_ms": "233.69",
+      "p95_latency_ms": "461.24",
+      "p99_latency_ms": "557.78",
+      "max_latency_ms": "577.69"
+    },
+    {
+      "name": "GET /audit Endpoint Stress Test",
+      "total_requests": 290,
+      "successes": 74,
+      "failures": 216,
+      "rate_limited": 216,
+      "success_rate": "25.52%",
+      "avg_latency_ms": "158.78",
+      "p50_latency_ms": "196.34",
+      "p95_latency_ms": "399.16",
+      "p99_latency_ms": "756.79",
+      "max_latency_ms": "760.32"
+    }
+  ]
+}

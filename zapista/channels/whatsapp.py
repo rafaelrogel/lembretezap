@@ -11,7 +11,8 @@ import time
 import uuid
 from typing import Any
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 from zapista.bus.events import OutboundMessage
 from zapista.bus.queue import MessageBus
@@ -329,6 +330,10 @@ class WhatsAppChannel(BaseChannel):
             return
 
         if msg_type == "message":
+            if data.get("fromMe") or data.get("from_me"):
+                logger.debug(f"Ignoring own message id={data.get('id')!r}")
+                return
+            
             sender = (data.get("sender") or "").strip()
             # Evitar processar o mesmo evento várias vezes (reduz chamadas LLM duplicadas)
             msg_id = (data.get("id") or "").strip()

@@ -14,7 +14,8 @@ import time
 from pathlib import Path
 from typing import Any
 
-from loguru import logger
+from backend.logger import get_logger
+logger = get_logger(__name__)
 
 # Senha de god-mode (env). Se vazia, god-mode desativado (qualquer # = silêncio).
 GOD_MODE_PASSWORD_ENV = "GOD_MODE_PASSWORD"
@@ -106,7 +107,7 @@ def log_god_mode_audit(
         if command:
             entry["cmd"] = command[:40]
         line = json.dumps(entry, ensure_ascii=False)
-        logger.info("god_mode_audit event={} chat={} cmd={}", event, mask, command or "")
+        logger.info("god_mode_audit", extra={"extra": entry})
         _AUDIT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
         with _AUDIT_LOG_PATH.open("a", encoding="utf-8") as f:
             f.write(line + "\n")
@@ -161,12 +162,11 @@ def log_unauthorized(from_id: str, command: str) -> None:
         _now = get_effective_time()
     except Exception:
         _now = time.time()
-    logger.warning(
-        "admin_unauthorized from={} cmd={} ts={}",
-        from_id[:8] + "***" if len(from_id) > 8 else "***",
-        command,
-        int(_now),
-    )
+    logger.warning("admin_unauthorized", extra={"extra": {
+        "from": from_id[:8] + "***" if len(from_id) > 8 else "***",
+        "cmd": command,
+        "ts": int(_now)
+    }})
 
 
 async def handle_admin_command(
@@ -350,7 +350,7 @@ async def _cmd_users(db_session_factory: Any) -> str:
         finally:
             db.close()
     except Exception as e:
-        logger.debug(f"admin #users failed: {e}")
+        logger.debug("admin_users_failed", extra={"extra": {"error": str(e)}})
         return "#users\nErro ao consultar DB."
 
 
@@ -369,7 +369,7 @@ async def _cmd_paid(db_session_factory: Any) -> str:
         finally:
             db.close()
     except Exception as e:
-        logger.debug(f"admin #paid failed: {e}")
+        logger.debug("admin_paid_failed", extra={"extra": {"error": str(e)}})
         return "#paid\nErro ao consultar DB."
 
 
@@ -478,7 +478,7 @@ def _cmd_cron(cron_store_path: Path | None, arg: str = "") -> str:
                 lines.append(f"  ... e mais {len(disabled_jobs) - 5}")
         return "\n".join(lines)
     except Exception as e:
-        logger.debug(f"admin #cron failed: {e}")
+        logger.debug("admin_cron_failed", extra={"extra": {"error": str(e)}})
         return "#cron\nErro ao ler jobs."
 
 
@@ -578,7 +578,7 @@ def _cmd_lembretes(cron_store_path: Path | None, user_arg: str) -> str:
             lines.append(f"\n⚠ {dup_count} grupo(s) com duplicatas")
         return "\n".join(lines)
     except Exception as e:
-        logger.debug(f"admin #lembretes failed: {e}")
+        logger.debug("admin_lembretes_failed", extra={"extra": {"error": str(e)}})
         return "#lembretes\nErro ao ler jobs."
 
 
@@ -639,7 +639,7 @@ async def _cmd_tz(db_session_factory: Any, user_arg: str) -> str:
 
         return "\n".join(lines)
     except Exception as e:
-        logger.debug(f"admin #tz failed: {e}")
+        logger.debug("admin_tz_failed", extra={"extra": {"error": str(e)}})
         return "#tz\nErro ao obter timezone."
 
 
@@ -682,10 +682,11 @@ async def _cmd_history(db_session_factory: Any, user_arg: str) -> str:
             if len(entries) > 25:
                 lines.append(f"  ... e mais {len(entries) - 25}")
             return "\n".join(lines)
+            return "\n".join(lines)
         finally:
             db.close()
     except Exception as e:
-        logger.debug(f"admin #history failed: {e}")
+        logger.debug("admin_history_failed", extra={"extra": {"error": str(e)}})
         return "#history\nErro ao obter histórico."
 
 

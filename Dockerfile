@@ -15,9 +15,12 @@ RUN apt-get update && \
 # Dados do espeak-ng (Piper procura /usr/share/espeak-ng-data/; em Debian o pacote instala em /usr/lib/.../espeak-ng-data)
 ARG ESpeak_DATA_LAYER=1
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends espeak-ng-data && \
+    apt-get install -y --no-install-recommends espeak-ng-data sqlite3 && \
     rm -rf /var/lib/apt/lists/* && \
     ln -sf /usr/lib/x86_64-linux-gnu/espeak-ng-data /usr/share/espeak-ng-data
+
+COPY scripts/init-wal.sh /docker-entrypoint-initdb.d/
+RUN chmod +x /docker-entrypoint-initdb.d/init-wal.sh
 
 WORKDIR /app
 
