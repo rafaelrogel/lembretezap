@@ -120,7 +120,11 @@ class CronTool(Tool):
                 "action": {
                     "type": "string",
                     "enum": ["add", "list", "remove", "remove_all", "pomodoro"],
-                    "description": "Action: add, list, remove (one job_id), remove_all (delete ALL reminders of this user), or pomodoro (start a 25-min focus cycle)"
+                    "description": "Action: add, list, remove (one job_id), remove_all (delete ALL reminders of this user), or pomodoro (start a 25-min focus cycle). CRITICAL: Use remove_all ONLY if user verbatim said 'all', 'everything' or equivalent."
+                },
+                "confirmed": {
+                    "type": "boolean",
+                    "description": "MANDATORY for remove_all. Set to True ONLY if the user explicitly confirmed a previous 'Are you sure?' prompt for bulk deletion."
                 },
                 "message": {
                     "type": "string",
@@ -215,7 +219,7 @@ class CronTool(Tool):
         if action == "remove":
             return self._remove_job(job_id)
         if action == "remove_all":
-            return self._remove_all_jobs()
+            return self._remove_all_jobs(confirmed=kwargs.get("confirmed", False))
             
         if action == "pomodoro":
             from backend.locale import POMODORO_FINISHED_TASK, POMODORO_FINISHED
@@ -668,13 +672,11 @@ class CronTool(Tool):
             if not dep or getattr(dep.payload, "to", None) != self._chat_id:
                 return f"Não encontrei o lembrete \"{depends_on_job_id}\" para encadear. Verifica o id em /lembrete (lista)."
         # has_deadline: apenas para lembretes pontuais (in_seconds); main não remove até confirmar ou 3 lembretes pós-prazo
-        use_deadline = has_deadline and in_seconds is not None and in_seconds > 0
-        # Lembretes importantes (pontuais): se o user não especificou reenvio, 
-        # agendamos 1 follow-up automático em 1h se for importante.
-        if is_important and remind_again_if_unconfirmed_seconds is None and delete_after_run:
-             remind_again_if_unconfirmed_seconds = 3600 # 1h
-             remind_again_max_count = 1
-        elif remind_again_if_unconfirmed_seconds is not None:
+        # USER OPT-OUT: Lembretes pontuais (delete_after_run=True) não devem ter "cobrança" de deadline.
+        use_deadline = has_deadline and in_seconds is not None and in_seconds > 0 and not delete_after_run
+        # Lembretes importantes (pontuais): RECURSO DESATIVADO (auto-nudge) por pedido do utilizador.
+        # Mantemos apenas se o user/LLM tiver passado parâmetros explicitamente.
+        if remind_again_if_unconfirmed_seconds is not None:
              remind_again_max_count = 3 # cap follow-ups to avoid runaway chains
         else:
              remind_again_max_count = 0 # no follow-ups unless explicitly set
@@ -893,17 +895,26 @@ class CronTool(Tool):
             msg += CRON_CREATED_BY_CLI.get(_lang, CRON_CREATED_BY_CLI["en"])
         return msg
 
-    def _remove_all_jobs(self) -> str:
+    def _remove_all_jobs(self, confirmed: bool = False) -> str:
         """Remove todos os lembretes do utilizador atual. Chamado quando user diz 'delete all', 'remove all', etc."""
         all_jobs = self._cron.list_jobs()
         user_jobs = [
             j for j in all_jobs
             if getattr(j.payload, "to", None) == self._chat_id
+            and not getattr(j.payload, "is_proactive_nudge", False)
+            and not getattr(j.payload, "parent_job_id", None)
+            and not getattr(j.payload, "deadline_check_for_job_id", None)
+            and not getattr(j.payload, "deadline_main_job_id", None)
         ]
         if not user_jobs:
             _lang = self._get_user_lang()
             from backend.locale import CRON_NO_REMINDERS
             return CRON_NO_REMINDERS.get(_lang, CRON_NO_REMINDERS["en"])
+
+        _lang = self._get_user_lang()
+        if not confirmed:
+            from backend.locale import CRON_CONFIRM_REMOVE_ALL
+            return CRON_CONFIRM_REMOVE_ALL.get(_lang, CRON_CONFIRM_REMOVE_ALL["en"]).format(count=len(user_jobs))
         # Remove cada job e todos os seus sub-jobs (prazos, avisos, etc.)
         # Usa um set para evitar dupla remoção de sub-jobs já eliminados
         removed_ids: set[str] = set()

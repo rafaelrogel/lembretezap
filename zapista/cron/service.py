@@ -394,15 +394,17 @@ class CronService:
                 # Deadline job: só volta a disparar se remind_again_if_unconfirmed_seconds estiver definido
                 # (e com mínimo de 900s = 15 min para evitar spam)
                 remind_again_secs = getattr(job.payload, "remind_again_if_unconfirmed_seconds", None)
-                if remind_again_secs and remind_again_secs >= 900:
+                remind_max = getattr(job.payload, "remind_again_max_count", None)
+                
+                if remind_again_secs and remind_again_secs >= 900 and remind_max and remind_max > 0:
                     job.state.next_run_at_ms = _now_ms() + remind_again_secs * 1000
-                    logger.info("cron_deadline_rescheduled", extra={"extra": {"job_id": job.id, "job_name": job.name, "delay_s": remind_again_secs}})
+                    job.payload.remind_again_max_count = remind_max - 1
+                    logger.info("cron_deadline_rescheduled", extra={"extra": {"job_id": job.id, "job_name": job.name, "delay_s": remind_again_secs, "remains": job.payload.remind_again_max_count}})
                 else:
-                    # Sem intervalo válido: desactivar após o disparo inicial.
-                    # O deadline_check job (+ 5 min) trata de enviar alertas (1/3, 2/3, 3/3).
+                    # Sem intervalo válido ou limite atingido: desactivar após o disparo.
                     job.state.next_run_at_ms = None
                     job.enabled = False
-                    logger.info("cron_deadline_disabled", extra={"extra": {"job_id": job.id, "job_name": job.name}})
+                    logger.info("cron_deadline_disabled", extra={"extra": {"job_id": job.id, "job_name": job.name, "reason": "limit_reached"}})
         elif job.schedule.kind == "at" and (job.state.last_status or "").startswith("snoozed"):
             # Foi adiado (ex: quiet mode) → manter ativo para a nova next_run_at_ms (já setada pelo snooze)
             pass

@@ -1190,6 +1190,13 @@ CRON_REMOVED: dict[LangCode, str] = {
     "en": "Removed: {job_id}",
 }
 
+CRON_CONFIRM_REMOVE_ALL: dict[LangCode, str] = {
+    "pt-PT": "⚠️ Tens a certeza que queres remover TODOS os teus lembretes ({count} no total)? Esta ação não pode ser desfeita. Responde 'sim' para confirmar.",
+    "pt-BR": "⚠️ Você tem certeza que quer remover TODOS os seus lembretes ({count} no total)? Esta ação não pode ser desfeita. Responda 'sim' para confirmar.",
+    "es": "⚠️ ¿Estás seguro de que quieres eliminar TODOS tus recordatorios ({count} en total)? Esta acción no se puede deshacer. Responde 'sí' para confirmar.",
+    "en": "⚠️ Are you sure you want to remove ALL your reminders ({count} in total)? This action cannot be undone. Reply 'yes' to confirm.",
+}
+
 CRON_JOB_NOT_FOUND: dict[LangCode, str] = {
     "pt-PT": "Job {job_id} não encontrado.",
     "pt-BR": "Job {job_id} não encontrado.",
