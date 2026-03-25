@@ -79,71 +79,6 @@ def _get_user_tz_and_lang(ctx: HandlerContext) -> tuple[ZoneInfo, str]:
     return tz, lang
 
 
-def _reminders_in_period(ctx: HandlerContext, tz: ZoneInfo, start_utc_ms: int, end_utc_ms: int, weekday_filter: int | None = None) -> list:
-    """Lembretes (cron) do chat no intervalo [start_utc_ms, end_utc_ms], opcionalmente filtrados por dia da semana."""
-    reminders = []
-    if ctx.cron_service:
-        for job in ctx.cron_service.list_jobs():
-            if getattr(job.payload, "to", None) != ctx.chat_id:
-                continue
-            nr = getattr(job.state, "next_run_at_ms", None)
-            if nr and start_utc_ms <= nr <= end_utc_ms:
-                dt = datetime.fromtimestamp(nr / 1000, tz=ZoneInfo("UTC")).astimezone(tz)
-                # Aplicar filtro de dia da semana se solicitado (Python weekday() 0-6 = Seg-Dom)
-                if weekday_filter is not None and dt.weekday() != weekday_filter:
-                    continue
-                msg = getattr(job.payload, "message", "") or job.name
-                reminders.append((dt, msg))
-    reminders.sort(key=lambda x: x[0])
-    return reminders
-
-
-def _events_in_period_filtered(db, user_id: int, start_date, end_date, tz: ZoneInfo, weekday_filter: int | None = None) -> list:
-    """Eventos (agenda) do user no intervalo [start_date, end_date], opcionalmente filtrados por dia da semana."""
-    from backend.models_db import Event
-    from datetime import time
-
-    local_start = datetime.combine(start_date, time.min).replace(tzinfo=tz)
-    local_end = datetime.combine(end_date, time.max).replace(tzinfo=tz)
-
-    start_dt = local_start.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
-    end_dt = local_end.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
-
-    events = db.query(Event).filter(
-        Event.user_id == user_id,
-        Event.tipo == "evento",
-        Event.deleted == False,
-        Event.data_at.between(start_dt, end_dt)
-    ).all()
-
-    out = []
-    seen = set()
-    for ev in events:
-        nome = ev.payload.get("nome", "Evento Desconhecido").strip()
-        if not ev.data_at:
-            continue
-
-        ev_date = ev.data_at.replace(tzinfo=ZoneInfo("UTC"))
-        try:
-            ev_local_dt = ev_date.astimezone(tz)
-            ev_local = ev_local_dt.date()
-            ev_weekday = ev_local_dt.weekday() # 0-6 = Seg-Dom
-        except Exception:
-            ev_local = ev_date.date()
-            ev_weekday = ev_local.weekday()
-
-        if weekday_filter is not None and ev_weekday != weekday_filter:
-            continue
-
-        key = (ev_local, nome.lower())
-        if key in seen:
-            continue
-        seen.add(key)
-
-        out.append((ev_local, ev.data_at, nome[:40]))
-
-    out.sort(key=lambda x: (x[0], x[1] or datetime.min))
-    return out
 
 
 async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | None:
@@ -197,18 +132,19 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
 
     # Header
     _HEADER_ALL = {
-        "pt-BR": "📅 **Lembretes & Agenda**",
-        "pt-PT": "📅 **Lembretes & Agenda**",
-        "es":    "📅 **Recordatorios & Agenda**",
-        "en":    "📅 **Reminders & Agenda**",
+        "pt-BR": "📅 **Lembretes & Agenda ({tz})**",
+        "pt-PT": "📅 **Lembretes & Agenda ({tz})**",
+        "es":    "📅 **Recordatorios & Agenda ({tz})**",
+        "en":    "📅 **Reminders & Agenda ({tz})**",
     }
     _HEADER_PERIOD = {
-        "pt-BR": "📅 **Lembretes & Agenda — {period}**",
-        "pt-PT": "📅 **Lembretes & Agenda — {period}**",
-        "es":    "📅 **Recordatorios & Agenda — {period}**",
-        "en":    "📅 **Reminders & Agenda — {period}**",
+        "pt-BR": "📅 **Lembretes & Agenda — {period} ({tz})**",
+        "pt-PT": "📅 **Lembretes & Agenda — {period} ({tz})**",
+        "es":    "📅 **Recordatorios & Agenda — {period} ({tz})**",
+        "en":    "📅 **Reminders & Agenda — {period} ({tz})**",
     }
 
+    tz_name = str(tz)
     if period:
         start_d, end_d = period
         label = period_label(start_d, end_d, lang)
@@ -224,9 +160,9 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
             wd_lbl = _WD_LABELS.get(lang, _WD_LABELS["en"])[wd_filter]
             label = f"{wd_lbl} ({label})"
 
-        header = _HEADER_PERIOD.get(lang, _HEADER_PERIOD["en"]).format(period=label)
+        header = _HEADER_PERIOD.get(lang, _HEADER_PERIOD["en"]).format(period=label, tz=tz_name)
     else:
-        header = _HEADER_ALL.get(lang, _HEADER_ALL["en"])
+        header = _HEADER_ALL.get(lang, _HEADER_ALL["en"]).format(tz=tz_name)
 
     parts.append(header)
 
@@ -258,7 +194,12 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
         start_utc_ms = int(start_dt.timestamp() * 1000)
         end_utc_ms = int(end_dt.timestamp() * 1000)
 
-        reminders = _reminders_in_period(ctx, tz, start_utc_ms, end_utc_ms, weekday_filter=wd_filter)
+        from backend.views.utils import get_reminders_in_period
+        reminders = get_reminders_in_period(ctx, tz, start_utc_ms, end_utc_ms)
+        # Apply weekday filter manually since get_reminders_in_period doesn't support it yet
+        if reminders and wd_filter is not None:
+            reminders = [r for r in reminders if r[0].weekday() == wd_filter]
+
         parts.append(_LBL_REMINDERS.get(lang, _LBL_REMINDERS["en"]))
         if reminders:
             for dt, msg in reminders[:25]:
@@ -308,13 +249,18 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
         try:
             user = get_or_create_user(db, ctx.chat_id)
 
+            from backend.views.utils import get_events_in_period
             if period:
                 start_d, end_d = period
-                event_list = _events_in_period_filtered(db, user.id, start_d, end_d, tz, weekday_filter=wd_filter)
+                event_list = get_events_in_period(db, user.id, start_d, end_d, tz, lang=lang)
+                if wd_filter is not None:
+                    event_list = [e for e in event_list if e[0].weekday() == wd_filter]
+
                 parts.append(_LBL_EVENTS.get(lang, _LBL_EVENTS["en"]))
                 if event_list:
-                    for d, _, nome in event_list[:25]:
-                        parts.append(f"• {d.strftime('%d/%m')} — {nome[:50]}")
+                    for d, dt_utc, nome, time_str in event_list[:25]:
+                        dt_str = f"{d.strftime('%d/%m')} {time_str}" if time_str else d.strftime("%d/%m")
+                        parts.append(f"• {dt_str} — {nome[:50]}")
                 else:
                     parts.append(_NO_EVENTS_PERIOD.get(lang, _NO_EVENTS_PERIOD["en"]))
             else:
@@ -334,7 +280,10 @@ async def handle_eventos_unificado(ctx: HandlerContext, content: str) -> str | N
                         nome = ev.payload.get("nome", "Evento Desconhecido").strip()
                         if ev.data_at:
                             ev_local = ev.data_at.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
-                            dt_str = ev_local.strftime("%d/%m %H:%M")
+                            if ev_local.time() != datetime.min.time():
+                                dt_str = ev_local.strftime("%d/%m %H:%M")
+                            else:
+                                dt_str = ev_local.strftime("%d/%m")
                         else:
                             dt_str = "S/ Data"
                         parts.append(f"• {dt_str} — {nome}")

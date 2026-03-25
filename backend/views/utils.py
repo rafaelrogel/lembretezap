@@ -32,18 +32,21 @@ def get_events_in_period(db, user_id: int, start_date, end_date, tz, lang: str =
         if not ev.data_at:
             continue
             
-        ev_date = ev.data_at.replace(tzinfo=ZoneInfo("UTC"))
+        ev_utc = ev.data_at.replace(tzinfo=ZoneInfo("UTC"))
         try:
-            ev_local = ev_date.astimezone(tz).date()
+            ev_local_dt = ev_utc.astimezone(tz)
+            ev_local_date = ev_local_dt.date()
+            time_str = ev_local_dt.strftime("%H:%M") if ev_local_dt.time() != time(0, 0) else None
         except Exception:
-            ev_local = ev_date.date()
+            ev_local_date = ev_utc.date()
+            time_str = None
             
-        key = (ev_local, nome.lower())
+        key = (ev_local_date, nome.lower())
         if key in seen:
             continue
         seen.add(key)
         
-        out.append((ev_local, ev.data_at, nome))
+        out.append((ev_local_date, ev.data_at, nome, time_str))
         
     out.sort(key=lambda x: (x[0], x[1] or datetime.min))
     return out
