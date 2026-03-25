@@ -57,9 +57,10 @@ _RE_MONTH = re.compile(
 
 # This week: "esta semana", "dessa semana", "para esta semana", "this week", "esta semana" (ES)
 _RE_THIS_WEEK = re.compile(
-    r"(?:para\s+)?(?:esta|dessa|d?esta)\s+semana|this\s+week|\bsemana\b",
+    r"(?:para\s+)?(?:esta|dessa|d?esta)\s+semana|this\s+week", # Only trigger on phrases like “esta semana”
     re.I,
 )
+# FIX EXPLANATION: Prevents standalone "semana" tokens from being misclassified as "this week".
 
 # This year: "este ano", "esse ano", "deste ano", "este año", "this year"
 # NOTE: must NOT match "ano de 2028" or "ano 2028" — those go to _RE_YEAR
@@ -88,13 +89,13 @@ _RE_NEXT_MONTH = re.compile(
 
 # Today: "para hoje", "de hoje", "for today", "today's", "para hoy", "de hoy"
 _RE_TODAY = re.compile(
-    r"(?:para\s+hoje|de\s+hoje|for\s+today|today'?s?|para\s+hoy|de\s+hoy)",
+    r"\b(hoje|today'?s?|hoy)\b|(?:para\s+hoje|de\s+hoje|for\s+today|para\s+hoy|de\s+hoy)",
     re.I,
 )
 
 # Tomorrow: "para amanhã", "para amanha", "for tomorrow", "para mañana", "para manana"
 _RE_TOMORROW = re.compile(
-    r"(?:para\s+amanh[aã]|for\s+tomorrow|para\s+ma[nñ]ana)",
+    r"\b(amanh[aã]|tomorrow|ma[nñ]ana)\b|(?:para\s+amanh[aã]|for\s+tomorrow|para\s+ma[nñ]ana)",
     re.I,
 )
 
@@ -232,7 +233,7 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
                 break
         if days and 1 <= days <= 365:
             end = today + timedelta(days=days)
-            return (today, end)
+            return (today, end, None)
 
     # Specific date: "17/03", "17/03/2026"
     m = _RE_SPECIFIC_DATE.search(t)

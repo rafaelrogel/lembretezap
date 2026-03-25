@@ -65,10 +65,10 @@ HANDLERS = [
     handle_curated_search,  # Busca filmes/livros/música — antes de list
     handle_list,  # primeiro: "cria lista de X", "mostre lista" → evita cair no LLM com histórico de erro
     handle_list_or_events_ambiguous,  # "tenho de X, Y" → pergunta lista ou lembretes
+    handle_eventos_unificado,  # Handle periods/specific dates first
     handle_agenda_nl,  # "minha agenda", "o que tenho hoje/amanhã"
     handle_vague_time_reminder,
     handle_recurring_event,
-    handle_eventos_unificado,
     handle_sacred_text,  # ativo: responde quando cliente pede versículo bíblia/alcorão
     handle_limpeza,  # antes de recurring: "preciso limpar a casa" → fluxo limpeza
     handle_pomodoro,  # /pomodoro — timer 25 min foco

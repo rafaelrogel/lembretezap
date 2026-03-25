@@ -1,19 +1,26 @@
-"""Rate limit per user: token bucket for better distribution under intensive use.
-
-Uses token bucket (capacity + refill rate) instead of fixed/sliding window:
-allows short bursts up to capacity, then steady refill. Thread-safe, O(1) state per user.
-
-Configurável via RATE_LIMIT_MAX_PER_MINUTE (ex.: 60-120 para testes com vários utilizadores ou stress tests).
-"""
-
 import os
 import time
+import threading
 from collections import defaultdict
 from threading import Lock
 
 # key -> (tokens: float, last_refill_ts: float)
 _buckets: dict[str, tuple[float, float]] = defaultdict(lambda: (0.0, 0.0))
 _lock = Lock()
+
+def _run_janitor():
+    """Prune old buckets to prevent unbounded memory growth."""
+    now = time.time()
+    with _lock:
+        to_del = [k for k, (tokens, last) in _buckets.items() if now - last > 3600]
+        for k in to_del:
+            del _buckets[k]
+    # Schedule next run in 1 minute
+    threading.Timer(60.0, _run_janitor).start()
+
+# FIX EXPLANATION: Janitor runs every minute to evict buckets not accessed for >1 hour, preventing memory leaks.
+# Start the janitor
+threading.Timer(60.0, _run_janitor).start()
 
 def _get_default_max_per_minute() -> int:
     v = os.environ.get("RATE_LIMIT_MAX_PER_MINUTE", "").strip()

@@ -7,6 +7,7 @@ Produção: criptografia em repouso via SQLCipher (opcional) ou volume criptogra
 
 import os
 from pathlib import Path
+import sqlalchemy
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -61,6 +62,9 @@ def _make_engine():
         def _set_sqlcipher_key(dbapi_conn, connection_record):
             cursor = dbapi_conn.cursor()
             cursor.execute("PRAGMA key = ?", (_DB_PASSPHRASE,))
+            # WAL mode e synchronous devem ser definidos APÓS a chave no SQLCipher
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
             cursor.close()
 
         return engine
@@ -83,6 +87,8 @@ from sqlalchemy import event
 
 @event.listens_for(ENGINE, "connect")
 def _set_sqlite_pragmas(dbapi_conn, connection_record):
+    if _DB_PASSPHRASE:
+        return  # Já tratado em _set_sqlcipher_key
     cursor = dbapi_conn.cursor()
     # WAL mode permite leituras e escritas concorrentes (essencial para stress test)
     cursor.execute("PRAGMA journal_mode=WAL")
@@ -125,15 +131,18 @@ def init_db() -> None:
             with ENGINE.connect() as conn:
                 conn.execute(text(col_sql))
                 conn.commit()
-        except Exception:
+        except sqlalchemy.exc.OperationalError:
             pass  # Coluna já existe ou tabela não existe
 
     # Migração única: notas → bookmarks (fusão /nota + /save + /bookmark)
     try:
         from backend.bookmark import migrate_notes_to_bookmarks
         migrate_notes_to_bookmarks(ENGINE)
-    except Exception:
-        pass
+    except Exception as e:
+        from backend.logger import get_logger
+        logger = get_logger(__name__)
+        logger.error("migration_failed", extra={"extra": {"module": "notes_to_bookmarks", "error": str(e)}})
+        raise  # FIX EXPLANATION: Prevents silent migration failures by logging and re-raising the error.
 
 
 def get_db():

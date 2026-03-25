@@ -198,7 +198,7 @@ def extract_content_and_hour(text: str) -> tuple[str, int, int]:
         return "", 0, 0
     parsed = _extract_hour_minute(t)
     if not parsed:
-        return t, 9, 0
+        return t, -1, -1
     hour, minute = parsed
     # Remover padrões de hora para obter o conteúdo
     content = re.sub(_HOUR_RE, " ", t).strip()
@@ -254,9 +254,8 @@ def is_vague_date_reminder(text: str) -> tuple[bool, str, int, int]:
     except Exception:
         pass
     content, hour, minute = extract_content_and_hour(text)
-    if not content or len(content.strip()) < 2:
+    if not content or len(content.strip()) < 2 or hour == -1:
         return False, "", 0, 0
-    # Se não foi encontrada hora, usamos 9h como padrão (extract_content_and_hour já retorna 9 se não houver)
     return True, content.strip(), hour, minute
 
 
@@ -435,7 +434,9 @@ def looks_like_advance_preference_yes(text: str) -> bool:
         return False
     return any(
         p in t for p in ("antec", "antes", "com antec", "sim", "quero", "yes", "30", "1 hora", "meia hora")
-    ) and not any(p in t for p in ("não", "nao", "só na hora", "só na hora", "apenas na hora", "no", "just in time"))
+    ) and not any(p in t for p in ("não", "nao", "só na hora", "apenas na hora", "no", "just in time"))
+
+# FIX EXPLANATION: Removes redundant duplicate exclusion text "só na hora" from the any check.
 
 
 def looks_like_advance_preference_no(text: str) -> bool:

@@ -12,7 +12,9 @@ def _utc_now() -> datetime:
     except Exception:
         import time
         _now_ts = time.time()
-    return datetime.fromtimestamp(_now_ts, tz=timezone.utc).replace(tzinfo=None) # SQLAlchemy DateTime (naive) or aware depending on config. standard is naive UTC.
+    return datetime.fromtimestamp(_now_ts, tz=timezone.utc).replace(tzinfo=None) # This returns a naive UTC datetime to match SQLAlchemy default
+
+# FIX EXPLANATION: Keeps naive UTC for compatibility with SQLAlchemy's default DateTime columns and clarifies the contract.
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, JSON, Float
 from sqlalchemy.orm import relationship, declarative_base

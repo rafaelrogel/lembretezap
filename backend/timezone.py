@@ -17,6 +17,7 @@ BR_DDD_TO_IANA = {
     27: "America/Sao_Paulo",        # ES - Vitória
     62: "America/Sao_Paulo",        # Goiás - Goiânia
     98: "America/Sao_Paulo",        # Maranhão - São Luís
+    99: "America/Sao_Paulo",        # Maranhão - Imperatriz/S.Luís
     65: "America/Cuiaba",           # Mato Grosso - Cuiabá
     67: "America/Campo_Grande",      # Mato Grosso do Sul - Campo Grande
     31: "America/Sao_Paulo",        # MG - Belo Horizonte
@@ -48,6 +49,7 @@ BR_DDD_TO_CITY_NAME: dict[int, str] = {
     27: "Vitória",
     62: "Goiânia",
     98: "São Luís",
+    99: "Imperatriz",
     65: "Cuiabá",
     67: "Campo Grande",
     31: "Belo Horizonte",

@@ -279,10 +279,15 @@ async def handle_semana(ctx: "HandlerContext", content: str) -> str | None:
 async def handle_agenda(ctx: "HandlerContext", content: str) -> str | None:
     """/agenda. Aceita NL: agenda, minha agenda, o que tenho agendado."""
     from backend.command_nl import normalize_nl_to_command
-    content = normalize_nl_to_command(content)
-    if not content.strip().lower().startswith("/agenda"):
+    content_low = content.strip().lower()
+    if not content_low.startswith("/agenda"):
         return None
-    return _visao_agenda_dia(ctx)
+    # If it is exactly "/agenda" or ends with a supported keyword, handle it.
+    # Otherwise return None to let unificado or others handle suffixes.
+    rest = content_low[7:].strip()
+    if not rest or any(kw in rest for kw in ["hoje", "amanha", "amanhã", "today", "tomorrow", "hoy", "manana", "mañana"]):
+        return _visao_agenda_dia(ctx)
+    return None
 
 
 # Frases em texto/áudio que mostram a agenda do dia (mesma visão e contagem que /agenda)
@@ -345,5 +350,11 @@ async def handle_agenda_nl(ctx: "HandlerContext", content: str) -> str | None:
                  return _visao_agenda_dia(ctx, target_date=target_date)
             return _visao_hoje(ctx, target_date=target_date)
             
+        # Se for um comando /agenda com sufixo que não conhecemos aqui, deixar passar
+        if is_agenda_cmd:
+            rest = t_clean[7:].strip()
+            if rest and not any(kw in rest for kw in ["hoje", "amanha", "amanhã", "today", "tomorrow", "hoy", "manana", "mañana"]):
+                return None
+
         return _visao_agenda_dia(ctx)
     return None
