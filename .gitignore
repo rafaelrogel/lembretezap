@@ -10,6 +10,11 @@ coverage
 .next
 out
 
+# export só-site para Vercel (gerado por npm run pack:vercel)
+zappelin-vercel-site/
+zappelin-vercel-site.zip
+zappelin-static-preview.zip
+
 # misc
 .DS_Store
 *.pem

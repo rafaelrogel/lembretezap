@@ -152,19 +152,40 @@
   30% { opacity: 1; transform: scale(1); }
 }
 
-/* Avatar aparece um pouco antes (delay 1s, 0.35s) */
+/* Base (sem delay): delays são definidos por bolha (de baixo → cima) */
 .chat-avatar-enter {
-  animation: chat-sent-block-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) 1s both;
+  animation: chat-sent-block-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Bolha verde: entrada 1s, delay 1.2s (depois do avatar) */
 .chat-sent-bubble-enter {
-  animation: chat-sent-block-enter 1s cubic-bezier(0.22, 1, 0.36, 1) 1.2s both;
+  animation: chat-sent-block-enter 1s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Cinza entra depois da verde: 1s + 1.2s + 1s ≈ 2.2s */
 .chat-bubble-grey-enter {
-  animation: chat-bubble-grey-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) 2.2s both;
+  animation: chat-bubble-grey-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Ordem do mock da HERO: começa em baixo e vai subindo */
+.hero-bubble-4 .chat-avatar-enter {
+  animation-delay: 0.15s;
+}
+.hero-bubble-4.chat-sent-bubble-enter {
+  animation-delay: 0.35s;
+}
+
+.hero-bubble-3.chat-bubble-grey-enter {
+  animation-delay: 1.3s;
+}
+
+.hero-bubble-2 .chat-avatar-enter {
+  animation-delay: 2.0s;
+}
+.hero-bubble-2.chat-sent-bubble-enter {
+  animation-delay: 2.2s;
+}
+
+.hero-bubble-1.chat-bubble-grey-enter {
+  animation-delay: 3.25s;
 }
 
 /* Bolha cinza: loading abraça os pontos; depois cresce para a esquerda revelando a mensagem */
