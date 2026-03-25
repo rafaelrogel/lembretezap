@@ -1,83 +1,111 @@
-import asyncio
-from datetime import datetime, date
-from zoneinfo import ZoneInfo
+import unittest
 from unittest.mock import MagicMock, patch
+from datetime import datetime, date, timezone
+from zoneinfo import ZoneInfo
+import asyncio
 
-from backend.handler_context import HandlerContext
-from backend.views.unificado import handle_eventos_unificado
+# Helper for async tests in unittest before 3.8 or to ensure IsolatedAsyncioTestCase works
+class TestAgendaTimeLocalization(unittest.IsolatedAsyncioTestCase):
 
-async def test_agenda_time():
-    print("Testing agenda time display...")
-    
-    # Mock context
-    ctx = MagicMock(spec=HandlerContext)
-    ctx.chat_id = "test_user"
-    ctx.channel = "whatsapp"
-    ctx.phone_for_locale = "351910000000" # Portugal
-    ctx.cron_service = MagicMock()
-    ctx.cron_tool = None
-    ctx.session_manager = MagicMock()
-    
-    # Mock user timezone to Europe/Lisbon to match the report's successful message
-    with patch("backend.user_store.get_user_timezone", return_value="Europe/Lisbon"):
-        with patch("backend.user_store.get_user_language", return_value="pt-BR"):
-            # Mock effective time to 24/03 21:40 (when user made the request)
-            _now_ts = datetime(2026, 3, 24, 21, 40, tzinfo=ZoneInfo("UTC")).timestamp()
-            
-            with patch("zapista.clock_drift.get_effective_time", return_value=_now_ts):
-                # 1. Mock a reminder at 26/03 11:43 UTC
-                nr = int(datetime(2026, 3, 26, 11, 43, tzinfo=ZoneInfo("UTC")).timestamp() * 1000)
-                job = MagicMock()
-                job.payload = MagicMock()
-                job.payload.to = "test_user"
-                job.payload.message = "Consulta médica"
-                job.payload.parent_job_id = None
-                job.payload.is_proactive_nudge = False
-                job.payload.deadline_check_for_job_id = None
-                job.payload.deadline_main_job_id = None
-                job.state = MagicMock()
-                job.state.next_run_at_ms = nr
-                ctx.cron_service.list_jobs.return_value = [job]
-                
-                # 2. Mock an event at 26/03 13:43 UTC
-                from backend.models_db import Event
-                ev = MagicMock(spec=Event)
-                ev.user_id = 1
-                ev.tipo = "evento"
-                ev.payload = {"nome": "consulta médica"}
-                ev.data_at = datetime(2026, 3, 26, 13, 43) # Naive UTC
-                ev.deleted = False
-                
-                # Mock DB session
-                with patch("backend.database.SessionLocal") as mock_session_factory:
-                    mock_db = mock_session_factory.return_value
-                    mock_user = MagicMock()
-                    mock_user.id = 1
-                    with patch("backend.user_store.get_or_create_user", return_value=mock_user):
-                        # Filter for Event.data_at.between
-                        mock_db.query.return_value.filter.return_value.filter.return_value.filter.return_value.filter.return_value.all.return_value = [ev]
-                        
-                        # Run the handler
-                        result = await handle_eventos_unificado(ctx, "agenda 26/3")
-                        
-                        print("\nRESULT FOR Europe/Lisbon:")
-                        print(result)
+    @patch("backend.views.utils.get_events_in_period")
+    @patch("backend.views.utils.get_reminders_in_period")
+    @patch("backend.database.SessionLocal")
+    @patch("backend.user_store.get_or_create_user")
+    @patch("backend.views.unificado.HandlerContext")
+    @patch("backend.views.unificado._get_user_tz_and_lang")
+    async def test_agenda_time_localization_utc(self, mock_get_tz_lang, mock_ctx, mock_get_user, mock_session, mock_get_reminders, mock_get_events):
+        """Verify that an event at 13:43 UTC shows as 13:43 in UTC timezone."""
+        from backend.views.unificado import handle_eventos_unificado
+        
+        # Mock _get_user_tz_and_lang to return (UTC, pt-BR)
+        mock_get_tz_lang.return_value = (ZoneInfo("UTC"), "pt-BR")
+        
+        # Mock user and context
+        mock_user = MagicMock(id=1)
+        mock_get_user.return_value = mock_user
+        mock_ctx.chat_id = "123456789"
+        mock_ctx.phone_for_locale = "123456789"
+        
+        # Event at 13:43 UTC
+        dt_event = datetime(2026, 6, 26, 13, 43, tzinfo=timezone.utc)
+        # Note: get_events_in_period returns (date, utc_dt, name, time_str)
+        mock_get_events.return_value = [
+            (date(2026, 6, 26), dt_event.replace(tzinfo=None), "Consulta médica", "13:43")
+        ]
+        mock_get_reminders.return_value = []
+        
+        result = await handle_eventos_unificado(mock_ctx, "meus lembretes para 26/06/2026")
+        
+        self.assertIn("13:43", result)
+        self.assertIn("(UTC)", result)
 
-    # Mock user timezone to America/Sao_Paulo with 16 min drift
-    print("\nTesting with America/Sao_Paulo (drift simulation)...")
-    with patch("backend.user_store.get_user_timezone", return_value="America/Sao_Paulo"):
-        with patch("backend.user_store.get_user_language", return_value="pt-BR"):
-            with patch("zapista.clock_drift.get_effective_time", return_value=_now_ts):
-                with patch("backend.database.SessionLocal") as mock_session_factory:
-                    mock_db = mock_session_factory.return_value
-                    mock_user = MagicMock()
-                    mock_user.id = 1
-                    with patch("backend.user_store.get_or_create_user", return_value=mock_user):
-                        mock_db.query.return_value.filter.return_value.filter.return_value.filter.return_value.filter.return_value.all.return_value = [ev]
-                        
-                        result = await handle_eventos_unificado(ctx, "agenda 26/3")
-                        print("\nRESULT FOR America/Sao_Paulo:")
-                        print(result)
+    @patch("backend.views.utils.get_events_in_period")
+    @patch("backend.views.utils.get_reminders_in_period")
+    @patch("backend.database.SessionLocal")
+    @patch("backend.user_store.get_or_create_user")
+    @patch("backend.views.unificado.HandlerContext")
+    @patch("backend.views.unificado._get_user_tz_and_lang")
+    async def test_agenda_time_localization_europe_lisbon(self, mock_get_tz_lang, mock_ctx, mock_get_user, mock_session, mock_get_reminders, mock_get_events):
+        """Verify that an event at 13:43 UTC shows as 14:43 in Europe/Lisbon (WEST)."""
+        from backend.views.unificado import handle_eventos_unificado
+        
+        # Mock _get_user_tz_and_lang to return (Europe/Lisbon, pt-PT)
+        tz_lisbon = ZoneInfo("Europe/Lisbon")
+        mock_get_tz_lang.return_value = (tz_lisbon, "pt-PT")
+        
+        # Mock user and context
+        mock_user = MagicMock(id=1)
+        mock_get_user.return_value = mock_user
+        mock_ctx.chat_id = "123456789"
+        mock_ctx.phone_for_locale = "123456789"
+        
+        # Event at 13:43 UTC -> 14:43 in Lisbon (WEST is UTC+1 in June)
+        dt_event_utc = datetime(2026, 6, 26, 13, 43, tzinfo=timezone.utc)
+        dt_local = dt_event_utc.astimezone(tz_lisbon)
+        local_time_str = dt_local.strftime("%H:%M") # Should be 14:43
+        
+        mock_get_events.return_value = [
+            (date(2026, 6, 26), dt_event_utc.replace(tzinfo=None), "Consulta médica", local_time_str)
+        ]
+        mock_get_reminders.return_value = []
+        
+        result = await handle_eventos_unificado(mock_ctx, "meus lembretes para 26/06/2026")
+        
+        self.assertIn(local_time_str, result)
+        self.assertIn("(Europe/Lisbon)", result)
+
+    def test_reminder_localized_time(self):
+        """Verify get_reminders_in_period returns the correctly localized time string."""
+        from backend.views.utils import get_reminders_in_period
+        
+        mock_ctx = MagicMock()
+        mock_job = MagicMock()
+        
+        # Job at 13:43 UTC (June 26 2026)
+        dt_utc = datetime(2026, 6, 26, 13, 43, tzinfo=timezone.utc)
+        ts_ms = dt_utc.timestamp() * 1000
+        
+        mock_job.payload.to = "user123"
+        mock_job.payload.message = "Lembrete teste"
+        mock_job.state.next_run_at_ms = ts_ms
+        # clear other attributes to avoid filtering
+        mock_job.payload.parent_job_id = None
+        mock_job.payload.is_proactive_nudge = False
+        mock_job.payload.deadline_check_for_job_id = None
+        mock_job.payload.deadline_main_job_id = None
+        
+        mock_ctx.chat_id = "user123"
+        mock_ctx.cron_service.list_jobs.return_value = [mock_job]
+        
+        tz_lisbon = ZoneInfo("Europe/Lisbon")
+        # Range covering the job
+        res = get_reminders_in_period(mock_ctx, tz_lisbon, ts_ms - 1000, ts_ms + 1000)
+        
+        self.assertEqual(len(res), 1)
+        # Verify localized time in the resulting tuple
+        dt_result, msg = res[0]
+        # In June, Lisbon is UTC+1 (WEST), so 13:43 UTC -> 14:43 LOCAL
+        self.assertEqual(dt_result.strftime("%H:%M"), "14:43")
 
 if __name__ == "__main__":
-    asyncio.run(test_agenda_time())
+    unittest.main()

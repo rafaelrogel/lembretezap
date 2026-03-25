@@ -84,7 +84,7 @@ _RE_DIARIAMENTE_SPECIFIC = re.compile(
 
 # Indicadores de recorrência (para não tratar como evento único)
 RECURRENCE_INDICATORS = re.compile(
-    r"\b((?:toda?|every|cada)\s+(?:segunda|lunes|monday|terça|martes|tuesday|terca|quarta|miércoles|miercoles|wednesday|quinta|jueves|thursday|sexta|viernes|friday|sábado|sabado|saturday|domingo|sunday|semana)|"
+    r"\b((?:toda?s?|every|cada|todos?)\s+(?:as?|os?|the|las?|los?)?\s*(?:segunda|lunes|monday|terça|martes|tuesday|terca|quarta|miércoles|miercoles|wednesday|quinta|jueves|thursday|sexta|viernes|friday|sábado|sabado|saturday|domingo|sunday|semana)|"
     r"todo\s+dia|todos\s+os\s+dias|diariamente|semanalmente|mensalmente|toda\s+semana|"
     r"every\s+day|daily|weekly|monthly|every\s+week|"
     r"todos\s+los\s+d[íi]as|cada\s+d[íi]a|mensualmente|cada\s+semana|"
@@ -104,19 +104,31 @@ def is_scheduled_recurring_event(text: str) -> bool:
     """True se o texto parece evento/agenda ou lembrete recorrente com horário (parseável)."""
     if not text or len(text.strip()) < 8:
         return False
-    # Qualquer mensagem que consigamos parsear como recorrência + hora conta
-    if parse_recurring_schedule(text) is not None:
-        return True
-    
-    # Se tem indicador de recorrência (a cada, cada dia, etc), 
-    # e parece um pedido de lembrete (mesmo que sem hora explícita no parse_recurring)...
-    if has_recurrence_indicator(text):
-        from backend.reminder_flow import has_reminder_intent
-        if has_reminder_intent(text):
-            return True
+        
+    # Excluir explicitamente se parece agenda pontual (evitar conflito)
+    from backend.views.unificado import _is_eventos_unificado_intent
+    if _is_eventos_unificado_intent(text):
+        return False
 
+    # 1. Indicadores explícitos (toda segunda, todo dia, etc.) -> Confiança Alta
+    if has_recurrence_indicator(text) and parse_recurring_schedule(text) is not None:
+        return True # EXPLANATION: Explicit recurring keyword + valid schedule.
+    
+    # 2. Hints de alta confiança (academia, aula) + schedule válido
     t = _normalize(text)
-    return any(h in t for h in {_normalize(x) for x in SCHEDULED_RECURRING_HINTS})
+    has_hint = any(h in t for h in {_normalize(x) for x in SCHEDULED_RECURRING_HINTS})
+    if has_hint and parse_recurring_schedule(text) is not None:
+        return True # EXPLANATION: Domain hint (gym/class) + valid daily/weekly schedule.
+
+    return False
+
+
+def _clean_content(c: str) -> str:
+    """Remove preposições e conectores residuais do final do conteúdo extraído."""
+    c = c.strip()
+    # Remove "no", "na", "de", "do", "em", "on", "in", "at", "el", "la" etc no final
+    c = re.sub(r"\s+(?:no|na|nos|nas|o|a|os|as|de|do|da|dos|das|em|este|nesta|neste|para|às?|at|on|in|cada|toda?|every|el|la|los|las)$", "", c, flags=re.I)
+    return c.strip()
 
 
 def parse_recurring_schedule(text: str) -> tuple[str, str, int, int] | None:
@@ -159,7 +171,7 @@ def parse_recurring_schedule(text: str) -> tuple[str, str, int, int] | None:
             hora = min(23, hora)
             content = _RE_TODO_DIA_N_AT.sub("", t).strip()
             content = re.sub(r"^[:\-–—\s]+", "", content).strip()
-            return content, f"{minuto} {hora} {dia} * *", hora, minuto
+            return _clean_content(content), f"{minuto} {hora} {dia} * *", hora, minuto
 
     # 3. "todo dia 21" (Monthly Day, defaults to 9 AM)
     m = _RE_TODO_DIA_N.search(tl)
@@ -168,7 +180,7 @@ def parse_recurring_schedule(text: str) -> tuple[str, str, int, int] | None:
         if 1 <= dia <= 31:
             content = _RE_TODO_DIA_N.sub("", t).strip()
             content = re.sub(r"^[:\-–—\s]+", "", content).strip()
-            return content, f"0 9 {dia} * *", 9, 0
+            return _clean_content(content), f"0 9 {dia} * *", 9, 0
 
     # 4. "diariamente às 8h"
     m = _RE_DIARIAMENTE_SPECIFIC.search(tl)
@@ -281,7 +293,7 @@ def parse_recurring_schedule(text: str) -> tuple[str, str, int, int] | None:
         every_seconds = num * mul
         content = re.sub(cadence_pat, "", t, flags=re.I).strip()
         content = re.sub(r"^[:\-–—\s]+|[:\-–—\s]+$", "", content).strip()
-        return content, f"every:{every_seconds}", 0, 0
+        return _clean_content(content), f"every:{every_seconds}", 0, 0
 
     return None
 
