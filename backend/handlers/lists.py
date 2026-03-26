@@ -126,7 +126,26 @@ async def handle_add(ctx: "HandlerContext", content: str) -> str | None:
     elif parts[0].lower() in _GENERIC_BEGINNINGS:
         list_name, item = "mercado", rest
     else:
-        list_name, item = parts[0], parts[1]
+        # Lógica inteligente: decidir se parts[0] é o nome da lista ou apenas o início do item.
+        from backend.command_parser.core import CATEGORY_TO_LIST
+        
+        lower_p0 = parts[0].strip().lower()
+        # Conectores que sugerem que o primeiro termo é um item (ex: "pepsi que...", "leite para...")
+        _ITEM_CONNECTORS = {
+            "que", "pra", "para", "no", "na", "os", "as", "dos", "das", "del", "al", "de", "en",
+            "and", "with", "the", "for", "in", "on"
+        }
+        
+        first_word_of_rest = parts[1].split(None, 1)[0].lower() if parts[1] else ""
+        is_known_category = lower_p0 in CATEGORY_TO_LIST
+        
+        # Se o resto começa com um conector e o primeiro termo não é uma categoria conhecida (ex: filmes),
+        # assumimos que o primeiro termo é o início do item.
+        if first_word_of_rest in _ITEM_CONNECTORS and not is_known_category:
+            list_name, item = "mercado", rest
+        else:
+            list_name, item = parts[0], parts[1]
+
     if not ctx.list_tool:
         return None
     ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)

@@ -107,6 +107,7 @@ class CronService:
         self._daily_stale_task: asyncio.Task | None = None
         self._stale_loop_task: asyncio.Task | None = None
         self._running = False
+        self._startup_time_ms = _now_ms()
     
     def _load_store(self) -> CronStore:
         """Load jobs from disk."""
@@ -636,11 +637,21 @@ class CronService:
             next_ms = getattr(j.state, "next_run_at_ms", None)
             if at_ms is None:
                 continue
-            # Se next_run_at_ms esta no futuro, o job ainda e valido (pode ter sido resgatado
-            # pelo catch-up de startup) -> nunca remover como stale.
+            # Se next_run_at_ms está no futuro, o job ainda é válido (pode ter sido resgatado
+            # pelo catch-up de startup ou agendado recentemente) -> nunca remover como stale.
             if next_ms is not None and next_ms > now:
                 continue
+
+            # Startup Grace Period: Se o job expirou há menos de 1 minuto E o serviço acabou de iniciar,
+            # damos uma chance ao catch-up em vez de remover como stale.
+            # Isso evita problemas se o drift do clock ainda estiver sendo refinado.
+            GRACE_MS = 60 * 1000 # 1 minuto
+            is_recent_startup = (_now_ms() - self._startup_time_ms) < (5 * 60 * 1000) # primeiros 5 min
+            
             if at_ms <= now or next_ms is None:
+                if is_recent_startup and at_ms and (now - at_ms) < GRACE_MS:
+                    logger.info("cron_stale_removal_skipped_grace", extra={"extra": {"job_id": j.id, "at_ms": at_ms, "now": now}})
+                    continue
                 to_remove.append(j)
                 ch = getattr(j.payload, "channel", None)
                 to = getattr(j.payload, "to", None)

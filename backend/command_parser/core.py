@@ -12,7 +12,7 @@ REMOVE_ALIASES_STR = "|".join(set(pt.REMOVE_ALIASES + en.REMOVE_ALIASES + es.REM
 
 ALL_CATEGORIES_STR = "|".join(set(pt.CATEGORIES + en.CATEGORIES + es.CATEGORIES))
 
-_CATEGORY_TO_LIST = {**pt.CATEGORY_TO_LIST, **en.CATEGORY_TO_LIST, **es.CATEGORY_TO_LIST}
+CATEGORY_TO_LIST = {**pt.CATEGORY_TO_LIST, **en.CATEGORY_TO_LIST, **es.CATEGORY_TO_LIST}
 _REMINDER_AGENDA_WORDS_SHOW = pt.REMINDER_AGENDA_WORDS | en.REMINDER_AGENDA_WORDS | es.REMINDER_AGENDA_WORDS
 
 # Unified NL fragments
@@ -160,24 +160,24 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     m = RE_LIST_ADD.match(text)
     if m:
         list_name_raw = m.group(1).strip().lower()
-        list_name = _CATEGORY_TO_LIST.get(list_name_raw, list_name_raw)
+        list_name = CATEGORY_TO_LIST.get(list_name_raw, list_name_raw)
         return {"type": "list_add", "list_name": list_name, "item": m.group(2).strip()}
     m = RE_LIST_CATEGORY_ADD.match(text)
     if m:
         cat = m.group(1).strip().lower()
-        list_name = _CATEGORY_TO_LIST.get(cat, cat)
+        list_name = CATEGORY_TO_LIST.get(cat, cat)
         return {"type": "list_add", "list_name": list_name, "item": m.group(2).strip()}
     m = RE_LIST_SHOW.match(text)
     if m:
         raw_name = m.group(1).strip().lower()
-        return {"type": "list_show", "list_name": _CATEGORY_TO_LIST.get(raw_name, m.group(1).strip())}
+        return {"type": "list_show", "list_name": CATEGORY_TO_LIST.get(raw_name, m.group(1).strip())}
     if RE_LIST_ALL.match(text):
         return {"type": "list_show", "list_name": None}
-
+ 
     m = RE_FEITO_LIST_ID.match(text)
     if m:
         _fn = m.group(1).strip().lower()
-        return {"type": "feito", "list_name": _CATEGORY_TO_LIST.get(_fn, m.group(1).strip()), "item_id": int(m.group(2))}
+        return {"type": "feito", "list_name": CATEGORY_TO_LIST.get(_fn, m.group(1).strip()), "item_id": int(m.group(2))}
     m = RE_FEITO_ID_ONLY.match(text)
     if m:
         return {"type": "feito", "list_name": None, "item_id": int(m.group(1))}
@@ -186,13 +186,13 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         parts = m.group(1).strip().split(None, 1)
         if len(parts) == 2:
             _fn = parts[0].strip().lower()
-            return {"type": "feito", "list_name": _CATEGORY_TO_LIST.get(_fn, parts[0].strip()), "item": parts[1].strip()}
+            return {"type": "feito", "list_name": CATEGORY_TO_LIST.get(_fn, parts[0].strip()), "item": parts[1].strip()}
         return {"type": "feito", "list_name": None, "item": m.group(1).strip()}
-
+ 
     m = RE_REMOVE_LIST_ID.match(text)
     if m:
         _rn = m.group(1).strip().lower()
-        return {"type": "remove", "list_name": _CATEGORY_TO_LIST.get(_rn, m.group(1).strip()), "item_id": int(m.group(2))}
+        return {"type": "remove", "list_name": CATEGORY_TO_LIST.get(_rn, m.group(1).strip()), "item_id": int(m.group(2))}
     m = RE_REMOVE_ID_ONLY.match(text)
     if m:
         return {"type": "remove", "list_name": None, "item_id": int(m.group(1))}
@@ -201,7 +201,7 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         parts = m.group(1).strip().split(None, 1)
         if len(parts) == 2:
             _rn = parts[0].strip().lower()
-            return {"type": "remove", "list_name": _CATEGORY_TO_LIST.get(_rn, parts[0].strip()), "item": parts[1].strip()}
+            return {"type": "remove", "list_name": CATEGORY_TO_LIST.get(_rn, parts[0].strip()), "item": parts[1].strip()}
         return {"type": "remove", "list_name": None, "item": m.group(1).strip()}
 
     if RE_HORA.match(text): return {"type": "hora"}
@@ -216,20 +216,20 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         if _name in _REMINDER_AGENDA_WORDS_SHOW:
             # "mostra minha agenda" -> let handle_agenda handle it unless we add it here
             return {"type": "agenda"}
-        list_name = _CATEGORY_TO_LIST.get(_name, _name)
+        list_name = CATEGORY_TO_LIST.get(_name, _name)
         return {"type": "list_show", "list_name": list_name}
-
+ 
     if RE_HOJE.match(text): return {"type": "hoje"}
     if RE_SEMANA.match(text): return {"type": "semana"}
     m = RE_AGENDA.match(text)
     if m: return {"type": "agenda", "query": m.group(1).strip()}
-
+ 
     m = RE_NL_LIST_ADD.match(text)
     if m:
         _name = m.group(1).strip().lower()
         if _name in _REMINDER_AGENDA_WORDS_SHOW:
             return None
-        list_name = _CATEGORY_TO_LIST.get(_name, _name)
+        list_name = CATEGORY_TO_LIST.get(_name, _name)
         item = (m.group(2) or "").strip()
         if item:
             return {"type": "list_add", "list_name": list_name, "item": item}
@@ -264,7 +264,7 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     m = RE_NL_ADD_LISTA_CATEGORIA.match(text)
     if m:
         cat = m.group(1).strip().lower()
-        list_name = _CATEGORY_TO_LIST.get(cat, cat)
+        list_name = CATEGORY_TO_LIST.get(cat, cat)
         item = m.group(2).strip()
         if item: return {"type": "list_add", "list_name": list_name, "item": item}
 
@@ -274,7 +274,7 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         if item:
             _raw_name = m.group(2).strip()
             _name = _extract_list_name(_raw_name).lower()
-            list_name = _CATEGORY_TO_LIST.get(_name, _name)
+            list_name = CATEGORY_TO_LIST.get(_name, _name)
             return {"type": "list_add", "list_name": list_name, "item": item}
 
     m = RE_NL_LISTA_DOIS_PONTOS.match(text)

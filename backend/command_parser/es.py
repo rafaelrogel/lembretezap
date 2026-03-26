@@ -33,6 +33,7 @@ CATEGORY_TO_LIST = {
     "juego": "jogos", "juegos": "jogos",
     "canción": "músicas", "canciones": "músicas",
     "receta": "receitas", "recetas": "receitas",
+    "compras": "mercado", "mercado": "mercado", "supermercado": "mercado",
 }
 
 # NL Por Lista
