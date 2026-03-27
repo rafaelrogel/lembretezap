@@ -324,6 +324,23 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         if 1 <= dia_mes <= 28:
             return {"cron_expr": f"0 {hora} {dia_mes} * *", "message": clean_message(strip_pattern(text, r"(?:mensalmente|monthly|mensualmente)\s+(?:dia\s+|day\s+)?\d{1,2}\s*(?:às?|as|at|a\s+las?)\s*\d{1,2}\s*h?\s*"))}
 
+    # 16.5. One-time weekday + specific time (e.g. "sexta-feira às 18h00", "monday at 3pm")
+    for dia_name, cron_dow in DIAS_SEMANA.items():
+        pat = rf"\b{re.escape(dia_name)}(?:\s*-?\s*f[eé]ira)?\s+(?:às?|as|at|a\s+las?)\s*(\d{{1,2}})(?:\s*(?:h|:)\s*(\d{{2}})?)?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b"
+        m = re.search(pat, text_lower, re.I)
+        if m:
+            hora = int(m.group(1))
+            minute = int(m.group(2) or 0)
+            period = m.group(3)
+            hora = min(23, max(0, adjust_am_pm_hour(hora, period)))
+            days_ahead = (cron_dow - ((now.weekday() + 1) % 7) + 7) % 7
+            if days_ahead == 0 and (now.hour > hora or (now.hour == hora and now.minute >= minute)):
+                days_ahead = 7
+            target = (now + timedelta(days=days_ahead)).replace(hour=hora, minute=minute, second=0, microsecond=0)
+            delta = (target - now).total_seconds()
+            if delta > 0:
+                return {"in_seconds": int(delta), "message": clean_message(strip_pattern(text, pat))}
+
     # 17. Hoje/Amanhã/Semaval sem hora
     _vague_days = {"hoje": 0, "hoy": 0, "today": 0, "amanhã": 1, "amanha": 1, "mañana": 1, "tomorrow": 1}
     for word, days_offset in _vague_days.items():
