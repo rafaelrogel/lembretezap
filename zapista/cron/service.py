@@ -36,8 +36,8 @@ def _now_ms() -> int:
 
 
 # Janela de catch-up ao arranque: jobs "at" atrasados até este limite são disparados imediatamente
-# em vez de serem silenciosamente eliminados. 10 min cobre reinícios rápidos do serviço.
-_CATCHUP_WINDOW_MS = 10 * 60 * 1000  # 10 minutos
+# em vez de serem silenciosamente eliminados. 12 horas cobre paragens prolongadas do serviço (como reparado em 26/03).
+_CATCHUP_WINDOW_MS = 12 * 60 * 60 * 1000  # 12 horas (ex: de 10h às 18h)
 
 
 def _compute_next_run(schedule: CronSchedule, now_ms: int) -> int | None:

@@ -68,7 +68,23 @@ def _is_recipe_list_confirm(content: str) -> bool:
 def _is_recipe_list_cancel(content: str) -> bool:
     """True se o user cancela (não, cancelar, etc.)."""
     t = (content or "").strip().lower()
-    return t in ("não", "nao", "n", "no", "cancelar", "cancel", "nope")
+    return t in ("nao", "n", "no", "cancelar", "cancela", "stop", "parar")
+
+
+def _is_recipe_save_confirm(content: str) -> bool:
+    """True se o user quer GUARDAR a receita (guardar, salvar, save, anotar)."""
+    import unicodedata
+    t = (content or "").strip().lower()
+    if not t or len(t) > 60:
+        return False
+    t = unicodedata.normalize("NFD", t)
+    t = "".join(c for c in t if unicodedata.category(c) != "Mn")  # remove acentos
+    keywords = (
+        "guardar", "salvar", "save", "anotar", "registar", "registrar",
+        "guarda", "salva", "anota", "regista", "registra",
+        "pode guardar", "pode salvar", "quero guardar", "quero salvar"
+    )
+    return any(k in t for k in keywords)
 
 
 def _parse_list_or_events_choice(content: str) -> str | None:
@@ -128,9 +144,21 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
         return None
 
     if pending and pending.get("action") == "create_shopping_list_from_recipe":
+        payload = pending.get("payload") or {}
+        
+        # Opção 1: Salvar a receita completa
+        if _is_recipe_save_confirm(content):
+            clear_pending(ctx.channel, ctx.chat_id)
+            recipe_text = payload.get("save_recipe_text")
+            if recipe_text and ctx.list_tool:
+                ctx.list_tool.set_context(ctx.channel, ctx.chat_id, ctx.phone_for_locale)
+                await ctx.list_tool.execute(action="add", list_name="receitas", item_text=recipe_text)
+                from backend.locale import CONFIRM_RECIPE_SAVED
+                return CONFIRM_RECIPE_SAVED.get(_get_lang(ctx), CONFIRM_RECIPE_SAVED["en"])
+                
+        # Opção 2: Criar lista de compras (default do "sim")
         if _is_recipe_list_confirm(content) or is_confirm_yes(content):
             clear_pending(ctx.channel, ctx.chat_id)
-            payload = pending.get("payload") or {}
             ingredients = payload.get("ingredients") or []
             list_name = payload.get("list_name") or "compras_receita"
             if ingredients and ctx.list_tool:
@@ -147,9 +175,11 @@ async def resolve_confirm(ctx: HandlerContext, content: str) -> str | None:
                 return "\n".join(lines)
             from backend.locale import CONFIRM_RECIPE_NO_INGREDIENTS
             return CONFIRM_RECIPE_NO_INGREDIENTS.get(_get_lang(ctx), CONFIRM_RECIPE_NO_INGREDIENTS["en"])
-        from backend.locale import CONFIRM_RECIPE_CANCEL
+            
+        # Opção 3: Cancelar
         if _is_recipe_list_cancel(content) or is_confirm_no(content):
             clear_pending(ctx.channel, ctx.chat_id)
+            from backend.locale import CONFIRM_RECIPE_CANCEL
             return CONFIRM_RECIPE_CANCEL.get(_get_lang(ctx), CONFIRM_RECIPE_CANCEL["en"])
 
     if pending and pending.get("action") == "add_items_from_search":

@@ -333,10 +333,10 @@ async def _handle_save_provided_recipe(ctx: "HandlerContext", content: str) -> s
 
 
 _RECIPE_OFFER_MSG = {
-    "pt-PT": "\n\nPosso criar uma lista de compras para esta receita se quiseres! 🛒",
-    "pt-BR": "\n\nPosso criar uma lista de compras para esta receita se quiser! 🛒",
-    "es": "\n\n¿Quieres que cree una lista de compras para esta receta? 🛒",
-    "en": "\n\nI can create a shopping list for this recipe if you'd like! 🛒",
+    "pt-PT": "\n\nPosso criar uma lista de compras (diz 'lista') ou guardar a receita (diz 'guardar')! 🛒📖",
+    "pt-BR": "\n\nPosso criar uma lista de compras (diga 'lista') ou guardar a receita (diga 'guardar')! 🛒📖",
+    "es": "\n\n¿Quieres que cree una lista de compras (di 'lista') o guarde la receta (di 'guardar')? 🛒📖",
+    "en": "\n\nI can create a shopping list (say 'list') or save the recipe (say 'save')! 🛒📖",
 }
 
 
@@ -357,7 +357,11 @@ def _build_recipe_response(
                 ctx.channel,
                 ctx.chat_id,
                 "create_shopping_list_from_recipe",
-                {"ingredients": ingredients, "list_name": list_name},
+                {
+                    "ingredients": ingredients, 
+                    "list_name": list_name,
+                    "save_recipe_text": recipe_text
+                },
             )
             offer = _RECIPE_OFFER_MSG.get(user_lang, _RECIPE_OFFER_MSG["pt-BR"])
             return base + offer

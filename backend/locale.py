@@ -1335,6 +1335,13 @@ CONFIRM_RECIPE_LIST_CREATED: dict[LangCode, str] = {
     "en": "List created! 🛒 *{list_name}* with {count} items based on the recipe:",
 }
 
+CONFIRM_RECIPE_SAVED: dict[LangCode, str] = {
+    "pt-PT": "Receita guardada com sucesso na lista *receitas*! 📖✨",
+    "pt-BR": "Receita salva com sucesso na lista *receitas*! 📖✨",
+    "es": "¡Receta guardada con éxito en la lista *receitas*! 📖✨",
+    "en": "Recipe successfully saved to the *receitas* list! 📖✨",
+}
+
 CONFIRM_RECIPE_NO_INGREDIENTS: dict[LangCode, str] = {
     "pt-PT": "Não consegui extrair os ingredientes. Tenta de novo com outra receita.",
     "pt-BR": "Não consegui extrair os ingredientes. Tente de novo com outra receita.",
