@@ -164,7 +164,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
     # 3. Hoje
     m = re.search(
         r"(?:(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*(?:de\s+)?(?:hoje|hoy|today)\b|"
-        r"(?:hoje|hoy|today)\s+(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b)",
+        r"(?:hoje|hoy|today)[\s,]+(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b)",
         text_lower, re.I
     )
     if m:
@@ -177,7 +177,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
 
     # 4. Amanhã
     m = re.search(
-        r"(?:amanh[ãa]|ma[ñn]ana|tomorrow)\s+(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b",
+        r"(?:amanh[ãa]|ma[ñn]ana|tomorrow)[\s,]+(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b",
         text_lower, re.I
     )
     if m:

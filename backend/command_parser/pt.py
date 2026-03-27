@@ -16,7 +16,7 @@ CATEGORIES = [
 VERBS_MOSTRE = ["mostr", "ver", "listar?", "exib"]
 VERBS_CRIA = ["cria?r?", "crie?", "fa[çc]a", "faz", "fazer"]
 ARTICLES = ["a", "as", "os", "uma?", "la", "las", "el", "los"]
-POSSESSIVES = ["minha?", "minhas", "meus", "meu"]
+POSSESSIVES = ["minhas?", "meus?"]
 LIST_WORDS = ["lista?"]
 PREPOSITIONS_OF = ["de", "denominad", "chamad", "nomead"]
 

@@ -63,7 +63,14 @@ RE_NL_LIST_ADD = re.compile(
     re.I | re.UNICODE,
 )
 
-RE_NL_LISTA_SOZINHA = re.compile(rf"^(?:{'|'.join(pt.LISTA_SOZINHA_WORDS)})\s*$", re.I)
+RE_NL_LISTA_SOZINHA = re.compile(
+    rf"^(?:(?:{POSSESSIVES_STR}|my|mi|mis)\s+)?({LIST_WORDS_STR}s?|{'|'.join(pt.LISTA_SOZINHA_WORDS)})(?:\s+(.+))?\s*$",
+    re.I
+)
+
+
+
+
 
 # Shortcuts
 RE_FILME = re.compile(r"^/filmes?\s+([^\r\n]+)$", re.I)
@@ -237,8 +244,16 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
 
     m = RE_NL_LISTA_SOZINHA.match(text)
     if m:
-        name = m.group(1).strip()
-        return {"type": "list_show", "list_name": name if name != "lista" else None}
+        p1 = m.group(1).strip().lower()
+        p2 = (m.group(2) or "").strip().lower()
+        # "lista mercado" -> p1="lista", p2="mercado" -> name="mercado"
+        # "mercado" -> p1="mercado", p2="" -> name="mercado"
+        name = p2 if p2 else p1
+        list_name = CATEGORY_TO_LIST.get(name, name)
+        is_generic = list_name in ("lista", "listas", "list", "lists")
+        return {"type": "list_show", "list_name": None if is_generic else list_name}
+
+
 
     m = RE_FILME.match(text)
     if m: return {"type": "list_add", "list_name": "filmes", "item": m.group(1).strip()}
