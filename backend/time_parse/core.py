@@ -59,10 +59,14 @@ def clean_message(t: str) -> str:
         if t.lower().startswith(prefix) and len(t) > len(prefix):
             t = t[len(prefix):].strip()
     t = re.sub(r"\s+at[eé]\s*$", "", t, flags=re.I)
-    # Strip trailing dangling prepositions left after time extraction
-    # e.g. "presente do João no" → "presente do João"
-    t = re.sub(r"\s+(?:no|na|nos|nas|à|ao|aos|às|at|on|in|en|el|la|a|para|por|del)\s*$", "", t, flags=re.I)
+    # Strip trailing dangling prepositions left after time extraction (PT, EN, ES)
+    # e.g. "presente do João no" → "presente do João", "buy milk on" → "buy milk"
+    t = re.sub(
+        r"\s+(?:no|na|nos|nas|à|ao|aos|às|de|do|da|dos|das|em|para|por|com|at|on|in|for|to|by|with|of|from|en|el|la|los|las|a|al|del)\s*$",
+        "", t, flags=re.I
+    )
     return t or "Lembrete"
+
 
 
 def extract_start_date(text: str, tz_iana: str = "UTC") -> str | None:
