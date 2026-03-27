@@ -62,10 +62,11 @@ def clean_message(t: str) -> str:
     # Strip trailing dangling prepositions left after time extraction (PT, EN, ES)
     # e.g. "presente do João no" → "presente do João", "buy milk on" → "buy milk"
     t = re.sub(
-        r"\s+(?:no|na|nos|nas|à|ao|aos|às|de|do|da|dos|das|em|para|por|com|at|on|in|for|to|by|with|of|from|en|el|la|los|las|a|al|del)\s*$",
+        r"\s+(?:no|na|nos|nas|à|ao|aos|às|de|do|da|dos|das|em|para|por|com|con|at|on|in|for|to|by|with|of|from|en|el|la|los|las|a|al|del)\s*$",
         "", t, flags=re.I
     )
     return t or "Lembrete"
+
 
 
 
