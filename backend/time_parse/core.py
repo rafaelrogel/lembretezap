@@ -164,7 +164,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
     # 3. Hoje
     m = re.search(
         r"(?:(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*(?:de\s+)?(?:hoje|hoy|today)\b|"
-        r"(?:hoje|hoy|today)[\s,]+(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b)",
+        r"(?:hoje|hoy|today).+?\b(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b)",
         text_lower, re.I
     )
     if m:
@@ -177,7 +177,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
 
     # 4. Amanhã
     m = re.search(
-        r"(?:amanh[ãa]|ma[ñn]ana|tomorrow)[\s,]+(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b",
+        r"(?:amanh[ãa]|ma[ñn]ana|tomorrow).+?\b(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b",
         text_lower, re.I
     )
     if m:
@@ -352,16 +352,23 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
 
     # 17. Hoje/Amanhã/Semaval sem hora
     _vague_days = {"hoje": 0, "hoy": 0, "today": 0, "amanhã": 1, "amanha": 1, "mañana": 1, "tomorrow": 1}
+    from datetime import time as dt_time
+    tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
     for word, days_offset in _vague_days.items():
         if word in text_lower:
-            delta = ((now + timedelta(days=days_offset)).replace(hour=9, minute=0, second=0, microsecond=0) - now).total_seconds()
+            target_date = (now + timedelta(days=days_offset)).date()
+            target_dt = datetime.combine(target_date, dt_time(9, 0), tzinfo=tz)
+            delta = (target_dt - now).total_seconds()
             if delta > 0: return {"in_seconds": int(delta), "message": clean_message(strip_pattern(text, rf"\b{re.escape(word)}\b"))}
     for dia_name, cron_dow in DIAS_SEMANA.items():
         pat = rf"\b{re.escape(dia_name)}(?:\s*-?\s*f[eé]ira)?\b"
         if re.search(pat, text_lower, re.I):
             days_ahead = (cron_dow - ((now.weekday() + 1) % 7) + 7) % 7
             if days_ahead == 0 and now.hour >= 9: days_ahead = 7
-            delta = ((now + timedelta(days=days_ahead)).replace(hour=9, minute=0, second=0, microsecond=0) - now).total_seconds()
+            target_date = (now + timedelta(days=days_ahead)).date()
+            target_dt = datetime.combine(target_date, dt_time(9, 0), tzinfo=tz)
+            delta = (target_dt - now).total_seconds()
             if delta > 0: return {"in_seconds": int(delta), "message": clean_message(strip_pattern(text, pat))}
+
 
     return {"message": text}
