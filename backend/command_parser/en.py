@@ -14,7 +14,8 @@ CATEGORIES = [
 ]
 
 # NL List Action synonyms
-VERBS_MOSTRE = ["show", "display", "view"]
+# NL List Action synonyms
+VERBS_MOSTRE = ["show", "display", "view", "see", "let\\s+me\\s+see", "can\\s+i\\s+see", "show\\s+me"]
 VERBS_CRIA = ["make", "create", "give"]
 ARTICLES = ["the", "an?"]
 POSSESSIVES = ["my"]

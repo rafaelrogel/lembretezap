@@ -12,8 +12,9 @@ CATEGORIES = [
 ]
 
 # NL List Action synonyms
-VERBS_MOSTRE = ["muest", "mostr", "ver"]
-VERBS_CRIA = ["make", "create", "haz", "crea?r?", "give", "dame"]
+# NL List Action synonyms
+VERBS_MOSTRE = ["enséñ", "enseñ", "muéstr", "muestr", "mostr", "ver", "quiero\\s+ver", "enséñame", "muéstrame", "déjame\\s+ver"]
+VERBS_CRIA = ["make", "create", "haz", "hace", "hacer", "crea?r?", "give", "dame", "quisiera", "quiero\\s+crear", "pon"]
 ARTICLES = ["la", "las", "el", "los", "un[a]?"]
 POSSESSIVES = ["mi", "mis"]
 LIST_WORDS = ["lista?"]

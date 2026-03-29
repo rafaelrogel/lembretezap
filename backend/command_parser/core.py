@@ -63,16 +63,14 @@ RE_DATA = re.compile(rf"^/(?:{DATA_ALIASES_STR})\s*$", re.I)
 
 # Unified NL patterns
 RE_NL_LIST_SHOW = re.compile(
-    rf"^(?:{VERBS_MOSTRE_STR}|show\s+me|me\s+d)\S*\s+"
-    rf"(?:(?:{ARTICLES_STR})\s+)?(?:(?:{POSSESSIVES_STR}|ma|mon)\s+)?(?:{LIST_WORDS_STR})"
-    rf"(?:\s+(?:(?:{PREPOSITIONS_OF_STR})\S*\s+)?({ALL_CATEGORIES_STR}|[\"']?[^\"'\r\n]+?[\"']?))?"
-    rf"(?:\s+(.+))?\s*$",
+    rf"^(?:{VERBS_MOSTRE_STR})\S*\s+"
+    rf"(?:(?:{ARTICLES_STR})\s+)?(?:(?:{POSSESSIVES_STR}|ma|mon|mi|mis)\s+)?(.+?)\s*$",
     re.I | re.UNICODE,
 )
  
 AGENDA_WORDS_STR = "|".join(sorted(_REMINDER_AGENDA_WORDS_SHOW, key=len, reverse=True))
 RE_NL_AGENDA_SHOW = re.compile(
-    rf"^(?:{VERBS_MOSTRE_STR}|show\s+me|me\s+d)\S*\s+"
+    rf"^(?:{VERBS_MOSTRE_STR})\S*\s+"
     rf"(?:(?:{ARTICLES_STR})\s+)?(?:(?:{POSSESSIVES_STR}|ma|mon)\s+)?(?:{AGENDA_WORDS_STR})\s*$",
     re.I | re.UNICODE,
 )
@@ -245,12 +243,9 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
  
     m = RE_NL_LIST_SHOW.match(text)
     if m:
-        _cat_raw = m.group(1)
-        if not _cat_raw:
-            return {"type": "list_show", "list_name": None}
-        _name = _cat_raw.strip().lower()
+        _remainder = m.group(1).strip()
+        _name = _extract_list_name(_remainder)
         if _name in _REMINDER_AGENDA_WORDS_SHOW:
-            # "mostra minha agenda" -> let handle_agenda handle it unless we add it here
             return {"type": "agenda"}
         list_name = CATEGORY_TO_LIST.get(_name, _name)
         return {"type": "list_show", "list_name": list_name}

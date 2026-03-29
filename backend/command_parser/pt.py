@@ -13,8 +13,8 @@ CATEGORIES = [
 ]
 
 # NL List Action synonyms
-VERBS_MOSTRE = ["mostr", "ver", "listar?", "exib"]
-VERBS_CRIA = ["cria?r?", "crie?", "fa[çc]a", "faz", "fazer"]
+VERBS_MOSTRE = ["mostr", "ver", "listar?", "exib", "ensina", "queria\\s+ver", "quero\\s+ver", "mostra-me", "mostre-me", "d[aá]-me", "deixa-me\\s+ver"]
+VERBS_CRIA = ["cria?r?", "crie?", "fa[çc]a", "faz", "fazer", "faz-me", "cria-me", "quero\\s+criar"]
 ARTICLES = ["a", "as", "os", "uma?", "la", "las", "el", "los"]
 POSSESSIVES = ["minhas?", "meus?"]
 LIST_WORDS = ["lista?"]
