@@ -405,14 +405,17 @@ def parse_time_from_response(text: str) -> tuple[int, int] | None:
     return _parse_written_time(t)
 
 
-# Parsing de antecedência (30 min, 1 hora)
+# Parsing de antecedência (30 min, 1 hora, meia hora)
 _ADVANCE_PATTERNS = (
+    # 1. Idiomas / Literais (Primeiro para evitar falsos positivos/dead code)
+    (r"meia\s*hora", lambda m: 1800),
+    (r"half\s*(?:an?\s*)?hour", lambda m: 1800),
+    (r"media\s*hora", lambda m: 1800),
+    (r"30\s*min", lambda m: 1800),
+    (r"una\s*hora", lambda m: 3600),
+    # 2. Padrões genéricos ((\d+) h, (\d+) min)
     (r"(\d+)\s*min(?:uto?s?)?", lambda m: int(m.group(1)) * 60),
     (r"(\d+)\s*h(?:ora?s?)?", lambda m: int(m.group(1)) * 3600),
-    (r"meia\s*hora", lambda m: 1800),
-    (r"30\s*min", lambda m: 1800),
-    (r"1\s*hora", lambda m: 3600),
-    (r"1\s*hr", lambda m: 3600),
 )
 
 
