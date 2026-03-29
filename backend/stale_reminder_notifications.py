@@ -4,17 +4,25 @@ Para evitar spam no WhatsApp, a mensagem só é enviada após o cliente ter
 enviado 2 mensagens na mesma sessão (incrementamos a cada mensagem do user).
 """
 
+import json
 from typing import Any
 
 from backend.locale import LangCode
+from backend.redis_client import get_redis_client
 
 _PENDING: dict[tuple[str, str], dict[str, Any]] = {}
 # Estrutura: (channel, chat_id) -> { "removed_jobs": [{"id": str, "name": str}], "user_msg_count": int }
 REQUIRED_MSGS_BEFORE_NOTIFY = 2
+_REDIS_KEY_PREFIX = "zapista:stale_notif:"
+_TTL = 604800  # 7 dias (notificações são persistentes até o user falar algo)
 
 
 def _key(channel: str, chat_id: str) -> tuple[str, str]:
     return (channel, str(chat_id))
+
+
+def _redis_key(channel: str, chat_id: str) -> str:
+    return f"{_REDIS_KEY_PREFIX}{channel}:{chat_id}"
 
 
 def register_pending_stale_notification(
@@ -25,16 +33,47 @@ def register_pending_stale_notification(
     """Regista que foram removidos lembretes obsoletos para este chat. A mensagem será enviada após 2 msgs do user."""
     if not removed_jobs:
         return
+    
     key = _key(channel, chat_id)
-    existing = _PENDING.get(key)
+    r_key = _redis_key(channel, chat_id)
+    client = get_redis_client()
+    
+    existing = None
+    if client:
+        try:
+            data = client.get(r_key)
+            if data:
+                existing = json.loads(data)
+        except Exception:
+            pass
+            
+    if not existing:
+        existing = _PENDING.get(key)
+        
     if existing:
+        # Merge removed_jobs
+        if "removed_jobs" not in existing:
+             existing["removed_jobs"] = []
         existing["removed_jobs"].extend(removed_jobs)
         existing["user_msg_count"] = 0
     else:
-        _PENDING[key] = {
+        existing = {
             "removed_jobs": list(removed_jobs),
             "user_msg_count": 0,
         }
+        
+    # Update Redis
+    if client:
+        try:
+            client.setex(r_key, _TTL, json.dumps(existing, ensure_ascii=False))
+            # Se guardámos no Redis, removemos da memória para evitar duplicados/inconsistência
+            _PENDING.pop(key, None)
+            return
+        except Exception:
+            pass
+            
+    # Fallback memória
+    _PENDING[key] = existing
 
 
 def maybe_get_stale_notification(channel: str, chat_id: str, lang: LangCode = "pt-BR") -> tuple[bool, str | None]:
@@ -43,16 +82,50 @@ def maybe_get_stale_notification(channel: str, chat_id: str, lang: LangCode = "p
     devolve (True, mensagem) e limpa o pendente. Caso contrário (False, None).
     """
     key = _key(channel, chat_id)
-    entry = _PENDING.get(key)
+    r_key = _redis_key(channel, chat_id)
+    client = get_redis_client()
+    
+    entry = None
+    if client:
+        try:
+            data = client.get(r_key)
+            if data:
+                entry = json.loads(data)
+        except Exception:
+            pass
+            
+    if not entry:
+        entry = _PENDING.get(key)
+        
     if not entry:
         return (False, None)
+        
     entry["user_msg_count"] = entry.get("user_msg_count", 0) + 1
+    
     if entry["user_msg_count"] < REQUIRED_MSGS_BEFORE_NOTIFY:
+        # Update back
+        if client:
+            try:
+                client.setex(r_key, _TTL, json.dumps(entry, ensure_ascii=False))
+                return (False, None)
+            except Exception:
+                pass
+        _PENDING[key] = entry
         return (False, None)
+        
+    # Success -> Clear and format
     removed = entry.get("removed_jobs") or []
-    del _PENDING[key]
+    
+    if client:
+        try:
+            client.delete(r_key)
+        except Exception:
+            pass
+    _PENDING.pop(key, None)
+    
     if not removed:
         return (False, None)
+        
     msg = _format_notification(removed, lang)
     return (True, msg)
 

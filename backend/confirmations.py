@@ -12,36 +12,11 @@ import os
 import time
 from typing import Any
 
+from backend.redis_client import get_redis_client
+
 _PENDING: dict[str, dict[str, Any]] = {}  # fallback memória
 _EXPIRY_SECONDS = 300  # 5 min
 _REDIS_KEY_PREFIX = "zapista:pending:"
-
-# Cliente Redis partilhado
-_redis_client = None
-
-
-def _get_redis_url() -> str | None:
-    """URL Redis a partir do ambiente."""
-    url = os.environ.get("REDIS_URL", "").strip()
-    return url or None
-
-
-def _get_redis_client():
-    """Retorna cliente Redis síncrono (para uso em sync code)."""
-    global _redis_client
-    if _redis_client is not None:
-        return _redis_client
-    redis_url = _get_redis_url()
-    if not redis_url:
-        return None
-    try:
-        import redis
-        _redis_client = redis.from_url(redis_url, decode_responses=True)
-        # Testar conexão
-        _redis_client.ping()
-        return _redis_client
-    except Exception:
-        return None
 
 
 def _key(channel: str, chat_id: str) -> str:
@@ -61,7 +36,7 @@ def set_pending(channel: str, chat_id: str, action: str, payload: dict[str, Any]
     }
     
     # Tentar Redis primeiro
-    client = _get_redis_client()
+    client = get_redis_client()
     if client:
         try:
             client.setex(
@@ -80,7 +55,7 @@ def set_pending(channel: str, chat_id: str, action: str, payload: dict[str, Any]
 def get_pending(channel: str, chat_id: str) -> dict[str, Any] | None:
     """Obtém confirmação pendente se existir e não expirada."""
     # Tentar Redis primeiro
-    client = _get_redis_client()
+    client = get_redis_client()
     if client:
         try:
             data = client.get(_redis_key(channel, chat_id))
@@ -104,7 +79,7 @@ def get_pending(channel: str, chat_id: str) -> dict[str, Any] | None:
 def clear_pending(channel: str, chat_id: str) -> None:
     """Remove confirmação pendente."""
     # Tentar Redis primeiro
-    client = _get_redis_client()
+    client = get_redis_client()
     if client:
         try:
             client.delete(_redis_key(channel, chat_id))
