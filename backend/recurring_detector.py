@@ -125,11 +125,6 @@ _REMINDER_HINT_WORDS = (
 )
 
 
-async def _mimo_confirms_reminder(content: str, scope_provider, scope_model: str) -> bool:
-    """
-    Mimo confirma: é pedido de lembrete? Usado como gate final para evitar falsos positivos.
-    """
-    return await _mimo_is_reminder_without_time(content, scope_provider, scope_model)
 
 
 async def maybe_ask_recurrence(
@@ -146,29 +141,24 @@ async def maybe_ask_recurrence(
     """
     if _has_explicit_time(content or ""):
         return None
-    is_reminder, msg_extract = looks_like_reminder_without_time(content)
 
-    if is_reminder and msg_extract:
-        # Regex diz que é lembrete — Mimo confirma antes de perguntar
-        if scope_provider and scope_model:
-            if not await _mimo_confirms_reminder(content, scope_provider, scope_model):
-                return None
-        return get_ask_recurrence_message(lang)
-
-    # Fallback: mensagem tem hint (lembrar, lembrete) mas regex não pegou
+    # Gate 1: Regex ou Hints
+    is_reminder_regex, _ = looks_like_reminder_without_time(content)
     t = (content or "").strip().lower()
     has_hint = any(w in t for w in _REMINDER_HINT_WORDS)
-    if (
-        content
-        and 10 < len(t) < 120
-        and has_hint
-        and scope_provider
-        and scope_model
-    ):
-        if await _mimo_is_reminder_without_time(
-            content.strip(), scope_provider, scope_model
-        ):
+    
+    # Condições mínimas para considerar chamar a IA
+    should_arbitrate = False
+    if is_reminder_regex:
+        should_arbitrate = True
+    elif has_hint and 10 < len(t) < 120:
+        should_arbitrate = True
+
+    if should_arbitrate and scope_provider and scope_model:
+        # Gate 2: Mimo como árbitro final (unificado)
+        if await _mimo_is_reminder_without_time(t, scope_provider, scope_model):
             return get_ask_recurrence_message(lang)
+
     return None
 
 
