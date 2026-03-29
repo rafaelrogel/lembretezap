@@ -155,9 +155,18 @@ def gather_user_context(
     except Exception:
         _now_ts = __import__("time").time()
 
-    now = datetime.fromtimestamp(_now_ts, tz=timezone.utc)
+    # 'now' ingénuo em UTC para comparar com campos DateTime do SQLAlchemy
+    now = datetime.fromtimestamp(_now_ts, tz=timezone.utc).replace(tzinfo=None)
     week_ago = now - timedelta(days=7)
     week_ahead = now + timedelta(days=7)
+
+    # Buscar utilizador
+    from backend.models_db import User
+    import hashlib
+    h = hashlib.sha256(chat_id.encode()).hexdigest()
+    user = db.query(User).filter(User.phone_hash == h).first()
+    if not user:
+        return {}
 
     # Histórico de lembretes (últimos 7 dias)
     reminder_entries = get_reminder_history(db, chat_id, kind=None, limit=50, since=week_ago)
@@ -176,8 +185,18 @@ def gather_user_context(
         payload = ev.payload if isinstance(ev.payload, dict) else {}
         nome = (payload.get("nome") or str(ev.payload))[:60]
         data_at = ev.data_at
+        
         if not data_at:
+            if ev.recorrente:
+                # É uma rotina/cron sem data fixa imediata; incluímos sempre como contexto de rotina
+                events_upcoming.append({
+                    "nome": nome,
+                    "data": "Rotina",
+                    "tipo": ev.tipo or "evento",
+                    "recorrencia": ev.recorrente
+                })
             continue
+
         try:
             # Converter para UTC ingênuo para comparação com 'now' ingênuo
             ev_naive = data_at.astimezone(timezone.utc).replace(tzinfo=None) if data_at.tzinfo else data_at
@@ -247,8 +266,11 @@ def _format_context_for_mimo(ctx: dict[str, Any]) -> str:
             parts.append(f"- {r['kind']}: {r['message']} (status: {r['status']})")
     if ctx.get("events_upcoming"):
         parts.append("\n## Eventos próximos")
-        for e in ctx["events_upcoming"][:10]:
-            parts.append(f"- {e['data']}: {e['nome']} ({e['tipo']})")
+        for e in ctx["events_upcoming"][:15]:
+            when = e['data']
+            if when == "Rotina" and e.get("recorrencia"):
+                when = f"Rotina ({e['recorrencia']})"
+            parts.append(f"- {when}: {e['nome']} ({e['tipo']})")
     if ctx.get("events_recent"):
         parts.append("\n## Eventos recentes (passados)")
         for e in ctx["events_recent"][:5]:
