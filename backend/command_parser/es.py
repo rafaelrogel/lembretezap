@@ -20,7 +20,7 @@ LIST_WORDS = ["lista?"]
 PREPOSITIONS_OF = ["de", "llamada", "llamado", "nombrada", "nombrado"]
 
 # NL Lista Sozinha
-LISTA_SOZINHA_WORDS = ["lista", "compras", "mercado", "supermercado", "agenda", "calendario", "eventos", "compromisos", "citas", "tareas"]
+LISTA_SOZINHA_WORDS = ["lista", "compras", "mercado", "supermercado", "agenda", "calendario", "eventos", "compromisos", "citas", "tareas", "lista de compras", "lista de mercado", "lista del súper", "mandados", "deveres"]
 
 # NL Adicione Lista
 ADICIONE_VERBS = ["a[ñn]adir", "a[ñn]ada", "a[ñn]ade", "agregar", "agrega", "agregue", "poner", "pon", "ponga", "incluir", "incluye", "incluya"]

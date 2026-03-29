@@ -25,7 +25,8 @@ PREPOSITIONS_OF = ["de", "denominad", "chamad", "nomead"]
 # NL Lista Sozinha (handled by PT if needed, but mainly command based)
 LISTA_SOZINHA_WORDS = [
     "lista", "mercado", "compras", "pendentes", "agenda", "agendas",
-    "compromissos", "compromisso", "eventos", "evento", "calendário", "calendario"
+    "compromissos", "compromisso", "eventos", "evento", "calendário", "calendario",
+    "afazeres", "tarefas", "lista de compras", "lista do mercado", "lista de mercado"
 ]
 
 # NL Adicione Lista

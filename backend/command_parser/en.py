@@ -22,7 +22,11 @@ LIST_WORDS = ["list"]
 PREPOSITIONS_OF = ["of", "called", "named"]
 
 # NL Lista Sozinha (handled by PT if needed, but mainly command based)
-LISTA_SOZINHA_WORDS = ["list", "grocery", "groceries", "market", "shopping", "agenda", "calendar", "reminders", "events", "tasks"]
+LISTA_SOZINHA_WORDS = [
+    "list", "grocery", "groceries", "market", "shopping", "agenda", "calendar", 
+    "reminders", "events", "tasks", "todo", "todos", "shopping list", 
+    "grocery list", "market list", "task list", "todo list", "items", "stuff"
+]
 
 # NL Adicione Lista
 ADICIONE_VERBS = ["add", "put", "insert", "include"]
