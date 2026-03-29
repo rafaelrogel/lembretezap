@@ -15,7 +15,7 @@ from backend.reminder_keywords import ALL_REMINDER_KEYWORDS
 # Palavras de data SEM hora explícita (quando sozinhas = tempo vago)
 _DATE_WORDS = {
     "amanhã", "amanha", "hoje", "depois", "tomorrow", "today",
-    "mañana", "hoy", "lunes", "martes", "miércoles", "miercoles",
+    "mañana", "manana", "hoy", "lunes", "martes", "miércoles", "miercoles",
     "jueves", "viernes",
     "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira",
     "segunda", "terça", "terca", "quarta", "quinta", "sexta",
@@ -563,16 +563,18 @@ def parse_full_event_datetime(
         today = now.date()
         dl = date_label.lower().strip()
         target_date = today
-        if dl in ("amanhã", "amanha", "tomorrow"):
+        if dl in ("amanhã", "amanha", "tomorrow", "mañana", "manana"):
             target_date = today + timedelta(days=1)
-        elif dl in ("hoje", "today"):
+        elif dl in ("hoje", "today", "hoy"):
             # Se for hoje e a hora já passou, assume amanhã
             if now.hour > hour or (now.hour == hour and now.minute >= minute):
                 target_date = today + timedelta(days=1)
             else:
                 target_date = today
         elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo",
-                     "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira"):
+                     "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira",
+                     "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+                     "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes"):
             from backend.time_parse import DIAS_SEMANA
             dow_target = DIAS_SEMANA.get(dl)
             if dow_target is not None:
@@ -618,16 +620,18 @@ def compute_in_seconds_from_date_hour(
         target_date = today
         dl = date_label.lower().strip()
 
-        if dl in ("amanhã", "amanha", "tomorrow"):
+        if dl in ("amanhã", "amanha", "tomorrow", "mañana", "manana"):
             target_date = today + timedelta(days=1)
-        elif dl in ("hoje", "today"):
+        elif dl in ("hoje", "today", "hoy"):
             # Se for hoje e a hora já passou, assume amanhã
             if now.hour > hour or (now.hour == hour and now.minute >= minute):
                 target_date = today + timedelta(days=1)
             else:
                 target_date = today
         elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo",
-                     "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira"):
+                     "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira",
+                     "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+                     "lunes", "martes", "miércoles", "miercoles", "jueves", "viernes"):
             from backend.time_parse import DIAS_SEMANA
             dow_target = DIAS_SEMANA.get(dl)
             if dow_target is not None:
