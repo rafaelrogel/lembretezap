@@ -166,7 +166,7 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
             from backend.logger import get_logger
             logger = get_logger(__name__)
             logger.debug("handler_failed_full_block", extra={"extra": {
-                "handler": h.__name__,
+                "handler": getattr(h, "__name__", "unknown"),
                 "error": str(e)
             }})
 
@@ -180,6 +180,8 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
                 continue
             line_norm = normalize_nl_to_command(line)
             line_norm = normalize_command(line_norm.strip())
+            
+            line_handled = False
             for h in HANDLERS:
                 try:
                     out = await h(ctx, line_norm)
@@ -188,9 +190,22 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
                             results.extend(out)
                         else:
                             results.append(out)
+                        line_handled = True
                         break
-                except Exception:
-                    continue
+                except Exception as e:
+                    from backend.logger import get_logger
+                    logger = get_logger(__name__)
+                    logger.debug("handler_failed_batch_line", extra={"extra": {
+                        "handler": getattr(h, "__name__", "unknown"),
+                        "line": line[:100],
+                        "error": str(e)
+                    }})
+            
+            if not line_handled:
+                from backend.logger import get_logger
+                logger = get_logger(__name__)
+                logger.debug("batch_line_not_handled", extra={"extra": {"line": line[:100]}})
+
         if results:
             # Se conseguimos processar algum comando do batch, devolvemos a junção
             # (Se algum falhou, o LLM não será chamado para o resto, mas o utilizador já teve feedback)
