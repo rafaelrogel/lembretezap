@@ -25,11 +25,24 @@ PREPOSITIONS_OF = ["of", "called", "named"]
 LISTA_SOZINHA_WORDS = ["list", "grocery", "groceries", "market", "shopping", "agenda", "calendar", "reminders", "events", "tasks"]
 
 # NL Adicione Lista
-ADICIONE_VERBS = ["add", "put"]
+ADICIONE_VERBS = ["add", "put", "insert", "include"]
 NAS_WORDS = ["to", "on", "into", "onto"]
 
 # NL List Dois Pontos
-LISTA_DOIS_PONTOS_FRAGMENT = r"(?:add|put)\s+(?:to\s+(?:the\s+)?|on\s+(?:the\s+)?)?list"
+LISTA_DOIS_PONTOS_FRAGMENT = r"(?:add|put|insert|include)\s+(?:to\s+(?:the\s+)?|on\s+(?:the\s+)?)?list"
+
+# NL Outros
+ANOTA_VERBS = ["note", "notes", "write", "record", "jot", "mark"]
+TENHO_WORDS = ["have"]
+TENHO_DE_WORDS = ["i\\s+have\\s+(?:to|gotta)", "i\\s+need\\s+to", "i\\s+must"]
+MUITA_COISA_WORDS = ["a\\s+lot\\s+of\\s+stuff", "lots\\s+of\\s+things", "various\\s+tasks", "many\\s+things"]
+LEMBRA_COMPRAR_ALTS = [
+    "remind me to buy", "dont forget to buy", "don't forget to buy", "remind me of buying"
+]
+FILME_LIVRO_VER_ALTS = [
+    "movie to watch", "book to read", "movies to watch", "books to read", 
+    "want to watch the movie", "want to read the book"
+]
 
 # Category to list mapping
 CATEGORY_TO_LIST = {

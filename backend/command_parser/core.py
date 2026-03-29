@@ -29,6 +29,20 @@ NAS_WORDS_STR = "|".join(sorted(set(pt.NAS_WORDS + en.NAS_WORDS + es.NAS_WORDS),
 POR_LISTA_VERBS_STR = "|".join(sorted(set(pt.POR_LISTA_VERBS + en.POR_LISTA_VERBS + es.POR_LISTA_VERBS), key=len, reverse=True))
 NA_LISTA_WORDS_STR = "|".join(sorted(set(pt.NA_LISTA_WORDS + en.NA_LISTA_WORDS + es.NA_LISTA_WORDS), key=len, reverse=True))
 
+ANOTA_VERBS_STR = "|".join(sorted(set(pt.ANOTA_VERBS + en.ANOTA_VERBS + es.ANOTA_VERBS), key=len, reverse=True))
+TENHO_DE_WORDS_STR = "|".join(sorted(set(pt.TENHO_DE_WORDS + en.TENHO_DE_WORDS + es.TENHO_DE_WORDS), key=len, reverse=True))
+MUITA_COISA_WORDS_STR = "|".join(sorted(set(pt.MUITA_COISA_WORDS + en.MUITA_COISA_WORDS + es.MUITA_COISA_WORDS), key=len, reverse=True))
+LEMBRA_COMPRAR_STR = "|".join(sorted(set(pt.LEMBRA_COMPRAR_ALTS + en.LEMBRA_COMPRAR_ALTS + es.LEMBRA_COMPRAR_ALTS), key=len, reverse=True))
+FILME_LIVRO_VER_STR = "|".join(sorted(set(pt.FILME_LIVRO_VER_ALTS + en.FILME_LIVRO_VER_ALTS + es.FILME_LIVRO_VER_ALTS), key=len, reverse=True))
+LISTA_DOIS_PONTOS_STR = "|".join(sorted(set([pt.LISTA_DOIS_PONTOS_FRAGMENT, en.LISTA_DOIS_PONTOS_FRAGMENT, es.LISTA_DOIS_PONTOS_FRAGMENT]), key=len, reverse=True))
+
+AGENDA_ALIASES_STR = "|".join(sorted(set(pt.REMINDER_AGENDA_WORDS | en.REMINDER_AGENDA_WORDS | es.REMINDER_AGENDA_WORDS), key=len, reverse=True))
+DATA_ALIASES_STR = "|".join(sorted(set(["data", "date", "fecha"]), key=len, reverse=True))
+REMIND_ME_VERBS_STR = "|".join(sorted(set(["lembrete", "reminder", "recordatorio", "recordar", "lembra", "remind", "avisa", "avisar"]), key=len, reverse=True))
+PARSE_REJECT_PREFIXES = tuple(sorted(["/agenda", "/evento", "/compromisso", "/cita", "/calendar", "/tasks", "/agendas", "/eventos", "/compromissos", "/citas", "/calendario", "/calendário"], key=len, reverse=True))
+
+DE_WORDS_STR = "|".join(sorted(set(["de", "da", "do", "das", "dos", "del", "al", "de la", "a la", "of", "from", "for", "to", "by", "con", "with", "para", "por", "in", "on", "at", "en", "sobre", "a", "as", "os", "um", "uma", "uns", "umas", "na", "no", "nas", "nos", "pela", "pelo", "la", "las", "el", "los"]), key=len, reverse=True))
+
 # Regex compilation
 RE_LEMBRETE = re.compile(rf"^/(?:{LEMBRETE_ALIASES_STR})\s+([^\r\n]+)$", re.I)
 RE_LIST_ADD = re.compile(rf"^/(?:{LISTA_ALIASES_STR})\s+(\S+)\s+add\s+([^\r\n]+)$", re.I)
@@ -45,7 +59,7 @@ RE_REMOVE_ID_ONLY = re.compile(rf"^/(?:{REMOVE_ALIASES_STR})\s+(\d+)\s*$", re.I)
 RE_REMOVE_TEXT = re.compile(rf"^/(?:{REMOVE_ALIASES_STR})\s+(.+)$", re.I)
 
 RE_HORA = re.compile(r"^/(?:hora|time)\s*$", re.I)
-RE_DATA = re.compile(r"^/(?:data|date|fecha)\s*$", re.I)
+RE_DATA = re.compile(rf"^/(?:{DATA_ALIASES_STR})\s*$", re.I)
 
 # Unified NL patterns
 RE_NL_LIST_SHOW = re.compile(
@@ -64,7 +78,7 @@ RE_NL_AGENDA_SHOW = re.compile(
 )
  
 RE_NL_LIST_ADD = re.compile(
-    rf"^(?:{VERBS_CRIA_STR}|add|adicione|adiciona|a[ñn]adir)\S*\s+"
+    rf"^(?:{ADICIONE_VERBS_STR}|{VERBS_CRIA_STR})\S*\s+"
     rf"(?:(?:{ARTICLES_STR})\s+)?(?:(?:{POSSESSIVES_STR}|ma|mon)\s+)?(?:{LIST_WORDS_STR})\s+"
     rf"(?:(?:{PREPOSITIONS_OF_STR})\S*\s+)?"
     rf"([\"']?[^\"'\r\n]+?[\"']?)(?:\s+(.+))?$",
@@ -97,53 +111,58 @@ RE_NL_ADICIONE_LISTA = re.compile(
     re.I,
 )
 RE_NL_ADD_LISTA_CATEGORIA = re.compile(
-    rf"^(?:add|adicione|adiciona|a[ñn]adir)\s+(?:listas?\s+)?({ALL_CATEGORIES_STR})\s+([^\r\n]+)$",
+    rf"^(?:{ADICIONE_VERBS_STR})\s+(?:listas?\s+)?({ALL_CATEGORIES_STR})\s+([^\r\n]+)$",
     re.I,
 )
 RE_NL_POR_LISTA = re.compile(
     rf"^(?:{POR_LISTA_VERBS_STR})\s+(.+?)\s+(?:{NA_LISTA_WORDS_STR})\s+(.+)$",
     re.I,
 )
-RE_NL_LISTA_DOIS_PONTOS = re.compile(
-    rf"^(?:{pt.LISTA_DOIS_PONTOS_FRAGMENT}|{en.LISTA_DOIS_PONTOS_FRAGMENT}|{es.LISTA_DOIS_PONTOS_FRAGMENT})\s*:\s*(.+)$",
-    re.I,
-)
-RE_NL_ANOTA = re.compile(rf"^(?:{'|'.join(pt.ANOTA_VERBS)})\s+([^\r\n]+)$", re.I)
+RE_NL_LISTA_DOIS_PONTOS = re.compile(rf"^(?:{LISTA_DOIS_PONTOS_STR})\s*[:\s]\s*(.+)$", re.I)
+RE_NL_ANOTA = re.compile(rf"^(?:{ANOTA_VERBS_STR})\s+([^\r\n]+)$", re.I)
 RE_NL_MUITA_COISA = re.compile(
-    rf"^(?:hoje\s+)?tenho\s+({ '|'.join(pt.MUITA_COISA_WORDS) })(\s+para\s+fazer)?\s*[,:]\s*(.+)$",
+    rf"^(?:hoje\s+)?tenho\s+({MUITA_COISA_WORDS_STR})(\s+para\s+fazer)?\s*[,:]\s*(.+)$",
     re.I,
 )
 RE_NL_HOJE_TENHO_DE = re.compile(
-    rf"^(?:hoje\s+)?({ '|'.join(pt.TENHO_DE_WORDS) })\s+(.+)$",
+    rf"^(?:hoje\s+)?({TENHO_DE_WORDS_STR})\s+(.+)$",
     re.I,
 )
-RE_NL_LEMBRA_COMPRAR = re.compile(rf"^{pt.LEMBRA_COMPRAR_FRAGMENT}\s+([^\r\n]+)$", re.I)
+RE_NL_LEMBRA_COMPRAR = re.compile(rf"^(?:{LEMBRA_COMPRAR_STR})\s+([^\r\n]+)$", re.I)
 RE_HOJE = re.compile(rf"^/(?:hoje|hoy|today)\s*$", re.I)
 RE_SEMANA = re.compile(rf"^/(?:semana|week)\s*$", re.I)
-RE_AGENDA = re.compile(rf"^/(?:agenda|schedule|calendario|calendário)\s*(.*)$", re.I)
+RE_AGENDA = re.compile(rf"^/(?:{AGENDA_ALIASES_STR})\s*(.*)$", re.I)
 RE_NL_REMIND_ME = re.compile(
-    rf"^(?:me\s+)?(?:lembra|remind|recordar|avisa|recordatorio|reminder|lembrete)\S*\s+(?:de\s+)?(.+)$",
+    rf"^(?:me\s+)?(?:{REMIND_ME_VERBS_STR})\S*\s+(?:de\s+)?(.+)$",
     re.I | re.UNICODE
 )
-RE_NL_GENERIC_LEMBRETE = re.compile(rf"^(?:lembrete|reminder|recordatorio)\s*[:\s]\s*(.+)$", re.I)
-RE_NL_FILME_LIVRO_VER = re.compile(rf"^{pt.FILME_LIVRO_VER_FRAGMENT}([^\r\n]+)$", re.I)
+RE_NL_GENERIC_LEMBRETE = re.compile(rf"^(?:{REMIND_ME_VERBS_STR})\s*[:\s]\s*(.+)$", re.I)
+RE_NL_FILME_LIVRO_VER = re.compile(rf"^(?:{FILME_LIVRO_VER_STR})\s*[:\s]?\s*([^\r\n]+)$", re.I)
 
 def _extract_list_name(full: str) -> str:
-    """Extrai o nome da lista (ex: 'mercado' de 'lista mercado' ou 'shopping' de 'shopping list')."""
-    clean = re.sub(rf"\b(?:{ARTICLES_STR}|{POSSESSIVES_STR}|ma|mon)\b", "", full, flags=re.I).strip()
-    words = clean.split()
-    if not words: return "mercado"
-    # Se "lista" estiver no início, o nome é o resto
-    if re.match(rf"^(?:{LIST_WORDS_STR})$", words[0], re.I):
-        name = " ".join(words[1:]).strip()
-        return name if name else "mercado"
-    # Se "lista" estiver no fim, o nome é o que vem antes
-    if re.match(rf"^(?:{LIST_WORDS_STR})$", words[-1], re.I):
-        name = " ".join(words[:-1]).strip()
-        return name if name else "mercado"
-    # Fallback: se houver a palavra "lista" no meio, remove ela
-    name = re.sub(rf"\s*(?:{LIST_WORDS_STR})\s*", " ", clean, flags=re.I).strip()
-    return name if name else "mercado"
+    """Extrai e limpa o nome da lista (ex: 'mercado' de 'lista de mercado' ou 'shopping' de 'shopping list')."""
+    # 1. Limpeza inicial: Artigos e Possessivos (globalmente seguro)
+    pattern_meta = rf"\b(?:{ARTICLES_STR}|{POSSESSIVES_STR}|ma|mon|my|mi|mis)\b"
+    clean = re.sub(pattern_meta, "", full, flags=re.I | re.UNICODE).strip()
+    
+    # 2. Limpeza conservadora de 'Lista/List' (apenas no início ou no fim)
+    pattern_list = rf"^(?:{LIST_WORDS_STR}s?)\b|\b(?:{LIST_WORDS_STR}s?)$"
+    # Remove apenas uma ocorrência no início ou fim
+    new_clean = re.sub(pattern_list, "", clean, count=1, flags=re.I).strip()
+    if new_clean:
+        clean = new_clean
+    # Se ao remover 'lista' a string ficar vazia, mantemos a palavra original (limpa de artigos)
+
+    # 3. Limpeza recursiva de preposições nas extremidades
+    prev = None
+    while clean != prev:
+        prev = clean
+        clean = re.sub(rf"^(?:{DE_WORDS_STR})\s+", "", clean, flags=re.I).strip()
+        clean = re.sub(rf"\s+(?:{DE_WORDS_STR})$", "", clean, flags=re.I).strip()
+    
+    # 4. Colapsar espaços e normalizar
+    clean = re.sub(r"\s+", " ", clean).strip()
+    return clean.lower() if clean else "mercado"
 
 def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     """Parseia a mensagem. Retorna um intent dict ou None."""
@@ -154,7 +173,7 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
     if not text:
         return None
 
-    if text.lower().startswith(("/agenda", "/evento", "/compromisso", "/cita", "/calendar", "/tasks")):
+    if text.lower().startswith(PARSE_REJECT_PREFIXES):
         return None
 
     m = RE_LEMBRETE.match(text)
@@ -250,7 +269,6 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         item = (m.group(2) or "").strip()
         if item:
             return {"type": "list_add", "list_name": list_name, "item": item}
-        return {"type": "list_show", "list_name": list_name}
 
     m = RE_NL_LISTA_SOZINHA.match(text)
     if m:

@@ -23,11 +23,11 @@ PREPOSITIONS_OF = ["de", "llamada", "llamado", "nombrada", "nombrado"]
 LISTA_SOZINHA_WORDS = ["lista", "compras", "mercado", "supermercado", "agenda", "calendario", "eventos", "compromisos", "citas", "tareas"]
 
 # NL Adicione Lista
-ADICIONE_VERBS = ["a[ñn]adir", "agregar", "poner"]
+ADICIONE_VERBS = ["a[ñn]adir", "a[ñn]ada", "a[ñn]ade", "agregar", "agrega", "agregue", "poner", "pon", "ponga", "incluir", "incluye", "incluya"]
 NAS_WORDS = ["a", "en"]
 
 # NL Lista Dois Pontos
-LISTA_DOIS_PONTOS_FRAGMENT = r"(?:pon|pone|a[ñn]ade|a[ñn]adir|agrega|agregar)\s+(?:en\s+la|a\s+la)\s+lista"
+LISTA_DOIS_PONTOS_FRAGMENT = r"(?:pon|pone|ponga|a[ñn]ade|a[ñn]ada|agrega|agregue|incluir|incluye|incluya)\s+(?:en\s+la|a\s+la)\s+lista"
 
 # Category to list mapping
 CATEGORY_TO_LIST = {
@@ -40,8 +40,21 @@ CATEGORY_TO_LIST = {
 }
 
 # NL Por Lista
-POR_LISTA_VERBS = ["pon", "pone", "poner", "agrega", "agregar", "a[ñn]ade", "a[ñn]adir"]
+POR_LISTA_VERBS = ["pon", "pone", "ponga", "poner", "agrega", "agregar", "agregue", "a[ñn]ade", "a[ñn]adir", "a[ñn]ada"]
 NA_LISTA_WORDS = ["en", "a", "al"]
+
+# NL Outros
+ANOTA_VERBS = ["anota", "anotar", "apunta", "apuntar", "escribe", "escribir", "anote", "apunte"]
+TENHO_WORDS = ["tengo"]
+TENHO_DE_WORDS = ["tengo\\s+que", "necesito", "debo"]
+MUITA_COISA_WORDS = ["muchas\\s+cosas", "varias\\s+cosas", "varias\\s+tareas", "un\\s+mont[oó]n\\s+de\\s+cosas"]
+LEMBRA_COMPRAR_ALTS = [
+    "recuérdame comprar", "recuerdame comprar", "no olvides comprar", "no te olvides de comprar"
+]
+FILME_LIVRO_VER_ALTS = [
+    "película para ver", "pelicula para ver", "libro para leer", "películas para ver", 
+    "libros para leer", "quiero ver la película", "quiero leer el libro"
+]
 
 REMINDER_AGENDA_WORDS = {
     "recordatorios", "recordatorio", "agenda", "agendas", "eventos", "evento",

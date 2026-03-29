@@ -29,23 +29,31 @@ LISTA_SOZINHA_WORDS = [
 ]
 
 # NL Adicione Lista
-ADICIONE_VERBS = ["adicione", "adiciona", "adicionar", "coloca", "coloque", "colocar"]
+ADICIONE_VERBS = ["adicione", "adiciona", "adicionar", "coloca", "coloque", "colocar", "inclui", "inclua", "incluir", "ponha", "anota", "anote", "põe"]
 NAS_WORDS = ["a", "à", "nas?"]
 
 # NL Por Lista
-POR_LISTA_VERBS = ["coloca", "coloque", "p[oô]e", "põe", "anota", "anotar", "inclui", "incluir", "marca"]
+POR_LISTA_VERBS = ["coloca", "coloque", "p[oô]e", "põe", "anota", "anotar", "anote", "inclui", "inclu[ia]", "incluir", "marca", "ponha"]
 NA_LISTA_WORDS = ["na", "no", "à", "a"]
 
 # NL Lista Dois Pontos
-LISTA_DOIS_PONTOS_FRAGMENT = r"(?:coloca|coloque|p[oô]e|põe|adiciona|adicione|inclui|incluir)\s+(?:na|à|a)\s+lista|(?:adiciona|adicione|coloca|coloque)\s+(?:à|a|na)\s+lista"
+LISTA_DOIS_PONTOS_FRAGMENT = r"(?:coloca|coloque|ponha|p[oô]e|põe|adiciona|adicione|inclui|inclua?|anote?)\s+(?:na|à|a)\s+lista|(?:adiciona|adicione|coloca|coloque)\s+(?:à|a|na)\s+lista"
 
 # NL Outros
-ANOTA_VERBS = ["anota", "anotar"]
+ANOTA_VERBS = ["anota", "anotar", "anote", "aponte", "aponta"]
 TENHO_WORDS = ["tenho"]
-TENHO_DE_WORDS = ["tenho\\s+(?:de|que)"]
-MUITA_COISA_WORDS = ["muita\\s+coisa", "v[aá]rias\\s+coisas", "v[aá]rias\\s+tarefas"]
-LEMBRA_COMPRAR_FRAGMENT = r"(?:lembra[- ]?me\s+de\s+comprar|n[aã]o\s+esque[cç]as?\s+de\s+comprar|lembra\s+de\s+comprar)"
-FILME_LIVRO_VER_FRAGMENT = r"(?:(?:filme|livro)\s+para\s+(?:ver|ler)\s*:\s*|quero\s+(?:ver|ler)\s+(?:o\s+)?(?:filme|livro)\s+)"
+TENHO_DE_WORDS = ["tenho\\s+(?:de|que)", "preciso\\s+(?:de|que)", "necessito\\s+de"]
+MUITA_COISA_WORDS = ["muita\\s+coisa", "v[aá]rias\\s+coisas", "v[aá]rias\\s+tarefas", "montes\\s+de\\s+coisa", "um\\s+r[eé]u\\s+de\\s+coisa"]
+LEMBRA_COMPRAR_ALTS = [
+    "lembra-me de comprar", "lembra me de comprar", "lembre-me de comprar", 
+    "não te esqueças de comprar", "não se esqueça de comprar", "não esqueça de comprar", 
+    "não esqueças de comprar", "não esqueças de comprar", "lembra de comprar", "lembre de comprar"
+]
+FILME_LIVRO_VER_ALTS = [
+    "filme para ver", "livro para ler", "filmes para ver", "livros para ler", 
+    "quero ver o filme", "quero ler o livro", "quero ver o livro", "quero ler o filme",
+    "filme para assistir", "filmes para assistir", "quero assistir o filme"
+]
 
 # Category to list mapping
 CATEGORY_TO_LIST = {
