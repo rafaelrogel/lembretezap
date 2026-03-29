@@ -55,7 +55,7 @@ def register_pending_stale_notification(
         if "removed_jobs" not in existing:
              existing["removed_jobs"] = []
         existing["removed_jobs"].extend(removed_jobs)
-        existing["user_msg_count"] = 0
+        # Keep user_msg_count as is
     else:
         existing = {
             "removed_jobs": list(removed_jobs),
