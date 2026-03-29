@@ -162,11 +162,9 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             return {"every_seconds": every, "message": clean_message(message)}
 
     # 3. Hoje
-    m = re.search(
-        r"(?:(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*(?:de\s+)?(?:hoje|hoy|today)\b|"
-        r"(?:hoje|hoy|today).+?\b(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b)",
-        text_lower, re.I
-    )
+    _re_hoje_1 = r"(?:(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*(?:de\s+)?(?:hoje|hoy|today)\b)"
+    _re_hoje_2 = r"(?:(?:hoje|hoy|today)\b.*?\b(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b)"
+    m = re.search(_re_hoje_1 + "|" + _re_hoje_2, text_lower, re.I)
     if m:
         if m.group(1): hora, minute, period = int(m.group(1)), int(m.group(2) or 0), m.group(3)
         else: hora, minute, period = int(m.group(4)), int(m.group(5) or 0), m.group(6)
@@ -176,13 +174,15 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         return {"in_seconds": int(delta), "message": clean_message(message)}
 
     # 4. Amanhã
-    m = re.search(
-        r"(?:amanh[ãa]|ma[ñn]ana|tomorrow).+?\b(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b",
-        text_lower, re.I
-    )
+    _re_amanha_1 = r"(?:(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*(?:de\s+)?(?:amanh[ãa]|ma[ñn]ana|tomorrow)\b)"
+    _re_amanha_2 = r"(?:(?:amanh[ãa]|ma[ñn]ana|tomorrow)\b.*?(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b)"
+    m1 = re.search(_re_amanha_1, text_lower, re.I)
+    m2 = re.search(_re_amanha_2, text_lower, re.I)
+    m = m1 or m2
     if m:
-        hora, minute = min(23, max(0, int(m.group(1)))), int(m.group(2) or 0)
-        hora = adjust_am_pm_hour(hora, m.group(3))
+        if m1: hora, minute, period = int(m1.group(1)), int(m1.group(2) or 0), m1.group(3)
+        else: hora, minute, period = int(m2.group(1)), int(m2.group(2) or 0), m2.group(3)
+        hora = adjust_am_pm_hour(min(23, max(0, hora)), period)
         message = strip_pattern(text, m.group(0))
         delta = ((now + timedelta(days=1)).replace(hour=hora, minute=minute, second=0, microsecond=0) - now).total_seconds()
         if delta > 0 and delta <= 86400 * 30:
