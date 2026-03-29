@@ -262,25 +262,33 @@ def is_vague_date_reminder(text: str) -> tuple[bool, str, int, int]:
 def parse_date_from_response(text: str) -> str | None:
     """
     Extrai palavra de data da resposta ("amanhã", "hoje", "segunda", etc).
+    Suporta PT-PT, PT-BR, ES, EN com acentos e fronteiras de palavra corretas.
     Retorna a label normalizada ou None.
     """
     if not text or not text.strip():
         return None
     t = text.strip().lower()
-    words = set(re.findall(r"\b\w+\b", t))
-    for dw in _DATE_WORDS:
-        if dw in words or dw in t:
+
+    # 1. Procurar palavras de data (amanhã, segunda, etc) com fronteira de palavra exata
+    # Ordenar por tamanho para dar prioridade a "segunda-feira" sobre "segunda"
+    ordered_date_words = sorted(_DATE_WORDS, key=len, reverse=True)
+    for dw in ordered_date_words:
+        # Regex \b pode falhar com acentos em algumas configurações; usamos re.escape e \b cautelosamente
+        # Para acentos em PT/ES, \b costuma funcionar em Python 3, mas o re.U (unicode) é implícito.
+        if re.search(rf"\b{re.escape(dw)}\b", t, re.I):
             return dw
-    # "na segunda", "dia 15" etc
-    for dw in ("amanhã", "amanha", "hoje", "segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo"):
-        if dw in t or f"na {dw}" in t or f"no {dw}" in t:
+        # Fallback para "na segunda", "no amanhã" (rara, mas possível em NL)
+        if re.search(rf"\b(?:na|no|el|la|on|the|at)\s+{re.escape(dw)}\b", t, re.I):
             return dw
-    # Numeric dates: 22/03, dia 22, 22
-    m = re.search(r"(?:dia\s+)?(\d{1,2})(?:[/-](\d{1,2}))?", t)
+
+    # 2. Datas numéricas: "22/03", "dia 15", "10-03", "10.03"
+    # m.group(1)=dia, m.group(2)=mês (opcional)
+    m = re.search(r"\b(?:dia\s+|day\s+|el\s+d[íi]a\s+)?(\d{1,2})(?:[/-](\d{1,2}))?\b", t, re.I)
     if m:
         if m.group(2):
             return f"{m.group(1)}/{m.group(2)}"
         return f"dia {m.group(1)}"
+
     return None
 
 
