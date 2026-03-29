@@ -70,8 +70,8 @@ class ListTool(Tool):
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["add", "list", "remove", "delete_list", "feito", "habitual", "shuffle"],
-                    "description": "add | list | remove | delete_list (DESTROY LIST) | feito | habitual | shuffle",
+                    "enum": ["add", "list", "remove", "delete_list", "delete_all", "feito", "habitual", "shuffle"],
+                    "description": "add | list | remove | delete_list (DESTROY SINGLE LIST) | delete_all (NUKE ALL LISTS) | feito | habitual | shuffle",
                 },
                 "list_name": {"type": "string", "description": "List name (e.g. mercado, pendentes)"},
                 "item_text": {"type": "string", "description": "Item text (for add)"},
@@ -144,6 +144,9 @@ class ListTool(Tool):
             if action == "delete_list":
                 list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
                 return self._delete_list(db, user.id, list_clean or list_name)
+
+            if action == "delete_all":
+                return self._delete_all_lists(db, user.id)
 
             if action == "habitual":
                 list_clean = self._resolve_list_name_fuzzy(db, user.id, list_name)
@@ -265,12 +268,25 @@ class ListTool(Tool):
             if lst_alias:
                 return lst_alias.name
         
-        # 3. Se ainda não encontrou, retornar o original
+        # 3. Se ainda não encontrou, tentar remover "lista" / "list" / "la lista" prefixos
+        # Ex: "a lista detergente" -> "detergente"
+        stripped_name = self._normalize_list_name(name)
+        if stripped_name.lower() != name.lower():
+            lst_stripped = db.query(List).filter(List.user_id == user_id, func.lower(List.name) == stripped_name.lower()).first()
+            if lst_stripped:
+                return lst_stripped.name
+
+        # 4. Se ainda não encontrou, retornar o original
         return name
 
     @staticmethod
     def _normalize_list_name(name: str) -> str:
-        """Strip connector words mistakenly used as list names across 4 languages."""
+        """Strip connector words and articles/prefixes mistakenly used as list names across 4 languages."""
+        import re
+        if not name:
+            return ""
+        
+        # 1. Strip common connector-only names
         _CONNECTORS = {
             # PT
             "chamada", "chamado", "denominada", "denominado", "nomeada", "nomeado", "de", "do", "da",
@@ -284,10 +300,51 @@ class ListTool(Tool):
             "ai", "aí", "ahi", "ahí", "ali", "allí", "here", "there", "aqui", "aquí",
             "lá", "alla", "allá", "it", "esto", "eso", "isto", "isso"
         }
-        stripped = (name or "").strip().lower()
+        stripped = name.strip().lower()
         if stripped in _CONNECTORS:
             return ""
-        return name
+        
+        # 2. Cleanup "the list of X" or "a lista de X" patterns
+        # PT/BR: "a lista de compras" -> "compras", "lista do mercado" -> "mercado"
+        # ES: "la lista de compras" -> "compras"
+        # EN: "the shopping list" -> "shopping"
+        
+        # Pattern match for prefixes
+        # Portuguese: a lista de, o mercado de, lista de, as listas de
+        # Spanish: la lista de, las listas de, el mercado de
+        # English: the list of, a list of, the market of, list of
+        clean = name.strip()
+        
+        # Remove common "list" prefixes in 4 languages
+        prefixes = [
+            # Portuguese
+            r"^(?:as?\s+)?listas?\s+(?:de|do|da|dos|das)\s+",
+            r"^(?:as?\s+)?listas?\s+",
+            r"^(?:os?\s+)?mercados?\s+(?:de|do|da)\s+",
+            # Spanish
+            r"^(?:las?\s+)?listas?\s+(?:de|del)\s+",
+            r"^(?:las?\s+)?listas?\s+",
+            r"^(?:el\s+)?mercados?\s+(?:de|del)\s+",
+            # English
+            r"^(?:the\s+|a\s+)?lists?\s+(?:of|for)\s+",
+            r"^(?:the\s+|a\s+)?lists?\s+",
+            r"^(?:the\s+)?markets?\s+(?:of|for)\s+",
+        ]
+        
+        for p in prefixes:
+            new_clean = re.sub(p, "", clean, flags=re.IGNORECASE)
+            if new_clean != clean:
+                clean = new_clean
+                break
+        
+        # Also remove leading articles if they survive
+        articles = [
+            r"^(?:as?|os?|the|an?|las?|el|los)\s+"
+        ]
+        for p in articles:
+            clean = re.sub(p, "", clean, flags=re.IGNORECASE)
+            
+        return clean.strip() or name.strip()
 
     def _add(self, db, user_id: int, list_name: str, item_text: str, no_split: bool = False) -> str:
         list_name = self._normalize_list_name(sanitize_string(list_name or "", MAX_LIST_NAME_LEN))
@@ -606,6 +663,33 @@ class ListTool(Tool):
         db.commit()
         from backend.locale import LIST_DELETED
         return LIST_DELETED.get(lang, LIST_DELETED["en"]).format(list_name=list_name)
+
+    def _delete_all_lists(self, db, user_id: int) -> str:
+        """Apaga ABSOLUTAMENTE TODAS as listas e itens do utilizador."""
+        from backend.models_db import List, ListItem, AuditLog
+        lang = self._get_lang()
+        
+        lists = db.query(List).filter(List.user_id == user_id).all()
+        if not lists:
+            from backend.locale import LIST_NO_LISTS
+            return LIST_NO_LISTS.get(lang, LIST_NO_LISTS["en"])
+        
+        count = len(lists)
+        for lst in lists:
+            db.query(ListItem).filter(ListItem.list_id == lst.id).delete()
+            db.delete(lst)
+        
+        db.add(AuditLog(user_id=user_id, action="list_delete_all", resource="all_lists", payload_json=json.dumps({"count": count})))
+        db.commit()
+        
+        # Mensagem de sucesso (podemos adicionar ao locale.py depois, por agora usamos uma fixa ou reutilizamos)
+        msgs = {
+            "pt-PT": f"🛳️ *Todas as tuas {count} listas foram apagadas!* Tens agora uma folha em branco.",
+            "pt-BR": f"🛳️ *Todas as suas {count} listas foram apagadas!* Você tem agora uma folha em branco.",
+            "es": f"🛳️ *¡Todas tus {count} listas han sido borradas!* Ahora tienes una hoja en blanco.",
+            "en": f"🛳️ *All your {count} lists have been deleted!* You now have a blank slate."
+        }
+        return msgs.get(lang, msgs["en"])
 
     def _resolve_list_by_item_id(self, db, user_id: int, item_id: int) -> str | None:
         """Encontra o nome da lista que contém o item com este id (do utilizador)."""

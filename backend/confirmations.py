@@ -116,18 +116,50 @@ def clear_pending(channel: str, chat_id: str) -> None:
 
 
 def is_confirm_reply(content: str) -> bool:
-    """True se a mensagem é resposta de confirmação (1, 2, sim, não)."""
+    """True se a mensagem é resposta de confirmação (1, 2, sim, não, etc.)."""
     t = (content or "").strip().lower()
-    return t in ("1", "2", "sim", "s", "não", "nao", "n", "yes", "no")
+    # Padrões numéricos e básicos
+    if t in ("1", "2"):
+        return True
+    
+    # Prefixos ou palavras isoladas comuns em 4 línguas
+    # PT: sim, s, pode, claro, ok, bora, concordo, perfeito, não, n, cancela
+    # EN: yes, y, sure, ok, right, agree, perfect, no, n, cancel
+    # ES: sí, si, s, claro, de acuerdo, vale, no, n, cancela
+    yes_words = {"sim", "s", "pode", "pode ser", "claro", "ok", "bora", "concordo", "perfeito", "yes", "y", "sure", "right", "agree", "perfect", "si", "sí", "vale", "de acuerdo", "bueno", "dale"}
+    no_words = {"nao", "não", "n", "no", "cancela", "cancelar", "stop", "parar", "negative", "negativo", "interromper"}
+    
+    # Normalização simples (remove pontuação e acentos básicos)
+    import unicodedata
+    t_norm = "".join(c for c in unicodedata.normalize("NFD", t) if unicodedata.category(c) != "Mn")
+    t_root = t_norm.rstrip(".!?")
+    
+    return t_root in yes_words or t_root in no_words or t in yes_words or t in no_words
 
 
 def is_confirm_yes(content: str) -> bool:
-    """True se user confirmou (1, sim, s, yes)."""
+    """True se user confirmou (1, sim, s, yes, pode, etc.)."""
     t = (content or "").strip().lower()
-    return t in ("1", "sim", "s", "yes", "y")
+    if t == "1":
+        return True
+    yes_words = {"sim", "s", "pode", "pode ser", "claro", "ok", "bora", "concordo", "perfeito", "yes", "y", "sure", "right", "agree", "perfect", "si", "sí", "vale", "de acuerdo", "bueno", "dale", "faca isso", "faz isso"}
+    
+    import unicodedata
+    t_norm = "".join(c for c in unicodedata.normalize("NFD", t) if unicodedata.category(c) != "Mn")
+    t_root = t_norm.rstrip(".!?")
+    
+    return t in yes_words or t_root in yes_words
 
 
 def is_confirm_no(content: str) -> bool:
-    """True se user recusou (2, não, n, no)."""
+    """True se user recusou (2, não, n, no, cancela, etc.)."""
     t = (content or "").strip().lower()
-    return t in ("2", "não", "nao", "n", "no")
+    if t == "2":
+        return True
+    no_words = {"nao", "não", "n", "no", "cancela", "cancelar", "stop", "parar", "negative", "negativo", "interromper"}
+    
+    import unicodedata
+    t_norm = "".join(c for c in unicodedata.normalize("NFD", t) if unicodedata.category(c) != "Mn")
+    t_root = t_norm.rstrip(".!?")
+    
+    return t in no_words or t_root in no_words
