@@ -55,6 +55,15 @@ def get_ask_recurrence_message(lang: LangCode = "pt-BR") -> str:
     return random.choice(variants)
 
 
+def _is_affirmative(raw: str) -> bool:
+    """True se a resposta do Mimo indica afirmação (SIM, YES, SI, SÍ, S, Y)."""
+    if not raw:
+        return False
+    # Pega a primeira palavra, ignorando pontuação comum
+    first_word = raw.split()[0].rstrip(".,!?;:").upper()
+    return first_word in {"SIM", "YES", "SI", "SÍ", "S", "Y"}
+
+
 async def is_likely_recurring(
     message: str,
     scope_provider=None,
@@ -85,7 +94,7 @@ async def is_likely_recurring(
             temperature=0,
         )
         raw = (r.content or "").strip().upper()
-        return "SIM" in raw or "YES" in raw or raw.startswith("S") or raw.startswith("Y")
+        return _is_affirmative(raw)
     except Exception:
         return False
 
@@ -186,6 +195,6 @@ async def _mimo_is_reminder_without_time(
             temperature=0,
         )
         raw = (r.content or "").strip().upper()
-        return "SIM" in raw or "YES" in raw or raw.startswith("S") or raw.startswith("Y")
+        return _is_affirmative(raw)
     except Exception:
         return False
