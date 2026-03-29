@@ -299,15 +299,25 @@ def parse_recurring_schedule(text: str) -> tuple[str, str, int, int] | None:
 
 
 def _parse_day_list(days_str: str) -> list[int]:
-    """'segunda e quarta' → [1, 3]. 'terça, quinta' → [2, 4]."""
-    parts = re.split(r"\s*(?:e|,)\s*", days_str.strip(), flags=re.I)
+    """
+    Transforma string de dias («segunda e quarta», «lunes y miércoles», «mon and wed») em lista de DOW.
+    Separa por «e», «y», «and» ou vírgulas, respeitando limites de palavra.
+    """
+    if not days_str:
+        return []
+    # Usar word boundaries (\b) para não partir palavras como "sEgunda"
+    # Separadores: " e ", " y ", " and ", ou vírgula
+    parts = re.split(r"\s*(?:\be\b|\by\b|\band\b|,)\s*", days_str.strip(), flags=re.I)
     result = []
     for p in parts:
-        p = p.strip().lower()
-        for name, dow in DIAS_SEMANA.items():
-            if name in p or p == name:
-                result.append(dow)
-                break
+        # Normalizar: minúsculas, sem espaços e sem o sufixo "-feira" para match universal
+        p_clean = p.strip().lower().replace("-feira", "")
+        if not p_clean:
+            continue
+        # Tenta match direto no dicionário global de dias (que inclui PT, EN, ES)
+        dow = DIAS_SEMANA.get(p_clean)
+        if dow is not None:
+            result.append(dow)
     return sorted(set(result))
 
 
@@ -377,36 +387,64 @@ def format_schedule_for_display(cron_expr: str, lang: str = "pt-BR") -> str:
 
 def parse_end_date_response(text: str) -> str | None:
     """
-    Interpreta resposta sobre «até quando».
-    Retorna: "indefinido" | "fim_semana" | "fim_mes" | "fim_ano" | None
+    Interpreta resposta sobre «até quando» no fluxo de eventos recorrentes.
+    Suporta PT-PT, PT-BR, ES, EN.
+    Retorna: "indefinido" | "fim_semana" | "fim_mes" | "fim_ano" | "date:YYYY-MM-DD" | "year:YYYY" | None
     """
     if not text or not text.strip():
         return None
     t = text.strip().lower()
-    if any(p in t for p in ("indefinido", "para sempre", "sempre", "nunca", "ate eu remover", "até eu remover")):
+
+    # 1. Indefinido (sem data fim) - Keywords mais precisas
+    indefinite_keywords = (
+        "indefinido", "para sempre", "sempre", "não tem fim", "sem fim", "até eu remover", "até eu apagar",
+        "forever", "no end", "limitless", "always", "until i delete", "until i stop",
+        "para siempre", "sin fin", "sin fecha", "hasta que lo borre", "hasta que pare"
+    )
+    if any(p in t for p in indefinite_keywords):
         return "indefinido"
-    # "não" sozinho pode ser "não sei" → excluir quando tem "sei"
-    if ("nao" in t or "não" in t) and "sei" not in t and len(t) < 15:
-        return "indefinido"
-    if any(p in t for p in ("fim da semana", "fim semana", "final da semana", "ate sexta", "até sexta")):
+    
+    # 2. Fim de semana
+    week_keywords = (
+        "fim da semana", "fim semana", "fim de semana", "final da semana", "até sexta", "até domingo",
+        "end of week", "end of the week", "until sunday", "this week", "esta semana",
+        "fin de semana", "hasta el domingo"
+    )
+    if any(p in t for p in week_keywords):
         return "fim_semana"
-    if any(p in t for p in ("fim do mês", "fim mes", "fim do mes", "final do mês")):
+
+    # 3. Fim do mês
+    month_keywords = (
+        "fim do mês", "fim mes", "fim de mes", "fim do mes", "final do mês", "final do mes",
+        "end of month", "end of the month", "until end of month", "this month", "este mês", "este mes",
+        "fin de mes", "hasta fin de mes"
+    )
+    if any(p in t for p in month_keywords):
         return "fim_mes"
-    if any(p in t for p in ("fim do ano", "fim ano", "final do ano", "end of the year", "end of year", "fin de año", "fin de ano")):
+
+    # 4. Fim do ano
+    year_keywords = (
+        "fim do ano", "fim ano", "fim de ano", "final do ano", "este ano",
+        "end of the year", "end of year", "until the end of the year", "this year",
+        "fin de año", "fin de ano", "este año"
+    )
+    if any(p in t for p in year_keywords):
         return "fim_ano"
 
-    # Suporte a datas específicas: "até 31/12", "until 12/31/2026"
+    # 5. Datas específicas: "até 31/12", "until 12/31/2026", "hasta el 15 de marzo"
     from backend.time_parse import extract_start_date
-    parsed_date = extract_start_date(t.replace("até", "").replace("until", "").replace("hasta", "").strip())
+    clean_t = re.sub(r"\b(até|until|hasta|el|the|o|a)\s+", "", t, flags=re.I).strip()
+    parsed_date = extract_start_date(clean_t)
     if parsed_date:
         return f"date:{parsed_date}"
 
-    # Suporte a anos específicos: "até o fim de 2028", "until end of 2030", "fim de 2028"
+    # 6. Anos específicos: "até o fim de 2028", "until end of 2030", "fim de 2028"
     m_year = re.search(r"(?:fim\s+de|end\s+of|fin\s+de|final\s+de)\s*(?:ano\s+)?(20\d{2})\b", t)
     if not m_year:
         m_year = re.search(r"\b(20\d{2})\b", t)
     if m_year:
         return f"year:{m_year.group(1)}"
+
     return None
 
 
