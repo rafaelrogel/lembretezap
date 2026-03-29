@@ -484,8 +484,9 @@ def compute_end_date_ms(end_type: str, tz_iana: str = "UTC") -> int | None:
 
         if end_type == "fim_semana":
             # Próximo domingo 23:59
+            # Se for hoje (domigo), desloca para o próximo domingo (+7 dias)
             days_until_sun = (6 - now.weekday()) % 7
-            if days_until_sun == 0 and now.hour >= 23:
+            if days_until_sun == 0:
                 days_until_sun = 7
             from datetime import timedelta
             end = now.replace(hour=23, minute=59, second=59, microsecond=0)
