@@ -14,7 +14,8 @@ ALL_CATEGORIES_STR = "|".join(sorted(set(pt.CATEGORIES + en.CATEGORIES + es.CATE
 
 CATEGORY_TO_LIST = {**pt.CATEGORY_TO_LIST, **en.CATEGORY_TO_LIST, **es.CATEGORY_TO_LIST}
 _REMINDER_AGENDA_WORDS_SHOW = pt.REMINDER_AGENDA_WORDS | en.REMINDER_AGENDA_WORDS | es.REMINDER_AGENDA_WORDS
-_ALL_LIST_SOZINHA_WORDS_STR = "|".join(sorted(set(pt.LISTA_SOZINHA_WORDS + en.LISTA_SOZINHA_WORDS + es.LISTA_SOZINHA_WORDS), key=len, reverse=True))
+_ALL_LIST_SOZINHA_WORDS_SET = set(pt.LISTA_SOZINHA_WORDS + en.LISTA_SOZINHA_WORDS + es.LISTA_SOZINHA_WORDS)
+_ALL_LIST_SOZINHA_WORDS_STR = "|".join(sorted(_ALL_LIST_SOZINHA_WORDS_SET, key=len, reverse=True))
 
 # Unified NL fragments
 VERBS_MOSTRE_STR = "|".join(sorted(set(pt.VERBS_MOSTRE + en.VERBS_MOSTRE + es.VERBS_MOSTRE), key=len, reverse=True))
@@ -267,16 +268,18 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
 
     m = RE_NL_LISTA_SOZINHA.match(text)
     if m:
-        p1 = m.group(1).strip().lower()
-        p2 = (m.group(2) or "").strip().lower()
-        # "lista mercado" -> p1="lista", p2="mercado" -> name="mercado"
-        # "mercado" -> p1="mercado", p2="" -> name="mercado"
-        name = p2 if p2 else p1
-        list_name = CATEGORY_TO_LIST.get(name, name)
-        p1_name = CATEGORY_TO_LIST.get(p1, p1)
-        if p1_name in _REMINDER_AGENDA_WORDS_SHOW or list_name in _REMINDER_AGENDA_WORDS_SHOW:
+        p1 = m.group(1).strip()
+        p2 = (m.group(2) or "").strip()
+        name_raw = p2 if p2 else p1
+        name = _extract_list_name(name_raw)
+        
+        # Point 3: Use unified set for agenda check
+        if name.lower() in _REMINDER_AGENDA_WORDS_SHOW:
             return {"type": "agenda"}
-        is_generic = list_name in ("lista", "listas", "list", "lists")
+            
+        list_name = CATEGORY_TO_LIST.get(name.lower(), name)
+        # Point 1 & 3: Better separation of generic intent
+        is_generic = list_name.lower() in ("lista", "listas", "list", "lists")
         return {"type": "list_show", "list_name": None if is_generic else list_name}
 
 
