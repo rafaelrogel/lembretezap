@@ -23,6 +23,14 @@ zappelin-static-preview.zip
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+debug_*.py
+tmp_*.py
+test_*.py
+!tests/
+stress_test_results_*.json
+test_results*.txt
+final_test*.py
+*.log
 
 # env
 .env
@@ -45,6 +53,7 @@ lembretezap
 nanobot/
 *debug.log
 **/debug.log
+logs_ics.txt
 
 # audit reports (generated)
 *_AUDIT*.md
