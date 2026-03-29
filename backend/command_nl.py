@@ -76,7 +76,11 @@ def normalize_nl_to_command(content: str) -> str:
     m = re.match(r"^(adicione|adiciona|adicionar|add|anyadir|anadir)\s+(.+)$", lower_ascii)
     if m:
         rest = m.group(2).strip()
-        if rest and "lista" not in lower_ascii and "listas" not in lower_ascii:
+        # Se contiver keywords de lembrete/agenda, NÃO deve ser interceptado pelo comando /add (lista)
+        reminder_kws = {"lembrete", "reminder", "reunion", "cita", "avisar", "avisa", "avisame", "recordar", "recuerdame"}
+        has_reminder_intent = any(kw in lower_ascii for kw in reminder_kws)
+        
+        if rest and not has_reminder_intent and "lista" not in lower_ascii and "listas" not in lower_ascii:
             return f"/add {rest}"
 
     # Recorrente: "lembrete recorrente X" ou "todo dia X" / "toda semana X"
@@ -167,7 +171,7 @@ def normalize_nl_to_command(content: str) -> str:
     _COMMON_ITEMS = {
         "arroz", "feijao", "massa", "azeite", "sal", "acucar", "leite", "ovos", "queijo", "manteiga",
         "tomate", "cebola", "alho", "batata", "frango", "carne", "peixe", "pao", "cafe", "agua",
-        "cerveja", "vinho", "fruta", "maca", "banana", "laranja", "peru", "presunto", "iogurte",
+        "cerveja", "vinho", "fruta", "banana", "laranja", "presunto", "iogurte",
         "detergente", "papel", "sabonete", "shampoo", "creme", "pasta", "escova"
     }
     if lower_ascii in _COMMON_ITEMS:
