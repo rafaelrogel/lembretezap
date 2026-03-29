@@ -10,9 +10,23 @@ def _is_relevant_question(msg_content: str) -> bool:
     lower = msg_content.lower()
     
     # Check for relevant keywords in the question
-    # "Quer lembrete 15 min antes também?" -> matches lembrete and antes
-    # "¿Quieres un recordatorio?"
-    keywords = ["lembrete", "antes", "recordatorio", "remind", "reminder", "agenda", "evento", "aviso", "avisar"]
+    # PT: lembrete, aviso, antes, agenda, compromisso
+    # ES: recordatorio, aviso, antes, agenda, compromiso
+    # EN: reminder, notice, before, after, agenda, appointment
+    keywords = [
+        "lembrete", "antes", "recordatorio", "remind", "reminder", 
+        "agenda", "evento", "aviso", "avisar", "compromisso", "compromiso",
+        "appointment", "notice", "before", "after", "minutos", "horas",
+        "minutes", "hours", "quer", "quiere", "want", "would you"
+    ]
+    
+    # BLACKLIST: If the question contains dangerous keywords, don't intercept it here.
+    # We want these to go to the rigid resolve_confirm handler for safety.
+    blacklist = ["apagar", "deletar", "exportar", "borrar", "nuke", "reset", "tudo", "todos", "all", "scratch"]
+    
+    if any(bk in lower for bk in blacklist):
+        return False
+        
     return any(kw in lower for kw in keywords)
 
 def _is_reply_intent(user_content: str) -> bool:

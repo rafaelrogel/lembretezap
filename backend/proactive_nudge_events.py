@@ -5,41 +5,47 @@ Quando o cliente regista um evento na agenda e NÃO pede lembrete, se o evento
 estiver nesta lista enviamos um lembrete «surpresa» 12h antes, com mensagem
 simpática/marota. Esse lembrete não aparece na lista (/lembrete) — é uma surpresa.
 
-Cada linha é um grupo de sinónimos/variantes em pt-BR, pt-PT, es, en.
-Total: 500 grupos (eventos). Matching: evento do user (lower) contém alguma destas strings.
+Cada linha é um grupo de sinónimos/variantes.
+Escopo atual: Português (PT), Inglês (EN), Espanhol (ES).
+Limitação: Sem cobertura para Árabe (AR), Francês (FR), Alemão (DE) ou Italiano (IT).
 """
 
 # 500 eventos importantes: listas de keywords por "tipo" (qualquer idioma)
 # is_important_event_for_nudge() verifica se o nome do evento contém alguma keyword
+import re
+import threading
+from typing import Optional
+
+
 PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     # 1-50: Saúde e consultas
     ["consulta", "médico", "medico", "doctor", "appointment", "cita", "clínica", "clinica", "hospital"],
-    ["dentista", "dentist", "dental", "odontólogo", "odontologo", "odontología", "dentista"],
-    ["exame", "exames", "examen", "exam", "test", "análise", "analise", "blood test", "exame de sangue"],
+    ["dentista", "dentist", "dental", "odontólogo", "odontologo", "odontología"],
+    ["exame", "exames", "examen", "exam", "análise", "analise", "blood test", "exame de sangue"],
     ["vacina", "vacinação", "vacinacao", "vaccine", "vacunación", "vacuna", "dose", "vaccination"],
-    ["fisioterapia", "fisioterapeuta", "physiotherapy", "physical therapy", "fisioterapia"],
+    ["fisioterapia", "fisioterapeuta", "physiotherapy", "physical therapy"],
     ["psicólogo", "psicologo", "psicóloga", "psicologa", "psychologist", "therapist", "terapia", "therapy"],
     ["oftalmologista", "oculista", "optometrista", "ophthalmologist", "eye doctor", "oftalmólogo"],
-    ["cardiologista", "cardiólogo", "cardiologist", "cardiólogo", "heart"],
+    ["cardiologista", "cardiólogo", "cardiologist", "heart"],
     ["dermatologista", "dermatólogo", "dermatologist", "skin", "pele"],
     ["ginecologista", "ginecólogo", "gynaecologist", "obstetra", "obstetrician"],
-    ["pediatra", "pediatrician", "pediatra", "child doctor"],
+    ["pediatra", "pediatrician", "child doctor"],
     ["cirurgia", "surgery", "operación", "operacao", "operação", "surgical"],
     ["ressonância", "ressonancia", "mri", "resonancia", "ultrassom", "ultra-som", "ultrasound"],
     ["radiografia", "raio-x", "raio x", "x-ray", "radiografía"],
     ["retirada de resultado", "resultado de exame", "lab results", "resultados"],
     ["nutricionista", "nutrição", "nutricao", "dietitian", "nutritionist", "nutrición"],
-    ["acupuntura", "acupuncture", "acupuntura"],
+    ["acupuntura", "acupuncture"],
     ["massagem", "massage", "masaje", "massagem agendada"],
     ["sessão de terapia", "sessao de terapia", "therapy session", "sesión de terapia"],
     ["medicina alternativa", "alternative medicine", "medicina natural"],
     ["check-up", "checkup", "revisão de saúde", "revisao de saude", "health check"],
     ["doação de sangue", "doacao de sangue", "blood donation", "donación de sangre"],
-    ["transplante", "transplant", "transplante"],
-    ["quimioterapia", "chemotherapy", "quimioterapia"],
-    ["radioterapia", "radiotherapy", "radioterapia"],
+    ["transplante", "transplant"],
+    ["quimioterapia", "chemotherapy"],
+    ["radioterapia", "radiotherapy"],
     ["emergência médica", "emergencia medica", "medical emergency", "urgencia"],
-    ["pronto-socorro", "emergency room", "urgencias", "er"],
+    ["pronto-socorro", "emergency room", "urgencias"],
     ["farmácia", "farmacia", "pharmacy", "buscar remédio", "buscar remedio", "retirar medicamento"],
     ["consulta de acompanhamento", "follow-up", "follow up", "controle", "control"],
     ["avaliação médica", "avaliacao medica", "medical evaluation", "evaluación médica"],
@@ -68,17 +74,17 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["manicure", "pedicure", "unhas", "nails", "uñas"],
     # 51-120: Trabalho e reuniões
     ["reunião", "reuniao", "reuniões", "reunioes", "meeting", "meetings", "reunión"],
-    ["apresentação", "apresentacao", "presentation", "presentación", "presentación"],
+    ["apresentação", "apresentacao", "presentation", "presentación"],
     ["entrevista", "entrevistas", "interview", "job interview", "entrevista de emprego", "entrevista de trabajo"],
-    ["conferência", "conferencia", "conference", "conferencia"],
+    ["conferência", "conferencia", "conference"],
     ["palestra", "palestras", "talk", "charla", "lecture"],
     ["workshop", "workshops", "taller", "talleres"],
-    ["seminário", "seminario", "seminarios", "seminario", "seminars"],
+    ["seminário", "seminario", "seminarios", "seminars"],
     ["webinar", "webinars", "seminário online", "seminario online"],
     ["videoconferência", "videoconferencia", "videoconference", "videollamada", "video call"],
     ["zoom", "teams", "google meet", "meet", "chamada de vídeo", "chamada de video"],
     ["daily", "standup", "stand-up", "daily standup"],
-    ["retrospectiva", "retrospective", "retrospectiva"],
+    ["retrospectiva", "retrospective"],
     ["planning", "planning meeting", "planejamento", "planificación"],
     ["sprint", "sprint planning", "sprint review"],
     ["one-on-one", "1:1", "one to one", "reunião individual", "reuniao individual"],
@@ -86,7 +92,7 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["reunião com chefe", "reuniao com chefe", "meeting with boss", "reunión con jefe"],
     ["brainstorm", "brainstorming", "lluvia de ideas"],
     ["kickoff", "kick-off", "kick off", "início do projeto", "inicio del proyecto"],
-    ["entrega de projeto", "entrega de projeto", "project delivery", "entrega del proyecto"],
+    ["entrega de projeto", "project delivery", "entrega del proyecto"],
     ["deadline", "prazo", "prazo de entrega", "fecha límite"],
     ["demo", "demonstração", "demonstracao", "demonstration", "demostración"],
     ["pitch", "pitch presentation", "pitch de vendas"],
@@ -96,7 +102,7 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["onboarding", "integração", "integracao", "incorporación"],
     ["avaliação de desempenho", "avaliacao de desempenho", "performance review", "evaluación de desempeno"],
     ["feedback", "sessão de feedback", "sesión de feedback"],
-    ["treinamento", "treinamento", "training", "capacitación", "formación"],
+    ["treinamento", "training", "capacitación", "formación"],
     ["curso corporativo", "corporate training", "curso de empresa"],
     ["certificação", "certificacao", "certification", "certificación"],
     ["exame de certificação", "certification exam", "examen de certificación"],
@@ -106,11 +112,11 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["networking", "networking event", "evento de networking"],
     ["feira", "fair", "feria", "trade show", "exposição comercial", "exposicao comercial"],
     ["congresso", "congress", "congreso", "convención"],
-    ["simpósio", "simposio", "symposium", "simposio"],
-    ["mesa redonda", "round table", "mesa redonda"],
-    ["auditoria", "audit", "auditoría", "auditoria"],
+    ["simpósio", "simposio", "symposium"],
+    ["mesa redonda", "round table"],
+    ["auditoria", "audit", "auditoría"],
     ["inspeção", "inspecao", "inspection", "inspección"],
-    ["vistoria", "vistorias", "vistoria"],
+    ["vistoria", "vistorias"],
     ["entrega de relatório", "entrega de relatorio", "report delivery", "entrega de informe"],
     ["apresentação de resultados", "apresentacao de resultados", "results presentation"],
     ["reunião de equipe", "reuniao de equipe", "team meeting", "reunión de equipo"],
@@ -119,15 +125,15 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["assembleia", "assembleia de condomínio", "assembly", "asamblea"],
     ["eleição", "eleicao", "election", "votación", "votação"],
     ["entrevista de saída", "entrevista de saida", "exit interview"],
-    ["integração de novo colaborador", "onboarding", "incorporación"],
-    ["desligamento", "desligamento", "offboarding", "baja"],
-    ["proposta comercial", "proposta comercial", "commercial proposal", "propuesta comercial"],
+    ["integração de novo colaborador"],
+    ["desligamento", "offboarding", "baja"],
+    ["proposta comercial", "commercial proposal", "propuesta comercial"],
     ["orçamento", "orcamento", "quote", "budget", "presupuesto"],
     ["apresentação de projeto", "apresentacao de projeto", "project presentation"],
     ["status report", "relatório de status", "relatorio de status", "informe de estado"],
     ["review de código", "review de codigo", "code review"],
     ["deploy", "deployment", "implantação", "implantacao"],
-    ["go-live", "go live", "lançamento em produção", "lanzamiento"],
+    ["go-live", "go live", "lançamento em produção"],
     ["incidente", "incident", "incidente crítico", "incidente critico"],
     ["post-mortem", "postmortem", "análise de incidente", "analise de incidente"],
     ["call de suporte", "support call", "llamada de soporte"],
@@ -137,7 +143,7 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["reunião de pais e mestres", "parent teacher conference"],
     # 121-200: Viagens e transportes
     ["voo", "voos", "flight", "flights", "vuelo", "vuelos"],
-    ["embarque", "boarding", "embarque"],
+    ["embarque", "boarding"],
     ["check-in", "checkin", "check in", "facturación"],
     ["aeroporto", "airport", "aeropuerto"],
     ["partida", "departure", "salida", "partida do voo"],
@@ -155,7 +161,7 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["hotel", "check-in hotel", "checkin hotel"],
     ["passaporte", "passport", "pasaporte"],
     ["visto", "visa", "visado"],
-    ["consulado", "consulate", "consulado"],
+    ["consulado", "consulate"],
     ["embaixada", "embassy", "embajada"],
     ["seguro de viagem", "travel insurance", "seguro de viaje"],
     ["câmbio", "cambio", "exchange", "casa de câmbio"],
@@ -163,7 +169,7 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["bilhete de avião", "bilhete de aviao", "plane ticket", "billete de avión"],
     ["bilhete de trem", "train ticket", "billete de tren"],
     ["estação", "estacao", "station", "estación"],
-    ["porto", "port", "puerto", "aeroporto"],
+    ["porto", "port", "puerto"],
     ["taxi", "táxi", "uber", "cab", "rideshare"],
     ["carro agendado", "scheduled car", "coche reservado"],
     ["viagem a trabalho", "business trip", "viaje de negocios"],
@@ -183,7 +189,7 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["reembolso de voo", "flight refund", "reembolso"],
     ["remarcação", "remarcacao", "reschedule", "reagendamiento"],
     ["upgrade", "upgrade de classe", "clase ejecutiva"],
-    ["milhas", "miles", "pontos", "points", "fidelidade"],
+    ["milhas", "miles", "points", "fidelidade"],
     ["expiração de milhas", "expiration of miles"],
     ["renovação de passaporte", "renovacao de passaporte", "passport renewal"],
     ["visto de trabalho", "work visa", "visa de trabajo"],
@@ -192,12 +198,12 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["vacinação para viagem", "travel vaccination", "vacunas para viajar"],
     ["consulta do viajante", "travel clinic", "consulta del viajero"],
     # 201-280: Educação e provas
-    ["prova", "provas", "exam", "exams", "examen", "exámenes"],
-    ["teste", "test", "test", "prueba"],
+    ["prova", "provas", "exams", "exámenes"],
+    ["prueba"],
     ["avaliação", "avaliacao", "assessment", "evaluación"],
     ["aula", "aulas", "class", "lesson", "clase", "lección"],
-    ["curso", "cursos", "course", "courses", "curso"],
-    ["matrícula", "matricula", "enrollment", "matrícula", "inscripción"],
+    ["curso", "cursos", "course", "courses"],
+    ["matrícula", "matricula", "enrollment", "inscripción"],
     ["tcc", "trabalho de conclusão", "trabalho de conclusao", "thesis", "tesis"],
     ["defesa", "defesa de tese", "defesa de dissertação", "thesis defense", "defensa de tesis"],
     ["apresentação de tcc", "apresentacao de tcc", "tcc presentation"],
@@ -206,7 +212,7 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["vestibular", "enem", "exame nacional", "university entrance"],
     ["concurso", "concurso público", "concurso publico", "civil service exam"],
     ["prova de ordem", "bar exam", "examen de la barra"],
-    ["dissertação", "dissertacao", "dissertation", "tesis"],
+    ["dissertação", "dissertacao", "dissertation"],
     ["monografia", "monograph", "monografía"],
     ["seminário de curso", "seminario de curso", "course seminar"],
     ["seminário de pesquisa", "research seminar"],
@@ -257,7 +263,7 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["reunião de curso", "reuniao de curso", "course meeting"],
     ["coordenação de curso", "coordenacao de curso", "course coordination"],
     ["secretaria", "academic office", "secretaría"],
-    ["biblioteca", "library", "biblioteca"],
+    ["biblioteca", "library"],
     ["devolução de livro", "devolucao de livro", "book return"],
     ["renovação de empréstimo", "renovacao de emprestimo", "loan renewal"],
     # 281-360: Família e eventos sociais
@@ -266,7 +272,7 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["aniversário", "aniversario", "birthday", "cumpleaños"],
     ["aniversário de casamento", "anniversary", "aniversario de boda"],
     ["festa", "festas", "party", "fiesta"],
-    ["formatura", "graduation party"],
+    ["graduation party"],
     ["batizado", "baptism", "bautizo"],
     ["comunhão", "comunhao", "communion", "comunión"],
     ["bar mitzvah", "bat mitzvah"],
@@ -286,13 +292,13 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["chá de bebê", "cha de bebe", "baby shower"],
     ["chá de panela", "cha de panela", "bridal shower"],
     ["coquetel", "cocktail", "cóctel"],
-    ["brunch", "brunch"],
-    ["happy hour", "happy hour"],
-    ["visita", "visitas", "visit", "visita"],
+    ["brunch"],
+    ["happy hour"],
+    ["visita", "visitas", "visit"],
     ["visita aos avós", "visita aos avos", "visit grandparents"],
     ["visita ao hospital", "hospital visit"],
     ["velório", "velorio", "wake", "velatorio"],
-    ["funeral", "funeral", "entierro"],
+    ["funeral", "entierro"],
     ["memorial", "memorial service"],
     ["homenagem", "tribute", "homenaje"],
     ["inauguração", "inauguracao", "opening", "inauguración"],
@@ -301,16 +307,16 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["lançamento de produto", "lancamento de produto", "product launch"],
     ["preview", "pré-estreia", "pre-estreia", "avant-première"],
     ["estreia", "premiere", "estreno"],
-    ["gala", "gala", "gala dinner"],
-    ["baile", "ball", "baile"],
-    ["festival", "festivals", "festival"],
-    ["show", "shows", "concert", "concierto"],
-    ["teatro", "theatre", "theater", "teatro"],
+    ["gala", "gala dinner"],
+    ["baile", "ball"],
+    ["festival", "festivals"],
+    ["concert", "concierto"],
+    ["teatro", "theatre", "theater"],
     ["cinema", "movie", "película"],
     ["exposição", "exposicao", "exhibition", "exposición"],
     ["museu", "museum", "museo"],
     ["galeria", "gallery", "galería"],
-    ["live", "live stream", "transmissão ao vivo", "transmissao ao vivo"],
+    ["live stream", "transmissão ao vivo", "transmissao ao vivo"],
     ["webinar ao vivo", "live webinar"],
     ["transmissão", "transmissao", "broadcast"],
     ["encontro de ex-alunos", "alumni reunion"],
@@ -320,45 +326,44 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["ceia", "christmas dinner", "cena de navidad"],
     ["réveillon", "reveillon", "new year's eve"],
     ["festa junina", "junina", "festa de são joão"],
-    ["carnaval", "carnival", "carnaval"],
-    ["desfile", "parade", "desfile"],
+    ["carnaval", "carnival"],
+    ["desfile", "parade"],
     ["premiação", "premiacao", "award ceremony", "premios"],
     ["entrega de prêmio", "entrega de premio", "award delivery"],
     ["abertura de evento", "event opening"],
     ["credenciamento", "registration", "acreditación"],
     ["coffee break", "pausa para café", "pausa para cafe"],
-    ["networking", "networking session"],
+    ["networking session"],
     ["foto oficial", "official photo"],
     ["cobertura", "event coverage"],
     ["imprensa", "press", "prensa"],
-    ["entrevista coletiva", "press conference"],
+    ["entrevista coletiva"],
     ["assessoria de imprensa", "press office"],
     # 361-440: Serviços e compromissos
     ["advogado", "advogada", "lawyer", "abogado"],
     ["consulta jurídica", "legal consultation", "consulta legal"],
-    ["audiência", "audiencia", "court hearing", "audiencia"],
+    ["audiência", "audiencia", "court hearing"],
     ["julgamento", "trial", "juicio"],
     ["depoimento", "testimony", "declaración"],
     ["assinatura de documento", "document signing", "firma de documento"],
     ["cartório", "cartorio", "notary", "notaría"],
     ["reconhecimento de firma", "signature recognition"],
     ["procuração", "procuracy", "poder notarial"],
-    ["testamento", "will", "testamento"],
-    ["inventário", "inventario", "probate", "inventario"],
-    ["divórcio", "divorcio", "divorce", "divorcio"],
-    ["contador", "accountant", "contador"],
+    ["testamento", "will"],
+    ["inventário", "inventario", "probate"],
+    ["divórcio", "divorcio", "divorce"],
+    ["contador", "accountant"],
     ["declaração ir", "declaracao ir", "tax return", "declaración de impuestos"],
     ["imposto de renda", "income tax"],
     ["abertura de empresa", "company registration"],
     ["registro de marca", "trademark registration"],
     ["contrato social", "articles of incorporation"],
-    ["banco", "bank", "banco"],
     ["agência bancária", "agencia bancaria", "bank branch"],
     ["abertura de conta", "account opening"],
     ["fechamento de conta", "account closure"],
     ["empréstimo", "emprestimo", "loan", "préstamo"],
-    ["renovação de empréstimo", "loan renewal"],
-    ["seguro", "insurance", "seguro"],
+    [],
+    ["seguro", "insurance"],
     ["renovação de seguro", "renovacao de seguro", "insurance renewal"],
     ["sinistro", "insurance claim", "reclamo"],
     ["vistoria de seguro", "insurance inspection"],
@@ -376,7 +381,7 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["reparo em casa", "home repair"],
     ["encanador", "plumber", "fontanero"],
     ["eletricista", "electrician", "electricista"],
-    ["pintor", "painter", "pintor"],
+    ["pintor", "painter"],
     ["limpeza", "cleaning", "limpieza"],
     ["lavagem de carro", "car wash"],
     ["troca de óleo", "troca de oleo", "oil change"],
@@ -386,35 +391,34 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["retirada de documento", "document pickup"],
     ["renovação de documento", "renovacao de documento", "document renewal"],
     ["carteira de motorista", "driver's license renewal"],
-    ["identidade", "id", "identity card", "documento de identidad"],
+    ["identidade", "identity card", "documento de identidad"],
     ["certidão", "certidao", "certificate", "certificado"],
-    ["atestado", "certificate", "certificado"],
+    [],
     ["laudo técnico", "laudo tecnico", "technical report"],
     ["perícia", "pericia", "expertise", "peritaje"],
     ["avaliação de imóvel", "avaliacao de imovel", "property appraisal"],
     ["test drive", "test-drive", "prueba de manejo"],
     ["compra de carro", "car purchase"],
     ["assinatura de financiamento", "loan signing"],
-    ["fechamento de compra", "closing"],
+    ["fechamento de compra"],
     ["entrega de imóvel", "property delivery"],
     ["registro de imóvel", "registro de imovel", "property registration"],
-    ["escritura", "deed", "escritura"],
-    ["tabelionato", "notary"],
+    ["escritura", "deed"],
+    ["tabelionato"],
     ["inventário extrajudicial", "out-of-court inventory"],
     ["mediação", "mediacao", "mediation", "mediación"],
     ["conciliação", "conciliacao", "conciliation"],
     ["arbitragem", "arbitration", "arbitraje"],
     ["audiência de conciliação", "conciliation hearing"],
-    ["corte de cabelo", "haircut", "corte de pelo"],
     ["cabeleireiro", "hairdresser", "peluquero"],
     ["barbearia", "barbershop", "barbería"],
     ["salão", "salao", "salon", "salón"],
-    ["estética", "estetica", "aesthetics", "estética"],
-    ["spa", "spa", "day spa"],
+    ["estética", "estetica", "aesthetics"],
+    ["spa", "day spa"],
     ["tatuagem", "tattoo", "tatuaje"],
-    ["piercing", "piercing"],
+    ["piercing"],
     ["depilação a laser", "laser hair removal"],
-    ["limpeza de pele", "facial cleansing"],
+    ["facial cleansing"],
     ["tratamento capilar", "hair treatment"],
     ["manicure e pedicure", "manicure and pedicure"],
     ["maquiagem", "makeup", "maquillaje"],
@@ -423,16 +427,16 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["filmagem", "filming", "grabación"],
     ["entrevista para mídia", "media interview"],
     ["podcast", "podcast recording"],
-    ["gravação", "gravacao", "recording", "grabación"],
+    ["gravação", "gravacao", "recording"],
     ["dublagem", "dubbing", "doblaje"],
     # 441-500: Outros compromissos importantes
-    ["coleta de exame", "coleta de exame", "lab collection"],
-    ["retirada de resultado", "result pickup"],
+    ["coleta de exame", "lab collection"],
+    ["result pickup"],
     ["doação", "doacao", "donation", "donación"],
     ["doação de órgão", "organ donation"],
     ["transfusão", "transfusao", "transfusion"],
-    ["quimioterapia", "chemotherapy"],
-    ["radioterapia", "radiotherapy"],
+    [],
+    [],
     ["sessão de hemodiálise", "hemodialysis session"],
     ["acompanhante", "companion", "acompañante"],
     ["consulta de acompanhamento pós-cirurgia", "post-surgery follow-up"],
@@ -441,8 +445,8 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["aplicação de medicamento", "aplicacao de medicamento", "medication administration"],
     ["vacinação em massa", "mass vaccination"],
     ["teste de gravidez", "pregnancy test"],
-    ["ultrassom obstétrico", "ultrasound"],
-    ["monitoramento", "monitoramento", "monitoring"],
+    ["ultrassom obstétrico"],
+    ["monitoramento", "monitoring"],
     ["teleconsulta", "teleconsultation"],
     ["segunda opinião médica", "second medical opinion"],
     ["autorização judicial", "autorizacao judicial", "court authorization"],
@@ -461,22 +465,22 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["cidadania", "citizenship", "ciudadanía"],
     ["refúgio", "refugio", "asylum"],
     ["autorização de trabalho", "work permit"],
-    ["carteira de trabalho", "work permit"],
+    ["carteira de trabalho"],
     ["rescisão", "termination", "rescisión"],
     ["acordo trabalhista", "labor agreement"],
     ["fgts", "withdrawal"],
     ["aposentadoria", "retirement", "jubilación"],
     ["inss", "social security"],
-    ["benefício", "beneficio", "benefit", "beneficio"],
+    ["benefício", "beneficio", "benefit"],
     ["perícia médica", "pericia medica", "medical examination"],
     ["recurso administrativo", "administrative appeal"],
     ["licitação", "licitacao", "bidding"],
     ["proposta em licitação", "bid proposal"],
     ["abertura de envelope", "bid opening"],
     ["sessão pública", "sessao publica", "public session"],
-    ["concurso público", "public tender"],
-    ["prova de concurso", "civil service exam"],
-    ["nomeação", "nomeacao", "appointment"],
+    ["public tender"],
+    ["prova de concurso"],
+    ["nomeação", "nomeacao"],
     ["posse", "taking office"],
     ["sindicância", "sindicancia", "investigation"],
     ["processo administrativo", "administrative proceeding"],
@@ -488,12 +492,12 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["contestação", "contestacao", "answer"],
     ["audiência de instrução", "evidentiary hearing"],
     ["sentença", "sentenca", "judgment"],
-    ["recurso", "appeal"],
+    [],
     ["execução", "execucao", "enforcement"],
     ["penhora", "attachment"],
     ["leilão", "leilao", "auction"],
     ["desocupação", "desocupacao", "eviction"],
-    ["despejo", "eviction"],
+    ["despejo"],
     ["conciliação trabalhista", "labor conciliation"],
     ["reclamação trabalhista", "reclamacao trabalhista", "labor claim"],
     ["acordo extrajudicial", "out-of-court settlement"],
@@ -503,7 +507,7 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["arbitragem internacional", "international arbitration"],
     ["laudo arbitral", "arbitral award"],
     ["homologação", "homologacao", "ratification"],
-    ["desistência", "desistencia", "withdrawal"],
+    ["desistência", "desistencia"],
     ["renúncia", "renuncia", "waiver"],
     ["quitação", "quitacao", "release"],
     ["encerramento de contrato", "contract closure"],
@@ -514,42 +518,59 @@ PROACTIVE_NUDGE_EVENT_KEYWORDS: list[list[str]] = [
     ["consulta de rotina cardiologia", "cardiology checkup", "revisão cardíaca"],
     ["ecocardiograma", "echocardiogram", "ecocardiografía"],
     ["holter", "holter monitor", "monitor holter"],
-    ["cateterismo", "catheterization", "cateterismo"],
-    ["angioplastia", "angioplasty", "angioplastia"],
+    ["cateterismo", "catheterization"],
+    ["angioplastia", "angioplasty"],
     ["mamografia", "mammography", "mamografía"],
-    ["colonoscopia", "colonoscopy", "colonoscopia"],
-    ["endoscopia", "endoscopy", "endoscopia"],
+    ["colonoscopia", "colonoscopy"],
+    ["endoscopia", "endoscopy"],
 ]
 
 
-def _build_keyword_set() -> frozenset[str]:
-    """Constrói o set de todas as keywords (lowercase) para matching rápido."""
-    all_kw: set[str] = set()
-    for group in PROACTIVE_NUDGE_EVENT_KEYWORDS:
-        for kw in group:
-            if kw and kw.strip():
-                all_kw.add(kw.strip().lower())
-    return frozenset(all_kw)
-
-
-_PROACTIVE_NUDGE_KEYWORDS_SET: frozenset[str] | None = None
+_PROACTIVE_NUDGE_REGEX: re.Pattern | None = None
+_PROACTIVE_NUDGE_LOCK = threading.Lock()
 
 
 def is_important_event_for_proactive_nudge(event_name: str) -> bool:
     """
     True se o nome do evento (ex.: "consulta no dentista") corresponde a algum
     evento considerado importante para o nudge proativo 12h antes.
+    Usa word boundaries (\b) para evitar falsos positivos por substring.
     """
     if not event_name or not (event_name or "").strip():
         return False
-    global _PROACTIVE_NUDGE_KEYWORDS_SET
-    if _PROACTIVE_NUDGE_KEYWORDS_SET is None:
-        _PROACTIVE_NUDGE_KEYWORDS_SET = _build_keyword_set()
-    text = (event_name or "").strip().lower()
-    # Verificar se alguma keyword está contida no texto do evento
-    return any(kw in text for kw in _PROACTIVE_NUDGE_KEYWORDS_SET)
+
+    global _PROACTIVE_NUDGE_REGEX
+    if _PROACTIVE_NUDGE_REGEX is None:
+        with _PROACTIVE_NUDGE_LOCK:
+            # Check again inside lock (double-checked locking)
+            if _PROACTIVE_NUDGE_REGEX is None:
+                all_kw = []
+                for group in PROACTIVE_NUDGE_EVENT_KEYWORDS:
+                    for kw in group:
+                        if kw and kw.strip():
+                            # Escapar para segurança e preparar para regex
+                            all_kw.append(re.escape(kw.strip().lower()))
+                
+                # Sort by length descending to match longest phrases first in case of overlapping patterns
+                all_kw.sort(key=len, reverse=True)
+                
+                pattern = r"\b(" + "|".join(all_kw) + r")\b"
+                _PROACTIVE_NUDGE_REGEX = re.compile(pattern, re.I)
+
+    text = event_name.strip()
+    return bool(_PROACTIVE_NUDGE_REGEX.search(text))
 
 
-def count_proactive_nudge_events() -> int:
+def count_proactive_nudge_groups() -> int:
     """Número de grupos de eventos na lista (para documentação)."""
     return len(PROACTIVE_NUDGE_EVENT_KEYWORDS)
+
+
+def count_proactive_nudge_unique_keywords() -> int:
+    """Número total de keywords únicas mapeadas (para documentação)."""
+    unique = set()
+    for group in PROACTIVE_NUDGE_EVENT_KEYWORDS:
+        for kw in group:
+            if kw and kw.strip():
+                unique.add(kw.strip().lower())
+    return len(unique)

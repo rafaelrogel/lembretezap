@@ -66,11 +66,11 @@ HANDLERS = [
     handle_list,  # primeiro: "cria lista de X", "mostre lista" → evita cair no LLM com histórico de erro
     handle_list_or_events_ambiguous,  # "tenho de X, Y" → pergunta lista ou lembretes
     handle_eventos_unificado,  # Handle periods/specific dates first
+    handle_agenda_remove,  # "remover a consulta", "já fiz a reunião" → remove da agenda
     handle_agenda_nl,  # "minha agenda", "o que tenho hoje/amanhã"
     handle_vague_time_reminder,
     handle_recurring_event,
     handle_sacred_text,  # ativo: responde quando cliente pede versículo bíblia/alcorão
-    handle_limpeza,  # antes de recurring: "preciso limpar a casa" → fluxo limpeza
     handle_pomodoro,  # /pomodoro — timer 25 min foco
     handle_quiet,  # /quiet e NL "parar horário silencioso" — antes do fluxo de lembrete
     handle_recipe,  # receita/ingredientes via Perplexity (rápido, fallback agent)
@@ -80,12 +80,12 @@ HANDLERS = [
     handle_start,
     handle_help,
     handle_recorrente,
+    handle_limpeza,  # fallback limpeza: "preciso limpar a casa" → fluxo limpeza
     handle_pendente,
     handle_hora_data,
     handle_hoje,
     handle_semana,
     handle_agenda,
-    handle_agenda_remove,  # "remover a consulta", "já fiz a reunião" → remove da agenda
     handle_mes,
     handle_timeline,
     handle_stats,
@@ -137,10 +137,6 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
     content_norm = normalize_command(content_norm.strip())
     text = content_norm
 
-    reply = await resolve_confirm(ctx, text)
-    if reply is not None:
-        return reply
-
     # -----------------------------------------------------------------------
     # CONTEXTUAL INTERCEPTION:
     # If the user is replying to a recent AI question (e.g. "Quer lembrete antes?"), 
@@ -152,6 +148,10 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         logger = get_logger(__name__)
         logger.info("router_bypassed_for_conversational_reply", extra={"extra": {"content": content[:50]}})
         return None  # Force fallback to LLM agent by skipping HANDLERS array
+
+    reply = await resolve_confirm(ctx, text)
+    if reply is not None:
+        return reply
 
     strict = os.environ.get("STRICT_HANDLERS", "").strip().lower() in ("1", "true", "yes")
     
@@ -209,6 +209,6 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
         if results:
             # Se conseguimos processar algum comando do batch, devolvemos a junção
             # (Se algum falhou, o LLM não será chamado para o resto, mas o utilizador já teve feedback)
-            return results if len(results) > 1 else results[0]
+            return "\n\n".join(results) if len(results) > 1 else results[0]
 
     return None

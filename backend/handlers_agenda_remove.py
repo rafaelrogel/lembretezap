@@ -22,6 +22,10 @@ _REMOVE_PATTERNS = [
     re.compile(r"^remove?\s+(.+?)\s*from\s+(?:the\s+)?agenda\s*$", re.I),
     re.compile(r"^(?:done\s+with|completed)\s+(.+)$", re.I),
     re.compile(r"^(?:ya\s+)?(?:hice|realic[eé]|termin[eé])\s+(?:el|la)?\s*(.+)$", re.I),
+    # Suporte a comandos normalizados (passados pelo router)
+    re.compile(r"^/remove\s+(?:o|a|da\s+agenda)?\s*(.+)$", re.I),
+    re.compile(r"^/agenda\s+remover?\s+(.+)$", re.I),
+    re.compile(r"^/agenda\s+(?:o|a|da\s+agenda)?\s*(?:remover?|tirar|apagar)\s+(.+)$", re.I),
 ]
 
 

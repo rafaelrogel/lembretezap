@@ -40,9 +40,13 @@ def _is_limpeza_nl_intent(content: str) -> bool:
     # Se a frase já contém detalhes ou frequência, não travar no intro,
     # deixar ir para o LLM que consegue processar o pedido específico.
     # Suporte para 4 idiomas: PT, EN, ES
+    # Frequências e termos recorrentes (PT, EN, ES) para evitar capturar lembretes 
+    # específicos no fluxo genérico de introdução à limpeza.
     frequency_words = (
-        "semanal", "weekly", "quinzenal", "bi-weekly", "todo", "toda", "sempre",
-        "quincenal", "diario", "mensual", "cada", "siempre", "diariamente"
+        "semanal", "weekly", "quinzenal", "bi-weekly", "todo", "toda", "todos", "todas", "sempre",
+        "quincenal", "diario", "mensual", "cada", "siempre", "diariamente",
+        "every", "each", "always", "daily", "monthly", "yearly", "annually",
+        "todas as", "todos os", "cada", "quaisquer", "cualquier", "cualquiera"
     )
     if any(word in t for word in frequency_words):
         return False
