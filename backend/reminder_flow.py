@@ -566,14 +566,22 @@ def parse_full_event_datetime(
         if dl in ("amanhã", "amanha", "tomorrow"):
             target_date = today + timedelta(days=1)
         elif dl in ("hoje", "today"):
-            target_date = today
+            # Se for hoje e a hora já passou, assume amanhã
+            if now.hour > hour or (now.hour == hour and now.minute >= minute):
+                target_date = today + timedelta(days=1)
+            else:
+                target_date = today
         elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo",
                      "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira"):
             from backend.time_parse import DIAS_SEMANA
             dow_target = DIAS_SEMANA.get(dl)
             if dow_target is not None:
-                today_cron = (now.weekday() + 1) % 7
-                diff = (dow_target - today_cron) % 7
+                # Python weekday (0=Mon, 6=Sun) -> converter p/ 1=Dom, 7=Sábado se dow_target usar esse padrão?
+                # Verificando DIAS_SEMANA em backend/time_parse/__init__.py
+                today_dow = (now.weekday() + 1) % 7 # Python: 0=Mon, 6=Sun -> 1=Mon, 0=Sun
+                # Mas dow_target (segunda=2, terça=3...) assume 1=Dom, 7=Sáb?
+                # Vamos simplificar: se diff=0 e passou a hora, +7 dias.
+                diff = (dow_target - (now.weekday() + 1)) % 7 
                 if diff == 0 and (now.hour > hour or (now.hour == hour and now.minute >= minute)):
                     diff = 7
                 target_date = today + timedelta(days=diff)
@@ -613,14 +621,19 @@ def compute_in_seconds_from_date_hour(
         if dl in ("amanhã", "amanha", "tomorrow"):
             target_date = today + timedelta(days=1)
         elif dl in ("hoje", "today"):
-            target_date = today
+            # Se for hoje e a hora já passou, assume amanhã
+            if now.hour > hour or (now.hour == hour and now.minute >= minute):
+                target_date = today + timedelta(days=1)
+            else:
+                target_date = today
         elif dl in ("segunda", "terça", "terca", "quarta", "quinta", "sexta", "sábado", "sabado", "domingo",
                      "segunda-feira", "terça-feira", "terca-feira", "quarta-feira", "quinta-feira", "sexta-feira"):
             from backend.time_parse import DIAS_SEMANA
             dow_target = DIAS_SEMANA.get(dl)
             if dow_target is not None:
-                today_cron = (now.weekday() + 1) % 7  # Python: 0=Mon -> cron 1
-                diff = (dow_target - today_cron) % 7
+                # Python weekday (0=Mon, 6=Sun) -> 1=Seg, 7=Dom
+                today_dow = now.weekday() + 1
+                diff = (dow_target - today_dow) % 7
                 if diff == 0 and (now.hour > hour or (now.hour == hour and now.minute >= minute)):
                     diff = 7
                 target_date = today + timedelta(days=diff)
