@@ -27,6 +27,7 @@ from backend.user_store import (
     get_user_preferred_name,
     get_user_timezone,
     is_user_in_quiet_window,
+    get_user_quiet,
 )
 from backend.timezone import phone_to_default_timezone
 
@@ -123,8 +124,8 @@ def _mark_sent_today(chat_id: str) -> None:
     _SENT_FILE.write_text(json.dumps(data, indent=0))
 
 
-def _is_in_smart_reminder_window(tz_iana: str, hour_start: int = 8, hour_end: int = 10) -> bool:
-    """True se a hora local do utilizador está na janela (ex.: 8h–10h)."""
+def _is_in_smart_reminder_window(tz_iana: str, hour_start: int, hour_end: int) -> bool:
+    """True se a hora local do utilizador está na janela (suporta travessia de meia-noite)."""
     try:
         from zapista.clock_drift import get_effective_time
         _now_ts = get_effective_time()
@@ -135,7 +136,16 @@ def _is_in_smart_reminder_window(tz_iana: str, hour_start: int = 8, hour_end: in
         from zoneinfo import ZoneInfo
         z = ZoneInfo(tz_iana)
         now_local = datetime.fromtimestamp(_now_ts, tz=z)
-        return hour_start <= now_local.hour < hour_end
+        h = now_local.hour
+        
+        if hour_start == hour_end: # Janela vazia ou invalida
+            return False
+
+        if hour_start < hour_end:
+            return hour_start <= h < hour_end
+        else:
+            # Caso de travessia de meia-noite (ex: 23h às 01h)
+            return h >= hour_start or h < hour_end
     except Exception:
         return False
 
@@ -507,8 +517,20 @@ async def run_smart_reminder_daily(
                 if is_user_in_quiet_window(chat_id):
                     continue
                 tz_iana = get_user_timezone(db, chat_id) or phone_to_default_timezone(chat_id)
-                if not _is_in_smart_reminder_window(tz_iana):
+                
+                # Calcular janela dinâmica com base no fim do modo silencioso
+                _, quiet_end = get_user_quiet(db, chat_id)
+                h_start = 8 # Padrão
+                if quiet_end:
+                    try:
+                        h_start = int(quiet_end.split(":")[0])
+                    except (ValueError, IndexError):
+                        pass
+                h_end = (h_start + 2) % 24
+                
+                if not _is_in_smart_reminder_window(tz_iana, h_start, h_end):
                     continue
+
                 # Só enviar se o cliente já enviou pelo menos N mensagens hoje (proteção anti-spam)
                 if get_daily_user_message_count(chat_id, tz_iana) < SMART_REMINDER_MIN_MESSAGES_FROM_USER:
                     continue
