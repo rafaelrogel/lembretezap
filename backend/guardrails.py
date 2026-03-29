@@ -85,10 +85,12 @@ _TIME_WORDS = {
     "hora", "horas", "min", "minutos", "segunda", "terça", "quarta", "quinta",
     "sexta", "sábado", "sabado", "domingo", "dia", "semana", "mês", "mes",
     "jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out",
-    "nov", "dez", "em", "de", "para", "por", "favor", "pf", "obrigado",
-    "daqui", "dentro", "vão", "ser", "pode", "será", "seria", "vou",
-    "tomorrow", "today", "monday", "tuesday", "wednesday", "thursday", "friday",
-    "saturday", "sunday", "at", "for", "am", "pm", "in", "within",
+    "nov", "dez", "favor", "pf", "obrigado",
+    "daqui", "dentro", "vão", "ser", "pode", "será", "seria", "vou", "para",
+    "tomorrow", "today", "yesterday", "monday", "tuesday", "wednesday", "thursday", "friday",
+    "saturday", "sunday", "within", "with", "from", "about",
+    "mañana", "manana", "hoy", "ayer", "lunes", "martes", "miércoles", "miercoles",
+    "jueves", "viernes", "sábado", "sabado", "domingo", "recordatorio", "sobre",
 }
 
 
@@ -106,10 +108,12 @@ def is_vague_reminder_message(message: str | None) -> bool:
     words = set(re.findall(r"\b\w+\b", t))
     # Remover tempo + tipo → ver se sobra conteúdo concreto
     content_words = words - _TIME_WORDS
-    # Remover tokens que são só dígitos ou hora (10h, 9h, etc.)
+    # Remover tokens que são só dígitos, hora (10h, 9h, etc.) ou ruído gramatical (1-2 letras)
     content_words = {
         w for w in content_words
-        if not w.isdigit() and not (len(w) <= 4 and w[:-1].isdigit() and w[-1] in "hH")
+        if not w.isdigit() 
+        and not (len(w) <= 4 and w[:-1].isdigit() and w[-1] in "hH")
+        and len(w) > 2
     }
     # Se sobrou pouco ou nada concreto → vago
     if len(content_words) == 0:
@@ -154,8 +158,11 @@ def is_complex_request(text: str) -> bool:
     if not text or len(text.strip()) < 20:
         return False
     
-    # Se tem múltiplas linhas, tratar como complexo para forçar Batch Handling no Router
-    if "\n" in text.strip():
+    # Se tem 3 ou mais linhas OU tem quebras de linha em texto longo (> 150 chars), tratar como complexo
+    # Uma mensagem simples com uma única quebra de linha (ex: copy-paste) deve ser tratada como simples.
+    stripped = text.strip()
+    line_count = len(stripped.splitlines())
+    if line_count >= 3 or (line_count >= 2 and len(stripped) > 150):
         return True
         
     t = text.strip().lower()
@@ -253,6 +260,15 @@ def is_cron_interval_too_short(expr: str, allow_relaxed: bool = False) -> bool:
     return min_sec is not None and 0 < min_sec < min_interval
 
 
+def _is_affirmative(raw: str) -> bool:
+    """True se a resposta do utilizador indica afirmação (SIM, YES, SI, SÍ, S, Y)."""
+    if not raw:
+        return False
+    # Pega a primeira palavra, ignorando pontuação comum
+    first_word = raw.split()[0].rstrip(".,!?;:").upper()
+    return first_word in {"SIM", "YES", "SI", "SÍ", "S", "Y"}
+
+
 async def user_insisting_on_interval_rejection(
     session_manager,
     channel: str,
@@ -300,7 +316,7 @@ Responde APENAS: SIM ou NAO"""
                     temperature=0,
                 )
                 raw = (r.content or "").strip().upper()
-                return "SIM" in raw or raw.startswith("S")
+                return _is_affirmative(raw)
             except Exception:
                 pass
     except Exception:
