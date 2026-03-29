@@ -122,6 +122,7 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         now = datetime.fromtimestamp(_now_ts, tz=z)
     except Exception:
         now = datetime.fromtimestamp(_now_ts)
+    now = now.replace(second=0, microsecond=0)
 
     # Timezone override
     m_tz = re.search(r"(?:no\s+fuso\s+d[eoa]|em)\s+([^,.\s?]+(?:\s+[^,.\s?]+)?)", text_lower)
@@ -184,7 +185,10 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
         else: hora, minute, period = int(m2.group(1)), int(m2.group(2) or 0), m2.group(3)
         hora = adjust_am_pm_hour(min(23, max(0, hora)), period)
         message = strip_pattern(text, m.group(0))
-        delta = ((now + timedelta(days=1)).replace(hour=hora, minute=minute, second=0, microsecond=0) - now).total_seconds()
+        from datetime import time as dt_time
+        tomorrow = now.date() + timedelta(days=1)
+        target_dt = datetime.combine(tomorrow, dt_time(hora, minute, 0), tzinfo=now.tzinfo)
+        delta = (target_dt - now).total_seconds()
         if delta > 0 and delta <= 86400 * 30:
             return {"in_seconds": int(delta), "message": clean_message(message)}
 
