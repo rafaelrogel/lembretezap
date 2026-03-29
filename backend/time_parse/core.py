@@ -163,28 +163,35 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
             return {"every_seconds": every, "message": clean_message(message)}
 
     # 3. Hoje
-    _re_hoje_1 = r"(?:(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*(?:de\s+)?(?:hoje|hoy|today)\b)"
-    _re_hoje_2 = r"(?:(?:hoje|hoy|today)\b.*?\b(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b)"
+    _re_hoje_1 = r"(?:(?P<time1>(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?)\s*(?P<anchor1>(?:de\s+)?(?:hoje|hoy|today)\b))"
+    _re_hoje_2 = r"(?P<anchor2>(?:hoje|hoy|today)\b).*?(?P<time2>(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?)\b"
     m = re.search(_re_hoje_1 + "|" + _re_hoje_2, text_lower, re.I)
     if m:
-        if m.group(1): hora, minute, period = int(m.group(1)), int(m.group(2) or 0), m.group(3)
-        else: hora, minute, period = int(m.group(4)), int(m.group(5) or 0), m.group(6)
+        if m.group('time1'):
+            hora, minute, period = int(m.group(2)), int(m.group(3) or 0), m.group(4)
+            message = text.replace(m.group('time1'), "").replace(m.group('anchor1'), "").strip()
+        else:
+            hora, minute, period = int(m.group(8)), int(m.group(9) or 0), m.group(10)
+            message = text.replace(m.group('anchor2'), "").replace(m.group('time2'), "").strip()
+        
         hora = min(23, max(0, adjust_am_pm_hour(hora, period)))
-        message = strip_pattern(text, m.group(0))
         delta = (now.replace(hour=hora, minute=minute, second=0, microsecond=0) - now).total_seconds()
         return {"in_seconds": int(delta), "message": clean_message(message)}
 
     # 4. Amanhã
-    _re_amanha_1 = r"(?:(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*(?:de\s+)?(?:amanh[ãa]|ma[ñn]ana|tomorrow)\b)"
-    _re_amanha_2 = r"(?:(?:amanh[ãa]|ma[ñn]ana|tomorrow)\b.*?(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\b)"
+    _re_amanha_1 = r"(?P<time1>(?:(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:|min)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?))\s*(?P<anchor1>(?:de\s+)?(?:amanh[ãa]|ma[ñn]ana|tomorrow)\b)"
+    _re_amanha_2 = r"(?P<anchor2>(?:amanh[ãa]|ma[ñn]ana|tomorrow)\b).*?(?P<time2>(?:(?:[àa]s?|at|a\s+las?)\s*)?(\d{1,2})(?:h|:)?(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?)\b"
     m1 = re.search(_re_amanha_1, text_lower, re.I)
     m2 = re.search(_re_amanha_2, text_lower, re.I)
-    m = m1 or m2
-    if m:
-        if m1: hora, minute, period = int(m1.group(1)), int(m1.group(2) or 0), m1.group(3)
-        else: hora, minute, period = int(m2.group(1)), int(m2.group(2) or 0), m2.group(3)
+    if m1 or m2:
+        if m1:
+            hora, minute, period = int(m1.group(2)), int(m1.group(3) or 0), m1.group(4)
+            message = text.replace(m1.group('time1'), "").replace(m1.group('anchor1'), "").strip()
+        else:
+            hora, minute, period = int(m2.group(3)), int(m2.group(4) or 0), m2.group(5)
+            message = text.replace(m2.group('anchor2'), "").replace(m2.group('time2'), "").strip()
+        
         hora = adjust_am_pm_hour(min(23, max(0, hora)), period)
-        message = strip_pattern(text, m.group(0))
         from datetime import time as dt_time
         tomorrow = now.date() + timedelta(days=1)
         target_dt = datetime.combine(tomorrow, dt_time(hora, minute, 0), tzinfo=now.tzinfo)
@@ -261,44 +268,60 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
                 return out
 
     # 11. Data específica com Hora
-    _pat_data_hora = (r"(?:dia\s+)?(\d{1,2})[ºª]?" + _SEP + r"(\d{1,2}|" + _MONTH_NAMES_STR + r")" + r"(?:" + _SEP + r"(\d{4}))?\s*(?:às?|as|at|a\s+las?)\s*(\d{1,2})\s*(?:h|:)\s*(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*")
-    m = re.search(_pat_data_hora, text_lower, re.I)
-    if m:
-        dia, mes_str, ano, h_str, minute, period = int(m.group(1)), m.group(2).lower(), (int(m.group(3)) if m.group(3) else now.year), int(m.group(4)), (int(m.group(5)) if m.group(5) else 0), m.group(6)
-        mes = int(mes_str) if mes_str.isdigit() else MESES.get(mes_str)
-        if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
-            hora = min(23, max(0, adjust_am_pm_hour(h_str, period)))
-            try:
-                tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
-                _, last_day = monthrange(ano, mes)
-                target = datetime(ano, mes, min(dia, last_day), hora, minute, 0, tzinfo=tz)
-                delta = (target - now).total_seconds()
-                if target < now and target.date() == now.date() and delta >= -86400:
-                    return {"in_seconds": int(delta), "message": clean_message(strip_pattern(text, _pat_data_hora))}
-                if target < now:
-                    _, last_day = monthrange(ano + 1, mes)
-                    target_next = datetime(ano + 1, mes, min(dia, last_day), hora, minute, 0, tzinfo=tz)
-                    return {"date_in_past": True, "in_seconds": int((target_next - now).total_seconds()), "message": clean_message(strip_pattern(text, _pat_data_hora))}
-                return {"in_seconds": int(delta), "message": clean_message(strip_pattern(text, _pat_data_hora))}
-            except Exception: pass
+    _pat_data_fixed = (r"(?P<date>(?:dia\s+)?(\d{1,2})[ºª]?" + _SEP + r"(\d{1,2}|" + _MONTH_NAMES_STR + r")" + r"(?:" + _SEP + r"(\d{4}))?)\s*")
+    _pat_hora_fixed = (r"(?P<time>(?:às?|as|at|a\s+las?)\s*(\d{1,2})\s*(?:h|:)\s*(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?)\s*")
+    
+    m_date = re.search(_pat_data_fixed, text_lower, re.I)
+    if m_date:
+        # Look for time after the date
+        m_time = re.search(_pat_hora_fixed, text_lower[m_date.end():], re.I)
+        if m_time:
+            dia, mes_str, ano = int(m_date.group(2)), m_date.group(3).lower(), (int(m_date.group(4)) if m_date.group(4) else now.year)
+            h_str, minute, period = int(m_time.group(2)), (int(m_time.group(3)) if m_time.group(3) else 0), m_time.group(4)
+            
+            mes = int(mes_str) if mes_str.isdigit() else MESES.get(mes_str)
+            if mes and 1 <= dia <= 31 and 1 <= mes <= 12:
+                hora = min(23, max(0, adjust_am_pm_hour(h_str, period)))
+                try:
+                    tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
+                    _, last_day = monthrange(ano, mes)
+                    target = datetime(ano, mes, min(dia, last_day), hora, minute, 0, tzinfo=tz)
+                    delta = (target - now).total_seconds()
+                    
+                    # Message is the text excluding the date and time strings
+                    message = text.replace(m_date.group('date'), "").replace(m_time.group('time'), "").strip()
+                    
+                    if target < now and target.date() == now.date() and delta >= -86400:
+                        return {"in_seconds": int(delta), "message": clean_message(message)}
+                    if target < now:
+                        _, last_day = monthrange(ano + 1, mes)
+                        target_next = datetime(ano + 1, mes, min(dia, last_day), hora, minute, 0, tzinfo=tz)
+                        return {"date_in_past": True, "in_seconds": int((target_next - now).total_seconds()), "message": clean_message(message)}
+                    return {"in_seconds": int(delta), "message": clean_message(message)}
+                except Exception: pass
 
     # 12. Dia N às hour (sem mês)
-    _pat_dia_sozinho_hora = r"(?:dia\s+|day\s+|el\s+d[íi]a\s+)(\d{1,2})(?!\s*(?:de|/|-))\s*(?:às?|as|at|a\s+las?)\s*(\d{1,2})\s*(?:h|:)?\s*(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?\s*"
-    m = re.search(_pat_dia_sozinho_hora, text_lower, re.I)
-    if m:
-        dia_target, hora, minute, period = int(m.group(1)), int(m.group(2)), int(m.group(3) or 0), m.group(4)
-        hora = min(23, max(0, adjust_am_pm_hour(hora, period)))
-        if 1 <= dia_target <= 31:
-            try:
-                tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
-                target = now.replace(day=min(dia_target, 28), hour=hora, minute=minute, second=0, microsecond=0)
-                _, last_day = monthrange(target.year, target.month); target = target.replace(day=min(dia_target, last_day))
-                if target < now:
-                    if now.month == 12: target = now.replace(year=now.year + 1, month=1, day=min(dia_target, 28), hour=hora, minute=minute)
-                    else: target = now.replace(month=now.month + 1, day=min(dia_target, 28), hour=hora, minute=minute)
+    _pat_dia_fixed = r"(?P<date>(?:dia\s+|day\s+|el\s+d[íi]a\s+)(\d{1,2}))"
+    _pat_hora_fixed_2 = r"(?P<time>(?:às?|as|at|a\s+las?)\s*(\d{1,2})\s*(?:h|:)?\s*(\d{2})?\s*" + _AM_PM_MODIFIERS + r"?)\s*"
+    m_dia = re.search(_pat_dia_fixed, text_lower, re.I)
+    if m_dia:
+        m_time = re.search(_pat_hora_fixed_2, text_lower[m_dia.end():], re.I)
+        if m_time:
+            dia_target, hora, minute, period = int(m_dia.group(2)), int(m_time.group(2)), int(m_time.group(3) or 0), m_time.group(4)
+            hora = min(23, max(0, adjust_am_pm_hour(hora, period)))
+            if 1 <= dia_target <= 31:
+                try:
+                    tz = getattr(now, "tzinfo", None) or ZoneInfo(tz_iana)
+                    target = now.replace(day=min(dia_target, 28), hour=hora, minute=minute, second=0, microsecond=0)
                     _, last_day = monthrange(target.year, target.month); target = target.replace(day=min(dia_target, last_day))
-                return {"in_seconds": int((target - now).total_seconds()), "message": clean_message(strip_pattern(text, _pat_dia_sozinho_hora))}
-            except Exception: pass
+                    if target < now:
+                        if now.month == 12: target = now.replace(year=now.year + 1, month=1, day=min(dia_target, 28), hour=hora, minute=minute)
+                        else: target = now.replace(month=now.month + 1, day=min(dia_target, 28), hour=hora, minute=minute)
+                        _, last_day = monthrange(target.year, target.month); target = target.replace(day=min(dia_target, last_day))
+                    
+                    message = text.replace(m_dia.group('date'), "").replace(m_time.group('time'), "").strip()
+                    return {"in_seconds": int((target - now).total_seconds()), "message": clean_message(message)}
+                except Exception: pass
 
     # 13. Dia 21/04
     _pat_data = (r"(?:dia\s+)?(\d{1,2})[ºª]?" + _SEP + r"(\d{1,2}|" + _MONTH_NAMES_STR + r")" + r"(?:" + _SEP + r"(\d{4}))?\b")
@@ -321,14 +344,21 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
     if re.search(r"^(?:todo\s+dia|todos\s+os\s+dias|every\s+day|todos\s+los\s+d[íi]as|cada\s+d[íi]a)\s*$", text_lower):
         return {"cron_expr": "0 9 * * *", "message": "Lembrete"}
 
-    # 15. Weekly fallback
+    # 15. Weekly recurring (e.g. "toda sexta-feira às 18h00", "every monday at 3pm")
     for dia_name, cron_dow in DIAS_SEMANA.items():
-        pat = rf"\b(?:toda|every|cada)\s+(?:semana\s+|week\s+)?{re.escape(dia_name)}(?:\s*-?\s*f[eé]ira)?\b\s+(?:às?|as|at|a\s+las?)\s*(\d{{1,2}})(?::(\d{{2}}))?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b"
-        m = re.search(pat, text_lower, re.I)
-        if m:
-            hora, minute, period = int(m.group(1)), int(m.group(2) or 0), m.group(3)
-            hora = min(23, max(0, adjust_am_pm_hour(hora, period)))
-            return {"cron_expr": f"{minute} {hora} * * {cron_dow}", "message": clean_message(re.sub(pat, "", text, flags=re.I).strip())}
+        pat_day = rf"(?P<day>\b(?:toda|every|cada)\s+(?:semana\s+|week\s+)?{re.escape(dia_name)}(?:\s*-?\s*f[eé]ira)?\b)"
+        pat_time = rf"(?P<time>(?:às?|as|at|a\s+las?)\s*(\d{{1,2}})(?:\s*(?:h|:)\s*(\d{{2}})?)?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b)"
+        
+        m_day = re.search(pat_day, text_lower, re.I)
+        if m_day:
+            m_time = re.search(pat_time, text_lower[m_day.end():], re.I)
+            if m_time:
+                hora = int(m_time.group(2))
+                minute = int(m_time.group(3) or 0)
+                period = m_time.group(4)
+                hora = min(23, max(0, adjust_am_pm_hour(hora, period)))
+                message = text.replace(m_day.group('day'), "").replace(m_time.group('time'), "").strip()
+                return {"cron_expr": f"{minute} {hora} * * {cron_dow}", "message": clean_message(message)}
 
     # 16. Monthly fallback (doubled in original?)
     m = re.search(r"(?:mensalmente|monthly|mensualmente)\s+(?:dia\s+|day\s+)?(\d{1,2})\s*(?:às?|as|at|a\s+las?)\s*(\d{1,2})\s*h?\b", text_lower, re.I)
@@ -339,20 +369,25 @@ def parse_lembrete_time(text: str, tz_iana: str = "UTC") -> dict[str, Any]:
 
     # 16.5. One-time weekday + specific time (e.g. "sexta-feira às 18h00", "monday at 3pm")
     for dia_name, cron_dow in DIAS_SEMANA.items():
-        pat = rf"\b{re.escape(dia_name)}(?:\s*-?\s*f[eé]ira)?\s+(?:às?|as|at|a\s+las?)\s*(\d{{1,2}})(?:\s*(?:h|:)\s*(\d{{2}})?)?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b"
-        m = re.search(pat, text_lower, re.I)
-        if m:
-            hora = int(m.group(1))
-            minute = int(m.group(2) or 0)
-            period = m.group(3)
-            hora = min(23, max(0, adjust_am_pm_hour(hora, period)))
-            days_ahead = (cron_dow - ((now.weekday() + 1) % 7) + 7) % 7
-            if days_ahead == 0 and (now.hour > hora or (now.hour == hora and now.minute >= minute)):
-                days_ahead = 7
-            target = (now + timedelta(days=days_ahead)).replace(hour=hora, minute=minute, second=0, microsecond=0)
-            delta = (target - now).total_seconds()
-            if delta > 0:
-                return {"in_seconds": int(delta), "message": clean_message(strip_pattern(text, pat))}
+        pat_day = rf"(?P<day>\b{re.escape(dia_name)}(?:\s*-?\s*f[eé]ira)?\b)"
+        pat_time = rf"(?P<time>(?:às?|as|at|a\s+las?)\s*(\d{{1,2}})(?:\s*(?:h|:)\s*(\d{{2}})?)?\s*" + _AM_PM_MODIFIERS + r"?\s*h?\b)"
+        
+        m_day = re.search(pat_day, text_lower, re.I)
+        if m_day:
+            m_time = re.search(pat_time, text_lower[m_day.end():], re.I)
+            if m_time:
+                hora = int(m_time.group(2))
+                minute = int(m_time.group(3) or 0)
+                period = m_time.group(4)
+                hora = min(23, max(0, adjust_am_pm_hour(hora, period)))
+                days_ahead = (cron_dow - ((now.weekday() + 1) % 7) + 7) % 7
+                if days_ahead == 0 and (now.hour > hora or (now.hour == hora and now.minute >= minute)):
+                    days_ahead = 7
+                target = (now + timedelta(days=days_ahead)).replace(hour=hora, minute=minute, second=0, microsecond=0)
+                delta = (target - now).total_seconds()
+                if delta > 0:
+                    message = text.replace(m_day.group('day'), "").replace(m_time.group('time'), "").strip()
+                    return {"in_seconds": int(delta), "message": clean_message(message)}
 
     # 17. Hoje/Amanhã/Semaval sem hora
     _vague_days = {"hoje": 0, "hoy": 0, "today": 0, "amanhã": 1, "amanha": 1, "mañana": 1, "tomorrow": 1}
