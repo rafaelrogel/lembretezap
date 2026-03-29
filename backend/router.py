@@ -141,6 +141,18 @@ async def route(ctx: HandlerContext, content: str) -> str | None:
     if reply is not None:
         return reply
 
+    # -----------------------------------------------------------------------
+    # CONTEXTUAL INTERCEPTION:
+    # If the user is replying to a recent AI question (e.g. "Quer lembrete antes?"), 
+    # we bypass the rigid command handlers and let the LLM agent process the reply.
+    # -----------------------------------------------------------------------
+    from backend.handlers.contextual_reply import is_conversational_reply
+    if await is_conversational_reply(ctx, content):
+        from backend.logger import get_logger
+        logger = get_logger(__name__)
+        logger.info("router_bypassed_for_conversational_reply", extra={"extra": {"content": content[:50]}})
+        return None  # Force fallback to LLM agent by skipping HANDLERS array
+
     strict = os.environ.get("STRICT_HANDLERS", "").strip().lower() in ("1", "true", "yes")
     
     # Tentativa 1: Tratar o bloco inteiro como um só comando (comportamento original)
