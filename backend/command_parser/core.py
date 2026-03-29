@@ -344,7 +344,7 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         raw_items = m.group(1).strip()
         _raw_name = m.group(2).strip()
         _name = _extract_list_name(_raw_name).lower()
-        list_name = _CATEGORY_TO_LIST.get(_name, _name)
+        list_name = CATEGORY_TO_LIST.get(_name, _name)
         parts = re.split(r"\s*,\s*|\s+e\s+", raw_items)
         items = [p.strip() for p in parts if p.strip()]
         if not items: return None
