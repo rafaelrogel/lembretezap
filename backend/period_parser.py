@@ -13,7 +13,7 @@ Suporta pt-BR, pt-PT, EN, ES.
 """
 
 import re
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from typing import Tuple, Optional
 
 # ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ _RE_NEXT_WEEK = re.compile(
 
 # This month: "este mês", "esse mês", "deste mês", "este mes", "this month"
 _RE_THIS_MONTH = re.compile(
-    r"(?:para\s+)?(?:d?est[ea]\s+m[eê]s|this\s+month|\bm[eê]s\b|\bmonth\b)",
+    r"(?:para\s+)?(?:d?est[ea]\s+m[eê]s|this\s+month|este\s+mes)",
     re.I,
 )
 
@@ -105,7 +105,7 @@ _RE_NEXT_N_WEEKS = re.compile(
     r"(?:pr[oó]xim[ao]s?|las?\s+pr[oó]xim[ao]s?)\s+(\d{1,2})\s+semanas?"  # PT/ES: próximas 2 semanas
     r"|(\d{1,2})\s+semanas?\s+(?:que\s+vem|siguientes?)"  # PT: 2 semanas que vem, ES: 2 semanas siguientes
     r"|next\s+(\d{1,2})\s+weeks?"  # EN: next 2 weeks
-    r"|(?:for\s+)?(\d{1,2})\s+weeks?"  # EN: for 2 weeks, 2 weeks
+    r"|for\s+(\d{1,2})\s+weeks?"  # EN: for 2 weeks
     r")",
     re.I,
 )
@@ -116,7 +116,7 @@ _RE_NEXT_N_DAYS = re.compile(
     r"(?:pr[oó]xim[ao]s?|l[ao]s?\s+pr[oó]xim[ao]s?)\s+(\d{1,3})\s+d[ií]as?"  # PT/ES: próximos 7 dias/días
     r"|(\d{1,3})\s+d[ií]as?\s+(?:que\s+vem|siguientes?)"  # PT: 7 dias que vem, ES: 7 días siguientes
     r"|next\s+(\d{1,3})\s+days?"  # EN: next 7 days
-    r"|(?:for\s+)?(\d{1,3})\s+days?"  # EN: for 7 days, 7 days
+    r"|for\s+(\d{1,3})\s+days?"  # EN: for 7 days
     r")",
     re.I,
 )
@@ -145,10 +145,15 @@ _RE_DAY_ONLY = re.compile(
 )
 
 _WEEKDAYS = {
+    # PT
     "segunda-feira": 0, "terça-feira": 1, "terca-feira": 1, "quarta-feira": 2, "quinta-feira": 3, "sexta-feira": 4,
-    "segunda": 0, "terça": 1, "terca": 1, "quarta": 2, "quinta": 3, "sexta": 4, "sábado": 5, "sabado": 5, "domingo": 6,
+    "segunda": 0, "terça": 1, "terca": 1, "quarta": 2, "quinta": 3, "sexta": 4,
+    # EN
     "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6,
-    "lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2, "jueves": 3, "viernes": 4, "sábado": 5, "sabado": 5, "domingo": 6,
+    # ES
+    "lunes": 0, "martes": 1, "miércoles": 2, "miercoles": 2, "jueves": 3, "viernes": 4,
+    # Common
+    "sábado": 5, "sabado": 5, "domingo": 6,
 }
 
 _RE_NEXT_N_WEEKDAYS = re.compile(
@@ -160,7 +165,7 @@ _RE_NEXT_N_WEEKDAYS = re.compile(
 )
 
 _RE_WEEKDAY_ONLY = re.compile(
-    r"\b(?:de|proxima|pr[oó]xima|next|proximo|pr[oó]ximo|en|on)\s+(" + "|".join(_WEEKDAYS.keys()) + r")\b",
+    r"\b(?:de|pr[oó]xim[ao]|next|el|on|para(?:\s+el)?)\s+(" + "|".join(_WEEKDAYS.keys()) + r")\b",
     re.I,
 )
 
@@ -172,6 +177,15 @@ def _last_day_of_month(year: int, month: int) -> date:
     return date(year, month + 1, 1) - timedelta(days=1)
 
 
+def _get_effective_date() -> date:
+    """Gets the system date, respecting any clock drift."""
+    try:
+        from zapista.clock_drift import get_effective_time
+        return datetime.fromtimestamp(get_effective_time()).date()
+    except (ImportError, Exception):
+        return date.today()
+
+
 def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, date, Optional[int]]]:
     """Parse temporal qualifier from text and return (start_date, end_date, weekday_filter) or None.
 
@@ -181,7 +195,7 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
         return None
     t = text.strip().lower()
     if today is None:
-        today = date.today()
+        today = _get_effective_date()
 
     # Order: most specific first to avoid partial matches
 
@@ -194,9 +208,10 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
             count = int(count_str)
             target_wd = _WEEKDAYS.get(wd_name)
             if target_wd is not None and 1 <= count <= 52:
-                # Range from today until the N-th occurrence of target_wd
-                # For simplicity, returning a range large enough to include all and the filter
-                end = today + timedelta(days=count * 8) 
+                # Calculate the N-th occurrence of target_wd starting from today
+                days_until_first = (target_wd - today.weekday()) % 7
+                days_until_nth = days_until_first + (count - 1) * 7
+                end = today + timedelta(days=days_until_nth)
                 return (today, end, target_wd)
 
     # Weekday only: "lembretes de sexta"
@@ -247,13 +262,7 @@ def parse_period(text: str, today: date | None = None) -> Optional[Tuple[date, d
                 year += 2000
         else:
             year = today.year
-            # Se a data já passou este ano, assume próximo ano
-            try:
-                target = date(year, month, day)
-                if target < today:
-                    year += 1
-            except ValueError:
-                pass
+
         try:
             target = date(year, month, day)
             return (target, target, None)
@@ -381,5 +390,8 @@ def period_label(start: date, end: date, lang: str = "pt-BR") -> str:
         return f"{names[start.month - 1]} {start.year}"
 
     # Date range (e.g., week)
-    fmt = "%d/%m" if lang != "en" else "%m/%d"
+    if lang == "en":
+        fmt = "%Y-%m-%d"
+    else:
+        fmt = "%d/%m/%Y"
     return f"{start.strftime(fmt)} – {end.strftime(fmt)}"
