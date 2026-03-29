@@ -31,7 +31,7 @@ _HOUR_PATTERNS = (
     r"as\s*\d{1,2}(?:[:h]\d{2})?",
     r"(?:às?|as)\s*\d{4}\b",
     r"\b\d{2}h\d{2}?\b", # 12h, 12h00
-    r"\b(?![2][0][2-9][0-9])\d{4}\b", # 1200 (evita anos 2020-2099)
+    r"\b(?!(?:19|20|21)\d{2})(?:[01]\d|2[0-3])[0-5]\d\b", # 1200 (evita anos 1900-2199 e horas inválidas)
     r"\d{1,2}\s*(?:am|pm)\b",
     r"\d{1,2}:\d{2}\s*(?:am|pm)\b",  # 3:25 PM, 10:30 AM
 )
@@ -120,19 +120,21 @@ def has_reminder_intent(text: str) -> bool:
     if tl.startswith("/"):
         return False
 
+    # Verbos de consulta que indicam que o utilizador quer VER a agenda, não CRIAR (Exclui substantivos como "agenda")
     query_verbs = (
         # PT
-        "liste", "listar", "mostre", "mostrar", "mostra", "quais", "ver", "cancelar", "apagar", "remover", "como", "esta", "está", "agenda", "agendas",
-        "calendário", "calendario",
+        "liste", "listar", "mostre", "mostrar", "mostra", "quais", "ver", "cancelar", "apagar", "remover", "como", "esta", "está", "onde",
         # EN
-        "list", "show", "what", "which", "view", "cancel", "delete", "remove", "how", "is", "are", "agenda", "calendar",
+        "list", "show", "what", "which", "view", "cancel", "delete", "remove", "how", "is", "are", "where",
         # ES
-        "listar", "muestra", "mostrar", "cuales", "cuáles", "ver", "cancelar", "borrar", "eliminar", "como", "esta", "está", "agenda", "calendario"
+        "listar", "muestra", "mostrar", "cuales", "cuáles", "ver", "cancelar", "borrar", "eliminar", "como", "esta", "está", "donde"
     )
     words = tl.replace("/", " ").split()
+    # Se contém verbo de consulta (Ex.: "ver agenda", "mostrar calendário"), bloqueamos a criação
     if any(q in words for q in query_verbs):
         return False
-
+    
+    # Se NÃO contém verbo de consulta, verificamos os hints de criação (Ex.: "reunião na agenda" -> True)
     return any(h in tl for h in _REMINDER_HINTS)
 
 

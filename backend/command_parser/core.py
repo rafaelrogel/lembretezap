@@ -4,29 +4,30 @@ import re
 from typing import Any
 from . import pt, en, es
 
-# Dynamically build unified lists/mappings
-LEMBRETE_ALIASES_STR = "|".join(set(pt.LEMBRETE_ALIASES + en.LEMBRETE_ALIASES + es.LEMBRETE_ALIASES))
-LISTA_ALIASES_STR = "|".join(set(pt.LISTA_ALIASES + en.LISTA_ALIASES + es.LISTA_ALIASES))
-FEITO_ALIASES_STR = "|".join(set(pt.FEITO_ALIASES + en.FEITO_ALIASES + es.FEITO_ALIASES))
-REMOVE_ALIASES_STR = "|".join(set(pt.REMOVE_ALIASES + en.REMOVE_ALIASES + es.REMOVE_ALIASES))
+# Dynamically build unified lists/mappings (sorted by length to avoid regex shadowing)
+LEMBRETE_ALIASES_STR = "|".join(sorted(set(pt.LEMBRETE_ALIASES + en.LEMBRETE_ALIASES + es.LEMBRETE_ALIASES), key=len, reverse=True))
+LISTA_ALIASES_STR = "|".join(sorted(set(pt.LISTA_ALIASES + en.LISTA_ALIASES + es.LISTA_ALIASES), key=len, reverse=True))
+FEITO_ALIASES_STR = "|".join(sorted(set(pt.FEITO_ALIASES + en.FEITO_ALIASES + es.FEITO_ALIASES), key=len, reverse=True))
+REMOVE_ALIASES_STR = "|".join(sorted(set(pt.REMOVE_ALIASES + en.REMOVE_ALIASES + es.REMOVE_ALIASES), key=len, reverse=True))
 
-ALL_CATEGORIES_STR = "|".join(set(pt.CATEGORIES + en.CATEGORIES + es.CATEGORIES))
+ALL_CATEGORIES_STR = "|".join(sorted(set(pt.CATEGORIES + en.CATEGORIES + es.CATEGORIES), key=len, reverse=True))
 
 CATEGORY_TO_LIST = {**pt.CATEGORY_TO_LIST, **en.CATEGORY_TO_LIST, **es.CATEGORY_TO_LIST}
 _REMINDER_AGENDA_WORDS_SHOW = pt.REMINDER_AGENDA_WORDS | en.REMINDER_AGENDA_WORDS | es.REMINDER_AGENDA_WORDS
+_ALL_LIST_SOZINHA_WORDS_STR = "|".join(sorted(set(pt.LISTA_SOZINHA_WORDS + en.LISTA_SOZINHA_WORDS + es.LISTA_SOZINHA_WORDS), key=len, reverse=True))
 
 # Unified NL fragments
-VERBS_MOSTRE_STR = "|".join(set(pt.VERBS_MOSTRE + en.VERBS_MOSTRE + es.VERBS_MOSTRE))
-VERBS_CRIA_STR = "|".join(set(pt.VERBS_CRIA + en.VERBS_CRIA + es.VERBS_CRIA))
-ARTICLES_STR = "|".join(set(pt.ARTICLES + en.ARTICLES + es.ARTICLES))
-POSSESSIVES_STR = "|".join(set(pt.POSSESSIVES + en.POSSESSIVES + es.POSSESSIVES))
-LIST_WORDS_STR = "|".join(set(pt.LIST_WORDS + en.LIST_WORDS + es.LIST_WORDS))
-PREPOSITIONS_OF_STR = "|".join(set(pt.PREPOSITIONS_OF + en.PREPOSITIONS_OF + es.PREPOSITIONS_OF))
+VERBS_MOSTRE_STR = "|".join(sorted(set(pt.VERBS_MOSTRE + en.VERBS_MOSTRE + es.VERBS_MOSTRE), key=len, reverse=True))
+VERBS_CRIA_STR = "|".join(sorted(set(pt.VERBS_CRIA + en.VERBS_CRIA + es.VERBS_CRIA), key=len, reverse=True))
+ARTICLES_STR = "|".join(sorted(set(pt.ARTICLES + en.ARTICLES + es.ARTICLES), key=len, reverse=True))
+POSSESSIVES_STR = "|".join(sorted(set(pt.POSSESSIVES + en.POSSESSIVES + es.POSSESSIVES), key=len, reverse=True))
+LIST_WORDS_STR = "|".join(sorted(set(pt.LIST_WORDS + en.LIST_WORDS + es.LIST_WORDS), key=len, reverse=True))
+PREPOSITIONS_OF_STR = "|".join(sorted(set(pt.PREPOSITIONS_OF + en.PREPOSITIONS_OF + es.PREPOSITIONS_OF), key=len, reverse=True))
 
-ADICIONE_VERBS_STR = "|".join(set(pt.ADICIONE_VERBS + en.ADICIONE_VERBS + es.ADICIONE_VERBS))
-NAS_WORDS_STR = "|".join(set(pt.NAS_WORDS + en.NAS_WORDS + es.NAS_WORDS))
-POR_LISTA_VERBS_STR = "|".join(set(pt.POR_LISTA_VERBS + en.POR_LISTA_VERBS + es.POR_LISTA_VERBS))
-NA_LISTA_WORDS_STR = "|".join(set(pt.NA_LISTA_WORDS + en.NA_LISTA_WORDS + es.NA_LISTA_WORDS))
+ADICIONE_VERBS_STR = "|".join(sorted(set(pt.ADICIONE_VERBS + en.ADICIONE_VERBS + es.ADICIONE_VERBS), key=len, reverse=True))
+NAS_WORDS_STR = "|".join(sorted(set(pt.NAS_WORDS + en.NAS_WORDS + es.NAS_WORDS), key=len, reverse=True))
+POR_LISTA_VERBS_STR = "|".join(sorted(set(pt.POR_LISTA_VERBS + en.POR_LISTA_VERBS + es.POR_LISTA_VERBS), key=len, reverse=True))
+NA_LISTA_WORDS_STR = "|".join(sorted(set(pt.NA_LISTA_WORDS + en.NA_LISTA_WORDS + es.NA_LISTA_WORDS), key=len, reverse=True))
 
 # Regex compilation
 RE_LEMBRETE = re.compile(rf"^/(?:{LEMBRETE_ALIASES_STR})\s+([^\r\n]+)$", re.I)
@@ -54,7 +55,14 @@ RE_NL_LIST_SHOW = re.compile(
     rf"(?:\s+(.+))?\s*$",
     re.I | re.UNICODE,
 )
-
+ 
+AGENDA_WORDS_STR = "|".join(sorted(_REMINDER_AGENDA_WORDS_SHOW, key=len, reverse=True))
+RE_NL_AGENDA_SHOW = re.compile(
+    rf"^(?:{VERBS_MOSTRE_STR}|show\s+me|me\s+d)\S*\s+"
+    rf"(?:(?:{ARTICLES_STR})\s+)?(?:(?:{POSSESSIVES_STR}|ma|mon)\s+)?(?:{AGENDA_WORDS_STR})\s*$",
+    re.I | re.UNICODE,
+)
+ 
 RE_NL_LIST_ADD = re.compile(
     rf"^(?:{VERBS_CRIA_STR}|add|adicione|adiciona|a[ñn]adir)\S*\s+"
     rf"(?:(?:{ARTICLES_STR})\s+)?(?:(?:{POSSESSIVES_STR}|ma|mon)\s+)?(?:{LIST_WORDS_STR})\s+"
@@ -64,7 +72,7 @@ RE_NL_LIST_ADD = re.compile(
 )
 
 RE_NL_LISTA_SOZINHA = re.compile(
-    rf"^(?:(?:{POSSESSIVES_STR}|my|mi|mis)\s+)?({LIST_WORDS_STR}s?|{'|'.join(pt.LISTA_SOZINHA_WORDS)})(?:\s+(.+))?\s*$",
+    rf"^(?:(?:{POSSESSIVES_STR}|my|mi|mis)\s+)?({LIST_WORDS_STR}s?|{_ALL_LIST_SOZINHA_WORDS_STR})(?:\s+(.+))?\s*$",
     re.I
 )
 
@@ -213,7 +221,9 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
 
     if RE_HORA.match(text): return {"type": "hora"}
     if RE_DATA.match(text): return {"type": "data"}
-
+ 
+    if RE_NL_AGENDA_SHOW.match(text): return {"type": "agenda"}
+ 
     m = RE_NL_LIST_SHOW.match(text)
     if m:
         _cat_raw = m.group(1)
@@ -250,6 +260,9 @@ def parse(raw: str, tz_iana: str = "UTC") -> dict[str, Any] | None:
         # "mercado" -> p1="mercado", p2="" -> name="mercado"
         name = p2 if p2 else p1
         list_name = CATEGORY_TO_LIST.get(name, name)
+        p1_name = CATEGORY_TO_LIST.get(p1, p1)
+        if p1_name in _REMINDER_AGENDA_WORDS_SHOW or list_name in _REMINDER_AGENDA_WORDS_SHOW:
+            return {"type": "agenda"}
         is_generic = list_name in ("lista", "listas", "list", "lists")
         return {"type": "list_show", "list_name": None if is_generic else list_name}
 

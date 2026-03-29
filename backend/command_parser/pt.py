@@ -21,7 +21,12 @@ LIST_WORDS = ["lista?"]
 PREPOSITIONS_OF = ["de", "denominad", "chamad", "nomead"]
 
 # NL Lista Sozinha
-LISTA_SOZINHA_WORDS = ["lista", "mercado", "compras", "pendentes"]
+# NL Lista Sozinha
+# NL Lista Sozinha (handled by PT if needed, but mainly command based)
+LISTA_SOZINHA_WORDS = [
+    "lista", "mercado", "compras", "pendentes", "agenda", "agendas",
+    "compromissos", "compromisso", "eventos", "evento", "calendário", "calendario"
+]
 
 # NL Adicione Lista
 ADICIONE_VERBS = ["adicione", "adiciona", "adicionar", "coloca", "coloque", "colocar"]
@@ -29,7 +34,7 @@ NAS_WORDS = ["a", "à", "nas?"]
 
 # NL Por Lista
 POR_LISTA_VERBS = ["coloca", "coloque", "p[oô]e", "põe", "anota", "anotar", "inclui", "incluir", "marca"]
-NA_LISTA_WORDS = ["na", "no", "è", "a"]
+NA_LISTA_WORDS = ["na", "no", "à", "a"]
 
 # NL Lista Dois Pontos
 LISTA_DOIS_PONTOS_FRAGMENT = r"(?:coloca|coloque|p[oô]e|põe|adiciona|adicione|inclui|incluir)\s+(?:na|à|a)\s+lista|(?:adiciona|adicione|coloca|coloque)\s+(?:à|a|na)\s+lista"

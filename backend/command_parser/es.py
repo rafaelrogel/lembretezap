@@ -4,7 +4,7 @@
 LEMBRETE_ALIASES = ["recordatorio", "recordar"]
 LISTA_ALIASES = ["lista"]
 FEITO_ALIASES = ["hecho"]
-REMOVE_ALIASES = ["quitar", "borrar"]
+REMOVE_ALIASES = ["quitar", "borrar", "eliminar", "suprimir", "del"]
 
 # Category names for /list category add
 CATEGORIES = [
@@ -12,12 +12,15 @@ CATEGORIES = [
 ]
 
 # NL List Action synonyms
-VERBS_MOSTRE = ["mu[^\s]str", "ver"]
+VERBS_MOSTRE = ["muest", "mostr", "ver"]
 VERBS_CRIA = ["make", "create", "haz", "crea?r?", "give", "dame"]
 ARTICLES = ["la", "las", "el", "los", "un[a]?"]
 POSSESSIVES = ["mi", "mis"]
 LIST_WORDS = ["lista?"]
 PREPOSITIONS_OF = ["de", "llamada", "llamado", "nombrada", "nombrado"]
+
+# NL Lista Sozinha
+LISTA_SOZINHA_WORDS = ["lista", "compras", "mercado", "supermercado", "agenda", "calendario", "eventos", "compromisos", "citas", "tareas"]
 
 # NL Adicione Lista
 ADICIONE_VERBS = ["a[ñn]adir", "agregar", "poner"]
@@ -41,5 +44,7 @@ POR_LISTA_VERBS = ["pon", "pone", "poner", "agrega", "agregar", "a[ñn]ade", "a[
 NA_LISTA_WORDS = ["en", "a", "al"]
 
 REMINDER_AGENDA_WORDS = {
-    "recordatorios", "recordatorio"
+    "recordatorios", "recordatorio", "agenda", "agendas", "eventos", "evento",
+    "calendario", "calendarios", "compromisos", "compromiso", "citas", "cita",
+    "tareas", "tarea"
 }

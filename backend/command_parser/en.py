@@ -22,7 +22,7 @@ LIST_WORDS = ["list"]
 PREPOSITIONS_OF = ["of", "called", "named"]
 
 # NL Lista Sozinha (handled by PT if needed, but mainly command based)
-LISTA_SOZINHA_WORDS = ["list"]
+LISTA_SOZINHA_WORDS = ["list", "grocery", "groceries", "market", "shopping", "agenda", "calendar", "reminders", "events", "tasks"]
 
 # NL Adicione Lista
 ADICIONE_VERBS = ["add", "put"]
@@ -47,5 +47,6 @@ POR_LISTA_VERBS = ["put", "add"]
 NA_LISTA_WORDS = ["in", "on"]
 
 REMINDER_AGENDA_WORDS = {
-    "reminders", "reminder", "calendar", "agenda"
+    "reminders", "reminder", "calendar", "agenda", "events", "event",
+    "appointments", "appointment", "tasks", "task"
 }

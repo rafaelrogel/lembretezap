@@ -279,16 +279,25 @@ def parse_recurring_schedule(text: str) -> tuple[str, str, int, int] | None:
             return content, cron, hora, minuto
 
     # 5. "a cada 2 horas", "cada 30 min", "every 2 hours", "cada dia"
-    cadence_pat = r"(?:a\s+)?(?:cada|every|cada\s+vez\s+que)\s*(?:(\d+)\s*)?(hor[as]*|min[uto]*s?|seg[undo]*s?|hour?s?|min?s?|day?s?|dia?s?|semana?s?|week?s?)\b"
+    # Precision fix: Define specific units and use \b to avoid matching "segunda" as "seg"
+    units_regex = r"(segundos?|seg\b|seconds?|secs?\b|minutos?|min\b|minutes?|horas?|hrs?\b|hours?|dias?|days?|semanas?|weeks?)"
+    cadence_pat = rf"(?:a\s+)?(?:cada|every|cada\s+vez\s+que)\s*(?:(\d+)\s*)?{units_regex}\b"
     m_cadence = re.search(cadence_pat, tl, re.I)
     if m_cadence:
         num = int(m_cadence.group(1)) if m_cadence.group(1) else 1
         unit = m_cadence.group(2).lower()
-        if any(x in unit for x in ("min", "m")): mul = 60
-        elif any(x in unit for x in ("hor", "hour", "h")): mul = 3600
-        elif any(x in unit for x in ("dia", "day", "d")): mul = 86400
-        elif any(x in unit for x in ("seman", "week", "w")): mul = 86400 * 7
-        else: mul = 1
+        if unit.startswith(("min", "minutes")):
+            mul = 60
+        elif unit.startswith(("hor", "hour", "hr")):
+            mul = 3600
+        elif unit.startswith(("dia", "day")):
+            mul = 86400
+        elif unit.startswith(("seman", "week")):
+            mul = 86400 * 7
+        elif unit.startswith(("seg", "sec")):
+            mul = 1
+        else:
+            mul = 1
         
         every_seconds = num * mul
         content = re.sub(cadence_pat, "", t, flags=re.I).strip()
