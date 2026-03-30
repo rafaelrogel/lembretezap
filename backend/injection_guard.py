@@ -51,7 +51,7 @@ _INJECTION_PATTERNS = [
 ]
 
 _INJECTION_RE = re.compile(
-    "|".join(f"({p})" for p in _INJECTION_PATTERNS),
+    "|".join(f"(?:{p})" for p in _INJECTION_PATTERNS),
     re.I,
 )
 
@@ -63,7 +63,7 @@ def is_injection_attempt(text: str) -> bool:
     return bool(_INJECTION_RE.search(text.strip()))
 
 
-def get_injection_response(lang: str = "pt-BR") -> str:
+def get_injection_response(lang: str = "en") -> str:
     """Resposta padrão quando detectamos injection (firme mas cordial)."""
     msgs = {
         "pt-PT": "Mantenho o meu papel de assistente de lembretes e listas. Se precisares de agendar algo ou organizar o dia a dia, estou aqui. 😊",
@@ -71,7 +71,8 @@ def get_injection_response(lang: str = "pt-BR") -> str:
         "es": "Mantengo mi rol de asistente de recordatorios y listas. Si necesitas agendar algo o organizar el día a día, aquí estoy. 😊",
         "en": "I keep my role as a reminders and lists assistant. If you need to schedule something or organise your day, I'm here. 😊",
     }
-    return msgs.get(lang, msgs["pt-BR"])
+    # Universal fallback para línguas desconhecidas (FR, DE, IT) é Inglês
+    return msgs.get(lang, msgs["en"])
 
 
 def record_injection_blocked(chat_id: str, message_preview: str = "") -> None:
