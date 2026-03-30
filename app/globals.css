@@ -602,3 +602,107 @@
     animation: none;
   }
 }
+
+@keyframes profile-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.profile-toast-enter {
+  animation: profile-toast-in 0.35s ease-out;
+}
+
+@keyframes profile-toast-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(0.75rem);
+  }
+}
+
+.profile-toast-exit {
+  animation: profile-toast-out 0.3s ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-toast-enter {
+    animation: none;
+  }
+
+  .profile-toast-exit {
+    animation: none;
+    opacity: 0;
+    transform: translateY(0.5rem);
+    transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+  }
+}
+
+/* Brilhos ao trocar foto de perfil */
+.profile-photo-sparkle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle at 32% 28%,
+    #ffffff 0%,
+    #fef9c3 22%,
+    #fde047 42%,
+    rgba(250, 204, 21, 0.45) 58%,
+    transparent 72%
+  );
+  box-shadow:
+    0 0 8px 2px rgba(253, 224, 71, 0.9),
+    0 0 18px 6px rgba(254, 249, 195, 0.45);
+  animation: profile-photo-sparkle-move 0.58s cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
+}
+
+@keyframes profile-photo-sparkle-move {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0);
+  }
+  22% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--tx, 0px)),
+        calc(-50% + var(--ty, 0px))
+      )
+      scale(0.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-photo-sparkle {
+    animation: profile-photo-sparkle-subtle 0.32s ease-out forwards;
+  }
+
+  @keyframes profile-photo-sparkle-subtle {
+    0% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0.6);
+    }
+    40% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+}

@@ -8,6 +8,7 @@ import { AnimatedBlobs } from "./AnimatedBlobs";
 import { HeroChatMockup } from "./HeroChatMockup";
 import { PhonePreview } from "./PhonePreview";
 import { Button, Typography } from "@/components/ui";
+import { useAuth } from "@/lib/auth/auth-context";
 
 const DEBUG = false;
 
@@ -79,6 +80,7 @@ function HeroTypewriter() {
 }
 
 export function HeroSection() {
+  const { authenticated, openAuthModal } = useAuth();
   const heroRef = useRef<HTMLDivElement>(null);
   const pointerRef = useRef({ x: 0, y: 0, isHovering: false, clientX: 0, clientY: 0 });
   const mock5WrapperRef = useRef<HTMLDivElement>(null);
@@ -248,19 +250,36 @@ export function HeroSection() {
               className="hero-entrance flex w-full justify-center desktop:inline-block desktop:w-auto"
               style={{ animationDelay: "1s" }}
             >
-              <Button
-                href="/about"
-                variant="primary"
-                size="lg"
-                className="group mt-8 flex w-fit items-center justify-center gap-0 rounded-[12px] pl-4 pr-5 py-[9px] text-center text-[14px] font-medium leading-5 bg-emerald-600 text-white hover:bg-emerald-700 hover:pl-4 hover:pr-4 hover:gap-2 active:opacity-95 transition-[background-color,padding,gap] duration-500 ease-out"
-              >
-                <span>Começar agora</span>
-                <span className="inline-flex shrink-0 w-0 overflow-hidden opacity-0 transition-[width,opacity,transform] duration-500 ease-out group-hover:w-5 group-hover:opacity-100 group-hover:translate-x-0.5" aria-hidden>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                </span>
-              </Button>
+              {authenticated ? (
+                <Button
+                  href="/about"
+                  variant="primary"
+                  size="lg"
+                  className="group mt-8 flex w-fit items-center justify-center gap-0 rounded-[12px] pl-4 pr-5 py-[9px] text-center text-[14px] font-medium leading-5 bg-emerald-600 text-white hover:bg-emerald-700 hover:pl-4 hover:pr-4 hover:gap-2 active:opacity-95 transition-[background-color,padding,gap] duration-500 ease-out"
+                >
+                  <span>Começar agora</span>
+                  <span className="inline-flex shrink-0 w-0 overflow-hidden opacity-0 transition-[width,opacity,transform] duration-500 ease-out group-hover:w-5 group-hover:opacity-100 group-hover:translate-x-0.5" aria-hidden>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </span>
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="primary"
+                  size="lg"
+                  onClick={() => openAuthModal("start_now")}
+                  className="group mt-8 flex w-fit items-center justify-center gap-0 rounded-[12px] pl-4 pr-5 py-[9px] text-center text-[14px] font-medium leading-5 bg-emerald-600 text-white hover:bg-emerald-700 hover:pl-4 hover:pr-4 hover:gap-2 active:opacity-95 transition-[background-color,padding,gap] duration-500 ease-out"
+                >
+                  <span>Começar agora</span>
+                  <span className="inline-flex shrink-0 w-0 overflow-hidden opacity-0 transition-[width,opacity,transform] duration-500 ease-out group-hover:w-5 group-hover:opacity-100 group-hover:translate-x-0.5" aria-hidden>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className="w-[18px] h-[18px]">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </span>
+                </Button>
+              )}
             </span>
           </div>
           {/* Mobile: esconder telefone + mock quando viewport ≤359px (área útil abaixo de 280px: section px-6 + bloco px-4). */}

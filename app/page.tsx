@@ -12,7 +12,9 @@ export default function HomePage() {
       <TaglineSection />
       <FeaturesSection />
       <AboutSection />
-      <UnderstandMoreSection />
+      <section id="planos" aria-label="Planos e preços">
+        <UnderstandMoreSection />
+      </section>
       <FooterSection />
     </main>
   );

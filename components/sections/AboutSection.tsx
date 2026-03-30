@@ -23,7 +23,7 @@ export function AboutSection() {
   return (
     <section
       id="sobre"
-      className="py-page-y"
+      className="py-page-y desktop:pb-[calc(var(--spacing-page-y)+1.5rem)]"
       aria-labelledby="about-heading"
     >
       <Container as="div" size="lg">

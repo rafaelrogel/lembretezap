@@ -178,7 +178,7 @@ export function UnderstandMoreSection() {
   return (
     <section
       id="entenda-mais"
-      className="pt-page-y pb-6 desktop:py-page-y"
+      className="pt-page-y pb-6 desktop:pt-[calc(var(--spacing-page-y)+1.5rem)] desktop:pb-[calc(var(--spacing-page-y)+3rem)]"
       aria-labelledby="understand-more-heading"
     >
       <Container as="div" size="lg">

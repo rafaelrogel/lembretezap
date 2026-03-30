@@ -18,6 +18,7 @@
     "pack:vercel": "node scripts/pack-zappelin-website.mjs"
   },
   "dependencies": {
+    "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "framer-motion": "^11.11.17",
     "next": "14.2.18",
@@ -26,6 +27,7 @@
     "ws": "^8.19.0"
   },
   "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",

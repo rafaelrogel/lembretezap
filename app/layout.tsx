@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { NavLinks } from "@/components/NavLinks";
 import { HeaderActions } from "@/components/HeaderActions";
+import { AuthProvider } from "@/providers/AuthProvider";
 import "@/app/globals.css";
 
 const plusJakarta = Plus_Jakarta_Sans({
@@ -25,36 +26,38 @@ export default function RootLayout({
   return (
     <html lang="en" className={plusJakarta.variable}>
       <body className="font-sans">
-        <a
-          href="#main"
-          className="sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:m-0 focus:w-auto focus:h-auto focus:p-2 focus:overflow-visible focus:bg-surface-elevated focus:border-2 focus:border-brand-500 focus:[clip:auto]"
-        >
-          Skip to main content
-        </a>
-        <header className="navbar-entrance sticky top-0 z-50 bg-[#FFFDFA]">
-          <nav
-            className="relative mx-auto flex w-full max-w-container-lg items-center justify-between gap-8 px-6 py-5 desktop:px-[40px]"
-            aria-label="Main"
+        <AuthProvider>
+          <a
+            href="#main"
+            className="sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:m-0 focus:w-auto focus:h-auto focus:p-2 focus:overflow-visible focus:bg-surface-elevated focus:border-2 focus:border-brand-500 focus:[clip:auto]"
           >
-            <Link
-              href="/"
-              className="flex items-center text-body-sm font-medium text-emerald-600 hover:text-emerald-700 transition-token"
-              aria-label="Zappelin – início"
+            Skip to main content
+          </a>
+          <header className="navbar-entrance sticky top-0 z-50 bg-[#FFFDFA]">
+            <nav
+              className="relative mx-auto flex w-full max-w-container-lg items-center justify-between gap-8 px-6 py-5 desktop:px-[40px]"
+              aria-label="Main"
             >
-              <Image
-                src={`/emojis/${encodeURIComponent("logo definitivo zapellin.svg")}`}
-                alt="Zappelin"
-                width={105}
-                height={21}
-                className="h-6 w-auto"
-                priority
-              />
-            </Link>
-            <NavLinks />
-            <HeaderActions />
-          </nav>
-        </header>
-        <div id="main">{children}</div>
+              <Link
+                href="/"
+                className="flex items-center text-body-sm font-medium text-emerald-600 hover:text-emerald-700 transition-token"
+                aria-label="Zappelin – início"
+              >
+                <Image
+                  src={`/emojis/${encodeURIComponent("logo definitivo zapellin.svg")}`}
+                  alt="Zappelin"
+                  width={105}
+                  height={21}
+                  className="h-6 w-auto"
+                  priority
+                />
+              </Link>
+              <NavLinks />
+              <HeaderActions />
+            </nav>
+          </header>
+          <div id="main">{children}</div>
+        </AuthProvider>
       </body>
     </html>
   );

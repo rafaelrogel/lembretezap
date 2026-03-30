@@ -1455,7 +1455,7 @@ export function FeaturesSection() {
     <section
       ref={sectionRef}
       id="funcionalidades"
-      className="py-page-y"
+      className="py-page-y desktop:pb-[calc(var(--spacing-page-y)+2.5rem)]"
       aria-labelledby="features-heading"
     >
       <Container as="div" size="lg" className="text-center">
