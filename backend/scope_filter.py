@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 # Keywords that indicate in-scope (comandos e intenções)
 SCOPE_KEYWORDS = re.compile(
     r"\b(lembrete|lembrar|lembre|lista|listar|list|mercado|compras|pendentes|"
-    r"receita|receitas|ingredientes|cad[eê]|"
+    r"receitas?(?!\s+(federal|estadual|municipal|fiscal|bruta|l[íi]quida|da\s+empresa|financeira|tribut[aá]ria))|ingredientes|cad[eê]|"
     r"add|remover|remove|feito|delete|filme|livro|musica|evento|"
     r"agendar|agenda|daqui a|em \d+ (min|hora|dia)|todo dia|toda semana|"
     r"diariamente|recorrente|mensalmente|a cada \d+ (min|hora|dia)|"
@@ -31,13 +31,23 @@ Mensagem: "{input}"
 """
 
 
+_SCOPE_PROMPT_CACHE = None
+
 def _load_scope_prompt() -> str:
-    """Load prompt from prompts/scope_filter.txt or use fallback."""
+    """Load prompt from prompts/scope_filter.txt or use fallback (cached)."""
+    global _SCOPE_PROMPT_CACHE
+    if _SCOPE_PROMPT_CACHE is not None:
+        return _SCOPE_PROMPT_CACHE
+
     for base in (Path(__file__).resolve().parent.parent, Path.home() / ".zapista"):
         path = base / "prompts" / "scope_filter.txt"
         if path.exists():
-            return path.read_text(encoding="utf-8").strip()
-    return _SCOPE_PROMPT_FALLBACK
+            _SCOPE_PROMPT_CACHE = path.read_text(encoding="utf-8").strip()
+            return _SCOPE_PROMPT_CACHE
+
+    _SCOPE_PROMPT_CACHE = _SCOPE_PROMPT_FALLBACK
+    return _SCOPE_PROMPT_CACHE
+
 
 
 def _is_affirmative(raw: str) -> bool:
