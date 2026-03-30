@@ -11,11 +11,11 @@ Padrões comuns de injection:
 import json
 import re
 import time
-from pathlib import Path
 from typing import Any
+from backend.redis_client import get_redis_client
 
-# Ficheiro para registar tentativas bloqueadas (God mode #injection)
-_INJECTION_STORE_PATH = Path.home() / ".zapista" / "security" / "injection_attempts.json"
+# Redis List Key para registar tentativas bloqueadas (God mode #injection)
+_REDIS_INJECTION_KEY = "zapista:security:injection_attempts"
 _MAX_ENTRIES = 500
 
 # Padrões de prompt injection (pt, en, es) — não devem ser passados ao agente
@@ -37,6 +37,8 @@ _INJECTION_PATTERNS = [
     r"\bvoc[eê]\s+(n[aã]o\s+)?(é|sou)\s+mais\s+(um\s+)?(assistente|bot)\b",
     r"\byou\s+are\s+(no\s+longer|now)\s+",
     r"\byou\s+are\s+(no\s+longer|now)\s+(a|an)\s+\w+\s+(assistant|bot)\b",
+    r"\b(ya\s+no\s+eres|ahora\s+eres)\s+",
+    r"\bact[úu]a\s+como\s+si\s+fueras\b",
     r"\b(act|comporte-se)\s+as\s+(if\s+you\s+were|se\s+fosse)\s+(chatgpt|gpt|um\s+assistente\s+geral)\b",
     # Desativar restrições
     r"\bdisable\s+(your\s+)?(restrictions?|limits?)\b",
@@ -73,43 +75,51 @@ def get_injection_response(lang: str = "pt-BR") -> str:
 
 
 def record_injection_blocked(chat_id: str, message_preview: str = "") -> None:
-    """Regista uma tentativa de injection bloqueada (para God mode #injection)."""
+    """Regista uma tentativa atómica de injection bloqueada em Redis (para God mode #injection)."""
     try:
-        _INJECTION_STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        entries: list[dict] = []
-        if _INJECTION_STORE_PATH.exists():
-            try:
-                entries = json.loads(_INJECTION_STORE_PATH.read_text())
-            except Exception:
-                entries = []
+        redis_cli = get_redis_client()
+        if not redis_cli:
+            return  # Fail gracefully if Redis is unavailable in environment
+
         ts = int(time.time())
         # Formato legível mas truncado: 55119***9999 (primeiros 5 + *** + últimos 4 dígitos)
         digits = "".join(c for c in str(chat_id) if c.isdigit())
         client_id = (digits[:5] + "***" + digits[-4:]) if len(digits) >= 9 else (digits or str(chat_id)[:12])
-        entries.append({
+        
+        entry = {
             "chat_id": client_id,
             "timestamp": ts,
             "status": "bloqueado",
             "message_preview": (message_preview or "")[:80],
-        })
-        if len(entries) > _MAX_ENTRIES:
-            entries = entries[-_MAX_ENTRIES:]
-        _INJECTION_STORE_PATH.write_text(json.dumps(entries, ensure_ascii=False))
+        }
+        
+        # O LPUSH insere no inicio da lista em O(1), e LTRIM corta o tail num bloco conciso e atómico
+        redis_cli.lpush(_REDIS_INJECTION_KEY, json.dumps(entry, ensure_ascii=False))
+        redis_cli.ltrim(_REDIS_INJECTION_KEY, 0, _MAX_ENTRIES - 1)
     except Exception:
         pass
 
 
 def get_injection_stats() -> list[dict]:
     """
-    Agrega tentativas por cliente para God mode #injection.
+    Agrega tentativas por cliente para God mode #injection puxando dados atómicos do Redis.
     Retorna: [{"chat_id": "5511999***9999", "total": N, "bloqueadas": N, "bem_sucedidas": N}, ...]
     """
     try:
-        if not _INJECTION_STORE_PATH.exists():
-            return []
-        entries = json.loads(_INJECTION_STORE_PATH.read_text())
+        redis_cli = get_redis_client()
+        if not redis_cli:
+            return []  # Return empty UI gracefully if Redis is unsupported
+            
+        raw_entries = redis_cli.lrange(_REDIS_INJECTION_KEY, 0, -1)
+        entries = []
+        for raw in raw_entries:
+            try:
+                entries.append(json.loads(raw))
+            except json.JSONDecodeError:
+                continue
     except Exception:
         return []
+
     by_client: dict[str, dict[str, Any]] = {}
     for e in entries:
         cid = e.get("chat_id", "?")
