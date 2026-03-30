@@ -70,7 +70,8 @@ async def handle_sacred_text(ctx: "HandlerContext", content: str) -> str | None:
             temperature=0,
         )
         raw = (r.content or "").strip().upper()
-        if "NAO" in raw or "NÃO" in raw.upper() or raw.startswith("N"):
+        first_word = raw.split()[0].rstrip(".,!?;:") if raw else ""
+        if first_word in {"NAO", "NÃO", "NO", "N"}:
             return None
     except Exception:
         pass

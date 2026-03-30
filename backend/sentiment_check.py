@@ -33,6 +33,7 @@ Conversa:
             temperature=0,
         )
         raw = (r.content or "").strip().upper()
-        return "SIM" in raw or raw.startswith("S")
+        first_word = raw.split()[0].rstrip(".,!?;:") if raw else ""
+        return first_word in {"SIM", "YES", "SI", "SÍ", "S", "Y"}
     except Exception:
         return False
