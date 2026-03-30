@@ -40,6 +40,20 @@ def _load_scope_prompt() -> str:
     return _SCOPE_PROMPT_FALLBACK
 
 
+def _is_affirmative(raw: str) -> bool:
+    if not raw:
+        return False
+    first_word = raw.split()[0].rstrip(".,!?;:").upper()
+    return first_word in {"SIM", "YES", "SI", "SÍ", "S", "Y"}
+
+
+def _is_negative(raw: str) -> bool:
+    if not raw:
+        return False
+    first_word = raw.split()[0].rstrip(".,!?;:").upper()
+    return first_word in {"NAO", "NÃO", "NO", "N"}
+
+
 def is_in_scope_fast(text: str) -> bool:
     """Quick regex/keyword check. Use for MVP without LLM call."""
     if not text or not text.strip():
@@ -88,9 +102,9 @@ async def is_in_scope_llm(text: str, provider=None, model: str | None = None) ->
             
         raw = response.content.strip().upper()
         res = False
-        if "SIM" in raw or raw.startswith("S"):
+        if _is_affirmative(raw):
             res = True
-        elif "NAO" in raw or "NÃO" in raw.upper() or raw.startswith("N"):
+        elif _is_negative(raw):
             res = False
         else:
             res = is_in_scope_fast(text)
@@ -138,9 +152,9 @@ async def is_follow_up_llm(
         if not response or not response.content:
             return False
         raw = response.content.strip().upper()
-        if "SIM" in raw or raw.startswith("S"):
+        if _is_affirmative(raw):
             return True
-        if "NAO" in raw or "NÃO" in raw.upper() or raw.startswith("N"):
+        if _is_negative(raw):
             return False
         return False
     except Exception:
