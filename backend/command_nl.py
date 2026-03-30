@@ -9,17 +9,13 @@ import unicodedata
 
 
 def _normalize_lower(text: str) -> str:
-    """Lowercase e normaliza para comparação (remove acentos comuns pt)."""
+    """Lowercase e normaliza para comparação (remove acentos e marcas, cobrindo PT, ES, EN)."""
     if not text:
         return text
     t = text.lower().strip()
-    # NFD + remove combining (ç, á, ã, etc. → c, a, a)
+    # NFD + remove combining (ç, á, ã, ñ, etc. → c, a, a, n)
     nfd = unicodedata.normalize("NFD", t)
-    t = "".join(c for c in nfd if unicodedata.category(c) != "Mn")
-    # Fallback: substituições comuns para pt
-    for old, new in [("ç", "c"), ("ã", "a"), ("á", "a"), ("é", "e"), ("í", "i"), ("ó", "o"), ("ú", "u")]:
-        t = t.replace(old, new)
-    return t
+    return "".join(c for c in nfd if unicodedata.category(c) != "Mn")
 
 
 def normalize_nl_to_command(content: str) -> str:
@@ -106,8 +102,8 @@ def normalize_nl_to_command(content: str) -> str:
     m = re.match(r"^agenda\s+(.+)$", lower)
     if m and m.group(1).strip():
         return f"/agenda {m.group(1).strip()}"
-    if re.match(r"^(minha\s+agenda|o\s+que\s+tenho\s+agendado|what\s+is\s+on\s+my\s+agenda|mi\s+agenda|my\s+agenda)\s*(.*)$", lower):
-        m = re.match(r"^(minha\s+agenda|o\s+que\s+tenho\s+agendado|what\s+is\s+on\s+my\s+agenda|mi\s+agenda|my\s+agenda)\s*(.*)$", lower)
+    m = re.match(r"^(minha\s+agenda|o\s+que\s+tenho\s+agendado|what\s+is\s+on\s+my\s+agenda|mi\s+agenda|my\s+agenda)\s*(.*)$", lower)
+    if m:
         suffix = m.group(2).strip()
         if suffix:
             return f"/agenda {suffix}"
