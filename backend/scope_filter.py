@@ -71,6 +71,7 @@ def is_in_scope_fast(text: str) -> bool:
     t = text.strip()
     # Qualquer comando slash é considerado in-scope por definição
     if t.startswith("/"):
+        logger.info("scope_filter_decision", extra={"extra": {"in_scope": True, "method": "slash_command"}})
         return True
     res = bool(SCOPE_KEYWORDS.search(t))
     logger.info("scope_filter_decision", extra={"extra": {"in_scope": res, "method": "regex"}})
@@ -87,6 +88,7 @@ async def is_in_scope_llm(text: str, provider=None, model: str | None = None) ->
     t = text.strip()
     # Qualquer comando slash é considerado in-scope por definição (não deixar o LLM recusar)
     if t.startswith("/"):
+        logger.info("scope_filter_decision", extra={"extra": {"in_scope": True, "method": "slash_command"}})
         return True
     if provider is None:
         return is_in_scope_fast(t)
